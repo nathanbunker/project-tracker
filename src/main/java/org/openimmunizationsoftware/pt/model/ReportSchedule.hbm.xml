@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.ReportSchedule" table="report_schedule">
+        <id name="profileId" type="int">
+            <column name="profile_id" />
+            <generator class="assigned" />
+        </id>
+        <property name="dateStart" type="timestamp">
+            <column name="date_start" length="19" not-null="true" />
+        </property>
+        <property name="method" type="string">
+            <column name="method" length="1" not-null="true" />
+        </property>
+        <property name="period" type="string">
+            <column name="period" length="2" not-null="true" />
+        </property>
+        <property name="location" type="string">
+            <column name="location" length="120" />
+        </property>
+        <property name="status" type="string">
+            <column name="status" length="1" />
+        </property>
+        <property name="name" type="string">
+            <column name="name" length="45" />
+        </property>
+    </class>
+</hibernate-mapping>

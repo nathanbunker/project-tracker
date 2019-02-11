@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BillBudget" table="bill_budget">
+        <id name="billBudgetId" type="int">
+            <column name="bill_budget_id" />
+            <generator class="native" />
+        </id>
+        <property name="billBudgetCode" type="string">
+            <column name="bill_budget_code" length="30" not-null="true" />
+        </property>
+        <many-to-one name="billCode" column="bill_code" class="org.openimmunizationsoftware.pt.model.BillCode"/>
+        <property name="startDate" type="date">
+            <column name="start_date" />
+        </property>
+        <property name="endDate" type="date">
+            <column name="end_date" />
+        </property>
+        <property name="billMins" type="integer">
+            <column name="bill_mins" />
+        </property>
+        <property name="billMinsRemaining" type="integer">
+            <column name="bill_mins_remaining" />
+        </property>
+    </class>
+</hibernate-mapping>

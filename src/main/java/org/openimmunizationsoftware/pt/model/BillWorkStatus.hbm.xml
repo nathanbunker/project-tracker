@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BillWorkStatus" table="bill_work_status">
+        <id name="workStatus" type="string">
+            <column name="work_status" length="1" />
+            <generator class="assigned" />
+        </id>
+        <property name="workLabel" type="string">
+            <column name="work_label" length="30" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

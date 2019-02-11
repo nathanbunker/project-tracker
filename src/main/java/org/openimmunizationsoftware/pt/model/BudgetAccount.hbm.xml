@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BudgetAccount" table="budget_account">
+        <id name="accountId" type="int">
+            <column name="account_id" />
+            <generator class="native" />
+        </id>
+        <property name="accountLabel" type="string">
+            <column name="account_label" />
+        </property>
+        <property name="providerId" type="string">
+            <column name="provider_id" />
+        </property>
+        <property name="startAmount" type="integer">
+            <column name="start_amount" />
+        </property>
+        <property name="startDate" type="date">
+            <column name="start_date" />
+        </property>
+        <property name="balanceAmount" type="integer">
+            <column name="balance_amount" />
+        </property>
+        <property name="balanceDate" type="date">
+            <column name="balance_date" />
+        </property>
+    </class>
+</hibernate-mapping>

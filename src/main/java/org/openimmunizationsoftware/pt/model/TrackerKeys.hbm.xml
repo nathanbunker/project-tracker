@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.TrackerKeys" table="tracker_keys">
+        <composite-id name="id" class="org.openimmunizationsoftware.pt.model.TrackerKeysId">
+            <key-property name="keyName" type="string">
+                <column name="key_name" length="100" />
+            </key-property>
+            <key-property name="keyType" type="int">
+                <column name="key_type" />
+            </key-property>
+            <key-property name="keyId" type="string">
+                <column name="key_id" length="30" />
+            </key-property>
+        </composite-id>
+        <property name="keyValue" type="string">
+            <column name="key_value" length="400" />
+        </property>
+        <property name="keyContent" type="binary">
+            <column name="key_content" />
+        </property>
+    </class>
+</hibernate-mapping>

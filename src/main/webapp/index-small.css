@@ -1,0 +1,62 @@
+body {font-family: Tahoma, Geneva, sans-serif; background:#FFFFFF}
+p {width:650px; color:#2B3E42;}
+.menu {width:720px; padding:0px; background-color:#990000; color: #DDDDDD; margin: 0px; border-color: #2B3E42; border-width: 1px; border-style: solid}
+.main {width:720px; padding:0px; margin:0px; }
+#projectNavigation {float: right; width: 270px; }
+#projectInfo {width: 440px; }
+#takeAction {width: 580px; margin-top: 10px; }
+#providerNavigationBox {position: absolute; left: 740px; top: 10px;}
+a:link.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}
+a:visited.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}
+a:hover.menuLink {padding:5px; color:#FFFFFF; text-decoration:none}
+a:active.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}
+a:link.menuLinkSelected {padding:5px; color:#444444; text-decoration:none; background: #FFFFFF; border-top-style: solid; border-width: 1px; border-left-style:solid; border-right-style:solid;}
+a:visited.menuLinkSelected {padding:5px; color:#444444; text-decoration:none; background: #FFFFFF; border-top-style: solid; border-width: 1px;border-left-style:solid; border-right-style:solid;}
+a:hover.menuLinkSelected {padding:5px; color:#000000; text-decoration:none; background: #FFFFFF; border-top-style: solid; border-width: 1px;border-left-style:solid; border-right-style:solid;}
+a:active.menuLinkSelected {padding:5px; color:#444444; text-decoration:none; background: #FFFFFF; border-top-style: solid; border-width: 1px;border-left-style:solid; border-right-style:solid;}
+.submenu {padding:5px; background-color:#F7F3E8; margin: 0px; border-color: #2B3E42; border-width: 1px; border-style: solid; border-width: 1px;border-left-style:solid; border-right-style:solid;}
+th {background-color: #DDDDDD; text-align: left; vertical-align:top;}
+th.title {background-color: #990000; color: #DDDDDD; padding-left: 5px;}
+td {text-align: left; vertical-align:top;}
+td.right {text-align: right;}
+pre {background:#F7F3E8; padding:4px; margin: 2px; }
+.scrollbox {width: 700px; overflow:auto;}
+.pass {background:#77BED2; padding-left:5px;}
+.fail {background:#FFFF99; padding-left:5px; padding-right:5px; border-style: solid; border-width: 1px; border-color: #2B3E42}
+.help {width:700px; padding: 10px;}
+.smallTitle {padding-right: 5px; padding-left: 5px; border-style:solid; border-width: 1px; border-color: #747E80;}
+.boxed {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;}
+.boxed-fill {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; width: 100%; }
+.boxed-submit {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; text-align: right;}
+.right {float: right;}
+.together {white-space:nowrap;}
+td.outside {border-collapse: collapse; border-width: 1px; border-style: solid; padding:0px;border-color: #2B3E42;}
+table.inside {border-collapse: collapse; border-style: none; padding-left:5px; padding-right:5px;  }
+th.inside {padding-left:5px; padding-right:5px;  }
+td.inside {padding-left:5px; padding-right:5px;  }
+td.inside-highlight {padding-left:5px; padding-right:5px; background:#FFFF99; }
+td.boxed-highlight {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; background:#FFFF99; }
+
+a:link.button {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #FFFFFF; border-width: 1px; border-style: solid}
+a:visited.button {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #FFFFFF; border-width: 1px; border-style: solid}
+a:hover.button {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:active.button {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #FFFFFF; border-width: 1px; border-style: solid}
+
+a:link.box {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:visited.box {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:hover.box {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:active.box {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+
+.optionBox {position:absolute; border-width: 1px; border-style: solid; padding:5px; border-color: #2B3E42; visibility: hidden; }
+.editAction {display: none; }
+
+
+a:link.timerStopped {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:visited.timerStopped {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:hover.timerStopped {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:active.timerStopped {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+
+a:link.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:visited.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:hover.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}
+a:active.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.ProjectAreaAssigned" table="project_area_assigned">
+        <composite-id name="id" class="org.openimmunizationsoftware.pt.model.ProjectAreaAssignedId">
+            <key-property name="areaId" type="int">
+                <column name="area_id" />
+            </key-property>
+            <key-property name="projectId" type="int">
+                <column name="project_id" />
+            </key-property>
+        </composite-id>
+    </class>
+</hibernate-mapping>

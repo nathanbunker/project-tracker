@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.ContactEvent" table="contact_event">
+        <id name="eventId" type="int">
+            <column name="event_id" />
+            <generator class="native" />
+        </id>
+        <many-to-one name="projectContact" column="contact_id" class="org.openimmunizationsoftware.pt.model.ProjectContact"/>
+        <property name="eventType" type="string">
+            <column name="event_type" />
+        </property>
+        <property name="eventNum" type="integer">
+            <column name="event_num" />
+        </property>
+        <property name="eventDate" type="date">
+            <column name="event_date" />
+        </property>
+    </class>
+</hibernate-mapping>

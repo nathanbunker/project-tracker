@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BillEntry" table="bill_entry">
+        <id name="billId" type="int">
+            <column name="bill_id" />
+            <generator class="native" />
+        </id>
+        <property name="projectId" type="int">
+            <column name="project_id" not-null="true" />
+        </property>
+        <property name="clientCode" type="string">
+            <column name="client_code" length="5" not-null="true" />
+        </property>
+        <property name="username" type="string">
+            <column name="username" length="30" not-null="true" />
+        </property>
+        <property name="startTime" type="timestamp">
+            <column name="start_time" length="19" not-null="true" />
+        </property>
+        <property name="endTime" type="timestamp">
+            <column name="end_time" length="19" not-null="true" />
+        </property>
+        <property name="billMins" type="java.lang.Integer">
+            <column name="bill_mins" />
+        </property>
+        <property name="billable" type="string">
+            <column name="billable" length="1" not-null="true" />
+        </property>
+        <property name="billCode" type="string">
+            <column name="bill_code" length="15" />
+        </property>
+        <property name="providerId" type="string">
+            <column name="provider_id" length="30" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

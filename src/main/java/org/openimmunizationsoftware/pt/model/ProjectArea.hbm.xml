@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.ProjectArea" table="project_area">
+        <id name="areaId" type="int">
+            <column name="area_id" />
+            <generator class="assigned" />
+        </id>
+        <property name="areaLabel" type="string">
+            <column name="area_label" length="60" not-null="true" />
+        </property>
+        <property name="username" type="string">
+            <column name="username" length="30" not-null="true" />
+        </property>
+        <property name="sortOrder" type="java.lang.Integer">
+            <column name="sort_order" />
+        </property>
+        <property name="visible" type="string">
+            <column name="visible" length="1" />
+        </property>
+    </class>
+</hibernate-mapping>

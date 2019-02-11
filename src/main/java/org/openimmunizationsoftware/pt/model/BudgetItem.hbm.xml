@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BudgetItem" table="budget_item">
+        <id name="itemId" type="int">
+            <column name="item_id" />
+            <generator class="native" />
+        </id>
+        <property name="itemLabel" type="string">
+            <column name="item_label" />
+        </property>
+        <many-to-one name="budgetAccount" column="account_id" class="org.openimmunizationsoftware.pt.model.BudgetAccount"/>
+        <property name="itemStatus" type="string">
+            <column name="item_status" />
+        </property>
+        <property name="lastAmount" type="integer">
+            <column name="last_amount" />
+        </property>
+        <property name="lastDate" type="date">
+            <column name="last_date" />
+        </property>
+        <property name="priorityCode" type="string">
+            <column name="priority_code" />
+        </property>
+        <many-to-one name="relatedBudgetItem" column="related_item_id" class="org.openimmunizationsoftware.pt.model.BudgetItem"/>
+    </class>
+</hibernate-mapping>

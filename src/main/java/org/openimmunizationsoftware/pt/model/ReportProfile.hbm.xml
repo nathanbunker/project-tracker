@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.ReportProfile" table="report_profile">
+        <id name="profileId" type="int">
+            <column name="profile_id" />
+            <generator class="native" />
+        </id>
+        <property name="extendsProfileId" type="java.lang.Integer">
+            <column name="extends_profile_id" />
+        </property>
+        <property name="profileLabel" type="string">
+            <column name="profile_label" length="50" />
+        </property>
+        <property name="providerId" type="string">
+            <column name="provider_id" length="30" />
+        </property>
+        <property name="username" type="string">
+            <column name="username" length="30" />
+        </property>
+        <property name="profileType" type="string">
+            <column name="profile_type" length="3" />
+        </property>
+        <property name="useStatus" type="string">
+            <column name="use_status" length="1" />
+        </property>
+        <property name="extendStatus" type="string">
+            <column name="extend_status" length="1" />
+        </property>
+        <property name="contextType" type="string">
+            <column name="context_type" length="12" />
+        </property>
+        <property name="selectorType" type="string">
+            <column name="selector_type" length="12" />
+        </property>
+        <property name="definition" type="binary">
+            <column name="definition" />
+        </property>
+    </class>
+</hibernate-mapping>

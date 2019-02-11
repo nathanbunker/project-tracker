@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BillMonth" table="bill_month">
+        <id name="billMonthId" type="int">
+            <column name="bill_month_id" />
+            <generator class="native" />
+        </id>
+        <many-to-one name="billCode" column="bill_code" class="org.openimmunizationsoftware.pt.model.BillCode"/>
+        <property name="billDate" type="date">
+            <column name="bill_date" />
+        </property>
+        <property name="billMinsExpected" type="integer">
+            <column name="bill_mins_expected" />
+        </property>
+        <property name="billMinsActual" type="integer">
+            <column name="bill_mins_actual" />
+        </property>
+        <many-to-one name="billBudget" column="bill_budget_id" class="org.openimmunizationsoftware.pt.model.BillBudget"/>
+        
+    </class>
+</hibernate-mapping>

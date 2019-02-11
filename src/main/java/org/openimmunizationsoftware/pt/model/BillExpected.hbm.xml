@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="org.openimmunizationsoftware.pt.model.BillExpected" table="bill_expected">
+        <composite-id name="id" class="org.openimmunizationsoftware.pt.model.BillExpectedId">
+            <key-property name="username" type="string">
+                <column name="username" length="30" />
+            </key-property>
+            <key-property name="billDate" type="date">
+                <column name="bill_date" length="10" />
+            </key-property>
+        </composite-id>
+        <property name="billMins" type="int">
+            <column name="bill_mins" not-null="true" />
+        </property>
+        <property name="billAmount" type="int">
+            <column name="bill_amount" not-null="true" />
+        </property>
+        <property name="workStatus" type="string">
+            <column name="work_status" length="1" />
+        </property>
+    </class>
+</hibernate-mapping>
