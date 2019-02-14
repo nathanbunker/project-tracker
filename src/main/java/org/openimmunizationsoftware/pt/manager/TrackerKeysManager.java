@@ -19,6 +19,7 @@ public class TrackerKeysManager
   public static final String KEY_CORE_EMAIL_ON_ERROR = "core.email.on.error";
   public static final String KEY_CORE_EMAIL_ON_STARTUP = "core.email.on.startup";
   public static final String KEY_REPORT_CSS = "report.css";
+  public static final String KEY_REPORT_DAILY_ENABLED = "report.daily.enabled";
   public static final String KEY_REPORT_DAILY_TIME = "report.daily.time";
   public static final String KEY_REPORT_LAST_REPORT_DATE_DESCRIPTION = "report.last_report.date_description";
   public static final String KEY_SYSTEM_EMAIL_DEBUG = "system.email.debug";
@@ -139,6 +140,11 @@ public class TrackerKeysManager
   public static String getApplicationKeyValue(String keyName, String defaultValue, Session dataSession)
   {
     return getKeyValue(keyName, KEY_TYPE_APPLICATION, KEY_ID_APPLICATION, defaultValue, dataSession);
+  }
+
+  public static boolean getApplicationKeyValueBoolean(String keyName, boolean defaultValue, Session dataSession)
+  {
+    return makeBoolean(getKeyValue(keyName, KEY_TYPE_APPLICATION, KEY_ID_APPLICATION, defaultValue ? "Y" : "N", dataSession));
   }
 
   public static String getKeyValue(String keyName, String defaultValue, WebUser webUser, Session dataSession)

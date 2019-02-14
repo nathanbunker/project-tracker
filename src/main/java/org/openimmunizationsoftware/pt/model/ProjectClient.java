@@ -30,53 +30,50 @@ public class ProjectClient implements java.io.Serializable
     this.clientAcronym = clientAcronym;
   }
 
-  public ProjectClientId getId()
-  {
+  public ProjectClientId getId() {
     return this.id;
   }
 
-  public void setId(ProjectClientId id)
-  {
+  public void setId(ProjectClientId id) {
     this.id = id;
   }
 
-  public String getClientName()
-  {
+  public String getClientName() {
     return this.clientName;
   }
 
-  public void setClientName(String clientName)
-  {
+  public String getClientNameForDropdown() {
+    if (getId().getClientCode().indexOf('-') > 0) {
+      return "&nbsp;&nbsp;-&nbsp;&nbsp;" + getClientName();
+    }
+    return getClientName();
+  }
+
+  public void setClientName(String clientName) {
     this.clientName = clientName;
   }
 
-  public Integer getSortOrder()
-  {
+  public Integer getSortOrder() {
     return this.sortOrder;
   }
 
-  public void setSortOrder(Integer sortOrder)
-  {
+  public void setSortOrder(Integer sortOrder) {
     this.sortOrder = sortOrder;
   }
 
-  public String getVisible()
-  {
+  public String getVisible() {
     return this.visible;
   }
 
-  public void setVisible(String visible)
-  {
+  public void setVisible(String visible) {
     this.visible = visible;
   }
 
-  public String getClientAcronym()
-  {
+  public String getClientAcronym() {
     return this.clientAcronym;
   }
 
-  public void setClientAcronym(String clientAcronym)
-  {
+  public void setClientAcronym(String clientAcronym) {
     this.clientAcronym = clientAcronym;
   }
 

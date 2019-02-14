@@ -56,6 +56,7 @@ public class BillCodeServlet extends ClientServlet
     }
     SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
 
+
     PrintWriter out = response.getWriter();
     try
     {

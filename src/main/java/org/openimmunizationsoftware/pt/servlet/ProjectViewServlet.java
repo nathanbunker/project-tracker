@@ -231,6 +231,7 @@ public class ProjectViewServlet extends ClientServlet
         {
 
           ProjectContact projectContact1 = (ProjectContact) dataSession.get(ProjectContact.class, projectAction1.getContactId());
+          projectAction1.setContact(projectContact1);
           ProjectContact nextProjectContact = null;
           if (projectAction1.getNextContactId() != null && projectAction1.getNextContactId() > 0)
           {
@@ -247,7 +248,7 @@ public class ProjectViewServlet extends ClientServlet
           }
           out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " " + projectContact1.getNameLast() + "</td>");
 
-          out.println("    <td class=\"inside\">" + projectAction1.getNextDescriptionForDisplay() + "</td>");
+          out.println("    <td class=\"inside\">" + projectAction1.getNextDescriptionForDisplay(null) + "</td>");
           out.println("  </tr>");
         }
         out.println("</table>");

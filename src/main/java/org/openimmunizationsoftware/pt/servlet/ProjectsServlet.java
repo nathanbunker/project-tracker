@@ -95,18 +95,24 @@ public class ProjectsServlet extends ClientServlet
       out.println("Limit by Category ");
       out.println("<select name=\"clientCode\">");
       out.println("  <option value=\"\">ALL</option>");
-      Query query = dataSession.createQuery("from ProjectClient where id.providerId = ? and visible = 'Y' order by client_name");
+      Query query = dataSession.createQuery("from ProjectClient where id.providerId = ? and visible = 'Y' order by sortOrder, clientName");
       query.setParameter(0, webUser.getProviderId());
       List<ProjectClient> projectClientList = query.list();
       for (ProjectClient projectClient : projectClientList)
       {
+        if (projectClient.getId().getClientCode().startsWith("PER-"))
+        {
+          if (!projectClient.getId().getClientCode().equals("PER-" + webUser.getContactId()))
+          {
+            continue;
+          }
+        }
         if (clientCode.equals(projectClient.getId().getClientCode()))
         {
-          out.println("  <option value=\"" + projectClient.getId().getClientCode() + "\" selected>" + projectClient.getClientName() + "</option>");
-
+          out.println("  <option value=\"" + projectClient.getId().getClientCode() + "\" selected>" + projectClient.getClientNameForDropdown() + "</option>");
         } else
         {
-          out.println("  <option value=\"" + projectClient.getId().getClientCode() + "\">" + projectClient.getClientName() + "</option>");
+          out.println("  <option value=\"" + projectClient.getId().getClientCode() + "\">" + projectClient.getClientNameForDropdown()  + "</option>");
         }
       }
       out.println("</select>");
@@ -189,7 +195,7 @@ public class ProjectsServlet extends ClientServlet
         }
         if (!clientCode.equals(""))
         {
-          queryString += " and clientCode = ?";
+          queryString += " and (clientCode = ? or clientCode LIKE ? )";
         }
         queryString += " order by projectName, clientCode";
         query = dataSession.createQuery(queryString);
@@ -209,6 +215,8 @@ public class ProjectsServlet extends ClientServlet
         {
           i++;
           query.setParameter(i, clientCode);
+          i++;
+          query.setParameter(i, clientCode + "-%");
         }
       }
 

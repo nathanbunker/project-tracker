@@ -1,0 +1,60 @@
+ALTER TABLE bill_entry MODIFY client_code VARCHAR(15);
+ALTER TABLE project MODIFY client_code VARCHAR(15);
+ALTER TABLE project_client MODIFY client_code VARCHAR(15);
+ALTER TABLE project_client MODIFY client_name VARCHAR(150);
+ALTER TABLE bill_code MODIFY bill_label VARCHAR(150);
+
+INSERT INTO project_provider (provider_id, provider_name) VALUES (12, 'AIRA');
+
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZS', 'Standards CA', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZS1', 'Standards CA - Strategy 1', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZS2', 'Standards CA - Strategy 2', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZS3', 'Standards CA - Strategy 3', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZS4', 'Standards CA - Strategy 4', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZS5', 'Standards CA - Strategy 5', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZC', 'Capacity CA', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZCA', 'Capacity CA - Assessment', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZCT', 'Capacity CA - Training', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZCP', 'Capacity CA - Peer-to-Peer Support', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZCO', 'Capacity CA - Operational Guidelines', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZCS', 'Capacity CA - Support of VFC Program', 'Y', 'Y', 12);
+INSERT INTO bill_code(bill_code, bill_label, billable, visible, provider_id) VALUES('ZO', 'Overhead', 'Y', 'Y', 12);
+
+
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM', 'Administrative', 100, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM-ST', 'Staff', 101, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM-STM', 'Staff Meetings', 101, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM-FI', 'Financials', 101, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM-TRA', 'Travel', 101, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM-HR', 'Human Resources', 101, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ADM-IT', 'Information Technology', 101, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG', 'Organization', 200, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-MEM', 'Membership', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-SAC', 'Standing Committees', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-SEC', 'Steering Committees', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-BRD', 'Board', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORGCDC', 'CDC/Funder', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-IR', 'Information Requests', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-WBR', 'Webinars', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-COM', 'Communications with Members', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-MAR', 'Marketing & Design', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('ORG-TA', 'Technical Assistance', 201, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('SCA', 'Standards CA', 300, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('SCA-1', 'Strategy 1 - Best Practices', 301, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('SCA-2', 'Strategy 2 - Assessment', 301, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('SCA-3', 'Strategy 3 - Joint Development', 301, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('SCA-4', 'Strategy 4 - Repository', 301, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('SCA-5', 'Strategy 5 - Training/TA', 301, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('CCA', 'Capacity CA', 400, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('CCA-A', 'Assessment', 401, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('CCA-T', 'Training', 401, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('CCA-PPS', 'Peer-to-Peer Support', 401, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('CCA-OG', 'Operational Guidelines', 401, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('CCA-VFC', 'Support of VFC Program', 401, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('PAR', 'Partnerships', 500, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('MTG', 'Meetings', 600, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('MTG-NAT', 'AIRA National Meetings', 601, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('MTG-REG', 'AIRA Regional Meetings', 601, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('MTG-ATT', 'Meetings AIRA Attends', 601, 'Y', '', 12);
+INSERT INTO project_client(client_code, client_name, sort_order, visible, client_acronym, provider_id) VALUES ('PER', 'Personal', 1000, 'Y', '', 12);
+

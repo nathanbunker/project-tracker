@@ -178,17 +178,17 @@ public class ReportParameter
       } else if (dropdownLink.equals(DROPDOWN_PROJECT_CLIENT))
       {
         sbuf.append("<select name=\"" + name + "\">");
-        Query query = dataSession.createQuery("from ProjectClient where id.providerId = ? order by clientName");
+        Query query = dataSession.createQuery("from ProjectClient where id.providerId = ? order by sortOrder, clientName");
         query.setParameter(0, webUser.getProviderId());
         List<ProjectClient> projectClientList = query.list();
         for (ProjectClient projectClient : projectClientList)
         {
           if (projectClient.getId().getClientCode().equals(value))
           {
-            sbuf.append("<option value=\"" + projectClient.getId().getClientCode() + "\" selected>" + projectClient.getClientName() + "</option>");
+            sbuf.append("<option value=\"" + projectClient.getId().getClientCode() + "\" selected>" + projectClient.getClientNameForDropdown() + "</option>");
           } else
           {
-            sbuf.append("<option value=\"" + projectClient.getId().getClientCode() + "\">" + projectClient.getClientName() + "</option>");
+            sbuf.append("<option value=\"" + projectClient.getId().getClientCode() + "\">" + projectClient.getClientNameForDropdown() + "</option>");
           }
         }
         sbuf.append("</select>");

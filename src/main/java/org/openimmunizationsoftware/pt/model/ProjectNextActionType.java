@@ -7,6 +7,17 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectNextActionType implements java.io.Serializable
 {
+  
+  public static String WILL = "D";
+  public static String WILL_CONTACT = "C";
+  public static String WAITING = "W";
+  public static String WILL_RUN_ERRAND = "E";
+  public static String COMMITTED_TO = "T";
+  public static String ASKS_TO = "A";
+  public static String MIGHT = "M";
+  public static String GOAL = "G";
+  public static String OVERDUE_TO = "O";
+  
 
   private String nextActionType;
   private String nextActionLabel;

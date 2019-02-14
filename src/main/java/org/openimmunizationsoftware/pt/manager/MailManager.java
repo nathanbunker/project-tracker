@@ -8,7 +8,6 @@ import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
-import org.eclipse.jetty.server.Authentication.SendSuccess;
 import org.hibernate.Session;
 
 public class MailManager
@@ -22,17 +21,23 @@ public class MailManager
 
   public MailManager(Session dataSession) {
     reply = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY, dataSession);
-    smtpsPassword = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD, dataSession);
-    smtpsPort = Integer.parseInt(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, "0", dataSession));
-    smtpsUsername = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME, dataSession);
-    useSmtps = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession).equals("Y");
+    smtpsPassword = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD,
+        dataSession);
+    smtpsPort = Integer.parseInt(TrackerKeysManager.getApplicationKeyValue(
+        TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, "0", dataSession));
+    smtpsUsername = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME,
+        dataSession);
+    useSmtps = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession)
+        .equals("Y");
     address = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS, dataSession);
   }
 
-  public void sendEmail(String subject, String body, String to) throws Exception
-  {
-    if (useSmtps)
-    {
+  public void sendEmail(String subject, String body, String to) throws Exception {
+    sendEmail(subject, body, to, null);
+  }
+
+  public void sendEmail(String subject, String body, String to, String cc) throws Exception {
+    if (useSmtps) {
       // java.security.Security.addProvider(new
       // com.sun.net.ssl.internal.ssl.Provider());
       String smptsHost = address;
@@ -44,13 +49,22 @@ public class MailManager
       javax.mail.Session session = javax.mail.Session.getDefaultInstance(props, null);
       MimeMessage msg = new MimeMessage(session);
       msg.setFrom(new InternetAddress(reply));
-      String[] t = to.split("\\,");
-      InternetAddress[] addresses = new InternetAddress[t.length];
-      for (int i = 0; i < t.length; i++)
       {
-        addresses[i] = new InternetAddress(t[i].trim());
+        String[] t = to.split("\\,");
+        InternetAddress[] addressesTo = new InternetAddress[t.length];
+        for (int i = 0; i < t.length; i++) {
+          addressesTo[i] = new InternetAddress(t[i].trim());
+        }
+        msg.setRecipients(Message.RecipientType.TO, addressesTo);
       }
-      msg.setRecipients(Message.RecipientType.TO, addresses);
+      if (cc != null) {
+        String[] c = cc.split("\\,");
+        InternetAddress[] addressesCc = new InternetAddress[c.length];
+        for (int i = 0; i < c.length; i++) {
+          addressesCc[i] = new InternetAddress(c[i].trim());
+        }
+        msg.setRecipients(Message.RecipientType.CC, addressesCc);
+      }
       msg.setSubject(subject);
       msg.setSentDate(new Date());
       msg.setContent(body, "text/html; charset=UTF-8");
@@ -58,23 +72,31 @@ public class MailManager
       Transport transport = session.getTransport();
       transport.connect(smptsHost, smtpsPort, smtpsUsername, smtpsPassword);
       msg.saveChanges();
-      transport.sendMessage(msg, msg.getRecipients(Message.RecipientType.TO));
+      transport.sendMessage(msg, msg.getAllRecipients());
       transport.close();
-    } else
-    {
+    } else {
       Properties props = new Properties();
       props.put("mail.smtp.auth", "true");
       props.put("mail.smtp.starttls.enable", "false");
       javax.mail.Session session = javax.mail.Session.getInstance(props, null);
       MimeMessage msg = new MimeMessage(session);
       msg.setFrom(new InternetAddress(reply));
-      String[] t = to.split("\\,");
-      InternetAddress[] addresses = new InternetAddress[t.length];
-      for (int i = 0; i < t.length; i++)
       {
-        addresses[i] = new InternetAddress(t[i].trim());
+        String[] t = to.split("\\,");
+        InternetAddress[] addresses = new InternetAddress[t.length];
+        for (int i = 0; i < t.length; i++) {
+          addresses[i] = new InternetAddress(t[i].trim());
+        }
+        msg.setRecipients(Message.RecipientType.TO, addresses);
       }
-      msg.setRecipients(Message.RecipientType.TO, addresses);
+      if (cc != null) {
+        String[] c = cc.split("\\,");
+        InternetAddress[] addressesCc = new InternetAddress[c.length];
+        for (int i = 0; i < c.length; i++) {
+          addressesCc[i] = new InternetAddress(c[i].trim());
+        }
+        msg.setRecipients(Message.RecipientType.CC, addressesCc);
+      }
       msg.setSubject(subject);
       msg.setSentDate(new Date());
       msg.setContent(body, "text/html; charset=UTF-8");
@@ -82,7 +104,7 @@ public class MailManager
       Transport tr = session.getTransport("smtp");
       tr.connect(address, smtpsUsername, smtpsPassword);
       msg.saveChanges();
-      tr.sendMessage(msg, addresses);
+      tr.sendMessage(msg, msg.getAllRecipients());
       tr.close();
     }
   }

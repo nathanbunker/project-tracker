@@ -7,7 +7,6 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class BillExpected implements java.io.Serializable
 {
-
   private BillExpectedId id;
   private int billMins;
   private int billAmount;

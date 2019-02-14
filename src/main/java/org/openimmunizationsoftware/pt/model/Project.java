@@ -29,7 +29,16 @@ public class Project implements java.io.Serializable
   private ProjectClient projectClient = null;
   private ProjectPhase projectPhase = null;
   private String iisRegionCode;
+  private int priorityLevel = 0;
   
+  public int getPriorityLevel() {
+    return priorityLevel;
+  }
+
+  public void setPriorityLevel(int priorityLevel) {
+    this.priorityLevel = priorityLevel;
+  }
+
   public String getIisRegionCode()
   {
     return iisRegionCode;

@@ -71,6 +71,7 @@ public class LoginServlet extends ClientServlet
             webUser.setProjectContact(projectContact);
 
             webUser.setTrackTime(TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", webUser, dataSession).equalsIgnoreCase("Y"));
+            
             webUser.setManageBudget(TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_MANAGE_BUDGET, "N", webUser, dataSession).equalsIgnoreCase(
                 "Y"));
 

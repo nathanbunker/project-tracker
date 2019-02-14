@@ -41,5 +41,8 @@
         <property name="providerId" type="string">
             <column name="provider_id" length="30" not-null="true" />
         </property>
+        <property name="priorityLevel" type="integer">
+            <column name="priority_level" not-null="true" />
+        </property>
     </class>
 </hibernate-mapping>

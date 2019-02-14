@@ -23,8 +23,25 @@ public class ProjectAction implements java.io.Serializable
   private Integer nextActionId;
   private String providerId;
   private ProjectContact nextProjectContact = null;
+  private ProjectContact contact = null;
   private Project project = null;
+  private int priorityLevel = 0;
   
+  public ProjectContact getContact() {
+    return contact;
+  }
+
+  public void setContact(ProjectContact contact) {
+    this.contact = contact;
+  }
+
+  public int getPriorityLevel() {
+    return priorityLevel;
+  }
+
+  public void setPriorityLevel(int priorityLevel) {
+    this.priorityLevel = priorityLevel;
+  }
 
   public Project getProject()
   {
@@ -128,8 +145,18 @@ public class ProjectAction implements java.io.Serializable
     return this.nextDescription;
   }
   
-  public String getNextDescriptionForDisplay()
+  public String getNextDescriptionForDisplay(ProjectContact forContact)
   {
+    String i_am = "I am ";
+    String i_ = "I ";
+    String i_have = "I have";
+    if (forContact == null || forContact != contact)
+    {
+      i_am = contact.getName() + " is ";
+      i_ = contact.getName() + " ";
+      i_have = contact.getName() + " has ";
+    }
+    
     String description = "";
     String type = getNextActionType();
     if (type == null || type.equals(""))
@@ -139,55 +166,64 @@ public class ProjectAction implements java.io.Serializable
     {
       if (nextProjectContact == null)
       {
-        description = "<i>I am asking for</i> " + getNextDescription();
+        description = "<i>" + i_am + "asking for ..</i> " + getNextDescription();
       } else
       {
-        description = "<i>I am asking " + nextProjectContact.getName() + " to</i> " + getNextDescription();
+        description = "<i>" + i_am + "asking " + nextProjectContact.getName() + " to</i> " + getNextDescription();
       }
-    } else if (type.equals("C"))
+    } else if (type.equals(ProjectNextActionType.WILL_CONTACT))
     {
       if (nextProjectContact == null)
       {
-        description = "<i>I will make contact about</i> " + getNextDescription();
+        description = "<i>" + i_ + " will make contact about</i> " + getNextDescription();
       } else
       {
-        description = "<i>I will contact " + nextProjectContact.getName() + " about</i> " + getNextDescription();
+        description = "<i>" + i_ + " will contact " + nextProjectContact.getName() + " about</i> " + getNextDescription();
       }
-    } else if (type.equals("D"))
+    } else if (type.equals(ProjectNextActionType.WILL))
     {
-      description = "<i>I will</i> " + getNextDescription();
+      description = "<i>" + i_ + " will</i> " + getNextDescription();
     } else if (type.equals("E"))
     {
-      description = "<i>I will run errand to</i>" + getNextDescription();
+      description = "<i>" + i_ + " will run errand to</i> " + getNextDescription();
     } else if (type.equals("G"))
     {
       if (nextProjectContact == null)
       {
-        description = "<i>I have set a goal to </i> " + getNextDescription();
+        description = "<i>" + i_have + " set a goal to </i> " + getNextDescription();
       } else
       {
-        description = "<i>I have set a goal with " + nextProjectContact.getName() + " to</i> " + getNextDescription();
+        description = "<i>" + i_have + " set a goal with " + nextProjectContact.getName() + " to</i> " + getNextDescription();
       }
     } else if (type.equals("M"))
     {
-      description = "<i>I might</i> " + getNextDescription();
+      description = "<i>" + i_ + " might</i> " + getNextDescription();
     } else if (type.equals("T"))
     {
       if (nextProjectContact == null)
       {
-        description = "<i>I have committed to </i> " + getNextDescription();
+        description = "<i>" + i_have + " committed to </i> " + getNextDescription();
       } else
       {
-        description = "<i>I have committed to " + nextProjectContact.getName() + " to</i> " + getNextDescription();
+        description = "<i>" + i_have + " committed to " + nextProjectContact.getName() + " to</i> " + getNextDescription();
+      }
+    } else if (type.equals("O"))
+    {
+      if (nextProjectContact == null)
+      {
+        description = "<i>" + i_am + " overdue to</i> " + getNextDescription();
+      } else
+      {
+        description = "<i>" + i_am + "overdue in committment to " + nextProjectContact.getName() + " to</i> " + getNextDescription();
       }
     } else if (type.equals("W"))
     {
       if (nextProjectContact == null)
       {
-        description = "<i>I am waiting for </i> " + getNextDescription();
+        description = "<i>" + i_am + "waiting for </i> " + getNextDescription();
       } else
       {
-        description = "<i>I am waiting for " + nextProjectContact.getName() + " to</i> " + getNextDescription();
+        description = "<i>" + i_am + "waiting for " + nextProjectContact.getName() + " to</i> " + getNextDescription();
       }
     }
     return description;
@@ -221,6 +257,29 @@ public class ProjectAction implements java.io.Serializable
   public Integer getNextTimeEstimate()
   {
     return this.nextTimeEstimate;
+  }
+  
+  public String getNextTimeEstimateForDisplay()
+  {
+      return getTimeForDisplay(getNextTimeEstimate());
+  }
+
+  public static String getTimeForDisplay(int nextTimeEstimateTotal) {
+    String time = "";
+    if (nextTimeEstimateTotal < 10) {
+      time = "0:0" + nextTimeEstimateTotal;
+    } else if (nextTimeEstimateTotal < 60) {
+      time = "0:" + nextTimeEstimateTotal;
+    } else {
+      int hour = nextTimeEstimateTotal / 60;
+      int minute = nextTimeEstimateTotal % 60;
+      if (minute < 10) {
+        time = hour + ":0" + minute;
+      } else {
+        time = hour + ":" + minute;
+      }
+    }
+    return time;
   }
 
   public void setNextTimeEstimate(Integer nextTimeEstimate)

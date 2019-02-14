@@ -376,7 +376,7 @@ public class ClientServlet extends HttpServlet
   public static void printFooter(PrintWriter out)
   {
     out.println("    <p>Open Immunization Software - Project Tracker - Version " + SoftwareVersion.VERSION + "<br>"
-        + "For questions or support please contact <a href=\"http://openimmunizationsoftare.org/\">Nathan Bunker</a>.</p>");
+        + "For questions or support please contact <a href=\"http://openimmunizationsoftware.net/\">Nathan Bunker</a>.</p>");
 
   }
 
@@ -426,6 +426,15 @@ public class ClientServlet extends HttpServlet
       return "";
     }
     return s;
+  }
+
+  protected static String n(Integer i)
+  {
+    if (i == null)
+    {
+      return "";
+    }
+    return "" + i;
   }
 
   protected String addBreaks(String s)

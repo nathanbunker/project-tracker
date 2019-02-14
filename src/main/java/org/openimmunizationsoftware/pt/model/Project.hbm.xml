@@ -56,5 +56,8 @@
         <property name="medicalOrganization" type="string">
             <column name="medical_organization" length="60" />
         </property>
+        <property name="priorityLevel" type="integer">
+            <column name="priority_level" not-null="true" />
+        </property>
     </class>
 </hibernate-mapping>

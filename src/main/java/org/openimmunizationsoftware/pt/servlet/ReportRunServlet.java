@@ -37,6 +37,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.ReportSchedule;
 import org.openimmunizationsoftware.pt.model.TrackerKeys;
@@ -64,50 +65,41 @@ public class ReportRunServlet extends ClientServlet
     private String statusMessage = "";
     private boolean sendingNow = false;
 
-    public Date getSentAttempted()
-    {
+    public Date getSentAttempted() {
       return sentAttempted;
     }
 
-    public void setSentAttempted(Date sentAttempted)
-    {
+    public void setSentAttempted(Date sentAttempted) {
       this.sentAttempted = sentAttempted;
     }
 
-    public String getReportText()
-    {
+    public String getReportText() {
       return reportText;
     }
 
-    public void setReportText(String reportText)
-    {
+    public void setReportText(String reportText) {
       this.reportText = reportText;
     }
 
-    public String getStatusMessage()
-    {
+    public String getStatusMessage() {
       return statusMessage;
     }
 
-    public void setStatusMessage(String statusMessage)
-    {
+    public void setStatusMessage(String statusMessage) {
       this.statusMessage = statusMessage;
     }
 
-    public boolean isSendingNow()
-    {
+    public boolean isSendingNow() {
       return sendingNow;
     }
 
-    public void setSendingNow(boolean sendingNow)
-    {
+    public void setSendingNow(boolean sendingNow) {
       this.sendingNow = sendingNow;
     }
   }
 
   @Override
-  public void init() throws ServletException
-  {
+  public void init() throws ServletException {
 
     // TODO Auto-generated method stub
     super.init();
@@ -117,12 +109,11 @@ public class ReportRunServlet extends ClientServlet
 
   private class DailyReportRunner extends Thread
   {
-    Session dataSession = null;
     private Date lastRunTime = new Date();
     private Date nextRunTime;
+    private boolean dailyEnabled = false;
 
-    public Date getNextRunTime()
-    {
+    public Date getNextRunTime() {
       return nextRunTime;
     }
 
@@ -131,83 +122,74 @@ public class ReportRunServlet extends ClientServlet
 
     }
 
-    private void init()
-    {
-      if (dataSession == null)
-      {
-        SessionFactory factory = CentralControl.getSessionFactory();
-        dataSession = factory.openSession();
-      }
-      String dailyTime = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME, dataSession);
-      if (dailyTime.equals(""))
-      {
-        dailyTime = "1:30";
-      }
-      int hour = 1;
-      int min = 30;
-      try
-      {
-
-        int pos = dailyTime.indexOf(":");
-        if (pos != -1)
-        {
-          hour = Integer.parseInt(dailyTime.substring(0, pos));
-          min = Integer.parseInt(dailyTime.substring(pos + 1));
+    private void init() {
+      SessionFactory factory = CentralControl.getSessionFactory();
+      Session dataSession = factory.openSession();
+      dailyEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(TrackerKeysManager.KEY_REPORT_DAILY_ENABLED,
+          false, dataSession);
+      if (dailyEnabled) {
+        String dailyTime = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME,
+            dataSession);
+        if (dailyTime.equals("")) {
+          dailyTime = "1:30";
         }
-      } catch (Exception e)
-      {
-        hour = 1;
-        min = 30;
+        int hour = 1;
+        int min = 30;
+        try {
+
+          int pos = dailyTime.indexOf(":");
+          if (pos != -1) {
+            hour = Integer.parseInt(dailyTime.substring(0, pos));
+            min = Integer.parseInt(dailyTime.substring(pos + 1));
+          }
+        } catch (Exception e) {
+          hour = 1;
+          min = 30;
+        }
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, hour);
+        cal.set(Calendar.MINUTE, min);
+        cal.set(Calendar.SECOND, 0);
+        if (cal.getTime().before(lastRunTime)) {
+          // too late for today, will schedule for tomorrow.
+          cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        nextRunTime = cal.getTime();
       }
-      Calendar cal = Calendar.getInstance();
-      cal.set(Calendar.HOUR_OF_DAY, hour);
-      cal.set(Calendar.MINUTE, min);
-      cal.set(Calendar.SECOND, 0);
-      if (cal.getTime().before(lastRunTime))
-      {
-        // too late for today, will schedule for tomorrow.
-        cal.add(Calendar.DAY_OF_MONTH, 1);
-      }
-      nextRunTime = cal.getTime();
+      dataSession.close();
     }
 
     private boolean keepRunning = true;
     private String statusMessage = "Automatic daily report sender initialized";
 
-    public String getStatusMessage()
-    {
+    public String getStatusMessage() {
       return statusMessage;
     }
 
     @Override
-    public void run()
-    {
-      while (keepRunning)
-      {
+    public void run() {
+      while (keepRunning) {
         init();
-        statusMessage = "Looking to see if it is time to send reports";
-        Date now = new Date();
-        if (now.after(nextRunTime))
-        {
-          lastRunTime = now;
-          try
-          {
-            runReportsForToday(dataSession, now);
-          } catch (Exception e)
-          {
-            statusMessage = "Exception ocurred: " + e.getMessage();
-            e.printStackTrace();
+        if (dailyEnabled) {
+          statusMessage = "Looking to see if it is time to send reports";
+          Date now = new Date();
+          if (now.after(nextRunTime)) {
+            lastRunTime = now;
+            try {
+              runReportsForToday(now);
+            } catch (Exception e) {
+              statusMessage = "Exception ocurred: " + e.getMessage();
+              e.printStackTrace();
+            }
           }
+        } else {
+          statusMessage = "Daily reporting not enabled";
         }
-
-        synchronized (this)
-        {
-          try
-          {
+        synchronized (this) {
+          try {
             statusMessage = "Waiting, will check again soon to see if reports should be sent";
             this.wait(1000 * 60 * 5); // check every 5 minutes
-          } catch (InterruptedException ie)
-          {
+          } catch (InterruptedException ie) {
             // continue;
           }
         }
@@ -218,8 +200,7 @@ public class ReportRunServlet extends ClientServlet
   }
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
-   * methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
    * 
    * @param request
    *          servlet request
@@ -230,36 +211,47 @@ public class ReportRunServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,
+      IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null || !webUser.isUserTypeAdmin())
-    {
+    if (webUser == null || !webUser.isUserTypeAdmin()) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
     }
 
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       Session dataSession = getDataSession(session);
 
       String action = request.getParameter("action");
-      if (action == null)
-      {
+      if (action == null) {
         action = "Show All";
       }
 
-      if (action.equals("Run All"))
-      {
-        runReportsForToday(dataSession, new Date());
+      if (action.equals("Run All")) {
+        String runDateString = request.getParameter("runDate");
+        Date runDate = null;
+        String message = null;
+        if (!runDateString.equals("")) {
+          try {
+            runDate = ReportBatch.createSimpleDateFormat().parse(runDateString);
+          } catch (ParseException pe) {
+            message = "Unable to parse run date: " + pe.getMessage();
+          }
+        }
+        if (message == null) {
+          runReportsForToday(runDate);
+        }
+        else {
+          request.setAttribute(REQUEST_VAR_MESSAGE, message);
+        }
+
         action = "Show All";
       }
-      if (action.equals("Run") || action.equals("Email"))
-      {
+      if (action.equals("Run") || action.equals("Email")) {
 
         Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
         query.setParameter(0, Integer.parseInt(request.getParameter("profileId")));
@@ -271,11 +263,9 @@ public class ReportRunServlet extends ClientServlet
         String runDateString = request.getParameter("runDate");
         Date runDate = null;
         String message = null;
-        try
-        {
+        try {
           runDate = ReportBatch.createSimpleDateFormat().parse(runDateString);
-        } catch (ParseException pe)
-        {
+        } catch (ParseException pe) {
           message = "Unable to parse run date: " + pe.getMessage();
         }
 
@@ -285,37 +275,27 @@ public class ReportRunServlet extends ClientServlet
         reportBatch.setPeriod(period);
         Map<String, String> parameterValues = reportBatch.getParameterValues();
 
-        if (message == null)
-        {
-          try
-          {
+        if (message == null) {
+          try {
             GenerateReport.populateStartEndDates(reportBatch);
-          } catch (Exception e)
-          {
+          } catch (Exception e) {
             message = "Unable to set start and end dates for report: " + e;
           }
-          if (message == null)
-          {
+          if (message == null) {
             List<ReportParameter> reportParameters = null;
-            try
-            {
+            try {
               reportParameters = reportProfile.getReportDefinition().getReportParameters();
-            } catch (Exception e)
-            {
+            } catch (Exception e) {
               message = "Unable to get report definition: " + e;
             }
-            if (message == null)
-            {
-              for (ReportParameter reportParameter : reportParameters)
-              {
+            if (message == null) {
+              for (ReportParameter reportParameter : reportParameters) {
                 String name = reportParameter.getName();
                 String value = request.getParameter(name);
-                if (reportParameter.getType().equals(ReportParameter.TYPE_CHECKBOX))
-                {
+                if (reportParameter.getType().equals(ReportParameter.TYPE_CHECKBOX)) {
                   value = value != null ? "true" : "false";
                 }
-                if (value == null)
-                {
+                if (value == null) {
                   value = "";
                 }
                 parameterValues.put(name.toUpperCase(), value);
@@ -324,56 +304,47 @@ public class ReportRunServlet extends ClientServlet
           }
         }
 
-        if (message != null)
-        {
+        if (message != null) {
           request.setAttribute(REQUEST_VAR_MESSAGE, message);
         }
 
         String report = "<p><em>Report not run.</em></p>";
         printHtmlHead(out, "Reports", request);
 
-        if (message == null)
-        {
+        if (message == null) {
           DailyReportDetails dailyReportDetails = new DailyReportDetails();
           dailyReportDetails.setSentAttempted(new Date());
-          if (action.equals("Email"))
-          {
+          if (action.equals("Email")) {
             dailyReportDetailsMap.put(reportProfile.getProfileId(), dailyReportDetails);
             dailyReportDetails.setSendingNow(true);
           }
-          try
-          {
+          try {
             report = runReport(dataSession, action, reportProfile, runDate, parameterValues);
             dailyReportDetails.setReportText(report);
-          } catch (Exception e)
-          {
+          } catch (Exception e) {
             dailyReportDetails.setReportText("Unable to run report: " + e.getMessage());
             out.println("<p>Unable to run report </p>");
             out.println("<pre>");
             e.printStackTrace(out);
             out.println("</pre>");
-          } finally
-          {
+          } finally {
             dailyReportDetails.setSendingNow(false);
           }
         }
         out.print(report);
         printHtmlFoot(out);
-      } else if (action.equals("Show All"))
-      {
+      } else if (action.equals("Show All")) {
 
         printHtmlHead(out, "Reports", request);
 
         List<ReportProfile> reportProfileList = new ArrayList<ReportProfile>();
-        for (int profileId : dailyReportDetailsMap.keySet())
-        {
+        for (int profileId : dailyReportDetailsMap.keySet()) {
           reportProfileList.add((ReportProfile) dataSession.get(ReportProfile.class, profileId));
         }
 
         Collections.sort(reportProfileList, new Comparator<ReportProfile>() {
 
-          public int compare(ReportProfile o1, ReportProfile o2)
-          {
+          public int compare(ReportProfile o1, ReportProfile o2) {
             return o1.getProfileLabel().compareTo(o2.getProfileLabel());
           }
         });
@@ -390,32 +361,28 @@ public class ReportRunServlet extends ClientServlet
         out.println("    <th class=\"boxed\">&nbsp;</th>");
         out.println("  </tr>");
         SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
-        for (ReportProfile reportProfile : reportProfileList)
-        {
+        for (ReportProfile reportProfile : reportProfileList) {
           ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
           out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed\"><a href=\"ReportServlet?profileId=" + reportProfile.getProfileId() + "\" class=\"button\">"
-              + reportProfile.getProfileLabel() + "</a></td>");
+          out.println("    <td class=\"boxed\"><a href=\"ReportServlet?profileId=" + reportProfile.getProfileId()
+              + "\" class=\"button\">" + reportProfile.getProfileLabel() + "</a></td>");
 
           ReportSchedule reportSchedule = reportProfile.getReportSchedule();
 
           DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(reportProfile.getProfileId());
 
           out.println("    <td class=\"boxed\">" + sdf.format(dailyReportDetails.getSentAttempted()) + "</td>");
-          if (reportSchedule != null)
-          {
-            out.println("    <td class=\"boxed\">" + (reportSchedule.getStatus() != null ? reportSchedule.getStatusText() : "") + "</td>");
-          } else
-          {
+          if (reportSchedule != null) {
+            out.println("    <td class=\"boxed\">"
+                + (reportSchedule.getStatus() != null ? reportSchedule.getStatusText() : "") + "</td>");
+          } else {
             out.println("    <td class=\"boxed\">&nbsp;</td>");
           }
           out.println("    <td class=\"boxed\">" + dailyReportDetails.getStatusMessage() + "</td>");
-          if (dailyReportDetails.getReportText().length() > 0)
-          {
-            out.println("    <td class=\"boxed\"><a href=\"ReportRunServlet?action=Show&profileId=" + reportProfile.getProfileId()
-                + "\" class=\"box\">View</td>");
-          } else
-          {
+          if (dailyReportDetails.getReportText().length() > 0) {
+            out.println("    <td class=\"boxed\"><a href=\"ReportRunServlet?action=Show&profileId="
+                + reportProfile.getProfileId() + "\" class=\"box\">View</td>");
+          } else {
             out.println("    <td class=\"boxed\">&nbsp;</td>");
 
           }
@@ -423,196 +390,251 @@ public class ReportRunServlet extends ClientServlet
         }
         out.println("</table>");
         out.println("<h2>Run All</h2>");
-        out.println("<p>The automatic report runner is set to run daily reports at " + sdf.format(dailyReportRunner.getNextRunTime()) + ". ");
+        out.println("<p>The automatic report runner is set to run daily reports at "
+            + sdf.format(dailyReportRunner.getNextRunTime()) + ". ");
         out.println("The last status message was: " + dailyReportRunner.getStatusMessage() + ". </p>");
-        out.println("<p><a href=\"ReportRunServlet?action=Run%20All\">Run and send</a> all of today's reports now.</p>");
+        out.println("<form name=\"runAll\" method=\"post\" action=\"ReportRunServlet\">");
+        out.println("<input type=\"text\" name=\"runDate\" value=\"" + ReportBatch.createSimpleDateFormat().format(new Date()) + "\"/>");
+        out.println("<input type=\"submit\" name=\"action\" value=\"Run All\"/>");
+        out.println("<form>");
 
         printHtmlFoot(out);
-      } else if (action.equals("Show"))
-      {
-        DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(Integer.parseInt(request.getParameter("profileId")));
+      } else if (action.equals("Show")) {
+        DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(Integer.parseInt(request
+            .getParameter("profileId")));
         printHtmlHead(out, "Reports", request);
         out.print(dailyReportDetails.getReportText());
         printHtmlFoot(out);
       }
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
 
-  private static void runReportsForToday(Session dataSession, Date runDate)
-  {
+  private static void runReportsForToday(Date runDate) {
 
-    Query query;
+    SessionFactory factory = CentralControl.getSessionFactory();
+    Session dataSession = factory.openSession();
 
-    query = dataSession.createQuery("from TrackerKeys where id.keyType = ? and id.keyName = ? and keyValue = 'Y'");
-    query.setParameter(0, TrackerKeysManager.KEY_TYPE_USER);
-    query.setParameter(1, TrackerKeysManager.KEY_TRACK_TIME);
-    List<TrackerKeys> trackerKeysList = query.list();
-    for (TrackerKeys trackerKeys : trackerKeysList)
-    {
-      query = dataSession.createQuery("from WebUser where username= ? ");
-      query.setParameter(0, trackerKeys.getId().getKeyId());
-      List<WebUser> webUserList = query.list();
-      if (webUserList.size() > 0)
-      {
-        WebUser webUser = webUserList.get(0);
-        webUser.setProjectContact((ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId()));
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(runDate);
-        Date endDate = calendar.getTime();
-        calendar.add(Calendar.DAY_OF_MONTH, -1);
-        Date billDate = calendar.getTime();
-        calendar.set(Calendar.DAY_OF_MONTH, 1);
-        while (calendar.getTime().before(endDate))
-        {
-          TrackServlet.updateBillDay(dataSession, webUser, calendar.getTime());
-          calendar.add(Calendar.DAY_OF_MONTH, 1);
+    try {
+      Query query;
+
+      query = dataSession.createQuery("from TrackerKeys where id.keyType = ? and id.keyName = ? and keyValue = 'Y'");
+      query.setParameter(0, TrackerKeysManager.KEY_TYPE_USER);
+      query.setParameter(1, TrackerKeysManager.KEY_TRACK_TIME);
+      List<TrackerKeys> trackerKeysList = query.list();
+      for (TrackerKeys trackerKeys : trackerKeysList) {
+        query = dataSession.createQuery("from WebUser where username= ? ");
+        query.setParameter(0, trackerKeys.getId().getKeyId());
+        List<WebUser> webUserList = query.list();
+        if (webUserList.size() > 0) {
+          WebUser webUser = webUserList.get(0);
+          webUser.setProjectContact((ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId()));
+          boolean isSunday;
+          Date billDate;
+          {
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(runDate);
+            isSunday = calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY;
+            Date endDate = calendar.getTime();
+            calendar.add(Calendar.DAY_OF_MONTH, -1);
+            billDate = calendar.getTime();
+            calendar.set(Calendar.DAY_OF_MONTH, 1);
+            while (calendar.getTime().before(endDate)) {
+              TrackServlet.updateBillDay(dataSession, webUser, calendar.getTime());
+              calendar.add(Calendar.DAY_OF_MONTH, 1);
+            }
+          }
+          StringWriter stringWriter = new StringWriter();
+          String hoursWorked = runWorkingReportForDay(dataSession, webUser, billDate, stringWriter);
+          if (!hoursWorked.equals("0.0")) {
+            String report = stringWriter.toString();
+            stringWriter = new StringWriter();
+            PrintWriter printWriter = new PrintWriter(stringWriter);
+            MailManager mailManager = new MailManager(dataSession);
+            try {
+              printReportToEmail(report, printWriter);
+              printWriter.close();
+              mailManager.sendEmail("FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
+                  + " hours", stringWriter.toString(), webUser.getProjectContact().getEmail());
+            } catch (Exception e) {
+              e.printStackTrace();
+            }
+
+          }
+          if (isSunday) {
+            stringWriter = new StringWriter();
+            hoursWorked = runWorkingReportForWeek(dataSession, webUser, billDate, stringWriter);
+            if (!hoursWorked.equals("0.0")) {
+              query = dataSession.createQuery("from ProjectContactSupervisor where contact = ? and emailAlert = 'Y'");
+              query.setParameter(0, webUser.getProjectContact());
+              List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
+              String cc = null;
+              if (projectContactSupervisorList.size() > 0) {
+                cc = "";
+                for (ProjectContactSupervisor pcs : projectContactSupervisorList) {
+                  if (!cc.equals("")) {
+                    cc = cc + ",";
+                  }
+                  cc = cc + pcs.getSupervisor().getEmail();
+                }
+              }
+              String report = stringWriter.toString();
+              stringWriter = new StringWriter();
+              PrintWriter printWriter = new PrintWriter(stringWriter);
+              MailManager mailManager = new MailManager(dataSession);
+              try {
+                printReportToEmail(report, printWriter);
+                printWriter.close();
+                mailManager.sendEmail("FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
+                    + " hours this week", stringWriter.toString(), webUser.getProjectContact().getEmail(), cc);
+              } catch (Exception e) {
+                e.printStackTrace();
+              }
+            }
+          }
+
         }
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
-
-        printWriter.println("<html>");
-        printWriter.println("  <body>");
-
-        printWriter.println("    <h1>Yesterday</h1>");
-
-        TimeTracker timeTracker = new TimeTracker(webUser, billDate, dataSession);
-        String hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Day", false);
-
-        printWriter.println("    <h1>Work Remaining</h1>");
-        BillBudgetsServlet.runReport(webUser, printWriter, dataSession, false);
-        
-        printWriter.println("    <h1>For Week</h1>");
-        timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
-        TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week", false);
-
-        SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
-        printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
-        timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
-        TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month", false);
-
-        printWriter.println("  </body>");
-        printWriter.println("</html>");
-        printWriter.close();
-
-        String report = stringWriter.toString();
-        stringWriter = new StringWriter();
-        printWriter = new PrintWriter(stringWriter);
-
-        MailManager mailManager = new MailManager(dataSession);
-
-        try
-        {
-          printReportToEmail(report, printWriter);
-          printWriter.close();
-          mailManager.sendEmail("Time Tracker Update: " + hoursWorked + " hours worked", stringWriter.toString(), webUser.getProjectContact()
-              .getEmail());
-        } catch (Exception e)
-        {
-          e.printStackTrace();
-        }
-
       }
 
-    }
+      query = dataSession.createQuery("from ReportProfile where use_status = 'E'");
+      List<ReportProfile> reportProfileList = query.list();
+      for (ReportProfile reportProfile : reportProfileList) {
+        ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+        ReportSchedule reportSchedule = reportProfile.getReportSchedule();
+        if (reportSchedule != null && reportSchedule.isStatusQueued()
+            && (reportSchedule.isDaily() || reportSchedule.isMonthly() || reportSchedule.isYearly())
+            && reportSchedule.canRun()) {
+          DailyReportDetails dailyReportDetails = new DailyReportDetails();
+          dailyReportDetails.setSentAttempted(new Date());
+          dailyReportDetailsMap.put(reportProfile.getProfileId(), dailyReportDetails);
+          dailyReportDetails.setSendingNow(true);
+          StringBuilder sb = new StringBuilder();
+          try {
+            ReportBatch reportBatch = new ReportBatch();
+            reportBatch.setProfileId(reportProfile.getProfileId());
+            reportBatch.setRunDate(ReportBatch.createSimpleDateFormat().format(runDate));
+            reportBatch.setPeriod(reportSchedule.getPeriod().length() > 1 ? reportSchedule.getPeriod().substring(0, 1)
+                : "");
+            Map<String, String> parameterValues = reportBatch.getParameterValues();
 
-    query = dataSession.createQuery("from ReportProfile where use_status = 'E'");
-    List<ReportProfile> reportProfileList = query.list();
-    for (ReportProfile reportProfile : reportProfileList)
-    {
-      ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
-      ReportSchedule reportSchedule = reportProfile.getReportSchedule();
-      if (reportSchedule != null && reportSchedule.isStatusQueued()
-          && (reportSchedule.isDaily() || reportSchedule.isMonthly() || reportSchedule.isYearly()) && reportSchedule.canRun())
-      {
-        DailyReportDetails dailyReportDetails = new DailyReportDetails();
-        dailyReportDetails.setSentAttempted(new Date());
-        dailyReportDetailsMap.put(reportProfile.getProfileId(), dailyReportDetails);
-        dailyReportDetails.setSendingNow(true);
-        StringBuilder sb = new StringBuilder();
-        try
-        {
-          ReportBatch reportBatch = new ReportBatch();
-          reportBatch.setProfileId(reportProfile.getProfileId());
-          reportBatch.setRunDate(ReportBatch.createSimpleDateFormat().format(runDate));
-          reportBatch.setPeriod(reportSchedule.getPeriod().length() > 1 ? reportSchedule.getPeriod().substring(0, 1) : "");
-          Map<String, String> parameterValues = reportBatch.getParameterValues();
+            boolean goodToGo = true;
+            try {
+              GenerateReport.populateStartEndDates(reportBatch);
 
-          boolean goodToGo = true;
-          try
-          {
-            GenerateReport.populateStartEndDates(reportBatch);
-
-          } catch (Exception e)
-          {
-            sb.append("Unable to set start and end dates for report: " + e + " ");
-            goodToGo = false;
-          }
-          if (goodToGo)
-          {
-            List<ReportParameter> reportParameters = null;
-            try
-            {
-              reportParameters = reportProfile.getReportDefinition().getReportParameters();
-            } catch (Exception e)
-            {
-              sb.append("Unable to get report definition: " + e + " ");
+            } catch (Exception e) {
+              sb.append("Unable to set start and end dates for report: " + e + " ");
               goodToGo = false;
             }
-            if (goodToGo)
-            {
-              for (ReportParameter reportParameter : reportParameters)
-              {
-                String name = reportParameter.getName();
-                String value = TrackerKeysManager.getReportKeyValue(name, reportParameter.getDefaultValue(), reportProfile, dataSession);
-                if (value == null)
-                {
-                  value = "";
-                }
-                parameterValues.put(name.toUpperCase(), value);
+            if (goodToGo) {
+              List<ReportParameter> reportParameters = null;
+              try {
+                reportParameters = reportProfile.getReportDefinition().getReportParameters();
+              } catch (Exception e) {
+                sb.append("Unable to get report definition: " + e + " ");
+                goodToGo = false;
               }
-              try
-              {
-                String report = runReport(dataSession, "Email", reportProfile, runDate, parameterValues);
-                dailyReportDetails.setReportText(report);
-                sb.append("Report generated and sent");
-              } catch (Exception e)
-              {
-                sb.append("Unable to run report: " + e.getMessage());
+              if (goodToGo) {
+                for (ReportParameter reportParameter : reportParameters) {
+                  String name = reportParameter.getName();
+                  String value = TrackerKeysManager.getReportKeyValue(name, reportParameter.getDefaultValue(),
+                      reportProfile, dataSession);
+                  if (value == null) {
+                    value = "";
+                  }
+                  parameterValues.put(name.toUpperCase(), value);
+                }
+                try {
+                  String report = runReport(dataSession, "Email", reportProfile, runDate, parameterValues);
+                  dailyReportDetails.setReportText(report);
+                  sb.append("Report generated and sent");
+                } catch (Exception e) {
+                  sb.append("Unable to run report: " + e.getMessage());
+                }
               }
             }
+          } finally {
+            dailyReportDetails.setSendingNow(false);
+            dailyReportDetails.setStatusMessage(sb.toString());
           }
-        } finally
-        {
-          dailyReportDetails.setSendingNow(false);
-          dailyReportDetails.setStatusMessage(sb.toString());
         }
       }
+    } finally {
+      dataSession.close();
     }
   }
 
-  private static String runReport(Session dataSession, String action, ReportProfile reportProfile, Date runDate, Map<String, String> parameterValues)
-      throws IOException, Exception
-  {
+  private static String runWorkingReportForDay(Session dataSession, WebUser webUser, Date billDate,
+      StringWriter stringWriter) {
+    String hoursWorked = "";
+    {
+      PrintWriter printWriter = new PrintWriter(stringWriter);
+
+      printWriter.println("<html>");
+      printWriter.println("  <body>");
+
+      printWriter.println("    <h1>Yesterday</h1>");
+
+      TimeTracker timeTracker = new TimeTracker(webUser, billDate, dataSession);
+      hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Day", false);
+
+      printWriter.println("    <h1>For Week</h1>");
+      timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
+      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week", false);
+
+      SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
+      printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
+      timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
+      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month", false);
+
+      printWriter.println("  </body>");
+      printWriter.println("</html>");
+      printWriter.close();
+    }
+    return hoursWorked;
+  }
+
+  private static String runWorkingReportForWeek(Session dataSession, WebUser webUser, Date billDate,
+      StringWriter stringWriter) {
+    String hoursWorked = "";
+    {
+      PrintWriter printWriter = new PrintWriter(stringWriter);
+
+      printWriter.println("<html>");
+      printWriter.println("  <body>");
+
+      printWriter.println("    <h1>For Week</h1>");
+      TimeTracker timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
+      hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week", false);
+
+      SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
+      printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
+      timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
+      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month", false);
+
+      printWriter.println("  </body>");
+      printWriter.println("</html>");
+      printWriter.close();
+    }
+    return hoursWorked;
+  }
+
+  private static String runReport(Session dataSession, String action, ReportProfile reportProfile, Date runDate,
+      Map<String, String> parameterValues) throws IOException, Exception {
     String report;
     StringWriter stringWriter = new StringWriter();
     PrintWriter printWriter = new PrintWriter(stringWriter);
-    if (reportProfile.getProfileType().equals(ReportProfile.PROFILE_TYPE_XML_DEFINED))
-    {
+    if (reportProfile.getProfileType().equals(ReportProfile.PROFILE_TYPE_XML_DEFINED)) {
       ReportGenerator.generateReport(printWriter, null, parameterValues, reportProfile.getReportText(), dataSession);
-    } else if (reportProfile.getProfileType().equals(ReportProfile.PROFILE_TYPE_PROGRES_REPORT))
-    {
+    } else if (reportProfile.getProfileType().equals(ReportProfile.PROFILE_TYPE_PROGRES_REPORT)) {
       int billBudgetId = Integer.parseInt(parameterValues.get("BILLBUDGETID"));
       BillBudget billBudget = (BillBudget) dataSession.get(BillBudget.class, billBudgetId);
       BillBudgetServlet.generateReport(printWriter, dataSession, billBudget, runDate);
     }
     printWriter.close();
     report = stringWriter.toString();
-    if (action.equals("Email"))
-    {
+    if (action.equals("Email")) {
       MailManager mailManager = new MailManager(dataSession);
       ReportSchedule reportSchedule = reportProfile.getReportSchedule();
       stringWriter = new StringWriter();
@@ -627,20 +649,16 @@ public class ReportRunServlet extends ClientServlet
     return report;
   }
 
-  public static void printReportToEmail(String report, PrintWriter printWriter) throws IOException
-  {
+  public static void printReportToEmail(String report, PrintWriter printWriter) throws IOException {
     InputStream inputStream = new ByteArrayInputStream(report.getBytes());
     BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
 
     String line;
-    while ((line = bufferedReader.readLine()) != null)
-    {
+    while ((line = bufferedReader.readLine()) != null) {
       boolean substitutionFound = false;
-      for (String[] sub : CSS_SUBSITUTIONS)
-      {
+      for (String[] sub : CSS_SUBSITUTIONS) {
         int pos = line.indexOf(sub[0]);
-        if (pos >= 0)
-        {
+        if (pos >= 0) {
           pos = pos + sub[0].length();
           printWriter.print(line.substring(0, pos));
           printWriter.print(" style=\"");
@@ -652,8 +670,7 @@ public class ReportRunServlet extends ClientServlet
 
         }
       }
-      if (!substitutionFound)
-      {
+      if (!substitutionFound) {
         printWriter.println(line);
       }
     }
@@ -661,7 +678,8 @@ public class ReportRunServlet extends ClientServlet
   }
 
   private static String[][] CSS_SUBSITUTIONS = {
-      { "<table class=\"boxed\"",
+      {
+          "<table class=\"boxed\"",
           "border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" },
       {
           "<th class=\"boxed\"",
@@ -684,8 +702,7 @@ public class ReportRunServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -702,8 +719,7 @@ public class ReportRunServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
     processRequest(request, response);
   }
 

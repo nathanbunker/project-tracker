@@ -3,10 +3,10 @@
 <hibernate-configuration>
   <session-factory>
     <property name="hibernate.connection.driver_class">com.mysql.jdbc.Driver</property>
-    <property name="hibernate.connection.url">jdbc:mysql://localhost/tracker?zeroDateTimeBehavior=convertToNull</property>
-    <property name="hibernate.connection.username">tracker_web</property>
+    <property name="hibernate.connection.url">jdbc:mysql://localhost/openimmu_tracker?zeroDateTimeBehavior=convertToNull</property>
+    <property name="hibernate.connection.username">openimmu_trweb2</property>
     <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
-    <property name="connection.password">SharkBaitHooHaHa</property>
+    <property name="connection.password">SpoofsGloatsHeftedAfar48</property>
     <property name="hibernate.c3p0.acquire_increment">1</property>
     <property name="hibernate.c3p0.idle_test_period">100</property><!--  seconds -->
     <property name="hibernate.c3p0.timeout">100</property><!--  seconds -->
@@ -35,6 +35,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContact.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactAssigned.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactPosition.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactSupervisor.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectNextActionType.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectPhase.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectProvider.hbm.xml"/>

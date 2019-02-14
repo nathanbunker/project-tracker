@@ -1,0 +1,1 @@
+INSERT INTO tracker_keys (key_name, key_type, key_id, key_value) VALUES ('report.daily.enabled', 1, 'APPLICATION', 'N');

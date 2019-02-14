@@ -1,9 +1,12 @@
 package org.openimmunizationsoftware.pt.manager;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -38,6 +41,18 @@ public class TimeTracker
   public HashMap<String, Integer> getTotalMinsForBillCodeMap()
   {
     return totalMinsForBillCodeMap;
+  }
+  
+
+  public List<TimeEntry> createTimeEntryList() {
+    List<TimeEntry> timeEntryList;
+    timeEntryList = new ArrayList<TimeEntry>();
+    for (String billCodeString : totalMinsForBillCodeMap.keySet())
+    {
+      timeEntryList.add(new TimeEntry(billCodeString, totalMinsForBillCodeMap.get(billCodeString), billCodeString));
+    }
+    Collections.sort(timeEntryList);
+    return timeEntryList;
   }
 
   public synchronized HashMap<Integer, Integer> getTotalMinsForProjectMap()
@@ -386,7 +401,6 @@ public class TimeTracker
 
   public static String formatTime(int min)
   {
-
     int hour = min / 60;
     min = min % 60;
     if (min < 0)
