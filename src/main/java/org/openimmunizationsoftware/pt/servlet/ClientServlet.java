@@ -7,16 +7,15 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.openimmunizationsoftware.pt.CentralControl;
@@ -31,37 +30,34 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class ClientServlet extends HttpServlet
-{
+public class ClientServlet extends HttpServlet {
 
   public static final String SESSION_VAR_TIME_TRACKER = "timeTracker";
   public static final String SESSION_VAR_DATA_SESSION = "dataSession";
   public static final String SESSION_VAR_WEB_USER = "webUser";
   public static final String SESSION_VAR_PROJECT_ID_LIST = "projectIdList";
-  public static final String SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST = "projectContactAssignedList";
+  public static final String SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST =
+      "projectContactAssignedList";
   public static final String SESSION_VAR_PROJECT_SELECTED_LIST = "projectSelectedList";
   public static final String SESSION_VAR_PROJECT = "project";
   public static final String SESSION_VAR_PARENT_PROJECT = "parentProject";
   public static final String SESSION_VAR_CHILD_WEB_USER_LIST = "childWebUserList";
-  
+
   public static final HashMap<String, Date> webUserLastUsedDate = new HashMap<String, Date>();
 
   public static final String REQUEST_VAR_MESSAGE = "message";
 
   public static String systemWideMessage = "";
-  
-  public static String getSystemWideMessage()
-  {
+
+  public static String getSystemWideMessage() {
     return systemWideMessage;
   }
 
-  public static void setSystemWideMessage(String systemWideMessage)
-  {
+  public static void setSystemWideMessage(String systemWideMessage) {
     ClientServlet.systemWideMessage = systemWideMessage;
   }
 
-  protected static void printHtmlHead(PrintWriter out, String title, HttpServletRequest request)
-  {
+  protected static void printHtmlHead(PrintWriter out, String title, HttpServletRequest request) {
     HttpSession session = request.getSession();
     TimeTracker timeTracker = null;
     Project projectTrackTime = null;
@@ -69,19 +65,17 @@ public class ClientServlet extends HttpServlet
     WebUser webUser = null;
     Session dataSession = null;
 
-    if (session != null)
-    {
+    if (session != null) {
       dataSession = getDataSession(session);
       webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-      if (webUser != null)
-      {
+      if (webUser != null) {
         webUserLastUsedDate.put(webUser.getUsername(), new Date());
         timeTracker = (TimeTracker) session.getAttribute(SESSION_VAR_TIME_TRACKER);
-        if (timeTracker != null)
-        {
-          projectTrackTime = (Project) session.getAttribute(webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT : SESSION_VAR_PARENT_PROJECT);
-          if (projectTrackTime != null)
-          {
+        if (timeTracker != null) {
+          projectTrackTime = (Project) session
+              .getAttribute(webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT
+                  : SESSION_VAR_PARENT_PROJECT);
+          if (projectTrackTime != null) {
             timeTracker.update(projectTrackTime, dataSession);
           }
         }
@@ -91,38 +85,33 @@ public class ClientServlet extends HttpServlet
     out.println("<html>");
     out.println("  <head>");
 
-    if (timeTracker != null)
-    {
-      if (timeTracker.isRunningClock())
-      {
-        out.println("    <title>PT " + timeTracker.getTotalMinsBillableForDisplay() + " " + title + "</title>");
-      } else
-      {
+    if (timeTracker != null) {
+      if (timeTracker.isRunningClock()) {
+        out.println("    <title>PT " + timeTracker.getTotalMinsBillableForDisplay() + " " + title
+            + "</title>");
+      } else {
         out.println("    <title>PT (idle) " + title + "</title>");
       }
-    } else
-    {
+    } else {
       out.println("    <title>PT " + title + "</title>");
     }
 
     String displaySize = "small";
     String displayColor = "";
-    if (webUser != null)
-    {
-      displaySize = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE, "small", webUser, getDataSession(session));
-      displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "", webUser, getDataSession(session));
+    if (webUser != null) {
+      displaySize = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE, "small",
+          webUser, getDataSession(session));
+      displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
+          webUser, getDataSession(session));
     }
-    if (request.getParameter("displayColor") != null)
-    {
+    if (request.getParameter("displayColor") != null) {
       displayColor = request.getParameter("displayColor");
     }
 
-    try
-    {
-      out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"CssServlet?displaySize=" + displaySize + "&displayColor="
-          + URLEncoder.encode(displayColor, "UTF-8") + "\" />");
-    } catch (UnsupportedEncodingException uex)
-    {
+    try {
+      out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"CssServlet?displaySize="
+          + displaySize + "&displayColor=" + URLEncoder.encode(displayColor, "UTF-8") + "\" />");
+    } catch (UnsupportedEncodingException uex) {
       uex.printStackTrace();
     }
     out.println("    <script>");
@@ -133,9 +122,8 @@ public class ClientServlet extends HttpServlet
     out.println("      if (refreshCount > 500)");
     out.println("      {");
     String link = "HomeServlet";
-    if (title.equals("Projects") && projectSelected != null)
-    {
-      
+    if (title.equals("Projects") && projectSelected != null) {
+
       link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
     }
     out.println("        window.location.href=\"" + link + "\"");
@@ -163,9 +151,12 @@ public class ClientServlet extends HttpServlet
     out.println("        else if (document.layers) ");
     out.println("          elem = document.layers[whichLayer]");
     out.println("        vis = elem.style;");
-    out.println("        if (vis.display == '' && elem.offsetWidth != undefined && elem.offsetHeight != undefined) ");
-    out.println("          vis.display = (elem.offsetWidth != 0 && elem.offsetHeight != 0) ? 'block' : 'none';");
-    out.println("        vis.display = (vis.display == '' || vis.display == 'block') ? 'none' : 'block';");
+    out.println(
+        "        if (vis.display == '' && elem.offsetWidth != undefined && elem.offsetHeight != undefined) ");
+    out.println(
+        "          vis.display = (elem.offsetWidth != 0 && elem.offsetHeight != 0) ? 'block' : 'none';");
+    out.println(
+        "        vis.display = (vis.display == '' || vis.display == 'block') ? 'none' : 'block';");
     out.println("      }");
     out.println("      function toggleVisibility(id) ");
     out.println("      {");
@@ -219,33 +210,28 @@ public class ClientServlet extends HttpServlet
     out.println(makeMenu(request, title));
 
     String message = (String) request.getAttribute(REQUEST_VAR_MESSAGE);
-    if (message != null)
-    {
+    if (message != null) {
       out.println("<p class=\"fail\">" + message + "</p>");
     }
-    
-    if (!systemWideMessage.equals(""))
-    {
+
+    if (!systemWideMessage.equals("")) {
       out.println("<p class=\"fail\">" + systemWideMessage + "</p>");
     }
 
   }
 
-  public static String makeMenu(HttpServletRequest request)
-  {
+  public static String makeMenu(HttpServletRequest request) {
     return makeMenu(request, "&nbsp;");
   }
 
-  public static String makeMenu(HttpServletRequest request, String title)
-  {
+  public static String makeMenu(HttpServletRequest request, String title) {
     boolean loggedIn = false;
     HttpSession session = request.getSession();
     TimeTracker timeTracker = null;
     WebUser webUser = null;
     Session dataSession = null;
 
-    if (session != null)
-    {
+    if (session != null) {
       dataSession = getDataSession(session);
       webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
       loggedIn = webUser != null;
@@ -253,54 +239,45 @@ public class ClientServlet extends HttpServlet
     }
     List<String[]> menuList = new ArrayList<String[]>();
 
-    if (loggedIn)
-    {
-      if (webUser.getParentWebUser() == null)
-      {
-        menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
-      } else
-      {
-        ProjectProvider projectProvider = (ProjectProvider) dataSession.get(ProjectProvider.class, webUser.getProviderId());
-        menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, projectProvider.getProviderName() + " Home" });
+    if (loggedIn) {
+      if (webUser.getParentWebUser() == null) {
+        menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME, "Home"});
+      } else {
+        ProjectProvider projectProvider =
+            (ProjectProvider) dataSession.get(ProjectProvider.class, webUser.getProviderId());
+        menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME,
+            projectProvider.getProviderName() + " Home"});
       }
-      menuList.add(new String[] { "ProjectsServlet", "Projects" });
-      menuList.add(new String[] { "ProjectContactsServlet", "Contacts" });
-      
-      if (webUser.isUserTypeAdmin())
-      {
-        menuList.add(new String[] { "ReportsServlet" , "Reports"});
+      menuList.add(new String[] {"ProjectsServlet", "Projects"});
+      menuList.add(new String[] {"ProjectContactsServlet", "Contacts"});
+
+      if (webUser.isUserTypeAdmin()) {
+        menuList.add(new String[] {"ReportsServlet", "Reports"});
       }
 
-      if (webUser.getParentWebUser() == null)
-      {
-        if (timeTracker != null)
-        {
-          menuList.add(new String[] { "TrackServlet", "Track" });
+      if (webUser.getParentWebUser() == null) {
+        if (timeTracker != null) {
+          menuList.add(new String[] {"TrackServlet", "Track"});
         }
-        if (webUser.isManageBudget())
-        {
-          menuList.add(new String[] { "BudgetServlet", "Budget" });
+        if (webUser.isManageBudget()) {
+          menuList.add(new String[] {"BudgetServlet", "Budget"});
         }
       }
-      menuList.add(new String[] { "SettingsServlet", "Settings" });
-    } else
-    {
-      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
-      menuList.add(new String[] { "LoginServlet", "Login" });
+      menuList.add(new String[] {"SettingsServlet", "Settings"});
+    } else {
+      menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME, "Home"});
+      menuList.add(new String[] {"LoginServlet", "Login"});
     }
     StringBuilder result = new StringBuilder();
     result.append("    <table class=\"menu\"><tr><td>");
-    for (int i = 0; i < menuList.size(); i++)
-    {
+    for (int i = 0; i < menuList.size(); i++) {
       String[] menu = menuList.get(i);
-      if (i > 0)
-      {
+      if (i > 0) {
         // result.append(" &bull; ");
         result.append(" ");
       }
       String styleClass = "menuLink";
-      if (menu[1].equals(title))
-      {
+      if (menu[1].equals(title)) {
         styleClass = "menuLinkSelected";
       }
       result.append("<a class=\"");
@@ -314,74 +291,65 @@ public class ClientServlet extends HttpServlet
     }
 
     result.append("</td><td class=\"right\">");
-    if (loggedIn)
-    {
+    if (loggedIn) {
       Project project = (Project) session.getAttribute(SESSION_VAR_PROJECT);
-      if (webUser.getParentWebUser() == null)
-      {
-        if (project != null)
-        {
-          result
-              .append("<a href=\"ProjectServlet?projectId=" + project.getProjectId() + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
-          if (timeTracker != null)
-          {
+      if (webUser.getParentWebUser() == null) {
+        if (project != null) {
+          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
+              + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
+          if (timeTracker != null) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
             Integer mins = timeTracker.getTotalMinsForProjectMap().get(project.getProjectId());
-            if (mins != null)
-            {
+            if (mins != null) {
               time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
             }
-            if (timeTracker.isRunningClock())
-            {
-              result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">" + time + "</a>");
-            } else
-            {
-              result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId() + "&action=StartTimer\" class=\"timerStopped\">" + time
-                  + "</a>");
+            if (timeTracker.isRunningClock()) {
+              result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
+                  + time + "</a>");
+            } else {
+              result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
+                  + "&action=StartTimer\" class=\"timerStopped\">" + time + "</a>");
             }
           }
         }
-      } else
-      {
+      } else {
         Project parentProject = (Project) session.getAttribute(SESSION_VAR_PARENT_PROJECT);
-        if (parentProject != null && project != null)
-        {
-          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId() + "\" class=\"menuLink\">" + project.getProjectName() + " - "
+        if (parentProject != null && project != null) {
+          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
+              + "\" class=\"menuLink\">" + project.getProjectName() + " - "
               + parentProject.getProjectName() + "</a>");
-          if (timeTracker != null && parentProject != null && timeTracker.isRunningClock())
-          {
+          if (timeTracker != null && parentProject != null && timeTracker.isRunningClock()) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
-            Integer mins = timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
-            if (mins != null)
-            {
+            Integer mins =
+                timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
+            if (mins != null) {
               time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
             }
-            result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">" + time + "</a>");
+            result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">" + time
+                + "</a>");
           }
-        } else if (project != null)
-        {
-          result
-              .append("<a href=\"ProjectServlet?projectId=" + project.getProjectId() + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
+        } else if (project != null) {
+          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
+              + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
         }
 
       }
-    } else
-    {
+    } else {
       result.append("&nbsp;");
     }
     result.append("</td></tr></table><br>");
     return result.toString();
   }
 
-  public static void printFooter(PrintWriter out)
-  {
-    out.println("    <p>Open Immunization Software - Project Tracker - Version " + SoftwareVersion.VERSION + "<br>"
-        + "For questions or support please contact <a href=\"http://openimmunizationsoftware.net/\">Nathan Bunker</a>.</p>");
+  public static void printFooter(PrintWriter out) {
+    SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z");
+    out.println(
+        "    <p>Open Immunization Software - Project Tracker - Version " + SoftwareVersion.VERSION
+            + "<br>" + "Current server time is " + sdf.format(System.currentTimeMillis()) + "</p>");
 
   }
 
-  public static void printHtmlFoot(PrintWriter out)
-  {
+  public static void printHtmlFoot(PrintWriter out) {
     printFooter(out);
     out.println("  </body>");
     out.println("</html>");
@@ -393,16 +361,14 @@ public class ClientServlet extends HttpServlet
    * @return a String containing servlet description
    */
   @Override
-  public String getServletInfo()
-  {
+  public String getServletInfo() {
     return "Short description";
   }// </editor-fold>
 
-  public static org.hibernate.Session getDataSession(HttpSession session)
-  {
-    org.hibernate.Session dataSession = (org.hibernate.Session) session.getAttribute(SESSION_VAR_DATA_SESSION);
-    if (dataSession == null)
-    {
+  public static org.hibernate.Session getDataSession(HttpSession session) {
+    org.hibernate.Session dataSession =
+        (org.hibernate.Session) session.getAttribute(SESSION_VAR_DATA_SESSION);
+    if (dataSession == null) {
       SessionFactory factory = CentralControl.getSessionFactory();
       dataSession = factory.openSession();
       session.setAttribute(SESSION_VAR_DATA_SESSION, dataSession);
@@ -410,54 +376,42 @@ public class ClientServlet extends HttpServlet
     return dataSession;
   }
 
-  protected static String nbsp(String s)
-  {
-    if (s == null || s.equals(""))
-    {
+  protected static String nbsp(String s) {
+    if (s == null || s.equals("")) {
       return "&nbsp;";
     }
     return s;
   }
 
-  protected static String n(String s)
-  {
-    if (s == null || s.equals(""))
-    {
+  protected static String n(String s) {
+    if (s == null || s.equals("")) {
       return "";
     }
     return s;
   }
 
-  protected static String n(Integer i)
-  {
-    if (i == null)
-    {
+  protected static String n(Integer i) {
+    if (i == null) {
       return "";
     }
     return "" + i;
   }
 
-  protected String addBreaks(String s)
-  {
-    if (s == null)
-    {
+  protected String addBreaks(String s) {
+    if (s == null) {
       return "";
     }
     StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < s.length(); i = i + 20)
-    {
+    for (int i = 0; i < s.length(); i = i + 20) {
       String t;
-      if ((i + 20) < s.length())
-      {
+      if ((i + 20) < s.length()) {
         t = s.substring(i, i + 20);
         sb.append(t);
-      } else
-      {
+      } else {
         t = s.substring(i);
         sb.append(t);
         int pos = t.indexOf(" ");
-        if (pos == -1)
-        {
+        if (pos == -1) {
           sb.append(" ");
         }
       }
@@ -465,50 +419,39 @@ public class ClientServlet extends HttpServlet
     return sb.toString();
   }
 
-  protected String n(String s, String d)
-  {
-    if (s == null || s.equals(""))
-    {
+  protected String n(String s, String d) {
+    if (s == null || s.equals("")) {
       return d;
     }
     return s;
   }
 
-  protected String trim(String s, int length)
-  {
-    if (s == null)
-    {
+  protected String trim(String s, int length) {
+    if (s == null) {
       return "";
     }
-    if (s.length() < length)
-    {
+    if (s.length() < length) {
       return s;
     }
     return s.substring(0, length);
   }
 
-  protected String trimForDisplay(String s, int length)
-  {
-    if (s == null)
-    {
+  protected String trimForDisplay(String s, int length) {
+    if (s == null) {
       return "";
     }
-    if (s.length() < length)
-    {
+    if (s.length() < length) {
       return s;
     }
     return s.substring(0, length) + "...";
   }
 
-  private static String getTimeForDisplay(int min)
-  {
+  private static String getTimeForDisplay(int min) {
     int hour = min / 60;
     min = min % 60;
-    if (min < 10)
-    {
+    if (min < 10) {
       return hour + ":0" + min;
-    } else
-    {
+    } else {
       return hour + ":" + min;
     }
   }

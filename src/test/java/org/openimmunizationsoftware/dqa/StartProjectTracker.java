@@ -2,14 +2,12 @@ package org.openimmunizationsoftware.dqa;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-
 import org.apache.wicket.util.time.Duration;
 import org.eclipse.jetty.http.ssl.SslContextFactory;
 import org.eclipse.jetty.server.Server;
@@ -18,43 +16,39 @@ import org.eclipse.jetty.server.ssl.SslSocketConnector;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.webapp.WebAppContext;
 
-public class StartProjectTracker
-{
+public class StartProjectTracker {
 
+  private static final int PORT_NUMBER = 8262;
   private static boolean TRUST_ALL_CERTS = true;
 
-  public static void main(String[] args) throws Exception
-  {
+  public static void main(String[] args) throws Exception {
 
-    if (TRUST_ALL_CERTS)
-    {
-      TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+    if (TRUST_ALL_CERTS) {
+      TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
 
-        public X509Certificate[] getAcceptedIssuers()
-        {
+        public X509Certificate[] getAcceptedIssuers() {
           // TODO Auto-generated method stub
           return null;
         }
 
-        public void checkServerTrusted(X509Certificate[] arg0, String arg1) throws CertificateException
-        {
+        public void checkServerTrusted(X509Certificate[] arg0, String arg1)
+            throws CertificateException {
           // TODO Auto-generated method stub
 
         }
 
-        public void checkClientTrusted(X509Certificate[] arg0, String arg1) throws CertificateException
-        {
+        public void checkClientTrusted(X509Certificate[] arg0, String arg1)
+            throws CertificateException {
           // TODO Auto-generated method stub
 
         }
-      } };
+      }};
       SSLContext sc = SSLContext.getInstance("SSL");
       sc.init(null, trustAllCerts, new java.security.SecureRandom());
       HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
       HostnameVerifier allHostsValid = new HostnameVerifier() {
 
-        public boolean verify(String arg0, SSLSession arg1)
-        {
+        public boolean verify(String arg0, SSLSession arg1) {
           // TODO Auto-generated method stub
           return true;
         }
@@ -70,7 +64,7 @@ public class StartProjectTracker
     // Set some timeout options to make debugging easier.
     connector.setMaxIdleTime(timeout);
     connector.setSoLingerTime(-1);
-    connector.setPort(8262);
+    connector.setPort(PORT_NUMBER);
     server.addConnector(connector);
 
     // check if a keystore for a SSL certificate is available, and
@@ -81,8 +75,7 @@ public class StartProjectTracker
     // in the source.
 
     Resource keystore = Resource.newClassPathResource("/keystore");
-    if (keystore != null && keystore.exists())
-    {
+    if (keystore != null && keystore.exists()) {
       connector.setConfidentialPort(8442);
 
       SslContextFactory factory = new SslContextFactory();
@@ -114,16 +107,15 @@ public class StartProjectTracker
 
     server.setHandler(bb);
 
-    try
-    {
-      System.out.println(">>> STARTING EMBEDDED JETTY SERVER, PRESS ANY KEY TO STOP");
+    try {
+      System.out.println(
+          ">>> STARTING EMBEDDED JETTY SERVER ON PORT " + PORT_NUMBER + ", PRESS ANY KEY TO STOP");
       server.start();
       System.in.read();
       System.out.println(">>> STOPPING EMBEDDED JETTY SERVER");
       server.stop();
       server.join();
-    } catch (Exception e)
-    {
+    } catch (Exception e) {
       e.printStackTrace();
       System.exit(1);
     }
