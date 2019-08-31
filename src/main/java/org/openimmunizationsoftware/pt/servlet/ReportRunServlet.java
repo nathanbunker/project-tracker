@@ -21,13 +21,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -51,15 +49,14 @@ import org.openimmunizationsoftware.pt.report.definition.ReportParameter;
  * 
  * @author nathan
  */
-public class ReportRunServlet extends ClientServlet
-{
+public class ReportRunServlet extends ClientServlet {
 
-  private static Map<Integer, DailyReportDetails> dailyReportDetailsMap = new HashMap<Integer, ReportRunServlet.DailyReportDetails>();
+  private static Map<Integer, DailyReportDetails> dailyReportDetailsMap =
+      new HashMap<Integer, ReportRunServlet.DailyReportDetails>();
 
   private DailyReportRunner dailyReportRunner = null;
 
-  private static class DailyReportDetails
-  {
+  private static class DailyReportDetails {
     private Date sentAttempted;
     private String reportText = "";
     private String statusMessage = "";
@@ -107,8 +104,7 @@ public class ReportRunServlet extends ClientServlet
     dailyReportRunner.start();
   }
 
-  private class DailyReportRunner extends Thread
-  {
+  private class DailyReportRunner extends Thread {
     private Date lastRunTime = new Date();
     private Date nextRunTime;
     private boolean dailyEnabled = false;
@@ -125,11 +121,11 @@ public class ReportRunServlet extends ClientServlet
     private void init() {
       SessionFactory factory = CentralControl.getSessionFactory();
       Session dataSession = factory.openSession();
-      dailyEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(TrackerKeysManager.KEY_REPORT_DAILY_ENABLED,
-          false, dataSession);
+      dailyEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(
+          TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, false, dataSession);
       if (dailyEnabled) {
-        String dailyTime = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME,
-            dataSession);
+        String dailyTime = TrackerKeysManager
+            .getApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME, dataSession);
         if (dailyTime.equals("")) {
           dailyTime = "1:30";
         }
@@ -211,8 +207,8 @@ public class ReportRunServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,
-      IOException {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
@@ -244,8 +240,7 @@ public class ReportRunServlet extends ClientServlet
         }
         if (message == null) {
           runReportsForToday(runDate);
-        }
-        else {
+        } else {
           request.setAttribute(REQUEST_VAR_MESSAGE, message);
         }
 
@@ -364,17 +359,21 @@ public class ReportRunServlet extends ClientServlet
         for (ReportProfile reportProfile : reportProfileList) {
           ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
           out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed\"><a href=\"ReportServlet?profileId=" + reportProfile.getProfileId()
-              + "\" class=\"button\">" + reportProfile.getProfileLabel() + "</a></td>");
+          out.println("    <td class=\"boxed\"><a href=\"ReportServlet?profileId="
+              + reportProfile.getProfileId() + "\" class=\"button\">"
+              + reportProfile.getProfileLabel() + "</a></td>");
 
           ReportSchedule reportSchedule = reportProfile.getReportSchedule();
 
-          DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(reportProfile.getProfileId());
+          DailyReportDetails dailyReportDetails =
+              dailyReportDetailsMap.get(reportProfile.getProfileId());
 
-          out.println("    <td class=\"boxed\">" + sdf.format(dailyReportDetails.getSentAttempted()) + "</td>");
+          out.println("    <td class=\"boxed\">" + sdf.format(dailyReportDetails.getSentAttempted())
+              + "</td>");
           if (reportSchedule != null) {
             out.println("    <td class=\"boxed\">"
-                + (reportSchedule.getStatus() != null ? reportSchedule.getStatusText() : "") + "</td>");
+                + (reportSchedule.getStatus() != null ? reportSchedule.getStatusText() : "")
+                + "</td>");
           } else {
             out.println("    <td class=\"boxed\">&nbsp;</td>");
           }
@@ -392,16 +391,18 @@ public class ReportRunServlet extends ClientServlet
         out.println("<h2>Run All</h2>");
         out.println("<p>The automatic report runner is set to run daily reports at "
             + sdf.format(dailyReportRunner.getNextRunTime()) + ". ");
-        out.println("The last status message was: " + dailyReportRunner.getStatusMessage() + ". </p>");
+        out.println(
+            "The last status message was: " + dailyReportRunner.getStatusMessage() + ". </p>");
         out.println("<form name=\"runAll\" method=\"post\" action=\"ReportRunServlet\">");
-        out.println("<input type=\"text\" name=\"runDate\" value=\"" + ReportBatch.createSimpleDateFormat().format(new Date()) + "\"/>");
+        out.println("<input type=\"text\" name=\"runDate\" value=\""
+            + ReportBatch.createSimpleDateFormat().format(new Date()) + "\"/>");
         out.println("<input type=\"submit\" name=\"action\" value=\"Run All\"/>");
         out.println("<form>");
 
         printHtmlFoot(out);
       } else if (action.equals("Show")) {
-        DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(Integer.parseInt(request
-            .getParameter("profileId")));
+        DailyReportDetails dailyReportDetails =
+            dailyReportDetailsMap.get(Integer.parseInt(request.getParameter("profileId")));
         printHtmlHead(out, "Reports", request);
         out.print(dailyReportDetails.getReportText());
         printHtmlFoot(out);
@@ -420,7 +421,8 @@ public class ReportRunServlet extends ClientServlet
     try {
       Query query;
 
-      query = dataSession.createQuery("from TrackerKeys where id.keyType = ? and id.keyName = ? and keyValue = 'Y'");
+      query = dataSession.createQuery(
+          "from TrackerKeys where id.keyType = ? and id.keyName = ? and keyValue = 'Y'");
       query.setParameter(0, TrackerKeysManager.KEY_TYPE_USER);
       query.setParameter(1, TrackerKeysManager.KEY_TRACK_TIME);
       List<TrackerKeys> trackerKeysList = query.list();
@@ -430,7 +432,8 @@ public class ReportRunServlet extends ClientServlet
         List<WebUser> webUserList = query.list();
         if (webUserList.size() > 0) {
           WebUser webUser = webUserList.get(0);
-          webUser.setProjectContact((ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId()));
+          webUser.setProjectContact(
+              (ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId()));
           boolean isSunday;
           Date billDate;
           {
@@ -456,8 +459,11 @@ public class ReportRunServlet extends ClientServlet
             try {
               printReportToEmail(report, printWriter);
               printWriter.close();
-              mailManager.sendEmail("FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
-                  + " hours", stringWriter.toString(), webUser.getProjectContact().getEmail());
+              mailManager
+                  .sendEmail(
+                      "FYI: " + webUser.getProjectContact().getNameFirst() + " worked "
+                          + hoursWorked + " hours",
+                      stringWriter.toString(), webUser.getProjectContact().getEmail());
             } catch (Exception e) {
               e.printStackTrace();
             }
@@ -467,7 +473,8 @@ public class ReportRunServlet extends ClientServlet
             stringWriter = new StringWriter();
             hoursWorked = runWorkingReportForWeek(dataSession, webUser, billDate, stringWriter);
             if (!hoursWorked.equals("0.0")) {
-              query = dataSession.createQuery("from ProjectContactSupervisor where contact = ? and emailAlert = 'Y'");
+              query = dataSession.createQuery(
+                  "from ProjectContactSupervisor where contact = ? and emailAlert = 'Y'");
               query.setParameter(0, webUser.getProjectContact());
               List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
               String cc = null;
@@ -487,8 +494,10 @@ public class ReportRunServlet extends ClientServlet
               try {
                 printReportToEmail(report, printWriter);
                 printWriter.close();
-                mailManager.sendEmail("FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
-                    + " hours this week", stringWriter.toString(), webUser.getProjectContact().getEmail(), cc);
+                mailManager.sendEmail(
+                    "FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
+                        + " hours this week",
+                    stringWriter.toString(), webUser.getProjectContact().getEmail(), cc);
               } catch (Exception e) {
                 e.printStackTrace();
               }
@@ -515,8 +524,9 @@ public class ReportRunServlet extends ClientServlet
             ReportBatch reportBatch = new ReportBatch();
             reportBatch.setProfileId(reportProfile.getProfileId());
             reportBatch.setRunDate(ReportBatch.createSimpleDateFormat().format(runDate));
-            reportBatch.setPeriod(reportSchedule.getPeriod().length() > 1 ? reportSchedule.getPeriod().substring(0, 1)
-                : "");
+            reportBatch.setPeriod(
+                reportSchedule.getPeriod().length() > 1 ? reportSchedule.getPeriod().substring(0, 1)
+                    : "");
             Map<String, String> parameterValues = reportBatch.getParameterValues();
 
             boolean goodToGo = true;
@@ -538,15 +548,16 @@ public class ReportRunServlet extends ClientServlet
               if (goodToGo) {
                 for (ReportParameter reportParameter : reportParameters) {
                   String name = reportParameter.getName();
-                  String value = TrackerKeysManager.getReportKeyValue(name, reportParameter.getDefaultValue(),
-                      reportProfile, dataSession);
+                  String value = TrackerKeysManager.getReportKeyValue(name,
+                      reportParameter.getDefaultValue(), reportProfile, dataSession);
                   if (value == null) {
                     value = "";
                   }
                   parameterValues.put(name.toUpperCase(), value);
                 }
                 try {
-                  String report = runReport(dataSession, "Email", reportProfile, runDate, parameterValues);
+                  String report =
+                      runReport(dataSession, "Email", reportProfile, runDate, parameterValues);
                   dailyReportDetails.setReportText(report);
                   sb.append("Report generated and sent");
                 } catch (Exception e) {
@@ -577,16 +588,19 @@ public class ReportRunServlet extends ClientServlet
       printWriter.println("    <h1>Yesterday</h1>");
 
       TimeTracker timeTracker = new TimeTracker(webUser, billDate, dataSession);
-      hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Day", false);
+      hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker,
+          "Day", false);
 
       printWriter.println("    <h1>For Week</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
-      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week", false);
+      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week",
+          false);
 
       SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
       printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
-      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month", false);
+      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month",
+          false);
 
       printWriter.println("  </body>");
       printWriter.println("</html>");
@@ -605,13 +619,16 @@ public class ReportRunServlet extends ClientServlet
       printWriter.println("  <body>");
 
       printWriter.println("    <h1>For Week</h1>");
-      TimeTracker timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
-      hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week", false);
+      TimeTracker timeTracker =
+          new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
+      hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker,
+          "Week", false);
 
       SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
       printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
-      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month", false);
+      TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month",
+          false);
 
       printWriter.println("  </body>");
       printWriter.println("</html>");
@@ -620,13 +637,14 @@ public class ReportRunServlet extends ClientServlet
     return hoursWorked;
   }
 
-  private static String runReport(Session dataSession, String action, ReportProfile reportProfile, Date runDate,
-      Map<String, String> parameterValues) throws IOException, Exception {
+  private static String runReport(Session dataSession, String action, ReportProfile reportProfile,
+      Date runDate, Map<String, String> parameterValues) throws IOException, Exception {
     String report;
     StringWriter stringWriter = new StringWriter();
     PrintWriter printWriter = new PrintWriter(stringWriter);
     if (reportProfile.getProfileType().equals(ReportProfile.PROFILE_TYPE_XML_DEFINED)) {
-      ReportGenerator.generateReport(printWriter, null, parameterValues, reportProfile.getReportText(), dataSession);
+      ReportGenerator.generateReport(printWriter, null, parameterValues,
+          reportProfile.getReportText(), dataSession);
     } else if (reportProfile.getProfileType().equals(ReportProfile.PROFILE_TYPE_PROGRES_REPORT)) {
       int billBudgetId = Integer.parseInt(parameterValues.get("BILLBUDGETID"));
       BillBudget billBudget = (BillBudget) dataSession.get(BillBudget.class, billBudgetId);
@@ -643,7 +661,8 @@ public class ReportRunServlet extends ClientServlet
       printReportToEmail(report, printWriter);
       GenerateReport.doFooter(printWriter, reportProfile, "Email");
 
-      mailManager.sendEmail(reportSchedule.getName(), stringWriter.toString(), reportSchedule.getLocation());
+      mailManager.sendEmail(reportSchedule.getName(), stringWriter.toString(),
+          reportSchedule.getLocation());
 
     }
     return report;
@@ -677,17 +696,13 @@ public class ReportRunServlet extends ClientServlet
     bufferedReader.close();
   }
 
-  private static String[][] CSS_SUBSITUTIONS = {
-      {
-          "<table class=\"boxed\"",
-          "border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" },
-      {
-          "<th class=\"boxed\"",
-          "background-color: #DDDDDD; text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" },
-      { "<th class=\"title\"", "background-color: #990000; color: #DDDDDD; padding-left: 5px;" },
-      {
-          "<td class=\"boxed\"",
-          "text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" } };
+  private static String[][] CSS_SUBSITUTIONS = {{"<table class=\"boxed\"",
+      "border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;"},
+      {"<th class=\"boxed\"",
+          "background-color: #DDDDDD; text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;"},
+      {"<th class=\"title\"", "background-color: #990000; color: #DDDDDD; padding-left: 5px;"},
+      {"<td class=\"boxed\"",
+          "text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;"}};
 
   /**
    * Handles the HTTP <code>GET</code> method.
@@ -702,7 +717,8 @@ public class ReportRunServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -719,7 +735,8 @@ public class ReportRunServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

@@ -2,8 +2,7 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.util.Date;
 
-public class BillDay
-{
+public class BillDay {
   private int billDayId = 0;
   private BillCode billCode = null;
   private Date billDate = null;
@@ -12,73 +11,59 @@ public class BillDay
   private BillBudget billBudget = null;
   private BillMonth billMonth = null;
 
-  public int getBillMinsBudget()
-  {
+  public int getBillMinsBudget() {
     return billMinsBudget;
   }
 
-  public void setBillMinsBudget(int billMinsBudget)
-  {
+  public void setBillMinsBudget(int billMinsBudget) {
     this.billMinsBudget = billMinsBudget;
   }
 
-  public BillMonth getBillMonth()
-  {
+  public BillMonth getBillMonth() {
     return billMonth;
   }
 
-  public void setBillMonth(BillMonth billMonth)
-  {
+  public void setBillMonth(BillMonth billMonth) {
     this.billMonth = billMonth;
   }
 
-  public BillBudget getBillBudget()
-  {
+  public BillBudget getBillBudget() {
     return billBudget;
   }
 
-  public void setBillBudget(BillBudget billBudget)
-  {
+  public void setBillBudget(BillBudget billBudget) {
     this.billBudget = billBudget;
   }
 
-  public int getBillDayId()
-  {
+  public int getBillDayId() {
     return billDayId;
   }
 
-  public void setBillDayId(int billDayId)
-  {
+  public void setBillDayId(int billDayId) {
     this.billDayId = billDayId;
   }
 
-  public BillCode getBillCode()
-  {
+  public BillCode getBillCode() {
     return billCode;
   }
 
-  public void setBillCode(BillCode billCode)
-  {
+  public void setBillCode(BillCode billCode) {
     this.billCode = billCode;
   }
 
-  public Date getBillDate()
-  {
+  public Date getBillDate() {
     return billDate;
   }
 
-  public void setBillDate(Date billDate)
-  {
+  public void setBillDate(Date billDate) {
     this.billDate = billDate;
   }
 
-  public int getBillMins()
-  {
+  public int getBillMins() {
     return billMins;
   }
 
-  public void setBillMins(int billMins)
-  {
+  public void setBillMins(int billMins) {
     this.billMins = billMins;
   }
 

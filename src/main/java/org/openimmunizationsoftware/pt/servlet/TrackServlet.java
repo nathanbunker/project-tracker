@@ -16,13 +16,11 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -42,8 +40,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class TrackServlet extends ClientServlet
-{
+public class TrackServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
@@ -57,8 +54,8 @@ public class TrackServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,
-      IOException {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
@@ -104,10 +101,10 @@ public class TrackServlet extends ClientServlet
 
       WebUser webUserSelected = webUser;
       if (supervisedContactId > 0) {
-        ProjectContact projectContactSelected = (ProjectContact) dataSession.get(ProjectContact.class,
-            supervisedContactId);
-        Query query = dataSession
-            .createQuery("from ProjectContactSupervisor where supervisor = ? and contact = ? order by contact.nameFirst, contact.nameLast");
+        ProjectContact projectContactSelected =
+            (ProjectContact) dataSession.get(ProjectContact.class, supervisedContactId);
+        Query query = dataSession.createQuery(
+            "from ProjectContactSupervisor where supervisor = ? and contact = ? order by contact.nameFirst, contact.nameLast");
         query.setParameter(0, webUser.getProjectContact());
         query.setParameter(1, projectContactSelected);
         List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
@@ -129,7 +126,8 @@ public class TrackServlet extends ClientServlet
         try {
           billDate = sdf.parse(billDateString);
           if (type.equals("Week")) {
-            timeTracker = new TimeTracker(webUserSelected, billDate, Calendar.WEEK_OF_YEAR, dataSession);
+            timeTracker =
+                new TimeTracker(webUserSelected, billDate, Calendar.WEEK_OF_YEAR, dataSession);
           } else if (type.equals("Month")) {
             timeTracker = new TimeTracker(webUserSelected, billDate, Calendar.MONTH, dataSession);
           } else if (type.equals("Year")) {
@@ -164,17 +162,22 @@ public class TrackServlet extends ClientServlet
       } else {
         out.println("Date");
       }
-      out.println("<input type=\"text\" name=\"billDate\" value=\"" + billDateString + "\" size=\"10\">");
+      out.println(
+          "<input type=\"text\" name=\"billDate\" value=\"" + billDateString + "\" size=\"10\">");
       out.println("Type ");
       out.println("<select name=\"type\">");
-      out.println("<option value=\"Day\"" + (type.equals("Day") ? " selected" : "") + ">Day</option>");
-      out.println("<option value=\"Week\"" + (type.equals("Week") ? " selected" : "") + ">Week</option>");
-      out.println("<option value=\"Month\"" + (type.equals("Month") ? " selected" : "") + ">Month</option>");
-      out.println("<option value=\"Year\"" + (type.equals("Year") ? " selected" : "") + ">Year</option>");
+      out.println(
+          "<option value=\"Day\"" + (type.equals("Day") ? " selected" : "") + ">Day</option>");
+      out.println(
+          "<option value=\"Week\"" + (type.equals("Week") ? " selected" : "") + ">Week</option>");
+      out.println("<option value=\"Month\"" + (type.equals("Month") ? " selected" : "")
+          + ">Month</option>");
+      out.println(
+          "<option value=\"Year\"" + (type.equals("Year") ? " selected" : "") + ">Year</option>");
       out.println("</select>");
       out.println("Staff ");
-      Query query = dataSession
-          .createQuery("from ProjectContactSupervisor where supervisor = ? order by contact.nameFirst, contact.nameLast");
+      Query query = dataSession.createQuery(
+          "from ProjectContactSupervisor where supervisor = ? order by contact.nameFirst, contact.nameLast");
       query.setParameter(0, webUser.getProjectContact());
       List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
       if (projectContactSupervisorList.size() > 0) {
@@ -184,8 +187,8 @@ public class TrackServlet extends ClientServlet
         for (ProjectContactSupervisor projectContactSupervisor : projectContactSupervisorList) {
           int c = projectContactSupervisor.getContact().getContactId();
           String n = projectContactSupervisor.getContact().getName();
-          out.println("<option value=\"" + c + "\"" + (supervisedContactId == c ? " selected" : "") + ">" + n
-              + "</option>");
+          out.println("<option value=\"" + c + "\"" + (supervisedContactId == c ? " selected" : "")
+              + ">" + n + "</option>");
         }
         out.println("</select>");
       }
@@ -230,7 +233,8 @@ public class TrackServlet extends ClientServlet
       for (Integer projectId : projectMap.keySet()) {
         Project project = (Project) dataSession.get(Project.class, projectId);
         if (project != null) {
-          timeEntryList.add(new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId));
+          timeEntryList
+              .add(new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId));
         }
       }
       List<ProjectAction> projectActionListComplete = null;
@@ -256,16 +260,19 @@ public class TrackServlet extends ClientServlet
         out.println("  </tr>");
         for (TimeEntry timeEntry : timeEntryList) {
           out.println("  <tr class=\"boxed\">");
-          String link = "<a href=\"ProjectServlet?projectId=" + timeEntry.getId() + "\" class=\"button\">";
+          String link =
+              "<a href=\"ProjectServlet?projectId=" + timeEntry.getId() + "\" class=\"button\">";
           if (showLinks) {
             out.println("    <td class=\"boxed\">" + link + timeEntry.getLabel() + "</a></td>");
           } else {
             out.println("    <td class=\"boxed\">" + timeEntry.getLabel() + "</td>");
           }
-          out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeEntry.getMinutes()) + "</td>");
+          out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeEntry.getMinutes())
+              + "</td>");
 
-          Query query = dataSession.createQuery("from ProjectAction where contactId = ? and projectId = ? "
-              + "  and actionDescription <> '' and action_date >= ? and action_date < ? order by actionDate asc");
+          Query query =
+              dataSession.createQuery("from ProjectAction where contactId = ? and projectId = ? "
+                  + "  and actionDescription <> '' and action_date >= ? and action_date < ? order by actionDate asc");
           query.setParameter(0, webUser.getContactId());
           query.setParameter(1, Integer.parseInt(timeEntry.getId()));
           query.setParameter(2, timeTracker.getStartDate());
@@ -295,9 +302,11 @@ public class TrackServlet extends ClientServlet
           out.println("  </tr>");
         }
         while (projectActionListComplete.size() > 0) {
-          Project project = (Project) dataSession.get(Project.class, projectActionListComplete.get(0).getProjectId());
+          Project project = (Project) dataSession.get(Project.class,
+              projectActionListComplete.get(0).getProjectId());
           out.println("  <tr class=\"boxed\">");
-          String link = "<a href=\"ProjectServlet?projectId=" + project.getProjectId() + "\" class=\"button\">";
+          String link = "<a href=\"ProjectServlet?projectId=" + project.getProjectId()
+              + "\" class=\"button\">";
           if (showLinks) {
             out.println("    <td class=\"boxed\">" + link + project.getProjectName() + "</a></td>");
           } else {
@@ -327,7 +336,8 @@ public class TrackServlet extends ClientServlet
         out.println("<br/> ");
       }
 
-      HomeServlet.printActionsDue(webUser, out, dataSession, "", timeTracker.getStartDate(), showLinks, false);
+      HomeServlet.printActionsDue(webUser, out, dataSession, "", timeTracker.getStartDate(),
+          showLinks, false);
     }
 
     out.println("<h2>Additional Information</h2>");
@@ -356,7 +366,8 @@ public class TrackServlet extends ClientServlet
         if (type.equals("Day")) {
           billable = TimeTracker.roundTime(billCodeMap.get(billCodeString), billCode);
         } else {
-          Query query = dataSession.createQuery("from BillDay where billCode = ? and bill_date >= ? and bill_date < ?");
+          Query query = dataSession
+              .createQuery("from BillDay where billCode = ? and bill_date >= ? and bill_date < ?");
           query.setParameter(0, billCode);
           query.setParameter(1, timeTracker.getStartDate());
           query.setParameter(2, timeTracker.getEndDate());
@@ -372,12 +383,14 @@ public class TrackServlet extends ClientServlet
         totalBillableMoney += billableMoney;
         out.println("  <tr class=\"boxed\">");
         if (showLinks) {
-          out.println("    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode()
-              + "\" class=\"button\">" + billCode.getBillLabel() + "</a></td>");
+          out.println(
+              "    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode()
+                  + "\" class=\"button\">" + billCode.getBillLabel() + "</a></td>");
         } else {
           out.println("    <td class=\"boxed\">" + billCode.getBillLabel() + "</td>");
         }
-        out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billCodeMap.get(billCodeString)) + "</td>");
+        out.println("    <td class=\"boxed\">"
+            + TimeTracker.formatTime(billCodeMap.get(billCodeString)) + "</td>");
         out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billable) + "</td>");
         //        if (billCode.getBillRate() > 0)
         //        {
@@ -406,9 +419,11 @@ public class TrackServlet extends ClientServlet
       }
     }
     if (showLinks) {
-      out.println("<p><a href=\"BillEntriesServlet\" class=\"button\">See all Bill Entries</a></p>");
+      out.println(
+          "<p><a href=\"BillEntriesServlet\" class=\"button\">See all Bill Entries</a></p>");
       out.println("<p><a href=\"BillCodesServlet\" class=\"button\">See all Bill Codes</a></p>");
-      out.println("<p><a href=\"BillBudgetsServlet\" class=\"button\">See all Bill Budgets</a></p>");
+      out.println(
+          "<p><a href=\"BillBudgetsServlet\" class=\"button\">See all Bill Budgets</a></p>");
     }
     timeEntryList = new ArrayList<TimeEntry>();
     Map<String, Integer> clientMap = timeTracker.getTotalMinsForClientMap();
@@ -432,7 +447,8 @@ public class TrackServlet extends ClientServlet
       for (TimeEntry timeEntry : timeEntryList) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\">" + timeEntry.getLabel() + "</td>");
-        out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeEntry.getMinutes()) + "</td>");
+        out.println(
+            "    <td class=\"boxed\">" + TimeTracker.formatTime(timeEntry.getMinutes()) + "</td>");
         out.println("  </tr>");
       }
       out.println("</table> ");
@@ -443,7 +459,8 @@ public class TrackServlet extends ClientServlet
       for (Integer projectId : projectMap.keySet()) {
         Project project = (Project) dataSession.get(Project.class, projectId);
         if (project != null) {
-          timeEntryList.add(new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId));
+          timeEntryList
+              .add(new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId));
         }
       }
       Collections.sort(timeEntryList);
@@ -474,7 +491,8 @@ public class TrackServlet extends ClientServlet
         billDay.setBillDate(billDate);
       }
       billDay.setBillMins(billMins);
-      query = dataSession.createQuery("from BillBudget where billCode = ? and start_date <= ? and end_date > ?");
+      query = dataSession
+          .createQuery("from BillBudget where billCode = ? and start_date <= ? and end_date > ?");
       query.setParameter(0, billCode);
       query.setParameter(1, billDate);
       query.setParameter(2, billDate);
@@ -493,9 +511,11 @@ public class TrackServlet extends ClientServlet
     }
   }
 
-  protected static ProjectClient getClient(Session dataSession, String clientCode, String providerId) {
+  protected static ProjectClient getClient(Session dataSession, String clientCode,
+      String providerId) {
     Query query;
-    query = dataSession.createQuery("from ProjectClient where id.clientCode = ? and id.providerId = ?");
+    query =
+        dataSession.createQuery("from ProjectClient where id.clientCode = ? and id.providerId = ?");
     query.setParameter(0, clientCode);
     query.setParameter(1, providerId);
     List<ProjectClient> projectClientList = query.list();
@@ -522,7 +542,8 @@ public class TrackServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -539,7 +560,8 @@ public class TrackServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

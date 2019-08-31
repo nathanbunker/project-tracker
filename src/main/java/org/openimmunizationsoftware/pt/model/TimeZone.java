@@ -3,13 +3,11 @@ package org.openimmunizationsoftware.pt.model;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TimeZone
-{
+public class TimeZone {
   private static List<TimeZone> timeZoneList;
-  public static List<TimeZone> getTimeZoneList()
-  {
-    if (timeZoneList == null)
-    {
+
+  public static List<TimeZone> getTimeZoneList() {
+    if (timeZoneList == null) {
       timeZoneList = new ArrayList<TimeZone>();
       timeZoneList.add(new TimeZone("-5", "Eastern"));
       timeZoneList.add(new TimeZone("-6", "Central"));
@@ -20,36 +18,31 @@ public class TimeZone
     }
     return timeZoneList;
   }
-  
-  
+
+
   private String timeZoneId = "";
   private String timeZoneLabel = "";
-  
-  public String getTimeZoneId()
-  {
+
+  public String getTimeZoneId() {
     return timeZoneId;
   }
 
-  public void setTimeZoneId(String timeZoneId)
-  {
+  public void setTimeZoneId(String timeZoneId) {
     this.timeZoneId = timeZoneId;
   }
 
-  public String getTimeZoneLabel()
-  {
+  public String getTimeZoneLabel() {
     return timeZoneLabel;
   }
 
-  public void setTimeZoneLabel(String timeZoneLabel)
-  {
+  public void setTimeZoneLabel(String timeZoneLabel) {
     this.timeZoneLabel = timeZoneLabel;
   }
 
-  public TimeZone(String timeZoneId, String timeZoneLabel)
-  {
+  public TimeZone(String timeZoneId, String timeZoneLabel) {
     this.timeZoneId = timeZoneId;
     this.timeZoneLabel = timeZoneLabel;
   }
-  
-  
+
+
 }

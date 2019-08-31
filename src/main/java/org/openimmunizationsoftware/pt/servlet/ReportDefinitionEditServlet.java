@@ -7,13 +7,11 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -24,8 +22,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class ReportDefinitionEditServlet extends ClientServlet
-{
+public class ReportDefinitionEditServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -40,21 +37,19 @@ public class ReportDefinitionEditServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null)
-    {
+    if (webUser == null) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
     }
 
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       Session dataSession = getDataSession(session);
 
       ReportProfile reportProfile = null;
@@ -66,26 +61,20 @@ public class ReportDefinitionEditServlet extends ClientServlet
       ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
 
       String action = request.getParameter("action");
-      if (action != null)
-      {
-        if (action.equals("Save"))
-        {
+      if (action != null) {
+        if (action.equals("Save")) {
           String message = null;
           reportProfile.setDefinition(request.getParameter("definition").getBytes());
           reportProfile.clearReportDefinition();
           // TODO check report
 
-          if (message != null)
-          {
+          if (message != null) {
             request.setAttribute(REQUEST_VAR_MESSAGE, message);
-          } else
-          {
+          } else {
             Transaction transaction = dataSession.beginTransaction();
-            try
-            {
+            try {
               dataSession.saveOrUpdate(reportProfile);
-            } finally
-            {
+            } finally {
               transaction.commit();
             }
             response.sendRedirect("ReportEditServlet?profileId=" + reportProfile.getProfileId());
@@ -96,9 +85,9 @@ public class ReportDefinitionEditServlet extends ClientServlet
 
       printHtmlHead(out, "Reports", request);
       out.println("<form action=\"ReportDefinitionEditServlet\" method=\"POST\">");
-      if (reportProfile.getProfileId() > 0)
-      {
-        out.println("  <input type=\"hidden\" name=\"profileId\" value=\"" + reportProfile.getProfileId() + "\">");
+      if (reportProfile.getProfileId() > 0) {
+        out.println("  <input type=\"hidden\" name=\"profileId\" value=\""
+            + reportProfile.getProfileId() + "\">");
       }
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
@@ -106,18 +95,19 @@ public class ReportDefinitionEditServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <td class=\"boxed\"><textarea name=\"definition\" cols=\"80\" rows=\"60\">"
-          + (reportProfile.getDefinition() == null ? "" : new String(reportProfile.getDefinition())) + "</textarea></td>");
+          + (reportProfile.getDefinition() == null ? "" : new String(reportProfile.getDefinition()))
+          + "</textarea></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
       out.println("  </tr>");
       out.println("</table>");
       out.println("</form>");
 
       printHtmlFoot(out);
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
@@ -135,8 +125,8 @@ public class ReportDefinitionEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -153,8 +143,8 @@ public class ReportDefinitionEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

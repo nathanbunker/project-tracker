@@ -2,8 +2,7 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.util.Date;
 
-public class BudgetTransRecord
-{
+public class BudgetTransRecord {
   private int transRecordId = 0;
   private BudgetTrans budgetTrans = null;
   private Date transDate = null;
@@ -11,52 +10,51 @@ public class BudgetTransRecord
   private String description = "";
   private BudgetAccount budgetAccount = null;
 
-  public BudgetAccount getBudgetAccount()
-  {
+  public BudgetAccount getBudgetAccount() {
     return budgetAccount;
   }
-  public void setBudgetAccount(BudgetAccount budgetAccount)
-  {
+
+  public void setBudgetAccount(BudgetAccount budgetAccount) {
     this.budgetAccount = budgetAccount;
   }
-  public int getTransRecordId()
-  {
+
+  public int getTransRecordId() {
     return transRecordId;
   }
-  public void setTransRecordId(int transRecordId)
-  {
+
+  public void setTransRecordId(int transRecordId) {
     this.transRecordId = transRecordId;
   }
-  public BudgetTrans getBudgetTrans()
-  {
+
+  public BudgetTrans getBudgetTrans() {
     return budgetTrans;
   }
-  public void setBudgetTrans(BudgetTrans budgetTrans)
-  {
+
+  public void setBudgetTrans(BudgetTrans budgetTrans) {
     this.budgetTrans = budgetTrans;
   }
-  public Date getTransDate()
-  {
+
+  public Date getTransDate() {
     return transDate;
   }
-  public void setTransDate(Date transDate)
-  {
+
+  public void setTransDate(Date transDate) {
     this.transDate = transDate;
   }
-  public int getTransAmount()
-  {
+
+  public int getTransAmount() {
     return transAmount;
   }
-  public void setTransAmount(int transAmount)
-  {
+
+  public void setTransAmount(int transAmount) {
     this.transAmount = transAmount;
   }
-  public String getDescription()
-  {
+
+  public String getDescription() {
     return description;
   }
-  public void setDescription(String description)
-  {
+
+  public void setDescription(String description) {
     this.description = description;
   }
 }

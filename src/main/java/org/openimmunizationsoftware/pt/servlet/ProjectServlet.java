@@ -5,9 +5,8 @@
 package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.io.PrintWriter;
-import java.net.URI;
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

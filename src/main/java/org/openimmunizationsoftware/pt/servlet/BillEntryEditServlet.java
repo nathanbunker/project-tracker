@@ -8,17 +8,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
-import java.util.Map;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -33,8 +28,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class BillEntryEditServlet extends ClientServlet
-{
+public class BillEntryEditServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -49,13 +43,12 @@ public class BillEntryEditServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null || webUser.getParentWebUser() != null)
-    {
+    if (webUser == null || webUser.getParentWebUser() != null) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
@@ -63,8 +56,7 @@ public class BillEntryEditServlet extends ClientServlet
 
     SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       Session dataSession = getDataSession(session);
 
       int billId = Integer.parseInt(request.getParameter("billId"));
@@ -73,42 +65,32 @@ public class BillEntryEditServlet extends ClientServlet
       TimeTracker timeTracker = (TimeTracker) session.getAttribute("timeTracker");
       String billDate = request.getParameter("billDate");
 
-      if (action != null)
-      {
+      if (action != null) {
         String message = null;
-        if (action.equals("Save"))
-        {
+        if (action.equals("Save")) {
           billEntry.setClientCode(request.getParameter("clientCode"));
           billEntry.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           billEntry.setBillCode(request.getParameter("billCode"));
-          try
-          {
+          try {
             billEntry.setStartTime(sdf.parse(request.getParameter("startTime")));
-          } catch (ParseException pe)
-          {
+          } catch (ParseException pe) {
             message = "Unable to parse start time: " + pe.getMessage();
           }
-          try
-          {
+          try {
             billEntry.setEndTime(sdf.parse(request.getParameter("endTime")));
-          } catch (ParseException pe)
-          {
+          } catch (ParseException pe) {
             message = "Unable to parse end time: " + pe.getMessage();
           }
           billEntry.setBillable(request.getParameter("billable") != null ? "Y" : "N");
           billEntry.setBillCode(request.getParameter("billCode"));
-          if (message != null)
-          {
+          if (message != null) {
             request.setAttribute(REQUEST_VAR_MESSAGE, message);
-          } else
-          {
+          } else {
             billEntry.setBillMins(TimeTracker.calculateMins(billEntry));
             Transaction trans = dataSession.beginTransaction();
-            try
-            {
+            try {
               dataSession.update(billEntry);
-            } finally
-            {
+            } finally {
               trans.commit();
             }
             timeTracker.init(webUser, dataSession);
@@ -121,7 +103,8 @@ public class BillEntryEditServlet extends ClientServlet
       printHtmlHead(out, "Track", request);
 
       out.println("<form action=\"BillEntryEditServlet\" method=\"POST\">");
-      out.println(" <input type=\"hidden\" name=\"billId\" value=\"" + billEntry.getBillId() + "\">");
+      out.println(
+          " <input type=\"hidden\" name=\"billId\" value=\"" + billEntry.getBillId() + "\">");
       out.println(" <input type=\"hidden\" name=\"billDate\" value=\"" + billDate + "\">");
 
       out.println("<table class=\"boxed\">");
@@ -134,14 +117,13 @@ public class BillEntryEditServlet extends ClientServlet
       Query query = dataSession.createQuery("from ProjectClient where id.providerId = ?");
       query.setParameter(0, webUser.getProviderId());
       List<ProjectClient> projectClientList = query.list();
-      for (ProjectClient projectClient : projectClientList)
-      {
-        if (projectClient.getId().getClientCode().equals(billEntry.getClientCode()))
-        {
-          out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\" selected>" + projectClient.getClientName() + "</option>");
-        } else
-        {
-          out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\">" + projectClient.getClientName() + "</option>");
+      for (ProjectClient projectClient : projectClientList) {
+        if (projectClient.getId().getClientCode().equals(billEntry.getClientCode())) {
+          out.println("      <option value=\"" + projectClient.getId().getClientCode()
+              + "\" selected>" + projectClient.getClientName() + "</option>");
+        } else {
+          out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\">"
+              + projectClient.getClientName() + "</option>");
         }
       }
       out.println("    </select>");
@@ -150,19 +132,17 @@ public class BillEntryEditServlet extends ClientServlet
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <td class=\"boxed\"><select name=\"projectId\">");
-      query = dataSession.createQuery("from Project where providerId = ? order by clientCode, projectName");
+      query = dataSession
+          .createQuery("from Project where providerId = ? order by clientCode, projectName");
       query.setParameter(0, webUser.getProviderId());
       List<Project> projectList = query.list();
-      for (Project project : projectList)
-      {
-        if (project.getProjectId() == billEntry.getProjectId())
-        {
-          out.println("      <option value=\"" + project.getProjectId() + "\" selected>" + project.getClientCode() + " " + project.getProjectName()
-              + "</option>");
-        } else
-        {
-          out.println("      <option value=\"" + project.getProjectId() + "\">" + project.getClientCode() + " " + project.getProjectName()
-              + "</option>");
+      for (Project project : projectList) {
+        if (project.getProjectId() == billEntry.getProjectId()) {
+          out.println("      <option value=\"" + project.getProjectId() + "\" selected>"
+              + project.getClientCode() + " " + project.getProjectName() + "</option>");
+        } else {
+          out.println("      <option value=\"" + project.getProjectId() + "\">"
+              + project.getClientCode() + " " + project.getProjectName() + "</option>");
         }
       }
       out.println("    </select>");
@@ -171,17 +151,17 @@ public class BillEntryEditServlet extends ClientServlet
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <td class=\"boxed\"><select name=\"billCode\">");
-      query = dataSession.createQuery("from BillCode where providerId = ? and visible = 'Y' order by billLabel");
+      query = dataSession
+          .createQuery("from BillCode where providerId = ? and visible = 'Y' order by billLabel");
       query.setParameter(0, webUser.getProviderId());
       List<BillCode> billCodeList = query.list();
-      for (BillCode billCode : billCodeList)
-      {
-        if (billCode.getBillCode().equals(billEntry.getBillCode()))
-        {
-          out.println("      <option value=\"" + billCode.getBillCode() + "\" selected>" + billCode.getBillLabel() + "</option>");
-        } else
-        {
-          out.println("      <option value=\"" + billCode.getBillCode() + "\">" + billCode.getBillLabel() + "</option>");
+      for (BillCode billCode : billCodeList) {
+        if (billCode.getBillCode().equals(billEntry.getBillCode())) {
+          out.println("      <option value=\"" + billCode.getBillCode() + "\" selected>"
+              + billCode.getBillLabel() + "</option>");
+        } else {
+          out.println("      <option value=\"" + billCode.getBillCode() + "\">"
+              + billCode.getBillLabel() + "</option>");
         }
       }
       out.println("    </select>");
@@ -189,17 +169,18 @@ public class BillEntryEditServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Start Time</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"startTime\" value=\"" + sdf.format(billEntry.getStartTime())
-          + "\" size=\"20\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"startTime\" value=\""
+          + sdf.format(billEntry.getStartTime()) + "\" size=\"20\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">End Time</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"endTime\" value=\"" + sdf.format(billEntry.getEndTime())
-          + "\" size=\"20\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"endTime\" value=\""
+          + sdf.format(billEntry.getEndTime()) + "\" size=\"20\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Time</th>");
-      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billEntry.getBillMins()) + "</td>");
+      out.println(
+          "    <td class=\"boxed\">" + TimeTracker.formatTime(billEntry.getBillMins()) + "</td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Billable</th>");
@@ -207,14 +188,14 @@ public class BillEntryEditServlet extends ClientServlet
           + (billEntry.getBillable().equals("Y") ? " checked" : "") + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
       out.println("  </tr>");
       out.println("</table> ");
       out.println("</form>");
       printHtmlFoot(out);
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
@@ -235,8 +216,8 @@ public class BillEntryEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -253,8 +234,8 @@ public class BillEntryEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

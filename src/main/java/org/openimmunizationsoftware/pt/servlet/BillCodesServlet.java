@@ -6,19 +6,14 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.ParseException;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
-import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -26,8 +21,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class BillCodesServlet extends ClientServlet
-{
+public class BillCodesServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -42,27 +36,26 @@ public class BillCodesServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null)
-    {
+    if (webUser == null) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
     }
 
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       Session dataSession = getDataSession(session);
       Query query;
 
       printHtmlHead(out, "Track", request);
 
-      query = dataSession.createQuery("from BillCode where providerId = ? and visible = 'Y' order by billCode");
+      query = dataSession
+          .createQuery("from BillCode where providerId = ? and visible = 'Y' order by billCode");
       query.setParameter(0, webUser.getProviderId());
       List<BillCode> billCodeList = query.list();
       out.println("<table class=\"boxed\">");
@@ -79,13 +72,14 @@ public class BillCodesServlet extends ClientServlet
       out.println("    <th class=\"boxed\">Round</th>");
       out.println("  </tr>");
 
-      for (BillCode billCode : billCodeList)
-      {
+      for (BillCode billCode : billCodeList) {
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode() + "\" class=\"button\">"
-            + billCode.getBillCode() + "</a></td>");
-        out.println("    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode() + "\" class=\"button\">"
-            + billCode.getBillLabel() + "</a></td>");
+        out.println(
+            "    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode()
+                + "\" class=\"button\">" + billCode.getBillCode() + "</a></td>");
+        out.println(
+            "    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode()
+                + "\" class=\"button\">" + billCode.getBillLabel() + "</a></td>");
         out.println("    <td class=\"boxed\">" + billCode.getBillable() + "</td>");
         out.println("    <td class=\"boxed\">" + billCode.getVisible() + "</td>");
         out.println("    <td class=\"boxed\">" + billCode.getEstimateMin() + "</td>");
@@ -96,11 +90,11 @@ public class BillCodesServlet extends ClientServlet
       out.println("</table> ");
 
       out.println("<h2>Create a New Bill Code</h2>");
-      out.println("<p>If you do not see your bill code in the list above you can <a href=\"BillCodeEditServlet\">create</a> one.</p>");
+      out.println(
+          "<p>If you do not see your bill code in the list above you can <a href=\"BillCodeEditServlet\">create</a> one.</p>");
       printHtmlFoot(out);
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
@@ -121,8 +115,8 @@ public class BillCodesServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -139,8 +133,8 @@ public class BillCodesServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

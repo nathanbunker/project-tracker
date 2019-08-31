@@ -7,13 +7,11 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -30,8 +28,7 @@ import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
  * 
  * @author nathan
  */
-public class ProjectEditServlet extends ClientServlet
-{
+public class ProjectEditServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
@@ -45,8 +42,8 @@ public class ProjectEditServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,
-      IOException {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
@@ -63,10 +60,12 @@ public class ProjectEditServlet extends ClientServlet
       Project project = null;
       Session dataSession = getDataSession(session);
       ProjectContactAssigned projectContactAssignedForThisUser = null;
-      if (request.getParameter("projectId") != null && !request.getParameter("projectId").equals("0")) {
+      if (request.getParameter("projectId") != null
+          && !request.getParameter("projectId").equals("0")) {
         int projectId = Integer.parseInt(request.getParameter("projectId"));
         project = (Project) dataSession.get(Project.class, projectId);
-        projectContactAssignedForThisUser = ProjectServlet.getProjectContactAssigned(webUser, dataSession, project);
+        projectContactAssignedForThisUser =
+            ProjectServlet.getProjectContactAssigned(webUser, dataSession, project);
       } else {
         project = new Project();
         project.setProviderId(webUser.getProviderId());
@@ -108,10 +107,12 @@ public class ProjectEditServlet extends ClientServlet
               projectContactAssigned.getId().setContactId(webUser.getContactId());
               projectContactAssigned.getId().setProjectId(project.getProjectId());
               projectContactAssigned.setEmailAlert("Y");
-              projectContactAssigned.setUpdateDue(Integer.parseInt(request.getParameter("updateEvery")));
+              projectContactAssigned
+                  .setUpdateDue(Integer.parseInt(request.getParameter("updateEvery")));
               dataSession.save(projectContactAssigned);
             } else {
-              projectContactAssignedForThisUser.setUpdateDue(Integer.parseInt(request.getParameter("updateEvery")));
+              projectContactAssignedForThisUser
+                  .setUpdateDue(Integer.parseInt(request.getParameter("updateEvery")));
               dataSession.update(projectContactAssignedForThisUser);
             }
           } finally {
@@ -123,7 +124,8 @@ public class ProjectEditServlet extends ClientServlet
       }
 
       out.println("<form action=\"ProjectEditServlet\" method=\"POST\">");
-      out.println("<input type=\"hidden\" name=\"projectId\" value=\"" + project.getProjectId() + "\">");
+      out.println(
+          "<input type=\"hidden\" name=\"projectId\" value=\"" + project.getProjectId() + "\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
       out.println("    <th class=\"title\" colspan=\"2\">Edit Project Information</th>");
@@ -137,8 +139,8 @@ public class ProjectEditServlet extends ClientServlet
       out.println("    <th class=\"boxed\">Category</th>");
       out.println("    <td class=\"boxed\"><select name=\"clientCode\">");
       {
-        Query query = dataSession
-            .createQuery("from ProjectClient where id.providerId = ? order by sortOrder, clientName");
+        Query query = dataSession.createQuery(
+            "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
         query.setParameter(0, webUser.getProviderId());
         List<ProjectClient> projectClientList = query.list();
         for (ProjectClient projectClient : projectClientList) {
@@ -148,8 +150,8 @@ public class ProjectEditServlet extends ClientServlet
             }
           }
           if (projectClient.getId().getClientCode().equals(project.getClientCode())) {
-            out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\" selected>"
-                + projectClient.getClientNameForDropdown() + "</option>");
+            out.println("      <option value=\"" + projectClient.getId().getClientCode()
+                + "\" selected>" + projectClient.getClientNameForDropdown() + "</option>");
           } else {
             out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\">"
                 + projectClient.getClientNameForDropdown() + "</option>");
@@ -186,8 +188,9 @@ public class ProjectEditServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Medical Organization</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"medicalOrganization\" value=\""
-          + n(project.getMedicalOrganization()) + "\" size=\"30\"></td>");
+      out.println(
+          "    <td class=\"boxed\"><input type=\"text\" name=\"medicalOrganization\" value=\""
+              + n(project.getMedicalOrganization()) + "\" size=\"30\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">IIS Region Code</th>");
@@ -196,8 +199,9 @@ public class ProjectEditServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Description</th>");
-      out.println("    <td class=\"boxed\"><textarea type=\"text\" name=\"description\" cols=\"30\" rows=\"5\">"
-          + n(project.getDescription()) + "</textarea></td>");
+      out.println(
+          "    <td class=\"boxed\"><textarea type=\"text\" name=\"description\" cols=\"30\" rows=\"5\">"
+              + n(project.getDescription()) + "</textarea></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Phase</th>");
@@ -210,8 +214,8 @@ public class ProjectEditServlet extends ClientServlet
             out.println("      <option value=\"" + projectPhase.getPhaseCode() + "\" selected>"
                 + projectPhase.getPhaseLabel() + "</option>");
           } else {
-            out.println("      <option value=\"" + projectPhase.getPhaseCode() + "\">" + projectPhase.getPhaseLabel()
-                + "</option>");
+            out.println("      <option value=\"" + projectPhase.getPhaseCode() + "\">"
+                + projectPhase.getPhaseLabel() + "</option>");
           }
         }
         out.println("      </select>");
@@ -228,11 +232,11 @@ public class ProjectEditServlet extends ClientServlet
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {
           if (billCode.getBillCode().equals(project.getBillCode())) {
-            out.println("      <option value=\"" + billCode.getBillCode() + "\" selected>" + billCode.getBillLabel()
-                + "</option>");
+            out.println("      <option value=\"" + billCode.getBillCode() + "\" selected>"
+                + billCode.getBillLabel() + "</option>");
           } else {
-            out.println("      <option value=\"" + billCode.getBillCode() + "\">" + billCode.getBillLabel()
-                + "</option>");
+            out.println("      <option value=\"" + billCode.getBillCode() + "\">"
+                + billCode.getBillLabel() + "</option>");
           }
         }
         out.println("      </select>");
@@ -245,17 +249,19 @@ public class ProjectEditServlet extends ClientServlet
         out.println("    <td class=\"boxed\"><select name=\"updateEvery\">");
         out.println("      <option value=\"0\">none</option>");
         boolean found = false;
-        if (projectContactAssignedForThisUser != null && projectContactAssignedForThisUser.getUpdateDue() == 0) {
+        if (projectContactAssignedForThisUser != null
+            && projectContactAssignedForThisUser.getUpdateDue() == 0) {
           found = true;
         }
         for (Interval interval : Interval.values()) {
           if (!found && projectContactAssignedForThisUser != null
               && projectContactAssignedForThisUser.getUpdateDue() <= interval.getDays()) {
-            out.println("      <option value=\"" + interval.getDays() + "\" selected>" + interval.getDescription()
-                + "</option>");
+            out.println("      <option value=\"" + interval.getDays() + "\" selected>"
+                + interval.getDescription() + "</option>");
             found = true;
           } else {
-            out.println("      <option value=\"" + interval.getDays() + "\">" + interval.getDescription() + "</option>");
+            out.println("      <option value=\"" + interval.getDays() + "\">"
+                + interval.getDescription() + "</option>");
           }
         }
         out.println("      </select>");
@@ -264,7 +270,8 @@ public class ProjectEditServlet extends ClientServlet
       }
 
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
       out.println("  </tr>");
       out.println("</table>");
       out.println("</form>");
@@ -292,7 +299,8 @@ public class ProjectEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -309,7 +317,8 @@ public class ProjectEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

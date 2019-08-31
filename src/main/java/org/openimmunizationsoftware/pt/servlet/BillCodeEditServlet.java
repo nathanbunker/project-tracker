@@ -11,13 +11,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -32,8 +30,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class BillCodeEditServlet extends ClientServlet
-{
+public class BillCodeEditServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
@@ -47,8 +44,8 @@ public class BillCodeEditServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,
-      IOException {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
@@ -94,7 +91,8 @@ public class BillCodeEditServlet extends ClientServlet
             response.sendRedirect("BillCodeServlet?billCode=" + billCode.getBillCode());
             return;
           } catch (Exception e) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, "Unable to save bill code: " + e.getMessage());
+            request.setAttribute(REQUEST_VAR_MESSAGE,
+                "Unable to save bill code: " + e.getMessage());
             trans.rollback();
           }
         } else if (action.equals("Save Budget")) {
@@ -114,8 +112,8 @@ public class BillCodeEditServlet extends ClientServlet
             billBudget.setBillMins(TimeTracker.readTime(request.getParameter("billMins")));
 
             if (billBudget.getBillBudgetId() != 0) {
-              query = dataSession
-                  .createQuery("from BillMonth where billBudget = ? and billDate >= ? and billDate < ? order by billDate");
+              query = dataSession.createQuery(
+                  "from BillMonth where billBudget = ? and billDate >= ? and billDate < ? order by billDate");
               query.setParameter(0, billBudget);
               query.setParameter(1, billBudget.getStartDate());
               query.setParameter(2, billBudget.getEndDate());
@@ -126,11 +124,13 @@ public class BillCodeEditServlet extends ClientServlet
                   Calendar billDateCalendar = Calendar.getInstance();
                   billDateCalendar.setTime(billMonth.getBillDate());
 
-                  boolean isChangable = (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH) && billDateCalendar
-                      .get(Calendar.YEAR) == today.get(Calendar.YEAR)) || today.before(billDateCalendar);
+                  boolean isChangable =
+                      (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
+                          && billDateCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR))
+                          || today.before(billDateCalendar);
                   if (isChangable) {
-                    billMonth.setBillMinsExpected(TimeTracker.readTime(request.getParameter("billMinsExpected"
-                        + billMonth.getBillMonthId())));
+                    billMonth.setBillMinsExpected(TimeTracker.readTime(
+                        request.getParameter("billMinsExpected" + billMonth.getBillMonthId())));
                   }
                   out.println("  </tr>");
                 }
@@ -143,7 +143,8 @@ public class BillCodeEditServlet extends ClientServlet
             response.sendRedirect("BillCodeServlet?billCode=" + billCode.getBillCode());
             return;
           } catch (Exception e) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, "Unable to save bill budget: " + e.getMessage());
+            request.setAttribute(REQUEST_VAR_MESSAGE,
+                "Unable to save bill budget: " + e.getMessage());
             trans.rollback();
           }
         }
@@ -157,8 +158,8 @@ public class BillCodeEditServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Bill Code</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billCode\" value=\"" + n(billCode.getBillCode())
-          + "\" size=\"\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billCode\" value=\""
+          + n(billCode.getBillCode()) + "\" size=\"\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Bill Label</th>");
@@ -168,12 +169,14 @@ public class BillCodeEditServlet extends ClientServlet
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Billable</th>");
       out.println("    <td class=\"boxed\"><input type=\"checkbox\" name=\"billable\" value=\"Y\""
-          + (billCode.getBillable() != null && billCode.getBillable().equals("Y") ? " checked" : "") + "></td>");
+          + (billCode.getBillable() != null && billCode.getBillable().equals("Y") ? " checked" : "")
+          + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Visible</th>");
       out.println("    <td class=\"boxed\"><input type=\"checkbox\" name=\"visible\" value=\"Y\""
-          + (billCode.getVisible() != null && billCode.getVisible().equals("Y") ? " checked" : "") + "></td>");
+          + (billCode.getVisible() != null && billCode.getVisible().equals("Y") ? " checked" : "")
+          + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Estimate Min</th>");
@@ -182,16 +185,17 @@ public class BillCodeEditServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Rate</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billRate\" value=\"" + billCode.getBillRate()
-          + "\" size=\"4\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billRate\" value=\""
+          + billCode.getBillRate() + "\" size=\"4\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Round</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billRound\" value=\"" + billCode.getBillRound()
-          + "\" size=\"4\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billRound\" value=\""
+          + billCode.getBillRound() + "\" size=\"4\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\" size=\"4\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\" size=\"4\"></td>");
       out.println("  </tr>");
       out.println("</table> ");
       out.println("</form> ");
@@ -203,21 +207,24 @@ public class BillCodeEditServlet extends ClientServlet
         billBudgetList.add(new BillBudget());
         for (BillBudget billBudget : billBudgetList) {
           out.println("<form method=\"POST\" action=\"BillCodeEditServlet\">");
-          out.println("<input type=\"hidden\" name=\"billCode\" value=\"" + billCode.getBillCode() + "\">");
-          out.println("<input type=\"hidden\" name=\"billBudgetId\" value=\"" + billBudget.getBillBudgetId() + "\">");
+          out.println(
+              "<input type=\"hidden\" name=\"billCode\" value=\"" + billCode.getBillCode() + "\">");
+          out.println("<input type=\"hidden\" name=\"billBudgetId\" value=\""
+              + billBudget.getBillBudgetId() + "\">");
           out.println("<table class=\"boxed\">");
           out.println("  <tr>");
           if (billBudget.getBillBudgetId() == 0) {
             out.println("    <th class=\"title\" colspan=\"2\">Edit Budget (new)</th>");
           } else {
-            out.println("    <th class=\"title\" colspan=\"2\">Edit Budget for " + billBudget.getBillBudgetCode()
-                + "</th>");
+            out.println("    <th class=\"title\" colspan=\"2\">Edit Budget for "
+                + billBudget.getBillBudgetCode() + "</th>");
           }
           out.println("  </tr>");
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Budget Code</th>");
-          out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billBudgetCode\" value=\""
-              + n(billBudget.getBillBudgetCode()) + "\" size=\"30\"></td>");
+          out.println(
+              "    <td class=\"boxed\"><input type=\"text\" name=\"billBudgetCode\" value=\""
+                  + n(billBudget.getBillBudgetCode()) + "\" size=\"30\"></td>");
           out.println("  </tr>");
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Start Date</th>");
@@ -228,7 +235,8 @@ public class BillCodeEditServlet extends ClientServlet
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">End Date</th>");
           out.println("    <td class=\"boxed\"><input type=\"text\" name=\"endDate\" value=\""
-              + (billBudget.getEndDate() == null ? "" : sdf.format(billBudget.getEndDate())) + "\" size=\"10\"></td>");
+              + (billBudget.getEndDate() == null ? "" : sdf.format(billBudget.getEndDate()))
+              + "\" size=\"10\"></td>");
           out.println("  </tr>");
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Bill Hours</th>");
@@ -236,8 +244,8 @@ public class BillCodeEditServlet extends ClientServlet
               + TimeTracker.formatTime(billBudget.getBillMins()) + "\" size=\"10\"></td>");
           out.println("  </tr>");
           if (billBudget.getBillBudgetId() != 0) {
-            query = dataSession
-                .createQuery("from BillMonth where billBudget = ? and billDate >= ? and billDate < ? order by billDate");
+            query = dataSession.createQuery(
+                "from BillMonth where billBudget = ? and billDate >= ? and billDate < ? order by billDate");
             query.setParameter(0, billBudget);
             query.setParameter(1, billBudget.getStartDate());
             query.setParameter(2, billBudget.getEndDate());
@@ -253,17 +261,21 @@ public class BillCodeEditServlet extends ClientServlet
                 Calendar billDateCalendar = Calendar.getInstance();
                 billDateCalendar.setTime(billMonth.getBillDate());
 
-                boolean isChangable = (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH) && billDateCalendar
-                    .get(Calendar.YEAR) == today.get(Calendar.YEAR)) || today.before(billDateCalendar);
+                boolean isChangable =
+                    (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
+                        && billDateCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR))
+                        || today.before(billDateCalendar);
                 out.println("  <tr class=\"boxed\">");
-                out.println("    <th class=\"boxed\">" + sdfMonth.format(billMonth.getBillDate()) + "</th>");
+                out.println("    <th class=\"boxed\">" + sdfMonth.format(billMonth.getBillDate())
+                    + "</th>");
                 if (isChangable) {
                   out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billMinsExpected"
                       + billMonth.getBillMonthId() + "\" value=\""
-                      + TimeTracker.formatTime(billMonth.getBillMinsExpected()) + "\" size=\"10\"></td>");
+                      + TimeTracker.formatTime(billMonth.getBillMinsExpected())
+                      + "\" size=\"10\"></td>");
                 } else {
-                  out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billMonth.getBillMinsExpected())
-                      + "</td>");
+                  out.println("    <td class=\"boxed\">"
+                      + TimeTracker.formatTime(billMonth.getBillMinsExpected()) + "</td>");
                 }
                 out.println("  </tr>");
               }
@@ -271,7 +283,8 @@ public class BillCodeEditServlet extends ClientServlet
 
           }
           out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save Budget\" size=\"4\"></td>");
+          out.println(
+              "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save Budget\" size=\"4\"></td>");
           out.println("  </tr>");
           out.println("</table> ");
           out.println("</form> ");
@@ -285,7 +298,8 @@ public class BillCodeEditServlet extends ClientServlet
     }
   }
 
-  public static void updateBillMonths(BillCode billCode, BillBudget billBudget, Session dataSession) {
+  public static void updateBillMonths(BillCode billCode, BillBudget billBudget,
+      Session dataSession) {
     Transaction transaction = dataSession.beginTransaction();
     try {
       Query query;
@@ -323,8 +337,8 @@ public class BillCodeEditServlet extends ClientServlet
         if (!endTime.before(billBudget.getEndDate())) {
           endTime = billBudget.getEndDate();
         }
-        query = dataSession
-            .createQuery("from BillDay where billBudget = ? and billDate >= ? and billDate < ? order by billDate asc");
+        query = dataSession.createQuery(
+            "from BillDay where billBudget = ? and billDate >= ? and billDate < ? order by billDate asc");
         query.setParameter(0, billBudget);
         query.setParameter(1, startTime);
         query.setParameter(2, endTime);
@@ -341,7 +355,8 @@ public class BillCodeEditServlet extends ClientServlet
           billMinsActual += billDay.getBillMins();
         }
         billMonth.setBillMinsActual(billMinsActual);
-        if (!canWorkMoreThisMonth || billMonth.getBillMinsActual() > billMonth.getBillMinsExpected()) {
+        if (!canWorkMoreThisMonth
+            || billMonth.getBillMinsActual() > billMonth.getBillMinsExpected()) {
           billMonth.setBillMinsExpected(billMonth.getBillMinsActual());
         }
         dataSession.saveOrUpdate(billMonth);
@@ -395,7 +410,8 @@ public class BillCodeEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -412,7 +428,8 @@ public class BillCodeEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

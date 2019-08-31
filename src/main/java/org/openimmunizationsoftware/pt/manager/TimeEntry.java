@@ -1,14 +1,12 @@
 package org.openimmunizationsoftware.pt.manager;
 
 
-public class TimeEntry implements Comparable<TimeEntry>
-{
+public class TimeEntry implements Comparable<TimeEntry> {
   private String label;
   private int minutes;
   private String id;
 
-  public String getId()
-  {
+  public String getId() {
     return id;
   }
 
@@ -29,18 +27,15 @@ public class TimeEntry implements Comparable<TimeEntry>
     this.id = id;
   }
 
-  public String getLabel()
-  {
+  public String getLabel() {
     return label;
   }
 
-  public int getMinutes()
-  {
+  public int getMinutes() {
     return minutes;
   }
 
-  public int compareTo(TimeEntry te)
-  {
+  public int compareTo(TimeEntry te) {
     return te.minutes - this.minutes;
   }
 

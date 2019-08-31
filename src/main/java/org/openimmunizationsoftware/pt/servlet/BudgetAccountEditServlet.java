@@ -8,28 +8,22 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.manager.MoneyUtil;
 import org.openimmunizationsoftware.pt.model.BudgetAccount;
-import org.openimmunizationsoftware.pt.model.BudgetMonth;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
  * @author nathan
  */
-public class BudgetAccountEditServlet extends ClientServlet
-{
+public class BudgetAccountEditServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -44,30 +38,28 @@ public class BudgetAccountEditServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null)
-    {
+    if (webUser == null) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
     }
 
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       Session dataSession = getDataSession(session);
 
       BudgetAccount budgetAccount = null;
-      if (request.getParameter("accountId") != null && !request.getParameter("accountId").equals("0"))
-      {
-        budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class, Integer.parseInt(request.getParameter("accountId")));
+      if (request.getParameter("accountId") != null
+          && !request.getParameter("accountId").equals("0")) {
+        budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class,
+            Integer.parseInt(request.getParameter("accountId")));
       }
-      if (budgetAccount == null)
-      {
+      if (budgetAccount == null) {
         budgetAccount = new BudgetAccount();
         budgetAccount.setProviderId(webUser.getProviderId());
       }
@@ -75,36 +67,27 @@ public class BudgetAccountEditServlet extends ClientServlet
       SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
 
       String action = request.getParameter("action");
-      if (action != null)
-      {
-        if (action.equals("Save"))
-        {
+      if (action != null) {
+        if (action.equals("Save")) {
           String message = null;
           budgetAccount.setAccountLabel(request.getParameter("accountLabel"));
-          if (budgetAccount.getAccountId() == 0)
-          {
+          if (budgetAccount.getAccountId() == 0) {
             budgetAccount.setStartAmount(MoneyUtil.parse(request.getParameter("startAmount")));
             budgetAccount.setBalanceAmount(budgetAccount.getStartAmount());
-            try
-            {
+            try {
               budgetAccount.setStartDate(sdf.parse(request.getParameter("startDate")));
-            } catch (ParseException pe)
-            {
+            } catch (ParseException pe) {
               message = "Unable to parse date: " + pe.getMessage();
             }
             budgetAccount.setBalanceDate(budgetAccount.getStartDate());
           }
-          if (message != null)
-          {
+          if (message != null) {
             request.setAttribute(REQUEST_VAR_MESSAGE, message);
-          } else
-          {
+          } else {
             Transaction trans = dataSession.beginTransaction();
-            try
-            {
+            try {
               dataSession.saveOrUpdate(budgetAccount);
-            } finally
-            {
+            } finally {
               trans.commit();
             }
             response.sendRedirect("BudgetServlet?accountId=" + budgetAccount.getAccountId());
@@ -116,7 +99,8 @@ public class BudgetAccountEditServlet extends ClientServlet
       printHtmlHead(out, "Budget", request);
       out.println("<div class=\"main\">");
       out.println("<form action=\"BudgetAccountEditServlet\" method=\"POST\">");
-      out.println("<input type=\"hidden\" name=\"accountId\" value=\"" + budgetAccount.getAccountId() + "\">");
+      out.println("<input type=\"hidden\" name=\"accountId\" value=\""
+          + budgetAccount.getAccountId() + "\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"title\" colspan=\"3\">Edit Account</th>");
@@ -124,30 +108,31 @@ public class BudgetAccountEditServlet extends ClientServlet
 
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Label</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"accountLabel\" value=\"" + budgetAccount.getAccountLabel()
-          + "\" size=\"30\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"accountLabel\" value=\""
+          + budgetAccount.getAccountLabel() + "\" size=\"30\"></td>");
       out.println("  </tr>");
-      if (budgetAccount.getAccountId() == 0)
-      {
+      if (budgetAccount.getAccountId() == 0) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Start Balance</th>");
-        out.println("    <td class=\"boxed\"><input type=\"text\" name=\"startAmount\" value=\"\" size=\"10\"></td>");
+        out.println(
+            "    <td class=\"boxed\"><input type=\"text\" name=\"startAmount\" value=\"\" size=\"10\"></td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Start Date</th>");
-        out.println("    <td class=\"boxed\"><input type=\"text\" name=\"startDate\" value=\"\" size=\"10\"></td>");
+        out.println(
+            "    <td class=\"boxed\"><input type=\"text\" name=\"startDate\" value=\"\" size=\"10\"></td>");
         out.println("  </tr>");
       }
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
       out.println("  </tr>");
 
       out.println("</table>");
       out.println("</div>");
       printHtmlFoot(out);
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
@@ -168,8 +153,8 @@ public class BudgetAccountEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -186,8 +171,8 @@ public class BudgetAccountEditServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -197,8 +182,7 @@ public class BudgetAccountEditServlet extends ClientServlet
    * @return a String containing servlet description
    */
   @Override
-  public String getServletInfo()
-  {
+  public String getServletInfo() {
     return "DQA Tester Home Page";
   }// </editor-fold>
 

@@ -2,16 +2,13 @@ package org.openimmunizationsoftware.pt.manager;
 
 import java.util.Date;
 import java.util.Properties;
-
 import javax.mail.Message;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
-
 import org.hibernate.Session;
 
-public class MailManager
-{
+public class MailManager {
   private String reply = "";
   private String smtpsPassword = "";
   private int smtpsPort = 0;
@@ -20,16 +17,19 @@ public class MailManager
   private String address = "";
 
   public MailManager(Session dataSession) {
-    reply = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY, dataSession);
-    smtpsPassword = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD,
+    reply = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY,
         dataSession);
-    smtpsPort = Integer.parseInt(TrackerKeysManager.getApplicationKeyValue(
-        TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, "0", dataSession));
-    smtpsUsername = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME,
-        dataSession);
-    useSmtps = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession)
+    smtpsPassword = TrackerKeysManager
+        .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD, dataSession);
+    smtpsPort = Integer.parseInt(TrackerKeysManager
+        .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, "0", dataSession));
+    smtpsUsername = TrackerKeysManager
+        .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME, dataSession);
+    useSmtps = TrackerKeysManager
+        .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession)
         .equals("Y");
-    address = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS, dataSession);
+    address = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
+        dataSession);
   }
 
   public void sendEmail(String subject, String body, String to) throws Exception {

@@ -6,37 +6,26 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
-import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectClient;
 import org.openimmunizationsoftware.pt.model.ProjectClientId;
-import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
  * @author nathan
  */
-public class SettingsServlet extends ClientServlet
-{
+public class SettingsServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
@@ -50,8 +39,8 @@ public class SettingsServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException,
-      IOException {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
@@ -86,9 +75,11 @@ public class SettingsServlet extends ClientServlet
               request.getParameter("smtpAddress"), dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS,
               request.getParameter("useSmtps") != null ? "Y" : "N", dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME,
+          TrackerKeysManager.saveApplicationKeyValue(
+              TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME,
               request.getParameter("emailSmtpsUsername"), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD,
+          TrackerKeysManager.saveApplicationKeyValue(
+              TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD,
               request.getParameter("smtpsPassword"), dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT,
               request.getParameter("emailSmtpsPort"), dataSession);
@@ -97,13 +88,14 @@ public class SettingsServlet extends ClientServlet
         } else if (action.equals("Save System Wide Message") && webUser.isUserTypeAdmin()) {
           setSystemWideMessage(request.getParameter("systemWideMessage"));
         } else if (action.equals("Save Categories") && webUser.isUserTypeAdmin()) {
-          Query query = dataSession
-              .createQuery("from ProjectClient where id.providerId = ? order by sortOrder, clientName");
+          Query query = dataSession.createQuery(
+              "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
           query.setParameter(0, webUser.getProviderId());
           List<ProjectClient> projectClientList = query.list();
           String clientCode = request.getParameter("clientCode");
           if (clientCode.length() > 15) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, "Category code is too long (>15), so new category not created. ");
+            request.setAttribute(REQUEST_VAR_MESSAGE,
+                "Category code is too long (>15), so new category not created. ");
             clientCode = "";
           }
           boolean clientCodeIsUnique = true;
@@ -138,7 +130,8 @@ public class SettingsServlet extends ClientServlet
             if (clientCodeIsUnique) {
               String clientName = request.getParameter("clientName");
               if (clientName.length() > 150) {
-                request.setAttribute(REQUEST_VAR_MESSAGE, "Client name is too long (>150), truncating. ");
+                request.setAttribute(REQUEST_VAR_MESSAGE,
+                    "Client name is too long (>150), truncating. ");
                 clientName = clientName.substring(0, 150);
               }
               String sortOrder = request.getParameter("sortOrder");
@@ -158,7 +151,8 @@ public class SettingsServlet extends ClientServlet
                 }
                 if (!clientAcronym.equals("")) {
                   if (clientAcronym.length() > 15) {
-                    request.setAttribute(REQUEST_VAR_MESSAGE, "Client acronym is too long (>15), not setting. ");
+                    request.setAttribute(REQUEST_VAR_MESSAGE,
+                        "Client acronym is too long (>15), not setting. ");
                   } else {
                     projectClient.setClientAcronym(clientAcronym);
                   }
@@ -168,10 +162,12 @@ public class SettingsServlet extends ClientServlet
                 dataSession.save(projectClient);
                 trans.commit();
               } else {
-                request.setAttribute(REQUEST_VAR_MESSAGE, "Category name was not set, so new category not created. ");
+                request.setAttribute(REQUEST_VAR_MESSAGE,
+                    "Category name was not set, so new category not created. ");
               }
             } else {
-              request.setAttribute(REQUEST_VAR_MESSAGE, "Category code was not unique, so new category not created. ");
+              request.setAttribute(REQUEST_VAR_MESSAGE,
+                  "Category code was not unique, so new category not created. ");
             }
 
           }
@@ -179,10 +175,10 @@ public class SettingsServlet extends ClientServlet
       }
       printHtmlHead(out, "Settings", request);
 
-      String displaySize = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE, "small", webUser,
-          dataSession);
-      String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "", webUser,
-          dataSession);
+      String displaySize = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE,
+          "small", webUser, dataSession);
+      String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
+          webUser, dataSession);
 
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
@@ -194,8 +190,8 @@ public class SettingsServlet extends ClientServlet
       out.println("    <td class=\"boxed\">");
       out.println("      <select name=\"displaySize\">");
       for (String ds : CssServlet.DISPLAY_SIZE) {
-        out.println("        <option value=\"" + ds + "\"" + (displaySize.equals(ds) ? " selected" : "") + ">" + ds
-            + "</option>");
+        out.println("        <option value=\"" + ds + "\""
+            + (displaySize.equals(ds) ? " selected" : "") + ">" + ds + "</option>");
       }
       out.println("      </select>");
       out.println("    </td>");
@@ -206,8 +202,8 @@ public class SettingsServlet extends ClientServlet
       out.println("      <select name=\"displayColor\">");
       for (CssServlet.DisplayColor dc : CssServlet.DisplayColor.values()) {
         String dcl = dc.getLabel();
-        out.println("        <option value=\"" + dcl + "\"" + (displayColor.equals(dcl) ? " selected" : "") + ">" + dcl
-            + "</option>");
+        out.println("        <option value=\"" + dcl + "\""
+            + (displayColor.equals(dcl) ? " selected" : "") + ">" + dcl + "</option>");
       }
       out.println("      </select>");
       out.println("    </td>");
@@ -217,13 +213,15 @@ public class SettingsServlet extends ClientServlet
         out.println("    <th class=\"boxed\">Track Time</th>");
         out.println("    <td class=\"boxed\">");
         out.println("      <input type=\"checkBox\" name=\"trackTime\" value=\"Y\""
-            + (n(TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", webUser, dataSession)).equals(
-                "Y") ? " checked" : "") + ">");
+            + (n(TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", webUser,
+                dataSession)).equals("Y") ? " checked" : "")
+            + ">");
         out.println("    </td>");
         out.println("  </tr>");
       }
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");
       out.println("  </tr>");
       out.println("</table>");
       out.println("</form>");
@@ -241,36 +239,40 @@ public class SettingsServlet extends ClientServlet
         out.println("     <th>Client Acronym</th>");
         out.println("     <th>Visible</th>");
         out.println("  </tr>");
-        Query query = dataSession
-            .createQuery("from ProjectClient where id.providerId = ? order by sortOrder, clientName");
+        Query query = dataSession.createQuery(
+            "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
         query.setParameter(0, webUser.getProviderId());
         List<ProjectClient> projectClientList = query.list();
         for (ProjectClient projectClient : projectClientList) {
           String c = projectClient.getId().getClientCode();
           out.println("  <tr class=\"boxed\">");
           out.println("     <td>" + projectClient.getId().getClientCode() + "</td>");
-          out.println("     <td><input type=\"text\" size=\"30\" name=\"clientName_" + c + "\" value=\""
-              + projectClient.getClientName() + "\"></td>");
-          out.println("     <td><input type=\"text\" size=\"3\" name=\"sortOrder_" + c + "\" value=\""
-              + n(projectClient.getSortOrder()) + "\"></td>");
-          out.println("     <td><input type=\"text\" size=\"7\" name=\"clientAcronym_" + c + "\" value=\""
-              + n(projectClient.getClientAcronym()) + "\"></td>");
-          out.println("     <td><input type=\"checkbox\" name=\"visible_"
-              + c
-              + "\""
-              + (projectClient.getVisible() != null && projectClient.getVisible().equals("Y") ? " checked=\"true\""
-                  : "") + "\"></td>");
+          out.println("     <td><input type=\"text\" size=\"30\" name=\"clientName_" + c
+              + "\" value=\"" + projectClient.getClientName() + "\"></td>");
+          out.println("     <td><input type=\"text\" size=\"3\" name=\"sortOrder_" + c
+              + "\" value=\"" + n(projectClient.getSortOrder()) + "\"></td>");
+          out.println("     <td><input type=\"text\" size=\"7\" name=\"clientAcronym_" + c
+              + "\" value=\"" + n(projectClient.getClientAcronym()) + "\"></td>");
+          out.println("     <td><input type=\"checkbox\" name=\"visible_" + c + "\""
+              + (projectClient.getVisible() != null && projectClient.getVisible().equals("Y")
+                  ? " checked=\"true\""
+                  : "")
+              + "\"></td>");
           out.println("  </tr>");
         }
         out.println("  <tr class=\"boxed\">");
-        out.println("     <td><input type=\"text\" size=\"7\" name=\"clientCode\" value=\"\"></td>");
-        out.println("     <td><input type=\"text\" size=\"30\" name=\"clientName\" value=\"\"></td>");
+        out.println(
+            "     <td><input type=\"text\" size=\"7\" name=\"clientCode\" value=\"\"></td>");
+        out.println(
+            "     <td><input type=\"text\" size=\"30\" name=\"clientName\" value=\"\"></td>");
         out.println("     <td><input type=\"text\" size=\"3\" name=\"sortOrder\" value=\"\"></td>");
-        out.println("     <td><input type=\"text\" size=\"7\" name=\"clientAcronym\" value=\"\"></td>");
+        out.println(
+            "     <td><input type=\"text\" size=\"7\" name=\"clientAcronym\" value=\"\"></td>");
         out.println("     <td><input type=\"checkbox\" name=\"visible\" checked=\"true\"></td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed-submit\" colspan=\"5\"><input type=\"submit\" name=\"action\" value=\"Save Categories\"></td>");
+        out.println(
+            "    <td class=\"boxed-submit\" colspan=\"5\"><input type=\"submit\" name=\"action\" value=\"Save Categories\"></td>");
         out.println("  </tr>");
         out.println("</table>");
         out.println("</form>");
@@ -284,7 +286,8 @@ public class SettingsServlet extends ClientServlet
         out.println("    <th class=\"boxed\">External URL</th>");
         out.println("    <td class=\"boxed\">");
         out.println("      <input type=\"text\" name=\"externalUrl\" size=\"50\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EXTERNAL_URL, dataSession))
+            + n(TrackerKeysManager
+                .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EXTERNAL_URL, dataSession))
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
@@ -292,60 +295,71 @@ public class SettingsServlet extends ClientServlet
         out.println("    <th class=\"boxed\">Email server URL</th>");
         out.println("    <td class=\"boxed\">");
         out.println("      <input type=\"text\" name=\"smtpAddress\" size=\"\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS, dataSession))
+            + n(TrackerKeysManager
+                .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS, dataSession))
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email server use SMTPS</th>");
         out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"checkBox\" name=\"useSmtps\" value=\"Y\""
-            + (n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession))
-                .equals("Y") ? " checked" : "") + ">");
+        out.println(
+            "      <input type=\"checkBox\" name=\"useSmtps\" value=\"Y\"" + (n(TrackerKeysManager
+                .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession))
+                    .equals("Y") ? " checked" : "")
+                + ">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email server username</th>");
         out.println("    <td class=\"boxed\">");
         out.println("      <input type=\"text\" name=\"emailSmtpsUsername\" size=\"30\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME,
-                dataSession)) + "\">");
+            + n(TrackerKeysManager.getApplicationKeyValue(
+                TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME, dataSession))
+            + "\">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email server password</th>");
         out.println("    <td class=\"boxed\">");
         out.println("      <input type=\"text\" name=\"smtpsPassword\" size=\"30\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD,
-                dataSession)) + "\">");
+            + n(TrackerKeysManager.getApplicationKeyValue(
+                TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD, dataSession))
+            + "\">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email server port</th>");
         out.println("    <td class=\"boxed\">");
         out.println("      <input type=\"text\" name=\"emailSmtpsPort\" size=\"3\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, dataSession))
+            + n(TrackerKeysManager.getApplicationKeyValue(
+                TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, dataSession))
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email reply address</th>");
         out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"emailReply\" size=\"50\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY, dataSession))
-            + "\">");
+        out.println(
+            "      <input type=\"text\" name=\"emailReply\" size=\"50\" value=\""
+                + n(TrackerKeysManager
+                    .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY, dataSession))
+                + "\">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Daily Report Run Time</th>");
         out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"reportDailyTime\" size=\"7\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME, dataSession))
-            + "\">");
+        out.println(
+            "      <input type=\"text\" name=\"reportDailyTime\" size=\"7\" value=\""
+                + n(TrackerKeysManager
+                    .getApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME, dataSession))
+                + "\">");
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save Admin\"></td>");
+        out.println(
+            "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save Admin\"></td>");
         out.println("  </tr>");
         out.println("</table>");
         out.println("</form>");
@@ -358,8 +372,8 @@ public class SettingsServlet extends ClientServlet
         for (String username : ClientServlet.webUserLastUsedDate.keySet()) {
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">" + username + "</td>");
-          out.println("    <td class=\"boxed\">" + sdf.format(ClientServlet.webUserLastUsedDate.get(username))
-              + "</td>");
+          out.println("    <td class=\"boxed\">"
+              + sdf.format(ClientServlet.webUserLastUsedDate.get(username)) + "</td>");
           out.println("  </tr>");
         }
         out.println("</table>");
@@ -374,7 +388,8 @@ public class SettingsServlet extends ClientServlet
         out.println("    </td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save System Wide Message\"></td>");
+        out.println(
+            "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save System Wide Message\"></td>");
         out.println("  </tr>");
         out.println("</table>");
         out.println("</form>");
@@ -404,7 +419,8 @@ public class SettingsServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -421,7 +437,8 @@ public class SettingsServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

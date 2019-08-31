@@ -2,8 +2,7 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.util.Date;
 
-public class BudgetTrans
-{
+public class BudgetTrans {
 
   public static final String TRANS_STATUS_EXPECTED = "E";
   public static final String TRANS_STATUS_POSSIBLE = "B";
@@ -12,23 +11,20 @@ public class BudgetTrans
   public static final String TRANS_STATUS_DUE = "D";
   public static final String TRANS_STATUS_PAID = "X";
 
-  public static final String[][] TRANS_STATUS = { { TRANS_STATUS_EXPECTED, "Expected" }, { TRANS_STATUS_POSSIBLE, "Possible" },
-      { TRANS_STATUS_SCHEDULED, "Scheduled" }, { TRANS_STATUS_PENDING, "Pending" }, { TRANS_STATUS_DUE, "Due" }, { TRANS_STATUS_PAID, "Paid" } };
+  public static final String[][] TRANS_STATUS = {{TRANS_STATUS_EXPECTED, "Expected"},
+      {TRANS_STATUS_POSSIBLE, "Possible"}, {TRANS_STATUS_SCHEDULED, "Scheduled"},
+      {TRANS_STATUS_PENDING, "Pending"}, {TRANS_STATUS_DUE, "Due"}, {TRANS_STATUS_PAID, "Paid"}};
 
-  public static String getTransStatusLabel(String transStatus)
-  {
-    for (String[] pair : TRANS_STATUS)
-    {
-      if (pair[0].equals(transStatus))
-      {
+  public static String getTransStatusLabel(String transStatus) {
+    for (String[] pair : TRANS_STATUS) {
+      if (pair[0].equals(transStatus)) {
         return pair[1];
       }
     }
     return transStatus;
   }
-  
-  public String getTransStatusLabel()
-  {
+
+  public String getTransStatusLabel() {
     return getTransStatusLabel(transStatus);
   }
 
@@ -41,83 +37,67 @@ public class BudgetTrans
   private BudgetTrans relatedBudgetTrans = null;
   private BudgetTransRecord budgetTransRecord = null;
 
-  public BudgetTransRecord getBudgetTransRecord()
-  {
+  public BudgetTransRecord getBudgetTransRecord() {
     return budgetTransRecord;
   }
 
-  public void setBudgetTransRecord(BudgetTransRecord budgetTransRecord)
-  {
+  public void setBudgetTransRecord(BudgetTransRecord budgetTransRecord) {
     this.budgetTransRecord = budgetTransRecord;
   }
 
-  public int getTransId()
-  {
+  public int getTransId() {
     return transId;
   }
 
-  public void setTransId(int transId)
-  {
+  public void setTransId(int transId) {
     this.transId = transId;
   }
 
-  public BudgetItem getBudgetItem()
-  {
+  public BudgetItem getBudgetItem() {
     return budgetItem;
   }
 
-  public void setBudgetItem(BudgetItem budgetItem)
-  {
+  public void setBudgetItem(BudgetItem budgetItem) {
     this.budgetItem = budgetItem;
   }
 
-  public BudgetMonth getBudgetMonth()
-  {
+  public BudgetMonth getBudgetMonth() {
     return budgetMonth;
   }
 
-  public void setBudgetMonth(BudgetMonth budgetMonth)
-  {
+  public void setBudgetMonth(BudgetMonth budgetMonth) {
     this.budgetMonth = budgetMonth;
   }
 
-  public Date getTransDate()
-  {
+  public Date getTransDate() {
     return transDate;
   }
 
-  public void setTransDate(Date transDate)
-  {
+  public void setTransDate(Date transDate) {
     this.transDate = transDate;
   }
 
-  public String getTransStatus()
-  {
+  public String getTransStatus() {
     return transStatus;
   }
 
-  public void setTransStatus(String transStatus)
-  {
+  public void setTransStatus(String transStatus) {
     this.transStatus = transStatus;
   }
 
-  public int getTransAmount()
-  {
+  public int getTransAmount() {
     return transAmount;
   }
 
-  public void setTransAmount(int transAmount)
-  {
+  public void setTransAmount(int transAmount) {
     this.transAmount = transAmount;
   }
 
-  public BudgetTrans getRelatedBudgetTrans()
-  {
+  public BudgetTrans getRelatedBudgetTrans() {
     return relatedBudgetTrans;
   }
 
-  public void setRelatedBudgetTrans(BudgetTrans relatedBudgetTrans)
-  {
+  public void setRelatedBudgetTrans(BudgetTrans relatedBudgetTrans) {
     this.relatedBudgetTrans = relatedBudgetTrans;
   }
 

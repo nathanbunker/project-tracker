@@ -10,13 +10,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
@@ -30,8 +28,7 @@ import org.openimmunizationsoftware.pt.report.definition.ReportParameter;
  * 
  * @author nathan
  */
-public class ReportServlet extends ClientServlet
-{
+public class ReportServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -46,21 +43,19 @@ public class ReportServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null)
-    {
+    if (webUser == null) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
     }
 
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       Session dataSession = getDataSession(session);
       printHtmlHead(out, "Reports", request);
 
@@ -71,8 +66,7 @@ public class ReportServlet extends ClientServlet
       ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
 
       ReportProfile extendsReportProfile = null;
-      if (reportProfile.getExtendsProfileId() > 0)
-      {
+      if (reportProfile.getExtendsProfileId() > 0) {
         query = dataSession.createQuery("from ReportProfile where profileId = ?");
         query.setParameter(0, reportProfile.getExtendsProfileId());
         reportProfileList = query.list();
@@ -82,12 +76,11 @@ public class ReportServlet extends ClientServlet
 
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
-      if (webUser.isUserTypeAdmin())
-      {
-        out.println("    <th class=\"title\" colspan=\"2\">Report<span class=\"right\"><font size=\"-1\"><a href=\"ReportEditServlet?profileId="
-            + reportProfile.getProfileId() + "\" class=\"box\">Edit</a></font></span></th>");
-      } else
-      {
+      if (webUser.isUserTypeAdmin()) {
+        out.println(
+            "    <th class=\"title\" colspan=\"2\">Report<span class=\"right\"><font size=\"-1\"><a href=\"ReportEditServlet?profileId="
+                + reportProfile.getProfileId() + "\" class=\"box\">Edit</a></font></span></th>");
+      } else {
         out.println("    <th class=\"title\" colspan=\"2\">Report</th>");
       }
       out.println("  </tr>");
@@ -95,8 +88,7 @@ public class ReportServlet extends ClientServlet
       out.println("    <th class=\"boxed\">Report</th>");
       out.println("    <td class=\"boxed\">" + reportProfile.getProfileLabel() + "</td>");
       out.println("  </tr>");
-      if (extendsReportProfile != null)
-      {
+      if (extendsReportProfile != null) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Extends</th>");
         out.println("    <td class=\"boxed\">" + extendsReportProfile.getProfileLabel() + "</td>");
@@ -112,24 +104,25 @@ public class ReportServlet extends ClientServlet
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Enabled</th>");
-      out.println("    <td class=\"boxed\">" + (reportProfile.isEnabled() ? "Yes" : "No") + "</td>");
+      out.println(
+          "    <td class=\"boxed\">" + (reportProfile.isEnabled() ? "Yes" : "No") + "</td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Extendable</th>");
-      out.println("    <td class=\"boxed\">" + (reportProfile.isExtendable() ? "Yes" : "No") + "</td>");
+      out.println(
+          "    <td class=\"boxed\">" + (reportProfile.isExtendable() ? "Yes" : "No") + "</td>");
       out.println("  </tr>");
       SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
       ReportSchedule reportSchedule = reportProfile.getReportSchedule();
-      if (reportSchedule != null)
-      {
+      if (reportSchedule != null) {
         out.println("  <tr>");
         out.println("    <th class=\"title\" colspan=\"2\">Schedule</th>");
         out.println("  </tr>");
-        if (reportSchedule.getDateStart() != null)
-        {
+        if (reportSchedule.getDateStart() != null) {
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Start Date</th>");
-          out.println("    <td class=\"boxed\">" + sdf.format(reportSchedule.getDateStart()) + "</td>");
+          out.println(
+              "    <td class=\"boxed\">" + sdf.format(reportSchedule.getDateStart()) + "</td>");
           out.println("  </tr>");
         }
         out.println("  <tr class=\"boxed\">");
@@ -155,75 +148,70 @@ public class ReportServlet extends ClientServlet
       }
       ReportDefinition reportDefinition = reportProfile.getReportDefinition();
       List<ReportParameter> reportParameterList = null;
-      try
-      {
+      try {
         reportParameterList = reportDefinition.getReportParameters();
-        if (reportParameterList.size() > 0)
-        {
+        if (reportParameterList.size() > 0) {
           out.println("  <tr>");
           out.println("    <th class=\"title\" colspan=\"2\">Parameters for Report</th>");
           out.println("  </tr>");
-          for (ReportParameter reportParameter : reportParameterList)
-          {
+          for (ReportParameter reportParameter : reportParameterList) {
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">" + reportParameter.getLabel() + "</th>");
-            out.println("    <td class=\"boxed\">" + reportParameter.getValue(reportProfile, dataSession) + "</td>");
+            out.println("    <td class=\"boxed\">"
+                + reportParameter.getValue(reportProfile, dataSession) + "</td>");
             out.println("  </tr>");
           }
         }
-      } catch (Exception e)
-      {
+      } catch (Exception e) {
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed\" colspan=\"2\">Unable to read parameter list: " + e.getMessage() + "</td>");
+        out.println("    <td class=\"boxed\" colspan=\"2\">Unable to read parameter list: "
+            + e.getMessage() + "</td>");
         out.println("  </tr>");
       }
       out.println("</table>");
       out.println("<br/>");
       out.println("<form action=\"ReportRunServlet\" method=\"POST\">");
-      out.println("<input type=\"hidden\" name=\"profileId\" value=\"" + reportProfile.getProfileId() + "\">");
+      out.println("<input type=\"hidden\" name=\"profileId\" value=\""
+          + reportProfile.getProfileId() + "\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
       out.println("    <th class=\"title\" colspan=\"2\">Run Now</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Run Date</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"runDate\" value=\"" + ReportBatch.createSimpleDateFormat().format(new Date()) + "\" size=\"20\"></td>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"runDate\" value=\""
+          + ReportBatch.createSimpleDateFormat().format(new Date()) + "\" size=\"20\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Period</th>");
       out.println("    <td class=\"boxed\">");
       out.println("      <select name=\"period\">");
       List<String[]> optionList = new ArrayList<String[]>();
-      optionList.add(new String[] { ReportSchedule.REPORT_DAILY, "Daily Report" });
-      optionList.add(new String[] { ReportSchedule.REPORT_WEEKLY, "Weekly Report" });
-      optionList.add(new String[] { ReportSchedule.REPORT_MONTHLY, "Monthly Report" });
-      optionList.add(new String[] { ReportSchedule.REPORT_YEARLY, "Yearly Report" });
-      for (String[] option : optionList)
-      {
+      optionList.add(new String[] {ReportSchedule.REPORT_DAILY, "Daily Report"});
+      optionList.add(new String[] {ReportSchedule.REPORT_WEEKLY, "Weekly Report"});
+      optionList.add(new String[] {ReportSchedule.REPORT_MONTHLY, "Monthly Report"});
+      optionList.add(new String[] {ReportSchedule.REPORT_YEARLY, "Yearly Report"});
+      for (String[] option : optionList) {
         out.println("        <option value=\"" + option[0] + "\">" + option[1] + "</option>");
       }
       out.println("      </select>");
       out.println("    </td>");
       out.println("  </tr>");
-      if (reportParameterList != null)
-      {
-        try
-        {
-          if (reportParameterList.size() > 0)
-          {
+      if (reportParameterList != null) {
+        try {
+          if (reportParameterList.size() > 0) {
             out.println("  <tr>");
             out.println("    <th class=\"title\" colspan=\"2\">Parameters for Report</th>");
             out.println("  </tr>");
-            for (ReportParameter reportParameter : reportParameterList)
-            {
+            for (ReportParameter reportParameter : reportParameterList) {
               out.println("  <tr class=\"boxed\">");
               out.println("    <th class=\"boxed\">" + reportParameter.getLabel() + "</th>");
-              out.println("    <td class=\"boxed\">" + reportParameter.toHtml(reportProfile, request) + "</td>");
+              out.println("    <td class=\"boxed\">"
+                  + reportParameter.toHtml(reportProfile, request) + "</td>");
               out.println("  </tr>");
             }
           }
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\" colspan=\"2\">Unable to read parameter list: <pre>");
           e.printStackTrace(out);
@@ -233,15 +221,15 @@ public class ReportServlet extends ClientServlet
       }
 
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Run\"><input type=\"submit\" name=\"action\" value=\"Email\"></td>");
+      out.println(
+          "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Run\"><input type=\"submit\" name=\"action\" value=\"Email\"></td>");
       out.println("  </tr>");
       out.println("</table>");
       out.println("</form>");
 
       printHtmlFoot(out);
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
@@ -259,8 +247,8 @@ public class ReportServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -277,8 +265,8 @@ public class ReportServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 

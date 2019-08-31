@@ -13,13 +13,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -35,8 +33,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-public class BudgetTransRecordServlet extends ClientServlet
-{
+public class BudgetTransRecordServlet extends ClientServlet {
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -51,13 +48,12 @@ public class BudgetTransRecordServlet extends ClientServlet
    * @throws IOException
    *           if an I/O error occurs
    */
-  protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
     HttpSession session = request.getSession(true);
     WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null)
-    {
+    if (webUser == null) {
       RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
       dispatcher.forward(request, response);
       return;
@@ -71,30 +67,25 @@ public class BudgetTransRecordServlet extends ClientServlet
     BudgetAccount budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class, accountId);
 
     String action = request.getParameter("action");
-    if (action != null)
-    {
-      if (action.equals("Link"))
-      {
+    if (action != null) {
+      if (action.equals("Link")) {
         int transId = Integer.parseInt(request.getParameter("transId"));
         int transRecordId = Integer.parseInt(request.getParameter("transRecordId"));
         BudgetTrans budgetTrans = (BudgetTrans) dataSession.get(BudgetTrans.class, transId);
-        BudgetTransRecord budgetTransRecord = (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
+        BudgetTransRecord budgetTransRecord =
+            (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
         Transaction transaction = dataSession.beginTransaction();
-        try
-        {
+        try {
           budgetTrans.setBudgetTransRecord(budgetTransRecord);
           budgetTrans.setTransAmount(budgetTransRecord.getTransAmount());
           budgetTrans.setTransDate(budgetTransRecord.getTransDate());
           budgetTransRecord.setBudgetTrans(budgetTrans);
           dataSession.update(budgetTrans);
           dataSession.update(budgetTransRecord);
-        } finally
-        {
+        } finally {
           transaction.commit();
         }
-      }
-      else if (action.equals("Create Trans Record"))
-      {
+      } else if (action.equals("Create Trans Record")) {
         String itemIdAndMonthId = request.getParameter("itemIdAndMonthId");
         int pos = itemIdAndMonthId.indexOf("-");
         int itemId = Integer.parseInt(itemIdAndMonthId.substring(0, pos));
@@ -102,8 +93,9 @@ public class BudgetTransRecordServlet extends ClientServlet
         int transRecordId = Integer.parseInt(request.getParameter("transRecordId"));
         BudgetMonth budgetMonth = (BudgetMonth) dataSession.get(BudgetMonth.class, monthId);
         BudgetItem budgetItem = (BudgetItem) dataSession.get(BudgetItem.class, itemId);
-        BudgetTransRecord budgetTransRecord = (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
-        
+        BudgetTransRecord budgetTransRecord =
+            (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
+
         BudgetTrans budgetTrans = new BudgetTrans();
         budgetTrans.setBudgetItem(budgetItem);
         budgetTrans.setBudgetMonth(budgetMonth);
@@ -111,21 +103,18 @@ public class BudgetTransRecordServlet extends ClientServlet
         budgetTrans.setTransAmount(budgetTransRecord.getTransAmount());
         budgetTrans.setTransDate(budgetTransRecord.getTransDate());
         budgetTrans.setTransStatus(BudgetTrans.TRANS_STATUS_PENDING);
-        
+
         Transaction transaction = dataSession.beginTransaction();
-        try
-        {
+        try {
           dataSession.save(budgetTrans);
           budgetTransRecord.setBudgetTrans(budgetTrans);
           dataSession.update(budgetTransRecord);
-        } finally
-        {
+        } finally {
           transaction.commit();
         }
-        
-        
-      } else if (action.equals("Upload"))
-      {
+
+
+      } else if (action.equals("Upload")) {
         String message = null;
         String csv = request.getParameter("csv");
         BufferedReader in = new BufferedReader(new StringReader(csv));
@@ -133,50 +122,41 @@ public class BudgetTransRecordServlet extends ClientServlet
         int lineNumber = 0;
         String separator = "\",\"";
         Transaction transaction = dataSession.beginTransaction();
-        try
-        {
-          while ((line = in.readLine()) != null)
-          {
+        try {
+          while ((line = in.readLine()) != null) {
             lineNumber++;
             int start = 1;
             int end = line.indexOf(separator);
-            if (line.startsWith("\"") && line.length() > 30 && end > 0)
-            {
+            if (line.startsWith("\"") && line.length() > 30 && end > 0) {
               // Field #1
               String dateString = line.substring(start, end);
               start = end + separator.length();
               end = line.indexOf(separator, start);
-              if (end > 0)
-              {
+              if (end > 0) {
                 // Field #2
                 String amountString = line.substring(start, end);
                 start = end + separator.length();
                 end = line.indexOf(separator, start);
-                if (end > 0)
-                {
+                if (end > 0) {
                   // Field #3
                   start = end + separator.length();
                   end = line.indexOf(separator, start);
-                  if (end > 0)
-                  {
+                  if (end > 0) {
                     // Field #4
                     start = end + separator.length();
                     end = line.length() - 1;
-                    if (end > start && line.charAt(end) == '"')
-                    {
-                      try
-                      {
+                    if (end > start && line.charAt(end) == '"') {
+                      try {
                         String description = line.substring(start, end);
                         int transAmount = MoneyUtil.parse(amountString);
                         Date transDate = sdf.parse(dateString);
-                        query = dataSession
-                            .createQuery("from BudgetTransRecord where budgetAccount = ? and transDate = ? and transAmount = ? and description = ? ");
+                        query = dataSession.createQuery(
+                            "from BudgetTransRecord where budgetAccount = ? and transDate = ? and transAmount = ? and description = ? ");
                         query.setParameter(0, budgetAccount);
                         query.setParameter(1, transDate);
                         query.setParameter(2, transAmount);
                         query.setParameter(3, description);
-                        if (query.list().size() == 0)
-                        {
+                        if (query.list().size() == 0) {
                           BudgetTransRecord budgetTransRecord = new BudgetTransRecord();
                           budgetTransRecord.setBudgetAccount(budgetAccount);
                           budgetTransRecord.setDescription(description);
@@ -184,9 +164,9 @@ public class BudgetTransRecordServlet extends ClientServlet
                           budgetTransRecord.setTransDate(transDate);
                           dataSession.save(budgetTransRecord);
                         }
-                      } catch (Exception e)
-                      {
-                        message = "Unable to parse on line " + lineNumber + " because " + e.getMessage();
+                      } catch (Exception e) {
+                        message =
+                            "Unable to parse on line " + lineNumber + " because " + e.getMessage();
                       }
 
                     }
@@ -195,30 +175,28 @@ public class BudgetTransRecordServlet extends ClientServlet
               }
             }
           }
-        } finally
-        {
+        } finally {
           transaction.commit();
         }
       }
     }
 
     PrintWriter out = response.getWriter();
-    try
-    {
+    try {
       printHtmlHead(out, "Budget", request);
       out.println("<h1>" + budgetAccount.getAccountLabel() + "</h1>");
-      query = dataSession.createQuery("from BudgetTransRecord where budgetAccount = ? and budgetTrans is null order by transDate, transAmount ");
+      query = dataSession.createQuery(
+          "from BudgetTransRecord where budgetAccount = ? and budgetTrans is null order by transDate, transAmount ");
       query.setParameter(0, budgetAccount);
 
       List<BudgetTransRecord> budgetTransRecordList = query.list();
 
-      if (budgetTransRecordList.size() > 0)
-      {
+      if (budgetTransRecordList.size() > 0) {
         out.println("<h2>Unlinked Transactions</h2>");
-        List<BudgetTransRecord> budgetTransRecordListUnlinkable = new ArrayList<BudgetTransRecord>();
+        List<BudgetTransRecord> budgetTransRecordListUnlinkable =
+            new ArrayList<BudgetTransRecord>();
 
-        for (BudgetTransRecord budgetTransRecord : budgetTransRecordList)
-        {
+        for (BudgetTransRecord budgetTransRecord : budgetTransRecordList) {
           Calendar startCalendar = Calendar.getInstance();
           startCalendar.setTime(budgetTransRecord.getTransDate());
           startCalendar.add(Calendar.DAY_OF_MONTH, -7);
@@ -226,8 +204,8 @@ public class BudgetTransRecordServlet extends ClientServlet
           endCalendar.setTime(budgetTransRecord.getTransDate());
           endCalendar.add(Calendar.DAY_OF_MONTH, 7);
           int tenPercent = Math.abs((int) budgetTransRecord.getTransAmount() / 10);
-          query = dataSession
-              .createQuery("from BudgetTrans where budgetMonth.budgetAccount = ? and budgetTransRecord is null and transDate >= ? and transDate <= ? and transAmount >= ? and transAmount <= ?");
+          query = dataSession.createQuery(
+              "from BudgetTrans where budgetMonth.budgetAccount = ? and budgetTransRecord is null and transDate >= ? and transDate <= ? and transAmount >= ? and transAmount <= ?");
           query.setParameter(0, budgetAccount);
           query.setParameter(1, startCalendar.getTime());
           query.setParameter(2, endCalendar.getTime());
@@ -235,11 +213,9 @@ public class BudgetTransRecordServlet extends ClientServlet
           query.setParameter(4, budgetTransRecord.getTransAmount() + tenPercent);
 
           List<BudgetTrans> budgetTransList = query.list();
-          if (budgetTransList.size() == 0)
-          {
+          if (budgetTransList.size() == 0) {
             budgetTransRecordListUnlinkable.add(budgetTransRecord);
-          } else
-          {
+          } else {
             out.println("<h3>" + budgetTransRecord.getDescription() + "</h3>");
             out.println("<table class=\"boxed\">");
             out.println("  <tr class=\"boxed\">");
@@ -250,35 +226,42 @@ public class BudgetTransRecordServlet extends ClientServlet
             out.println("  </tr>");
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">Actual Transaction</td>");
-            out.println("    <td class=\"boxed\">" + sdf.format(budgetTransRecord.getTransDate()) + "</td>");
-            out.println("    <td class=\"boxed\"><span class=\"right\">" + MoneyUtil.format(budgetTransRecord.getTransAmount()) + "</span></td>");
+            out.println("    <td class=\"boxed\">" + sdf.format(budgetTransRecord.getTransDate())
+                + "</td>");
+            out.println("    <td class=\"boxed\"><span class=\"right\">"
+                + MoneyUtil.format(budgetTransRecord.getTransAmount()) + "</span></td>");
             out.println("  </tr>");
-            for (BudgetTrans budgetTrans : budgetTransList)
-            {
+            for (BudgetTrans budgetTrans : budgetTransList) {
               out.println("  <tr class=\"boxed\">");
-              out.println("    <td class=\"boxed\">" + budgetTrans.getBudgetItem().getItemLabel() + "</td>");
-              out.println("    <td class=\"boxed\">" + sdf.format(budgetTrans.getTransDate()) + "</td>");
-              out.println("    <td class=\"boxed\"><span class=\"right\">" + MoneyUtil.format(budgetTrans.getTransAmount()) + "</span></td>");
-              String link = "BudgetTransRecordServlet?action=Link&accountId=" + budgetAccount.getAccountId() + "&transId=" + budgetTrans.getTransId()
+              out.println("    <td class=\"boxed\">" + budgetTrans.getBudgetItem().getItemLabel()
+                  + "</td>");
+              out.println(
+                  "    <td class=\"boxed\">" + sdf.format(budgetTrans.getTransDate()) + "</td>");
+              out.println("    <td class=\"boxed\"><span class=\"right\">"
+                  + MoneyUtil.format(budgetTrans.getTransAmount()) + "</span></td>");
+              String link = "BudgetTransRecordServlet?action=Link&accountId="
+                  + budgetAccount.getAccountId() + "&transId=" + budgetTrans.getTransId()
                   + "&transRecordId=" + budgetTransRecord.getTransRecordId() + "";
-              out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">Link</a></td>");
+              out.println("    <td class=\"boxed\"><a href=\"" + link
+                  + "\" class=\"button\">Link</a></td>");
               out.println("  </tr>");
             }
             out.println("</table>");
           }
         }
-        if (budgetTransRecordListUnlinkable.size() > 0)
-        {
+        if (budgetTransRecordListUnlinkable.size() > 0) {
           SimpleDateFormat budgetMonthFormat = new SimpleDateFormat("MMM yyyy");
-          out.println("<p>The following transactions could not be linked because no matching records were found.</p>");
-          query = dataSession.createQuery("from BudgetItem where budgetAccount = ?  and (itemStatus = 'Y' or itemStatus = 'M') order by itemLabel");
+          out.println(
+              "<p>The following transactions could not be linked because no matching records were found.</p>");
+          query = dataSession.createQuery(
+              "from BudgetItem where budgetAccount = ?  and (itemStatus = 'Y' or itemStatus = 'M') order by itemLabel");
           query.setParameter(0, budgetAccount);
           List<BudgetItem> budgetItemList = query.list();
-          query = dataSession.createQuery("from BudgetMonth where budgetAccount = ? order by monthDate");
+          query = dataSession
+              .createQuery("from BudgetMonth where budgetAccount = ? order by monthDate");
           query.setParameter(0, budgetAccount);
           List<BudgetMonth> budgetMonthList = query.list();
-          for (BudgetTransRecord budgetTransRecord : budgetTransRecordListUnlinkable)
-          {
+          for (BudgetTransRecord budgetTransRecord : budgetTransRecordListUnlinkable) {
             out.println("<h3>" + budgetTransRecord.getDescription() + "</h3>");
             out.println("<form action=\"BudgetTransRecordServlet\" method=\"POST\">");
             out.println("<table class=\"boxed\">");
@@ -288,8 +271,10 @@ public class BudgetTransRecordServlet extends ClientServlet
             out.println("    <th class=\"boxed\">Description</th>");
             out.println("  </tr>");
             out.println("  <tr class=\"boxed\">");
-            out.println("    <td class=\"boxed\">" + sdf.format(budgetTransRecord.getTransDate()) + "</td>");
-            out.println("    <td class=\"boxed\"><span class=\"right\">" + MoneyUtil.format(budgetTransRecord.getTransAmount()) + "</span></td>");
+            out.println("    <td class=\"boxed\">" + sdf.format(budgetTransRecord.getTransDate())
+                + "</td>");
+            out.println("    <td class=\"boxed\"><span class=\"right\">"
+                + MoneyUtil.format(budgetTransRecord.getTransAmount()) + "</span></td>");
             out.println("    <td class=\"boxed\">" + budgetTransRecord.getDescription() + "</td>");
             out.println("  </tr>");
 
@@ -308,30 +293,33 @@ public class BudgetTransRecordServlet extends ClientServlet
             endCalendar.set(Calendar.DAY_OF_MONTH, 2);
             endCalendar.add(Calendar.MONTH, 1);
             Date endDate = endCalendar.getTime();
-            for (BudgetMonth budgetMonth : budgetMonthList)
-            {
-              if (!budgetMonth.getMonthDate().before(startDate) && !budgetMonth.getMonthDate().after(endDate))
-              {
-                for (BudgetItem budgetItem : budgetItemList)
-                {
-                  query = dataSession.createQuery("from BudgetTrans where budgetItem = ? and budgetMonth = ?");
+            for (BudgetMonth budgetMonth : budgetMonthList) {
+              if (!budgetMonth.getMonthDate().before(startDate)
+                  && !budgetMonth.getMonthDate().after(endDate)) {
+                for (BudgetItem budgetItem : budgetItemList) {
+                  query = dataSession
+                      .createQuery("from BudgetTrans where budgetItem = ? and budgetMonth = ?");
                   query.setParameter(0, budgetItem);
                   query.setParameter(1, budgetMonth);
                   List<BudgetTrans> budgetTransList = query.list();
-                  if (budgetTransList.size() == 0)
-                  {
-                    
-                    out.println("        <option value=\"" + budgetItem.getItemId() + "-" + budgetMonth.getMonthId() + "\">" + budgetMonthFormat.format(budgetMonth.getMonthDate())
-                        + " - " + budgetItem.getItemLabel() + "</option>");
+                  if (budgetTransList.size() == 0) {
+
+                    out.println("        <option value=\"" + budgetItem.getItemId() + "-"
+                        + budgetMonth.getMonthId() + "\">"
+                        + budgetMonthFormat.format(budgetMonth.getMonthDate()) + " - "
+                        + budgetItem.getItemLabel() + "</option>");
                   }
                 }
               }
             }
 
             out.println("      </select>");
-            out.println("      <input type=\"submit\" name=\"action\" value=\"Create Trans Record\">");
-            out.println("      <input type=\"hidden\" name=\"accountId\" value=\"" + budgetAccount.getAccountId() + "\">");
-            out.println("      <input type=\"hidden\" name=\"transRecordId\" value=\"" + budgetTransRecord.getTransRecordId() + "\">");
+            out.println(
+                "      <input type=\"submit\" name=\"action\" value=\"Create Trans Record\">");
+            out.println("      <input type=\"hidden\" name=\"accountId\" value=\""
+                + budgetAccount.getAccountId() + "\">");
+            out.println("      <input type=\"hidden\" name=\"transRecordId\" value=\""
+                + budgetTransRecord.getTransRecordId() + "\">");
             out.println("    </td>");
             out.println("  </tr>");
             out.println("</table>");
@@ -341,7 +329,8 @@ public class BudgetTransRecordServlet extends ClientServlet
         }
       }
 
-      query = dataSession.createQuery("from BudgetTransRecord where budgetAccount = ? order by transDate, transAmount ");
+      query = dataSession.createQuery(
+          "from BudgetTransRecord where budgetAccount = ? order by transDate, transAmount ");
       query.setParameter(0, budgetAccount);
 
       budgetTransRecordList = query.list();
@@ -356,11 +345,12 @@ public class BudgetTransRecordServlet extends ClientServlet
       out.println("    <th class=\"boxed\">Amount</th>");
       out.println("    <th class=\"boxed\">Description</th>");
       out.println("  </tr>");
-      for (BudgetTransRecord budgetTransRecord : budgetTransRecordList)
-      {
+      for (BudgetTransRecord budgetTransRecord : budgetTransRecordList) {
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed\">" + sdf.format(budgetTransRecord.getTransDate()) + "</td>");
-        out.println("    <td class=\"boxed\"><span class=\"right\">" + MoneyUtil.format(budgetTransRecord.getTransAmount()) + "</span></td>");
+        out.println(
+            "    <td class=\"boxed\">" + sdf.format(budgetTransRecord.getTransDate()) + "</td>");
+        out.println("    <td class=\"boxed\"><span class=\"right\">"
+            + MoneyUtil.format(budgetTransRecord.getTransAmount()) + "</span></td>");
         out.println("    <td class=\"boxed\">" + budgetTransRecord.getDescription() + "</td>");
         out.println("  </tr>");
 
@@ -370,12 +360,12 @@ public class BudgetTransRecordServlet extends ClientServlet
       out.println("<form action=\"BudgetTransRecordServlet\" method=\"POST\">");
       out.println("<textarea name=\"csv\" cols=\"40\" rows=\"5\"></textarea><br/>");
       out.println("<input type=\"submit\" name=\"action\" value=\"Upload\">");
-      out.println("<input type=\"hidden\" name=\"accountId\" value=\"" + budgetAccount.getAccountId() + "\">");
+      out.println("<input type=\"hidden\" name=\"accountId\" value=\""
+          + budgetAccount.getAccountId() + "\">");
       out.println("</form>");
       printHtmlFoot(out);
 
-    } finally
-    {
+    } finally {
       out.close();
     }
   }
@@ -396,8 +386,8 @@ public class BudgetTransRecordServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -414,8 +404,8 @@ public class BudgetTransRecordServlet extends ClientServlet
    *           if an I/O error occurs
    */
   @Override
-  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-  {
+  protected void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
     processRequest(request, response);
   }
 
@@ -425,8 +415,7 @@ public class BudgetTransRecordServlet extends ClientServlet
    * @return a String containing servlet description
    */
   @Override
-  public String getServletInfo()
-  {
+  public String getServletInfo() {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
