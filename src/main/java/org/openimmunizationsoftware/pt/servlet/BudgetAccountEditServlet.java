@@ -64,7 +64,7 @@ public class BudgetAccountEditServlet extends ClientServlet {
         budgetAccount.setProviderId(webUser.getProviderId());
       }
 
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
       String action = request.getParameter("action");
       if (action != null) {

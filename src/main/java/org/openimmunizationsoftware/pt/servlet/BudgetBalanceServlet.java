@@ -57,7 +57,7 @@ public class BudgetBalanceServlet extends ClientServlet {
     PrintWriter out = response.getWriter();
     try {
       Session dataSession = getDataSession(session);
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
       Query query;
 
@@ -83,7 +83,7 @@ public class BudgetBalanceServlet extends ClientServlet {
 
       List<BudgetTrans> budgetTransList = null;
       {
-        Calendar cal = Calendar.getInstance();
+        Calendar cal = webUser.getCalendar();
         cal.add(Calendar.MONTH, 1);
         Date nextMonth = cal.getTime();
         query = dataSession.createQuery(
@@ -147,7 +147,7 @@ public class BudgetBalanceServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Paid</th>");
       out.println("    <th class=\"boxed\">Record</th>");
       out.println("  </tr>");
-      SimpleDateFormat shortSdf = new SimpleDateFormat("MMM dd");
+      SimpleDateFormat shortSdf = webUser.getDateFormat("MMM dd");
       for (BudgetTrans budgetTrans : budgetTransList) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\" nowrap>" + shortSdf.format(budgetTrans.getTransDate())

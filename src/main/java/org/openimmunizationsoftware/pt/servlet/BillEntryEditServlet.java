@@ -54,7 +54,7 @@ public class BillEntryEditServlet extends ClientServlet {
       return;
     }
 
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+    SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy HH:mm:ss");
     PrintWriter out = response.getWriter();
     try {
       Session dataSession = getDataSession(session);

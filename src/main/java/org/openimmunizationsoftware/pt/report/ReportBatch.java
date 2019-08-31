@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.ReportSchedule;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class ReportBatch {
 
@@ -21,16 +22,12 @@ public class ReportBatch {
 
   private int profileId = 0;
   private Map<String, String> parameterValues = new HashMap<String, String>();
+  private WebUser webUser;
 
-  public static SimpleDateFormat createSimpleDateFormat() {
-    return new SimpleDateFormat("MM/dd/yyyy hh:mm:ss a");
-  }
-
-  private SimpleDateFormat sdf = createSimpleDateFormat();
-
-
-  public ReportBatch() {
-    parameterValues.put(PARAMETER_RUN_DATE, sdf.format(new Date()));
+  public ReportBatch(WebUser webUser) {
+    this.webUser = webUser;
+    parameterValues.put(PARAMETER_RUN_DATE,
+        webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(new Date()));
   }
 
   public void setReportProfile(ReportProfile reportProfile) {
@@ -93,7 +90,7 @@ public class ReportBatch {
   }
 
   public void setPreviousRunDate(Date previousRunDate) {
-    setPreviousRunDate(sdf.format(previousRunDate));
+    setPreviousRunDate(webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(previousRunDate));
   }
 
   public void setPreviousRunDate(String previousRunDate) {

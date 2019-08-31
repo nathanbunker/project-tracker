@@ -27,6 +27,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class ProjectReviewServlet extends ClientServlet {
 
   public static enum Interval {
@@ -90,6 +91,7 @@ public class ProjectReviewServlet extends ClientServlet {
    * @throws IOException
    *           if an I/O error occurs
    */
+  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
@@ -191,15 +193,15 @@ public class ProjectReviewServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Last Update</th>");
       out.println("  </tr>");
 
-      Calendar today = Calendar.getInstance();
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      Calendar today = webUser.getCalendar();
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
       for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
         if (projectContactAssigned.getUpdateDue() > 0) {
           boolean due = true;
 
           if (projectContactAssigned.getUpdateLast() != null) {
-            Calendar dueDate = Calendar.getInstance();
+            Calendar dueDate = webUser.getCalendar();
             dueDate.setTime(projectContactAssigned.getUpdateLast());
             dueDate.add(Calendar.DAY_OF_MONTH, projectContactAssigned.getUpdateDue());
             due = today.after(dueDate);

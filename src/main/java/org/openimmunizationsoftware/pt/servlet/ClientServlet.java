@@ -341,11 +341,8 @@ public class ClientServlet extends HttpServlet {
   }
 
   public static void printFooter(PrintWriter out) {
-    SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z");
-    out.println(
-        "    <p>Open Immunization Software - Project Tracker - Version " + SoftwareVersion.VERSION
-            + "<br>" + "Current server time is " + sdf.format(System.currentTimeMillis()) + "</p>");
-
+    out.println("    <p>Open Immunization Software - Project Tracker - Version "
+        + SoftwareVersion.VERSION + "</p>");
   }
 
   public static void printHtmlFoot(PrintWriter out) {

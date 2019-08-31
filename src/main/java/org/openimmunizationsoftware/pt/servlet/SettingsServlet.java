@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.TimeZone;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -25,6 +26,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class SettingsServlet extends ClientServlet {
 
   /**
@@ -61,6 +63,11 @@ public class SettingsServlet extends ClientServlet {
               request.getParameter("displaySize"), dataSession);
           TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, webUser,
               request.getParameter("displayColor"), dataSession);
+          String timeZone = request.getParameter("timeZone");
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ZONE, webUser, timeZone,
+              dataSession);
+          webUser.setTimeZone(TimeZone.getTimeZone(timeZone));
+
           if (webUser.isUserTypeAdmin()) {
             TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TRACK_TIME, webUser,
                 request.getParameter("trackTime") != null ? "Y" : "N", dataSession);
@@ -91,6 +98,7 @@ public class SettingsServlet extends ClientServlet {
           Query query = dataSession.createQuery(
               "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
           query.setParameter(0, webUser.getProviderId());
+          @SuppressWarnings("unchecked")
           List<ProjectClient> projectClientList = query.list();
           String clientCode = request.getParameter("clientCode");
           if (clientCode.length() > 15) {
@@ -179,6 +187,8 @@ public class SettingsServlet extends ClientServlet {
           "small", webUser, dataSession);
       String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
           webUser, dataSession);
+      String timeZone = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
+          "America/Denver", webUser, dataSession);
 
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
@@ -204,6 +214,17 @@ public class SettingsServlet extends ClientServlet {
         String dcl = dc.getLabel();
         out.println("        <option value=\"" + dcl + "\""
             + (displayColor.equals(dcl) ? " selected" : "") + ">" + dcl + "</option>");
+      }
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Time Zone</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"timeZone\">");
+      for (String tz : TimeZone.getAvailableIDs()) {
+        out.println("        <option value=\"" + tz + "\""
+            + (timeZone.equals(tz) ? " selected" : "") + ">" + tz + "</option>");
       }
       out.println("      </select>");
       out.println("    </td>");
@@ -242,6 +263,7 @@ public class SettingsServlet extends ClientServlet {
         Query query = dataSession.createQuery(
             "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
         query.setParameter(0, webUser.getProviderId());
+        @SuppressWarnings("unchecked")
         List<ProjectClient> projectClientList = query.list();
         for (ProjectClient projectClient : projectClientList) {
           String c = projectClient.getId().getClientCode();
@@ -368,7 +390,7 @@ public class SettingsServlet extends ClientServlet {
         out.println("  <tr class=\"boxed\">");
         out.println("     <th  class=\"title\" colspan=\"2\">Last Used by Users</td>");
         out.println("  </tr>");
-        SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
+        SimpleDateFormat sdf = webUser.getTimeFormat();
         for (String username : ClientServlet.webUserLastUsedDate.keySet()) {
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">" + username + "</td>");

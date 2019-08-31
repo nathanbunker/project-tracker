@@ -33,6 +33,7 @@ public class TrackerKeysManager {
   public static final String KEY_MANAGE_BUDGET = "manage.budget";
   public static final String KEY_DISPLAY_SIZE = "display.size";
   public static final String KEY_DISPLAY_COLOR = "display.color";
+  public static final String KEY_TIME_ZONE = "time.zone";
 
   public static final String KEY_EMAIL_DEBUG = "system.email.debug";
   public static final String KEY_EMAIL_REPLY = "system.email.reply";
@@ -52,6 +53,7 @@ public class TrackerKeysManager {
     query.setParameter(0, keyName);
     query.setParameter(1, keyType);
     query.setParameter(2, keyId);
+    @SuppressWarnings("unchecked")
     List<TrackerKeys> trackerKeysList = query.list();
     if (trackerKeysList.size() > 0) {
       return new String(trackerKeysList.get(0).getKeyContent());
@@ -112,6 +114,7 @@ public class TrackerKeysManager {
     query.setParameter(0, keyName);
     query.setParameter(1, keyType);
     query.setParameter(2, keyId);
+    @SuppressWarnings("unchecked")
     List<TrackerKeys> trackerKeysList = query.list();
     if (trackerKeysList.size() > 0) {
       return trackerKeysList.get(0).getKeyValue();
@@ -166,6 +169,7 @@ public class TrackerKeysManager {
     query.setParameter(0, keyName);
     query.setParameter(1, keyType);
     query.setParameter(2, keyId);
+    @SuppressWarnings("unchecked")
     List<TrackerKeys> trackerKeysList = query.list();
     if (trackerKeysList.size() > 0) {
       TrackerKeys trackerKeys = trackerKeysList.get(0);

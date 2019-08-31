@@ -144,7 +144,7 @@ public class ProjectContactServlet extends ClientServlet {
       query = dataSession.createQuery("from ContactEvent where projectContact = ?");
       query.setParameter(0, projectContact);
       List<ContactEvent> contactEventList = query.list();
-      SimpleDateFormat sdf = new SimpleDateFormat("MMM d");
+      SimpleDateFormat sdf = webUser.getDateFormat("MMM d");
       for (ContactEvent contactEvent : contactEventList) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">" + contactEvent.getEventTypeLabel() + "</th>");

@@ -78,7 +78,7 @@ public class BudgetServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Balance</th>");
       out.println("  </tr>");
 
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
       for (BudgetAccount budgetAccount : budgetAccountList) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\"><a href=\"BudgetServlet?accountId="
@@ -216,7 +216,7 @@ public class BudgetServlet extends ClientServlet {
           }
         }
 
-        SimpleDateFormat monthTitleSdf = new SimpleDateFormat("MMMM yyyy");
+        SimpleDateFormat monthTitleSdf = webUser.getMonthFormat();
         out.println("<br>");
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
@@ -253,7 +253,7 @@ public class BudgetServlet extends ClientServlet {
         totalsByPriorityMap.put(BudgetItem.PRIORITY_CODE_SCHEDULED, 0);
         totalsByPriorityMap.put(BudgetItem.PRIORITY_CODE_DONATIONS, 0);
 
-        SimpleDateFormat shortSdf = new SimpleDateFormat("MMM dd");
+        SimpleDateFormat shortSdf = webUser.getDateFormat("MMM dd");
         int endingBalance = budgetMonth.getBalanceStart();
         Date startDate =
             budgetAccount.getStartDate().after(monthDate) ? budgetAccount.getStartDate()

@@ -112,7 +112,7 @@ public class ReportServlet extends ClientServlet {
       out.println(
           "    <td class=\"boxed\">" + (reportProfile.isExtendable() ? "Yes" : "No") + "</td>");
       out.println("  </tr>");
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+      SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy HH:mm:ss");
       ReportSchedule reportSchedule = reportProfile.getReportSchedule();
       if (reportSchedule != null) {
         out.println("  <tr>");
@@ -180,7 +180,7 @@ public class ReportServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Run Date</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"runDate\" value=\""
-          + ReportBatch.createSimpleDateFormat().format(new Date()) + "\" size=\"20\"></td>");
+          + webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(new Date()) + "\" size=\"20\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Period</th>");

@@ -54,7 +54,7 @@ public class BillCodeEditServlet extends ClientServlet {
       dispatcher.forward(request, response);
       return;
     }
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+    SimpleDateFormat sdf = webUser.getDateFormat();
 
     PrintWriter out = response.getWriter();
     try {
@@ -117,11 +117,11 @@ public class BillCodeEditServlet extends ClientServlet {
               query.setParameter(0, billBudget);
               query.setParameter(1, billBudget.getStartDate());
               query.setParameter(2, billBudget.getEndDate());
-              Calendar today = Calendar.getInstance();
+              Calendar today = webUser.getCalendar();
               List<BillMonth> billMonthList = query.list();
               if (billMonthList.size() > 0) {
                 for (BillMonth billMonth : billMonthList) {
-                  Calendar billDateCalendar = Calendar.getInstance();
+                  Calendar billDateCalendar = webUser.getCalendar();
                   billDateCalendar.setTime(billMonth.getBillDate());
 
                   boolean isChangable =
@@ -139,7 +139,7 @@ public class BillCodeEditServlet extends ClientServlet {
 
             dataSession.saveOrUpdate(billBudget);
             trans.commit();
-            updateBillMonths(billCode, billBudget, dataSession);
+            updateBillMonths(billCode, billBudget, dataSession, webUser);
             response.sendRedirect("BillCodeServlet?billCode=" + billCode.getBillCode());
             return;
           } catch (Exception e) {
@@ -249,16 +249,16 @@ public class BillCodeEditServlet extends ClientServlet {
             query.setParameter(0, billBudget);
             query.setParameter(1, billBudget.getStartDate());
             query.setParameter(2, billBudget.getEndDate());
-            Calendar today = Calendar.getInstance();
+            Calendar today = webUser.getCalendar();
             List<BillMonth> billMonthList = query.list();
             if (billMonthList.size() > 0) {
               out.println("  <tr>");
               out.println("    <th class=\"boxed\">Month</th>");
               out.println("    <th class=\"boxed\">Expected</th>");
               out.println("  </tr>");
-              SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
+              SimpleDateFormat sdfMonth = webUser.getMonthFormat();
               for (BillMonth billMonth : billMonthList) {
-                Calendar billDateCalendar = Calendar.getInstance();
+                Calendar billDateCalendar = webUser.getCalendar();
                 billDateCalendar.setTime(billMonth.getBillDate());
 
                 boolean isChangable =
@@ -299,7 +299,7 @@ public class BillCodeEditServlet extends ClientServlet {
   }
 
   public static void updateBillMonths(BillCode billCode, BillBudget billBudget,
-      Session dataSession) {
+      Session dataSession, WebUser webUser) {
     Transaction transaction = dataSession.beginTransaction();
     try {
       Query query;
@@ -308,7 +308,7 @@ public class BillCodeEditServlet extends ClientServlet {
 
       Date today = new Date();
       int totalTimeLeft = billBudget.getBillMins();
-      Calendar monthCalendar = Calendar.getInstance();
+      Calendar monthCalendar = webUser.getCalendar();
       monthCalendar.setTime(billBudget.getStartDate());
       while (monthCalendar.getTime().before(billBudget.getEndDate())) {
         Date startTime = monthCalendar.getTime();

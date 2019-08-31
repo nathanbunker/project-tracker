@@ -50,7 +50,7 @@ public class BillCodeServlet extends ClientServlet {
       dispatcher.forward(request, response);
       return;
     }
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+    SimpleDateFormat sdf = webUser.getDateFormat();
 
 
     PrintWriter out = response.getWriter();
@@ -140,7 +140,7 @@ public class BillCodeServlet extends ClientServlet {
           out.println("    <td class=\"boxed\" colspan=\"2\">"
               + TimeTracker.formatTime(billBudget.getBillMins()) + "</td>");
           out.println("  </tr>");
-          BillCodeEditServlet.updateBillMonths(billCode, billBudget, dataSession);
+          BillCodeEditServlet.updateBillMonths(billCode, billBudget, dataSession, webUser);
           query = dataSession.createQuery(
               "from BillMonth where billBudget = ? and billDate >= ? and billDate < ? order by billDate");
           query.setParameter(0, billBudget);
@@ -153,7 +153,7 @@ public class BillCodeServlet extends ClientServlet {
             out.println("    <th class=\"boxed\">Actual</th>");
             out.println("    <th class=\"boxed\">Expected</th>");
             out.println("  </tr>");
-            SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM yyyy");
+            SimpleDateFormat sdfMonth = webUser.getMonthFormat();
             for (BillMonth billMonth : billMonthList) {
               out.println("  <tr class=\"boxed\">");
               out.println(

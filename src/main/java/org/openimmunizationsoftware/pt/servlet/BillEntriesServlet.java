@@ -59,7 +59,7 @@ public class BillEntriesServlet extends ClientServlet {
     try {
       Session dataSession = getDataSession(session);
 
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
       String billDateString = request.getParameter("billDate");
       Date billDate = null;
       if ((billDateString != null && billDateString.length() > 0)) {
@@ -83,7 +83,7 @@ public class BillEntriesServlet extends ClientServlet {
 
       Query query;
 
-      Calendar t = TimeTracker.createToday();
+      Calendar t = TimeTracker.createToday(webUser);
       if (billDate != null) {
         t.setTime(billDate);
       }
@@ -110,7 +110,7 @@ public class BillEntriesServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Time</th>");
       out.println("    <th class=\"boxed\">Bill</th>");
       out.println("  </tr>");
-      SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm aaa");
+      SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
       for (BillEntry billEntry : billEntryList) {
         String clientCode = billEntry.getClientCode();
         String providerId = billEntry.getProviderId();

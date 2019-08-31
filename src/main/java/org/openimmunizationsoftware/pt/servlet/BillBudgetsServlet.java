@@ -68,7 +68,7 @@ public class BillBudgetsServlet extends ClientServlet {
       if (action != null) {
         if (action.equals("Update Time")) {
           Transaction transaction = dataSession.beginTransaction();
-          SimpleDateFormat formatCompact = new SimpleDateFormat("yyyyMMdd");
+          SimpleDateFormat formatCompact = webUser.getDateFormat("yyyyMMdd");
           Enumeration<String> enumeration = request.getParameterNames();
           while (enumeration.hasMoreElements()) {
             String paramName = enumeration.nextElement();
@@ -121,7 +121,7 @@ public class BillBudgetsServlet extends ClientServlet {
       boolean showLinks) {
     List<Date> monthDateList = new ArrayList<Date>();
     Date today = new Date();
-    Calendar calendar = Calendar.getInstance();
+    Calendar calendar = webUser.getCalendar();
     calendar.set(Calendar.DAY_OF_MONTH, 1);
     monthDateList.add(calendar.getTime());
     for (int i = 0; i < 6; i++) {
@@ -136,7 +136,7 @@ public class BillBudgetsServlet extends ClientServlet {
       int workingDayCount = 0;
       Date startDate = monthDateList.get(i - 1);
       Date endDate = monthDateList.get(i);
-      Calendar workingDayCalendar = Calendar.getInstance();
+      Calendar workingDayCalendar = webUser.getCalendar();
       workingDayCalendar.setTime(startDate);
       while (workingDayCalendar.getTime().before(today)) {
         WorkingDay workingDay = new WorkingDay();
@@ -178,7 +178,7 @@ public class BillBudgetsServlet extends ClientServlet {
     query.setParameter(2, today);
     List<BillBudget> billBudgetList = query.list();
 
-    SimpleDateFormat sdfMonth = new SimpleDateFormat("MMM");
+    SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM");
 
     out.println("<table class=\"boxed\">");
     out.println("  <tr>");
@@ -192,7 +192,7 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("  </tr>");
     for (BillBudget billBudget : billBudgetList) {
       BillCode billCode = billBudget.getBillCode();
-      BillCodeEditServlet.updateBillMonths(billCode, billBudget, dataSession);
+      BillCodeEditServlet.updateBillMonths(billCode, billBudget, dataSession, webUser);
       out.println("  <tr class=\"boxed\">");
       if (showLinks) {
         out.println(
@@ -229,7 +229,7 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("  </tr>");
     for (BillBudget billBudget : billBudgetList) {
       BillCode billCode = billBudget.getBillCode();
-      BillCodeEditServlet.updateBillMonths(billCode, billBudget, dataSession);
+      BillCodeEditServlet.updateBillMonths(billCode, billBudget, dataSession, webUser);
       out.println("  <tr class=\"boxed\">");
       out.println("    <td class=\"boxed\">" + n(billCode.getBillLabel()) + "</td>");
 
@@ -310,7 +310,7 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("</table> ");
     out.println("<br/>");
 
-    SimpleDateFormat daySdf = new SimpleDateFormat("MMM dd EEE");
+    SimpleDateFormat daySdf = webUser.getDateFormat("MMM dd EEE");
     out.println("<table class=\"boxed\">");
     out.println("  <tr>");
     out.println("    <th class=\"title\" colspan=\"4\">Billable Work Completed</th>");
@@ -381,7 +381,7 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("</table> ");
     out.println("<br/>");
 
-    SimpleDateFormat formatCompact = new SimpleDateFormat("yyyyMMdd");
+    SimpleDateFormat formatCompact = webUser.getDateFormat("yyyyMMdd");
     if (showLinks) {
       out.println("<form method=\"POST\" action=\"BillBudgetsServlet\">");
     }

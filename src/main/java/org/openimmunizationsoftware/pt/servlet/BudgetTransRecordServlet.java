@@ -61,7 +61,7 @@ public class BudgetTransRecordServlet extends ClientServlet {
     Session dataSession = getDataSession(session);
     Query query;
 
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+    SimpleDateFormat sdf = webUser.getDateFormat();
     int accountId = Integer.parseInt(request.getParameter("accountId"));
 
     BudgetAccount budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class, accountId);
@@ -197,10 +197,10 @@ public class BudgetTransRecordServlet extends ClientServlet {
             new ArrayList<BudgetTransRecord>();
 
         for (BudgetTransRecord budgetTransRecord : budgetTransRecordList) {
-          Calendar startCalendar = Calendar.getInstance();
+          Calendar startCalendar = webUser.getCalendar();
           startCalendar.setTime(budgetTransRecord.getTransDate());
           startCalendar.add(Calendar.DAY_OF_MONTH, -7);
-          Calendar endCalendar = Calendar.getInstance();
+          Calendar endCalendar = webUser.getCalendar();
           endCalendar.setTime(budgetTransRecord.getTransDate());
           endCalendar.add(Calendar.DAY_OF_MONTH, 7);
           int tenPercent = Math.abs((int) budgetTransRecord.getTransAmount() / 10);
@@ -250,7 +250,7 @@ public class BudgetTransRecordServlet extends ClientServlet {
           }
         }
         if (budgetTransRecordListUnlinkable.size() > 0) {
-          SimpleDateFormat budgetMonthFormat = new SimpleDateFormat("MMM yyyy");
+          SimpleDateFormat budgetMonthFormat = webUser.getMonthFormat();
           out.println(
               "<p>The following transactions could not be linked because no matching records were found.</p>");
           query = dataSession.createQuery(
@@ -283,12 +283,12 @@ public class BudgetTransRecordServlet extends ClientServlet {
             out.println("    <td class=\"boxed\">");
             out.println("      <select name=\"itemIdAndMonthId\">");
             out.println("        <option value=\"\">--select--</option>");
-            Calendar startCalendar = Calendar.getInstance();
+            Calendar startCalendar = webUser.getCalendar();
             startCalendar.setTime(budgetTransRecord.getTransDate());
             startCalendar.set(Calendar.DAY_OF_MONTH, 1);
             startCalendar.add(Calendar.MONTH, -1);
             Date startDate = startCalendar.getTime();
-            Calendar endCalendar = Calendar.getInstance();
+            Calendar endCalendar = webUser.getCalendar();
             endCalendar.setTime(budgetTransRecord.getTransDate());
             endCalendar.set(Calendar.DAY_OF_MONTH, 2);
             endCalendar.add(Calendar.MONTH, 1);

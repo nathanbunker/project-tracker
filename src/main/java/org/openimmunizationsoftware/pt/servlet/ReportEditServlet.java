@@ -61,7 +61,7 @@ public class ReportEditServlet extends ClientServlet {
 
       ReportProfile reportProfile = null;
       ReportProfile extendsReportProfile = null;
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+      SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy HH:mm:ss");
 
       if (request.getParameter("profileId") != null) {
 

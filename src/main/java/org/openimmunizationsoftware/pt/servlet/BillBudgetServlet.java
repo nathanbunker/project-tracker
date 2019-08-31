@@ -35,6 +35,11 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class BillBudgetServlet extends ClientServlet {
 
   /**
+   * 
+   */
+  private static final long serialVersionUID = 8629518097899063857L;
+
+  /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
    * methods.
    * 
@@ -67,7 +72,7 @@ public class BillBudgetServlet extends ClientServlet {
           Integer.parseInt(request.getParameter("billBudgetId")));
       Date today = new Date();
 
-      generateReport(out, dataSession, billBudget, today);
+      generateReport(out, dataSession, billBudget, today, webUser);
 
       printHtmlFoot(out);
 
@@ -77,9 +82,9 @@ public class BillBudgetServlet extends ClientServlet {
   }
 
   public static void generateReport(PrintWriter out, Session dataSession, BillBudget billBudget,
-      Date today) {
+      Date today, WebUser webUser) {
     BillCode billCode = billBudget.getBillCode();
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+    SimpleDateFormat sdf = webUser.getDateFormat();
 
     Query query;
     out.println("<table class=\"boxed\">");
@@ -139,21 +144,22 @@ public class BillBudgetServlet extends ClientServlet {
     List<Date[]> actionMonthDates = new ArrayList<Date[]>();
     Date prevStartDate = billBudget.getStartDate();
 
-    int prevMonth = getMonth(billBudget.getStartDate());
+    int prevMonth = getMonth(billBudget.getStartDate(), webUser);
     int totalMins = billBudget.getBillMins();
     int mins = 0;
     Date prevDate = billBudget.getStartDate();
-    SimpleDateFormat monthFormat = new SimpleDateFormat("MMMM yyyy");
+    SimpleDateFormat monthFormat = webUser.getMonthFormat();
     query = dataSession.createQuery(
         "from BillDay where billBudget = ? and bill_date >= ? and bill_date < ? order by billDate asc");
     query.setParameter(0, billBudget);
     query.setParameter(1, billBudget.getStartDate());
     query.setParameter(2, billBudget.getEndDate());
 
+    @SuppressWarnings("unchecked")
     List<BillDay> billDayList = query.list();
 
     for (BillDay billDay : billDayList) {
-      int month = getMonth(billDay.getBillDate());
+      int month = getMonth(billDay.getBillDate(), webUser);
       if (prevMonth != month) {
         if (mins > 0) {
           totalMins = totalMins - mins;
@@ -194,7 +200,7 @@ public class BillBudgetServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Month</th>");
       out.println("    <th class=\"boxed\">Estimate</th>");
       out.println("  </tr>");
-      Calendar calendar = Calendar.getInstance();
+      Calendar calendar = webUser.getCalendar();
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       Date startDate = calendar.getTime();
       while (startDate.before(billBudget.getEndDate())) {
@@ -205,6 +211,7 @@ public class BillBudgetServlet extends ClientServlet {
         query.setParameter(0, billBudget);
         query.setParameter(1, startDate);
         query.setParameter(2, endDate);
+        @SuppressWarnings("unchecked")
         List<BillMonth> billMonthList = query.list();
         if (billMonthList.size() > 0) {
           BillMonth billMonth = billMonthList.get(0);
@@ -223,6 +230,7 @@ public class BillBudgetServlet extends ClientServlet {
 
     query = dataSession.createQuery("from Project where billCode = ? order by projectName");
     query.setParameter(0, billCode.getBillCode());
+    @SuppressWarnings("unchecked")
     List<Project> projectList = query.list();
 
     int stop = actionMonthDates.size() - 2;
@@ -255,6 +263,7 @@ public class BillBudgetServlet extends ClientServlet {
         query.setParameter(0, project.getProjectId());
         query.setParameter(1, start);
         query.setParameter(2, end);
+        @SuppressWarnings("unchecked")
         List<ProjectAction> projectActionList = query.list();
 
         for (ProjectAction projectAction : projectActionList) {
@@ -282,7 +291,7 @@ public class BillBudgetServlet extends ClientServlet {
       int countMonths = -1;
       int countWorkingDaysForPartialMonth = 0;
       int countPartialMonth = 0;
-      Calendar calendar = Calendar.getInstance();
+      Calendar calendar = webUser.getCalendar();
       calendar.setTime(today);
       while (calendar.getTime().before(billBudget.getEndDate())) {
         if (calendar.get(Calendar.DAY_OF_MONTH) == 1) {
@@ -352,8 +361,8 @@ public class BillBudgetServlet extends ClientServlet {
     }
   }
 
-  private static int getMonth(Date d) {
-    Calendar cal = Calendar.getInstance();
+  private static int getMonth(Date d, WebUser webUser) {
+    Calendar cal = webUser.getCalendar();
     cal.setTime(d);
     int month = cal.get(Calendar.MONTH);
     return month;

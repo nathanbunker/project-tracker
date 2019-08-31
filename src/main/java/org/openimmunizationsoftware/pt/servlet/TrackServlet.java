@@ -122,7 +122,7 @@ public class TrackServlet extends ClientServlet {
         }
       }
 
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
       String billDateString = request.getParameter("billDate");
       Date billDate = null;
       if ((billDateString != null && billDateString.length() > 0) || !type.equals("Day")) {
@@ -138,7 +138,7 @@ public class TrackServlet extends ClientServlet {
           } else {
             timeTracker = new TimeTracker(webUserSelected, billDate, dataSession);
           }
-          Calendar calendar = Calendar.getInstance();
+          Calendar calendar = webUser.getCalendar();
           calendar.setTime(timeTracker.getStartDate());
           while (calendar.getTime().before(timeTracker.getEndDate())) {
             updateBillDay(dataSession, webUserSelected, calendar.getTime());

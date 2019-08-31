@@ -114,7 +114,7 @@ public class TimeTracker {
 
   public TimeTracker(WebUser webUser, Date date, Session dataSession) {
     this.webUser = webUser;
-    Calendar t = Calendar.getInstance();
+    Calendar t = webUser.getCalendar();
     t.setTime(date);
     removeTime(t);
     init(webUser, dataSession, t);
@@ -125,7 +125,7 @@ public class TimeTracker {
     if (webUser.getParentWebUser() != null) {
       this.webUser = webUser.getParentWebUser();
     }
-    Calendar t = Calendar.getInstance();
+    Calendar t = webUser.getCalendar();
     t.setTime(date);
     removeTime(t);
     init(webUser, dataSession, t, calendarField);
@@ -133,7 +133,7 @@ public class TimeTracker {
   }
 
   public void init(WebUser webUser, Session dataSession) {
-    Calendar t = createToday();
+    Calendar t = createToday(webUser);
     init(webUser, dataSession, t);
   }
 
@@ -317,8 +317,8 @@ public class TimeTracker {
     return mins;
   }
 
-  public static Calendar createToday() {
-    Calendar calendar = Calendar.getInstance();
+  public static Calendar createToday(WebUser webUser) {
+    Calendar calendar = webUser.getCalendar();
     removeTime(calendar);
     return calendar;
   }

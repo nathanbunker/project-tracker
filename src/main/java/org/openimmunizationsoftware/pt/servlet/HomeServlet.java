@@ -53,8 +53,8 @@ public class HomeServlet extends ClientServlet {
 
     PrintWriter out = response.getWriter();
     try {
-      SimpleDateFormat sdf1 = new SimpleDateFormat("MM/dd/yyyy");
       if (webUser != null) {
+        SimpleDateFormat sdf1 = webUser.getDateFormat();
         Session dataSession = getDataSession(session);
 
         String action = request.getParameter("action");
@@ -82,7 +82,7 @@ public class HomeServlet extends ClientServlet {
                 (ProjectAction) dataSession.get(ProjectAction.class, actionId);
             Transaction trans = dataSession.beginTransaction();
             try {
-              Calendar calendar = TimeTracker.createToday();
+              Calendar calendar = TimeTracker.createToday(webUser);
               if (action.equals("DoTomorrow")) {
                 calendar.add(Calendar.DAY_OF_MONTH, 1);
               } else if (action.equals("DoNextWeek")) {
@@ -98,7 +98,7 @@ public class HomeServlet extends ClientServlet {
                 (ProjectAction) dataSession.get(ProjectAction.class, actionId);
             Transaction trans = dataSession.beginTransaction();
             try {
-              Calendar calendar = TimeTracker.createToday();
+              Calendar calendar = TimeTracker.createToday(webUser);
               Date oldDateDue = projectAction.getNextDue();
               try {
                 projectAction.setNextDue(sdf1.parse(request.getParameter("changeNextDue")));
@@ -250,7 +250,7 @@ public class HomeServlet extends ClientServlet {
 
   protected static void printActionsDue(WebUser webUser, PrintWriter out, Session dataSession,
       String nextActionType, Date nextDue, boolean showLink, boolean showMenu) {
-    SimpleDateFormat sdf1 = new SimpleDateFormat("MM/dd/yyyy");
+    SimpleDateFormat sdf1 = webUser.getDateFormat();
     Query query = dataSession.createQuery(
         "from ProjectAction where providerId = ? and (contactId = ? or nextContactId = ?) and nextActionId = 0 and nextDescription <> '' order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
     query.setParameter(0, webUser.getProviderId());
@@ -259,7 +259,7 @@ public class HomeServlet extends ClientServlet {
     List<ProjectAction> projectActionList = query.list();
 
     List<ProjectAction> projectActionListOverdue =
-        prepareProjectActionListAndIdentifyOverdue(dataSession, projectActionList);
+        prepareProjectActionListAndIdentifyOverdue(dataSession, projectActionList, webUser);
     out.println("<div class=\"main\">");
     if (projectActionListOverdue.size() > 0) {
       out.println("<table class=\"boxed\">");
@@ -291,13 +291,13 @@ public class HomeServlet extends ClientServlet {
 
     }
 
-    Calendar cIndicated = Calendar.getInstance();
+    Calendar cIndicated = webUser.getCalendar();
     cIndicated.setTime(nextDue);
-    Calendar cToday = Calendar.getInstance();
-    Calendar cTomorrow = Calendar.getInstance();
+    Calendar cToday = webUser.getCalendar();
+    Calendar cTomorrow = webUser.getCalendar();
     cTomorrow.add(Calendar.DAY_OF_MONTH, 1);
 
-    Calendar nextDueTomorrowCalendar = Calendar.getInstance();
+    Calendar nextDueTomorrowCalendar = webUser.getCalendar();
     nextDueTomorrowCalendar.setTime(nextDue);
     nextDueTomorrowCalendar.add(Calendar.DAY_OF_MONTH, 1);
     while (nextDueTomorrowCalendar.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY
@@ -310,7 +310,7 @@ public class HomeServlet extends ClientServlet {
       printScript(out, sdf1, nextActionType, nextDue);
     }
     if (showMenu) {
-      printMenuForm(out, sdf1, nextActionType, nextDue);
+      printMenuForm(out, sdf1, nextActionType, nextDue, webUser);
     }
     printDueTable(webUser, out, sdf1, nextActionType, nextDue, projectActionList, cIndicated,
         cToday, cTomorrow, showLink);
@@ -348,7 +348,7 @@ public class HomeServlet extends ClientServlet {
   }
 
   private static void printMenuForm(PrintWriter out, SimpleDateFormat sdf1, String nextActionType,
-      Date nextDue) {
+      Date nextDue, WebUser webUser) {
     out.println("<form action=\"HomeServlet\" method=\"GET\" name=\"setdate\">");
     out.println("            <input type=\"hidden\" name=\"nextActionType\" value=\""
         + nextActionType + "\">");
@@ -379,15 +379,15 @@ public class HomeServlet extends ClientServlet {
     out.println("           <br>Due <input type=\"text\" name=\"date\" value=\""
         + sdf1.format(nextDue) + "\" size=\"10\" onchange=\"this.form.submit()\">");
     out.println("            <font size=\"-1\">");
-    Calendar calendar = Calendar.getInstance();
-    SimpleDateFormat day = new SimpleDateFormat("EEE");
+    Calendar calendar = webUser.getCalendar();
+    SimpleDateFormat day = webUser.getDateFormat("EEE");
     out.println(
         "              <a href=\"javascript: void setNextAction('" + sdf1.format(calendar.getTime())
-            + "');\" class=\"" + (sameDay(calendar, nextDue) ? "box" : "button") + "\">Today</a>");
+            + "');\" class=\"" + (sameDay(calendar, nextDue, webUser) ? "box" : "button") + "\">Today</a>");
     calendar.add(Calendar.DAY_OF_MONTH, 1);
     out.println(
         "              <a href=\"javascript: void setNextAction('" + sdf1.format(calendar.getTime())
-            + "');\" class=\"" + (sameDay(calendar, nextDue) ? "box" : "button") + "\">"
+            + "');\" class=\"" + (sameDay(calendar, nextDue, webUser) ? "box" : "button") + "\">"
             + day.format(calendar.getTime()) + "</a>");
     boolean nextWeek = false;
     for (int i = 0; i < 6; i++) {
@@ -395,12 +395,12 @@ public class HomeServlet extends ClientServlet {
       if (nextWeek) {
         out.println("              <a href=\"javascript: void setNextAction('"
             + sdf1.format(calendar.getTime()) + "');\" class=\""
-            + (sameDay(calendar, nextDue) ? "box" : "button") + "\">Next-"
+            + (sameDay(calendar, nextDue, webUser) ? "box" : "button") + "\">Next-"
             + day.format(calendar.getTime()) + "</a>");
       } else {
         out.println("              <a href=\"javascript: void setNextAction('"
             + sdf1.format(calendar.getTime()) + "');\" class=\""
-            + (sameDay(calendar, nextDue) ? "box" : "button") + "\">"
+            + (sameDay(calendar, nextDue, webUser) ? "box" : "button") + "\">"
             + day.format(calendar.getTime()) + "</a>");
 
       }
@@ -413,11 +413,11 @@ public class HomeServlet extends ClientServlet {
   }
 
   protected static List<ProjectAction> prepareProjectActionListAndIdentifyOverdue(
-      Session dataSession, List<ProjectAction> projectActionList) {
+      Session dataSession, List<ProjectAction> projectActionList, WebUser webUser) {
     List<ProjectAction> projectActionListOverdue = new ArrayList<ProjectAction>();
 
     {
-      Date today = TimeTracker.createToday().getTime();
+      Date today = TimeTracker.createToday(webUser).getTime();
       for (ProjectAction projectAction : projectActionList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
@@ -459,7 +459,7 @@ public class HomeServlet extends ClientServlet {
 
     int nextTimeEstimateTotal = 0;
     for (ProjectAction projectAction : projectActionList) {
-      if (!sameDay(cIndicated, projectAction.getNextDue())) {
+      if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
         continue;
       }
       if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
@@ -515,7 +515,7 @@ public class HomeServlet extends ClientServlet {
   private static void printActionLine(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
       String nextActionType, Date nextDue, Calendar cIndicated, ProjectAction projectAction,
       boolean showLink) {
-    if (!sameDay(cIndicated, projectAction.getNextDue())) {
+    if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
       return;
     }
     if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
@@ -595,7 +595,7 @@ public class HomeServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()));
     }
-    Calendar today = TimeTracker.createToday();
+    Calendar today = TimeTracker.createToday(webUser);
     if (projectAction.getNextDue() != null && projectAction.getNextDue().before(today.getTime())) {
       today.add(Calendar.DAY_OF_MONTH, -1);
       if (!projectAction.getNextDue().before(today.getTime())) {
@@ -658,15 +658,15 @@ public class HomeServlet extends ClientServlet {
           + (projectAction.getNextDue() == null ? "" : sdf1.format(projectAction.getNextDue()))
           + "\" size=\"10\" onchange=\"this.form.submit()\">");
       out.println("            <font size=\"-1\">");
-      Calendar calendar = Calendar.getInstance();
-      SimpleDateFormat day = new SimpleDateFormat("EEE");
+      Calendar calendar = webUser.getCalendar();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
       out.println("              <a href=\"javascript: void changeNextAction('"
           + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
-          + (sameDay(calendar, projectAction.getNextDue()) ? "box" : "button") + "\">Today</a>");
+          + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button") + "\">Today</a>");
       calendar.add(Calendar.DAY_OF_MONTH, 1);
       out.println("              <a href=\"javascript: void changeNextAction('"
           + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
-          + (sameDay(calendar, projectAction.getNextDue()) ? "box" : "button") + "\">"
+          + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button") + "\">"
           + day.format(calendar.getTime()) + "</a>");
       boolean nextWeek = false;
       for (int i = 0; i < 6; i++) {
@@ -674,12 +674,12 @@ public class HomeServlet extends ClientServlet {
         if (nextWeek) {
           out.println("              <a href=\"javascript: void changeNextAction('"
               + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
-              + (sameDay(calendar, projectAction.getNextDue()) ? "box" : "button") + "\">Next-"
+              + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button") + "\">Next-"
               + day.format(calendar.getTime()) + "</a>");
         } else {
           out.println("              <a href=\"javascript: void changeNextAction('"
               + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
-              + (sameDay(calendar, projectAction.getNextDue()) ? "box" : "button") + "\">"
+              + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button") + "\">"
               + day.format(calendar.getTime()) + "</a>");
 
         }
@@ -718,11 +718,11 @@ public class HomeServlet extends ClientServlet {
     return changeBoxId;
   }
 
-  private static boolean sameDay(Calendar c1, Date d) {
+  private static boolean sameDay(Calendar c1, Date d, WebUser webUser) {
     if (d == null) {
       return false;
     }
-    Calendar c2 = Calendar.getInstance();
+    Calendar c2 = webUser.getCalendar();
     c2.setTime(d);
     boolean s = sameDay(c1, c2);
     return s;

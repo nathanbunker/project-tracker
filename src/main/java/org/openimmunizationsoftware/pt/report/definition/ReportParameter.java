@@ -128,7 +128,7 @@ public class ReportParameter {
       return "<input type=\"checkbox\" name=\"" + name + "\" value=\"T\""
           + (value ? " checked" : "") + "/>";
     } else if (type.equals(TYPE_DATE)) {
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+      SimpleDateFormat sdf = webUser.getTimeFormat();
       Date value =
           TrackerKeysManager.getReportKeyValueDateTime(name, defaultValue, profile, dataSession);
       return createTextInput(sdf.format(value));

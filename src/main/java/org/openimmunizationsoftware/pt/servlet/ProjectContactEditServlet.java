@@ -4,11 +4,13 @@
  */
 package org.openimmunizationsoftware.pt.servlet;
 
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.TimeZone;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -19,13 +21,13 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.model.ContactEvent;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
-import org.openimmunizationsoftware.pt.model.TimeZone;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class ProjectContactEditServlet extends ClientServlet {
 
   /**
@@ -41,6 +43,7 @@ public class ProjectContactEditServlet extends ClientServlet {
    * @throws IOException
    *           if an I/O error occurs
    */
+  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
@@ -55,7 +58,7 @@ public class ProjectContactEditServlet extends ClientServlet {
     PrintWriter out = response.getWriter();
     try {
       Session dataSession = getDataSession(session);
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
       ProjectContact projectContact;
 
@@ -200,13 +203,11 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">");
       out.println("      <select name=\"timeZone\">");
       out.println("        <option value=\"\" selected></option>");
-      for (TimeZone timeZone : TimeZone.getTimeZoneList()) {
-        if (timeZone.getTimeZoneLabel().equals(projectContact.getTimeZone())) {
-          out.println("        <option value=\"" + timeZone.getTimeZoneLabel() + "\" selected>"
-              + timeZone.getTimeZoneLabel() + "</option>");
+      for (String tz : TimeZone.getAvailableIDs()) {
+        if (tz.equals(projectContact.getTimeZone())) {
+          out.println("        <option value=\"" + tz + "\" selected>" + tz + "</option>");
         } else {
-          out.println("        <option value=\"" + timeZone.getTimeZoneLabel() + "\">"
-              + timeZone.getTimeZoneLabel() + "</option>");
+          out.println("        <option value=\"" + tz + "\">" + tz + "</option>");
         }
       }
       out.println("      </select>");

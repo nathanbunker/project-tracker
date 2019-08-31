@@ -7,6 +7,7 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.TimeZone;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -23,6 +24,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class LoginServlet extends ClientServlet {
 
   /**
@@ -72,6 +74,9 @@ public class LoginServlet extends ClientServlet {
             webUser.setManageBudget(TrackerKeysManager
                 .getKeyValue(TrackerKeysManager.KEY_MANAGE_BUDGET, "N", webUser, dataSession)
                 .equalsIgnoreCase("Y"));
+
+            webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
+                TrackerKeysManager.KEY_TIME_ZONE, "America/Denver", webUser, dataSession)));
 
             query =
                 dataSession.createQuery("from WebUser where parentWebUser = ? order by username");

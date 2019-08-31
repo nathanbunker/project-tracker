@@ -60,7 +60,7 @@ public class BudgetItemEditServlet extends ClientServlet {
     try {
       Session dataSession = getDataSession(session);
 
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
       BudgetAccount budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class,
           Integer.parseInt(request.getParameter("accountId")));
@@ -359,7 +359,7 @@ public class BudgetItemEditServlet extends ClientServlet {
             .createQuery("from BudgetMonth where budgetAccount = ? order by monthDate desc");
         query.setParameter(0, budgetAccount);
         List<BudgetMonth> budgetMonthList = query.list();
-        SimpleDateFormat monthSdf = new SimpleDateFormat("MMM yyyy");
+        SimpleDateFormat monthSdf = webUser.getDateFormat("MMM yyyy");
         for (BudgetMonth budgetMonth : budgetMonthList) {
           if (budgetTrans.getBudgetMonth() != null
               && budgetMonth.getMonthId() == budgetTrans.getBudgetMonth().getMonthId()) {
@@ -407,7 +407,7 @@ public class BudgetItemEditServlet extends ClientServlet {
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Budget Month</th>");
-        SimpleDateFormat monthSdf = new SimpleDateFormat("MMM yyyy");
+        SimpleDateFormat monthSdf = webUser.getDateFormat("MMM yyyy");
         out.println("    <td class=\"boxed\">"
             + monthSdf.format(budgetTrans.getBudgetMonth().getMonthDate()) + "</td>");
         out.println("  <tr class=\"boxed\">");

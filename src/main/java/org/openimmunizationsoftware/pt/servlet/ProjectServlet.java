@@ -115,7 +115,7 @@ public class ProjectServlet extends ClientServlet {
           projectAction.setProjectId(projectId);
           projectAction.setContactId(webUser.getContactId());
           projectAction.setContact(webUser.getProjectContact());
-          SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
+          SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
           Date actionDate = new Date();
           try {
             actionDate = sdf.parse(request.getParameter("actionDate"));
@@ -142,12 +142,12 @@ public class ProjectServlet extends ClientServlet {
           Date nextDue = null;
           if (request.getParameter("nextDue") != null
               && request.getParameter("nextDue").length() > 0) {
-            sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
+            sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
             try {
               nextDue = sdf.parse(request.getParameter("nextDue"));
             } catch (Exception e) {
               // try again
-              sdf = new SimpleDateFormat("MM/dd/yyyy");
+              sdf = webUser.getDateFormat();
               try {
                 nextDue = sdf.parse(request.getParameter("nextDue"));
               } catch (Exception e2) {
@@ -227,7 +227,7 @@ public class ProjectServlet extends ClientServlet {
                 msg.append("<p>");
                 msg.append(projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()));
                 if (projectAction.getNextDue() != null) {
-                  SimpleDateFormat sdf11 = new SimpleDateFormat("MM/dd/yyyy");
+                  SimpleDateFormat sdf11 = webUser.getDateFormat();
                   msg.append(" ");
                   msg.append(sdf11.format(projectAction.getNextDue()));
                 }
@@ -514,7 +514,7 @@ public class ProjectServlet extends ClientServlet {
         }
       }
 
-      printOutScript(out, projectId);
+      printOutScript(out, projectId, webUser);
       out.println(
           "<form name=\"projectAction\" method=\"post\" action=\"ProjectServlet\" id=\"saveProjectActionForm\">");
       out.println("<input type=\"hidden\" name=\"projectId\" value=\"" + projectId + "\">");
@@ -532,7 +532,7 @@ public class ProjectServlet extends ClientServlet {
         out.println("    <th class=\"inside\">Status</th>");
         out.println("    <th class=\"inside\">Comp</th>");
         out.println("  </tr>");
-        SimpleDateFormat sdf11 = new SimpleDateFormat("MM/dd/yyyy");
+        SimpleDateFormat sdf11 = webUser.getDateFormat();
         for (ProjectAction projectAction1 : projectActionList) {
 
           ProjectContact projectContact1 =
@@ -563,7 +563,7 @@ public class ProjectServlet extends ClientServlet {
           out.println("</td>");
           if (projectAction1.getNextDue() != null) {
             Date today = new Date();
-            Calendar calendar1 = Calendar.getInstance();
+            Calendar calendar1 = webUser.getCalendar();
             calendar1.add(Calendar.DAY_OF_MONTH, -1);
             Date yesterday = calendar1.getTime();
             if (projectAction1.getNextDue().after(today)) {
@@ -594,7 +594,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("    <td class=\"outside\">");
 
-      SimpleDateFormat sdf1 = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
+      SimpleDateFormat sdf1 = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
 
       out.println("      <table class=\"inside\">");
       out.println("        <tr>");
@@ -630,9 +630,9 @@ public class ProjectServlet extends ClientServlet {
           "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDue\" size=\"10\" value=\""
               + n(request.getParameter("nextDue")) + "\" onkeydown=\"resetRefresh()\" disabled>");
       out.println("            <font size=\"-1\">");
-      Calendar calendar = Calendar.getInstance();
-      sdf1 = new SimpleDateFormat("MM/dd/yyyy");
-      SimpleDateFormat day = new SimpleDateFormat("EEE");
+      Calendar calendar = webUser.getCalendar();
+      sdf1 = webUser.getDateFormat();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
       out.println("              <a href=\"javascript: void setNextAction('"
           + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
       calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -755,7 +755,7 @@ public class ProjectServlet extends ClientServlet {
         out.println("    <th class=\"inside\">Status</th>");
         out.println("    <th class=\"inside\">Comp</th>");
         out.println("  </tr>");
-        SimpleDateFormat sdf11 = new SimpleDateFormat("MM/dd/yyyy");
+        SimpleDateFormat sdf11 = webUser.getDateFormat();
         for (ProjectAction projectAction1 : projectActionGoalList) {
 
           ProjectContact projectContact1 =
@@ -789,7 +789,7 @@ public class ProjectServlet extends ClientServlet {
           out.println("</td>");
           if (projectAction1.getNextDue() != null) {
             Date today = new Date();
-            Calendar calendar1 = Calendar.getInstance();
+            Calendar calendar1 = webUser.getCalendar();
             calendar1.add(Calendar.DAY_OF_MONTH, -1);
             Date yesterday = calendar1.getTime();
             if (projectAction1.getNextDue().after(today)) {
@@ -859,7 +859,7 @@ public class ProjectServlet extends ClientServlet {
           "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
       query.setParameter(0, projectId);
       projectActionList = query.list();
-      SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
+      SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
       for (ProjectAction projectAction : projectActionList) {
         ProjectContact projectContact =
             (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId());
@@ -997,8 +997,8 @@ public class ProjectServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
-  private void printOutScript(PrintWriter out, int projectId) {
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+  private void printOutScript(PrintWriter out, int projectId, WebUser webUser) {
+    SimpleDateFormat sdf = webUser.getDateFormat();
     out.println(" <script>");
     out.println("    function clickForEmail(projectContactId) { ");
     out.println("      var form = document.forms['saveProjectActionForm']; ");
