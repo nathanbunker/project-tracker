@@ -49,6 +49,7 @@ import org.openimmunizationsoftware.pt.report.definition.ReportParameter;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class ReportRunServlet extends ClientServlet {
 
   private static Map<Integer, DailyReportDetails> dailyReportDetailsMap =

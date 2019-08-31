@@ -3,10 +3,10 @@
 <hibernate-configuration>
   <session-factory>
     <property name="hibernate.connection.driver_class">com.mysql.jdbc.Driver</property>
-    <property name="hibernate.connection.url">jdbc:mysql://localhost/tracker?zeroDateTimeBehavior=convertToNull</property>
-    <property name="hibernate.connection.username">tracker_web</property>
+    <property name="hibernate.connection.url">jdbc:mysql://mysql3000.mochahost.com/azturnip_tracker?zeroDateTimeBehavior=convertToNull</property>
+    <property name="hibernate.connection.username">azturnip_tweb</property>
     <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
-    <property name="connection.password">SharkBaitHooHaHa</property>
+    <property name="connection.password">xJ72QwAAQ9PzOK</property>
     <property name="hibernate.c3p0.acquire_increment">1</property>
     <property name="hibernate.c3p0.idle_test_period">100</property><!--  seconds -->
     <property name="hibernate.c3p0.timeout">100</property><!--  seconds -->
@@ -43,6 +43,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportSchedule.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Sequence.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerKeys.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/WebUser.hbm.xml"/>    
+    <mapping resource="org/openimmunizationsoftware/pt/model/WebUser.hbm.xml"/>
+    
   </session-factory>
 </hibernate-configuration>

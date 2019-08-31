@@ -26,6 +26,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillDay;
@@ -34,6 +35,7 @@ import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectClient;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
+import org.openimmunizationsoftware.pt.model.TrackerKeys;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -111,6 +113,7 @@ public class TrackServlet extends ClientServlet {
         if (projectContactSupervisorList.size() > 0) {
           query = dataSession.createQuery("from WebUser where contactId = ?");
           query.setParameter(0, projectContactSelected.getContactId());
+          @SuppressWarnings("unchecked")
           List<WebUser> webUserList = query.list();
           if (webUserList.size() > 0) {
             webUserSelected = webUserList.get(0);
@@ -151,6 +154,24 @@ public class TrackServlet extends ClientServlet {
       printHtmlHead(out, "Track", request);
 
       out.println("<form action=\"TrackServlet\" method=\"GET\">");
+      Query query = dataSession.createQuery(
+          "from ProjectContactSupervisor where supervisor = ? order by contact.nameFirst, contact.nameLast");
+      query.setParameter(0, webUser.getProjectContact());
+      @SuppressWarnings("unchecked")
+      List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
+      if (projectContactSupervisorList.size() > 0) {
+        out.println("Name");
+        out.println("<select name=\"supervisedContactId\">");
+        out.println("<option value=\"0\"" + (supervisedContactId == 0 ? " selected" : "") + ">"
+            + webUser.getProjectContact().getName() + "</option>");
+        for (ProjectContactSupervisor projectContactSupervisor : projectContactSupervisorList) {
+          int c = projectContactSupervisor.getContact().getContactId();
+          String n = projectContactSupervisor.getContact().getName();
+          out.println("<option value=\"" + c + "\"" + (supervisedContactId == c ? " selected" : "")
+              + ">" + n + "</option>");
+        }
+        out.println("</select>");
+      }
       if (type.equals("Week")) {
         out.println("Date in Week");
       } else if (type.equals("Month")) {
@@ -158,7 +179,6 @@ public class TrackServlet extends ClientServlet {
 
       } else if (type.equals("Year")) {
         out.println("Date in Year");
-
       } else {
         out.println("Date");
       }
@@ -175,28 +195,12 @@ public class TrackServlet extends ClientServlet {
       out.println(
           "<option value=\"Year\"" + (type.equals("Year") ? " selected" : "") + ">Year</option>");
       out.println("</select>");
-      out.println("Staff ");
-      Query query = dataSession.createQuery(
-          "from ProjectContactSupervisor where supervisor = ? order by contact.nameFirst, contact.nameLast");
-      query.setParameter(0, webUser.getProjectContact());
-      List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
-      if (projectContactSupervisorList.size() > 0) {
-        out.println("<select name=\"supervisedContactId\">");
-        out.println("<option value=\"0\"" + (supervisedContactId == 0 ? " selected" : "") + ">"
-            + webUser.getProjectContact().getName() + "</option>");
-        for (ProjectContactSupervisor projectContactSupervisor : projectContactSupervisorList) {
-          int c = projectContactSupervisor.getContact().getContactId();
-          String n = projectContactSupervisor.getContact().getName();
-          out.println("<option value=\"" + c + "\"" + (supervisedContactId == c ? " selected" : "")
-              + ">" + n + "</option>");
-        }
-        out.println("</select>");
-      }
 
       out.println("<input type=\"submit\" name=\"action\" value=\"Refresh\">");
       out.println("</form>");
 
-      makeTimeTrackReport(webUserSelected, out, dataSession, timeTracker, type, true);
+      makeTimeTrackReport(webUserSelected, out, dataSession, timeTracker, type,
+          webUserSelected == webUser);
 
       printHtmlFoot(out);
 
@@ -206,6 +210,7 @@ public class TrackServlet extends ClientServlet {
 
   }
 
+  @SuppressWarnings("unchecked")
   public static String makeTimeTrackReport(WebUser webUser, PrintWriter out, Session dataSession,
       TimeTracker timeTracker, String type, boolean showLinks) {
 

@@ -137,6 +137,7 @@ public class TimeTracker {
     init(webUser, dataSession, t);
   }
 
+  @SuppressWarnings("unchecked")
   private synchronized void init(WebUser webUser, Session dataSession, Calendar t) {
     totalMinsForProjectMap = new HashMap<Integer, Integer>();
     totalMinsForClientMap = new HashMap<String, Integer>();
@@ -158,6 +159,7 @@ public class TimeTracker {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private synchronized void init(WebUser webUser, Session dataSession, Calendar t,
       int calendarField) {
     totalMinsForProjectMap = new HashMap<Integer, Integer>();

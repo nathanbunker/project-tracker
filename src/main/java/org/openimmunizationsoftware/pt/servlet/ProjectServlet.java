@@ -234,14 +234,14 @@ public class ProjectServlet extends ClientServlet {
                 msg.append("</p>");
               }
               if (sendEmailToList.size() == 1) {
-                msg.append("<p>This update was sent to you from the OIS Project Tracker. </p>");
+                msg.append("<p>This update was sent to you from the Tracker. </p>");
               } else {
                 msg.append("<p>This update was sent to you");
                 for (ProjectContact pc : sendEmailToList) {
                   msg.append(", ");
                   msg.append(pc.getName());
                 }
-                msg.append(" from the OIS Project Tracker</p>");
+                msg.append(" from the Tracker</p>");
               }
 
               msg.append("</body></html>");
