@@ -188,7 +188,7 @@ public class SettingsServlet extends ClientServlet {
       String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
           webUser, dataSession);
       String timeZone = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
-          "America/Denver", webUser, dataSession);
+          WebUser.AMERICA_DENVER, webUser, dataSession);
 
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");

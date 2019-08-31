@@ -15,6 +15,8 @@ public class WebUser implements java.io.Serializable {
   public static final String USER_TYPE_ADMIN = "admin";
   public static final String USER_TYPE_USER = "user";
 
+  public static final String AMERICA_DENVER = "America/Denver";
+
   private String username;
   private int contactId;
   private String password;
@@ -23,7 +25,7 @@ public class WebUser implements java.io.Serializable {
   private boolean manageBudget = false;
   private String userType;
   private WebUser parentWebUser = null;
-  private TimeZone timeZone = null;
+  private TimeZone timeZone = TimeZone.getTimeZone(WebUser.AMERICA_DENVER);
   
   public Calendar getCalendar()
   {

@@ -76,7 +76,7 @@ public class LoginServlet extends ClientServlet {
                 .equalsIgnoreCase("Y"));
 
             webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
-                TrackerKeysManager.KEY_TIME_ZONE, "America/Denver", webUser, dataSession)));
+                TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
 
             query =
                 dataSession.createQuery("from WebUser where parentWebUser = ? order by username");

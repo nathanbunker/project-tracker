@@ -16,6 +16,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -118,6 +119,8 @@ public class TrackServlet extends ClientServlet {
           if (webUserList.size() > 0) {
             webUserSelected = webUserList.get(0);
             webUserSelected.setProjectContact(projectContactSelected);
+            webUserSelected.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
+                TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
           }
         }
       }

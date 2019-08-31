@@ -522,7 +522,7 @@ public class ReportRunServlet extends ClientServlet {
         if (webUserList.size() > 0) {
           webUser = webUserList.get(0);
           webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
-              TrackerKeysManager.KEY_TIME_ZONE, "America/Denver", webUser, dataSession)));
+              TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
         } else {
           webUser = new WebUser();
           webUser.setTimeZone(TimeZone.getDefault());
