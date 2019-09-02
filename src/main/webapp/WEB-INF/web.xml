@@ -50,6 +50,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectsServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ProjectGoalScheduleServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectGoalScheduleServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ProjectEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectEditServlet</servlet-class>
   </servlet>
@@ -168,6 +172,10 @@
   <servlet-mapping>
     <servlet-name>ProjectsServlet</servlet-name>
     <url-pattern>/ProjectsServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ProjectGoalScheduleServlet</servlet-name>
+    <url-pattern>/ProjectGoalScheduleServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectEditServlet</servlet-name>

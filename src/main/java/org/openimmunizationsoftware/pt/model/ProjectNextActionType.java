@@ -17,6 +17,28 @@ public class ProjectNextActionType implements java.io.Serializable {
   public static String GOAL = "G";
   public static String OVERDUE_TO = "O";
 
+  public static String getLabel(String projectNextActionType) {
+    if (projectNextActionType.equals(WILL)) {
+      return "Will";
+    } else if (projectNextActionType.equals(WILL_CONTACT)) {
+      return "Will Contact";
+    } else if (projectNextActionType.equals(WAITING)) {
+      return "Waiting";
+    } else if (projectNextActionType.equals(WILL_RUN_ERRAND)) {
+      return "Will Run Errand";
+    } else if (projectNextActionType.equals(COMMITTED_TO)) {
+      return "Committed To";
+    } else if (projectNextActionType.equals(ASKS_TO)) {
+      return "Will Ask";
+    } else if (projectNextActionType.equals(MIGHT)) {
+      return "Might";
+    } else if (projectNextActionType.equals(GOAL)) {
+      return "Goal";
+    } else if (projectNextActionType.equals(OVERDUE_TO)) {
+      return "Overdue";
+    }
+    return projectNextActionType;
+  }
 
   private String nextActionType;
   private String nextActionLabel;

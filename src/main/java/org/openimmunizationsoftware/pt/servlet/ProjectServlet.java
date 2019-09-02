@@ -39,6 +39,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class ProjectServlet extends ClientServlet {
 
   /**
@@ -53,6 +54,7 @@ public class ProjectServlet extends ClientServlet {
    * @throws IOException
    *           if an I/O error occurs
    */
+  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     response.setContentType("text/html;charset=UTF-8");
@@ -499,7 +501,6 @@ public class ProjectServlet extends ClientServlet {
       query = dataSession.createQuery(
           "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
       query.setParameter(0, projectId);
-      @SuppressWarnings("unchecked")
       List<ProjectAction> projectActionList = query.list();
       List<ProjectAction> projectActionGoalList = new ArrayList<ProjectAction>();
       {
@@ -725,11 +726,15 @@ public class ProjectServlet extends ClientServlet {
       out.println(
           "              <a href=\"javascript: void selectNextTimeEstimate('20');\" class=\"button\"> 20m</a>");
       out.println(
+          "              <a href=\"javascript: void selectNextTimeEstimate('30');\" class=\"button\"> 30m</a>");
+      out.println(
           "              <a href=\"javascript: void selectNextTimeEstimate('40');\" class=\"button\"> 40m</a>");
       out.println(
-          "              <a href=\"javascript: void selectNextTimeEstimate('60');\" class=\"button\"> 1h</a>");
+          "              <a href=\"javascript: void selectNextTimeEstimate('60');\" class=\"button\"> 60m</a>");
       out.println(
-          "              <a href=\"javascript: void selectNextTimeEstimate('90');\" class=\"button\"> 1.5h</a>");
+          "              <a href=\"javascript: void selectNextTimeEstimate('70');\" class=\"button\"> 70m</a>");
+      out.println(
+          "              <a href=\"javascript: void selectNextTimeEstimate('90');\" class=\"button\"> 90m</a>");
       out.println(
           "              <a href=\"javascript: void selectNextTimeEstimate('120');\" class=\"button\"> 2h</a>");
       out.println(
@@ -774,14 +779,10 @@ public class ProjectServlet extends ClientServlet {
           } else {
             out.println("    <td class=\"inside\">&nbsp;</td>");
           }
-          if (nextProjectContact != null) {
-            out.println("    <td class=\"inside\">" + nextProjectContact.getNameFirst() + " "
-                + nextProjectContact.getNameLast() + "</td>");
-          } else {
-            out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " "
-                + projectContact1.getNameLast() + "</td>");
-          }
-          out.println("    <td class=\"inside\">" + projectAction1.getNextDescription());
+          out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " "
+              + projectContact1.getNameLast() + "</td>");
+          out.println("    <td class=\"inside\">"
+              + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact()));
           if (projectAction1.getNextTimeEstimate() != null
               && projectAction1.getNextTimeEstimate() > 0) {
             out.println(" (time estimate: " + projectAction1.getNextTimeEstimateForDisplay() + ")");
@@ -889,6 +890,7 @@ public class ProjectServlet extends ClientServlet {
         .createQuery("from ProjectContactAssigned where id.contactId = ? and id.projectId = ?");
     query.setParameter(0, webUser.getContactId());
     query.setParameter(1, project.getProjectId());
+    @SuppressWarnings("unchecked")
     List<ProjectContactAssigned> projectContactAssignedForThisUserList = query.list();
     if (projectContactAssignedForThisUserList.size() > 0) {
       projectContactAssignedForThisUser = projectContactAssignedForThisUserList.get(0);
@@ -915,6 +917,7 @@ public class ProjectServlet extends ClientServlet {
         .createQuery("from ProjectContactAssigned where id.projectId = ? and id.contactId =?");
     query.setParameter(0, projectId);
     query.setParameter(1, contactId);
+    @SuppressWarnings("unchecked")
     List<ProjectContactAssigned> projectContactAssignedList = query.list();
     if (projectContactAssignedList.size() > 0) {
       Transaction trans = dataSession.beginTransaction();
@@ -932,6 +935,7 @@ public class ProjectServlet extends ClientServlet {
         .createQuery("from ProjectContactAssigned where id.projectId = ? and id.contactId = ?");
     query.setParameter(0, projectId);
     query.setParameter(1, contactId);
+    @SuppressWarnings("unchecked")
     List<ProjectContactAssigned> projectContactAssignedList = query.list();
     if (projectContactAssignedList.size() == 0) {
       Transaction trans = dataSession.beginTransaction();

@@ -24,6 +24,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class ProjectsServlet extends ClientServlet {
 
   private static final String MEDICAL_ORGANIZATION = "Medical Organization";
@@ -101,6 +102,7 @@ public class ProjectsServlet extends ClientServlet {
       Query query = dataSession.createQuery(
           "from ProjectClient where id.providerId = ? and visible = 'Y' order by sortOrder, clientName");
       query.setParameter(0, webUser.getProviderId());
+      @SuppressWarnings("unchecked")
       List<ProjectClient> projectClientList = query.list();
       for (ProjectClient projectClient : projectClientList) {
         if (projectClient.getId().getClientCode().startsWith("PER-")) {
@@ -130,6 +132,7 @@ public class ProjectsServlet extends ClientServlet {
         out.println("  <option value=\"ALL\">ALL</option>");
       }
       query = dataSession.createQuery("from ProjectPhase order by phase_label");
+      @SuppressWarnings("unchecked")
       List<ProjectPhase> projectPhaseList = query.list();
       for (ProjectPhase projectPhase : projectPhaseList) {
         if (phaseCode.equals(projectPhase.getPhaseCode())) {
@@ -144,131 +147,23 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<input type=\"submit\" name=\"action\" value=\"Search\" >");
       out.println("</form>");
 
-      List<Project> projectList;
-      {
-        String searchText = n(request.getParameter("searchText"));
-        String queryString = "from Project where providerId = ?";
-        if (!searchText.equals("")) {
-          if (searchField.equals(PROJECT_NAME)) {
-            queryString += " and projectName like ?";
-          } else if (searchField.equals(PROVIDER_NAME)) {
-            queryString += " and providerName like ?";
-          } else if (searchField.equals(VENDOR_NAME)) {
-            queryString += " and vendorName like ?";
-          } else if (searchField.equals(SYSTEM_NAME)) {
-            queryString += " and systemName like ?";
-          } else if (searchField.equals(DESCRIPTION)) {
-            queryString += " and description like ?";
-          } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
-            queryString += " and iisSubmissionCode like ?";
-          } else if (searchField.equals(IIS_FACILITY_ID)) {
-            queryString += " and iisFacilityId like ?";
-          } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
-            queryString += " and medicalOrganization like ?";
-          } else {
-            queryString += " and projectName like ?";
-          }
-        }
-        if (!phaseCode.equals("") && !phaseCode.equals(ALL)) {
-          if (phaseCode.equals(NOT_CLOSED)) {
-            queryString += " and phaseCode <> 'Clos'";
-          } else {
-            queryString += " and phaseCode = ?";
-          }
-        }
-        if (!clientCode.equals("")) {
-          queryString += " and (clientCode = ? or clientCode LIKE ? )";
-        }
-        queryString += " order by projectName, clientCode";
-        query = dataSession.createQuery(queryString);
-        query.setParameter(0, webUser.getProviderId());
-        int i = 0;
-        if (!searchText.equals("")) {
-          i++;
-          query.setParameter(i, searchText + "%");
-        }
-        if (!phaseCode.equals("") && !phaseCode.equals(NOT_CLOSED) && !phaseCode.equals(ALL)) {
-          i++;
-          query.setParameter(i, phaseCode);
-        }
-        if (!clientCode.equals("")) {
-          i++;
-          query.setParameter(i, clientCode);
-          i++;
-          query.setParameter(i, clientCode + "-%");
-        }
-      }
-
-      projectList = query.list();
+      List<Project> projectList =
+          createProjectList(request, webUser, dataSession, clientCode, phaseCode, searchField);
       List<Integer> projectIdList = new ArrayList<Integer>();
       session.setAttribute(SESSION_VAR_PROJECT_ID_LIST, projectIdList);
       session.removeAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
 
-      out.println("<table class=\"boxed\">");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Project</th>");
-      out.println("    <th class=\"boxed\">Category</th>");
-      out.println("    <th class=\"boxed\">Phase</th>");
-      if (!phaseCode.equals(PROJECT_NAME)) {
-        if (searchField.equals(PROVIDER_NAME)) {
-          out.println("    <th class=\"boxed\">Provider Name</th>");
-        } else if (searchField.equals(VENDOR_NAME)) {
-          out.println("    <th class=\"boxed\">Vendor Name</th>");
-        } else if (searchField.equals(SYSTEM_NAME)) {
-          out.println("    <th class=\"boxed\">System Name</th>");
-        } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
-          out.println("    <th class=\"boxed\">IIS Submission Code</th>");
-        } else if (searchField.equals(IIS_FACILITY_ID)) {
-          out.println("    <th class=\"boxed\">IIS Facility Id</th>");
-        } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
-          out.println("    <th class=\"boxed\">Medical Organization</th>");
-        } else if (searchField.equals(DESCRIPTION)) {
-          out.println("    <th class=\"boxed\">Description</th>");
-        }
-      }
-      out.println("  </tr>");
-      for (Project project : projectList) {
-        projectIdList.add(project.getProjectId());
-        loadProjectsObject(dataSession, project);
-        out.println("  <tr class=\"boxed\">");
-        out.println(
-            "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-        out.println("    <td class=\"boxed\">"
-            + (project.getProjectClient() != null ? project.getProjectClient().getClientName() : "")
-            + "</td>");
-        out.println("    <td class=\"boxed\">"
-            + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
-            + "</td>");
-        if (!phaseCode.equals(PROJECT_NAME)) {
-          if (searchField.equals(PROVIDER_NAME)) {
-            out.println("    <td class=\"boxed\">" + n(project.getProviderName()) + "</td>");
-          } else if (searchField.equals(VENDOR_NAME)) {
-            out.println("    <td class=\"boxed\">" + n(project.getVendorName()) + "</td>");
-          } else if (searchField.equals(SYSTEM_NAME)) {
-            out.println("    <td class=\"boxed\">" + n(project.getSystemName()) + "</td>");
-          } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
-            out.println("    <td class=\"boxed\">" + n(project.getIisSubmissionCode()) + "</td>");
-          } else if (searchField.equals(IIS_FACILITY_ID)) {
-            out.println("    <td class=\"boxed\">" + n(project.getIisFacilityId()) + "</td>");
-          } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
-            out.println("    <td class=\"boxed\">" + n(project.getMedicalOrganization()) + "</td>");
-          } else if (searchField.equals(IIS_REGION_CODE)) {
-            out.println("    <td class=\"boxed\">" + n(project.getIisRegionCode()) + "</td>");
-          } else if (searchField.equals(DESCRIPTION)) {
-            out.println("    <td class=\"boxed\">" + trimForDisplay(project.getDescription(), 60)
-                + "</td>");
-          }
-        }
-        out.println("  </tr>");
-      }
-      out.println("</table>");
+      printProjectSearchResults(out, dataSession, phaseCode, searchField, projectList,
+          projectIdList);
       out.println("<h2>Create a New Project</h2>");
       out.println(
           "<p>If you do not see your project in the list above you can <a href=\"ProjectEditServlet\">create</a> one.</p>");
       out.println("<h2>Project Review</h2>");
       out.println(
           "<p>On a regular basis you should <a href=\"ProjectReviewServlet\">review your projects</a> to ensure that each is getting the attention it deserves. </p>");
+      out.println("<h2>Goal Review &amp; Schedule</h2>");
+      out.println(
+          "<p><a href=\"ProjectGoalScheduleServlet\">Review all the goals</a> in the selected projects above and schedule next steps. </p>");
       printHtmlFoot(out);
 
     } finally {
@@ -276,11 +171,138 @@ public class ProjectsServlet extends ClientServlet {
     }
   }
 
+  private void printProjectSearchResults(PrintWriter out, Session dataSession, String phaseCode,
+      String searchField, List<Project> projectList, List<Integer> projectIdList) {
+    out.println("<table class=\"boxed\">");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Project</th>");
+    out.println("    <th class=\"boxed\">Category</th>");
+    out.println("    <th class=\"boxed\">Phase</th>");
+    if (!phaseCode.equals(PROJECT_NAME)) {
+      if (searchField.equals(PROVIDER_NAME)) {
+        out.println("    <th class=\"boxed\">Provider Name</th>");
+      } else if (searchField.equals(VENDOR_NAME)) {
+        out.println("    <th class=\"boxed\">Vendor Name</th>");
+      } else if (searchField.equals(SYSTEM_NAME)) {
+        out.println("    <th class=\"boxed\">System Name</th>");
+      } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
+        out.println("    <th class=\"boxed\">IIS Submission Code</th>");
+      } else if (searchField.equals(IIS_FACILITY_ID)) {
+        out.println("    <th class=\"boxed\">IIS Facility Id</th>");
+      } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
+        out.println("    <th class=\"boxed\">Medical Organization</th>");
+      } else if (searchField.equals(DESCRIPTION)) {
+        out.println("    <th class=\"boxed\">Description</th>");
+      }
+    }
+    out.println("  </tr>");
+    for (Project project : projectList) {
+      projectIdList.add(project.getProjectId());
+      loadProjectsObject(dataSession, project);
+      out.println("  <tr class=\"boxed\">");
+      out.println(
+          "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
+              + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+      out.println("    <td class=\"boxed\">"
+          + (project.getProjectClient() != null ? project.getProjectClient().getClientName() : "")
+          + "</td>");
+      out.println("    <td class=\"boxed\">"
+          + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
+          + "</td>");
+      if (!phaseCode.equals(PROJECT_NAME)) {
+        if (searchField.equals(PROVIDER_NAME)) {
+          out.println("    <td class=\"boxed\">" + n(project.getProviderName()) + "</td>");
+        } else if (searchField.equals(VENDOR_NAME)) {
+          out.println("    <td class=\"boxed\">" + n(project.getVendorName()) + "</td>");
+        } else if (searchField.equals(SYSTEM_NAME)) {
+          out.println("    <td class=\"boxed\">" + n(project.getSystemName()) + "</td>");
+        } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
+          out.println("    <td class=\"boxed\">" + n(project.getIisSubmissionCode()) + "</td>");
+        } else if (searchField.equals(IIS_FACILITY_ID)) {
+          out.println("    <td class=\"boxed\">" + n(project.getIisFacilityId()) + "</td>");
+        } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
+          out.println("    <td class=\"boxed\">" + n(project.getMedicalOrganization()) + "</td>");
+        } else if (searchField.equals(IIS_REGION_CODE)) {
+          out.println("    <td class=\"boxed\">" + n(project.getIisRegionCode()) + "</td>");
+        } else if (searchField.equals(DESCRIPTION)) {
+          out.println(
+              "    <td class=\"boxed\">" + trimForDisplay(project.getDescription(), 60) + "</td>");
+        }
+      }
+      out.println("  </tr>");
+    }
+    out.println("</table>");
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<Project> createProjectList(HttpServletRequest request, WebUser webUser,
+      Session dataSession, String clientCode, String phaseCode, String searchField) {
+    Query query;
+    List<Project> projectList;
+    {
+      String searchText = n(request.getParameter("searchText"));
+      String queryString = "from Project where providerId = ?";
+      if (!searchText.equals("")) {
+        if (searchField.equals(PROJECT_NAME)) {
+          queryString += " and projectName like ?";
+        } else if (searchField.equals(PROVIDER_NAME)) {
+          queryString += " and providerName like ?";
+        } else if (searchField.equals(VENDOR_NAME)) {
+          queryString += " and vendorName like ?";
+        } else if (searchField.equals(SYSTEM_NAME)) {
+          queryString += " and systemName like ?";
+        } else if (searchField.equals(DESCRIPTION)) {
+          queryString += " and description like ?";
+        } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
+          queryString += " and iisSubmissionCode like ?";
+        } else if (searchField.equals(IIS_FACILITY_ID)) {
+          queryString += " and iisFacilityId like ?";
+        } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
+          queryString += " and medicalOrganization like ?";
+        } else {
+          queryString += " and projectName like ?";
+        }
+      }
+      if (!phaseCode.equals("") && !phaseCode.equals(ALL)) {
+        if (phaseCode.equals(NOT_CLOSED)) {
+          queryString += " and phaseCode <> 'Clos'";
+        } else {
+          queryString += " and phaseCode = ?";
+        }
+      }
+      if (!clientCode.equals("")) {
+        queryString += " and (clientCode = ? or clientCode LIKE ? )";
+      }
+      queryString += " order by projectName, clientCode";
+      query = dataSession.createQuery(queryString);
+      query.setParameter(0, webUser.getProviderId());
+      int i = 0;
+      if (!searchText.equals("")) {
+        i++;
+        query.setParameter(i, searchText + "%");
+      }
+      if (!phaseCode.equals("") && !phaseCode.equals(NOT_CLOSED) && !phaseCode.equals(ALL)) {
+        i++;
+        query.setParameter(i, phaseCode);
+      }
+      if (!clientCode.equals("")) {
+        i++;
+        query.setParameter(i, clientCode);
+        i++;
+        query.setParameter(i, clientCode + "-%");
+      }
+    }
+
+    projectList = query.list();
+    return projectList;
+  }
+
   protected static void loadProjectsObject(Session dataSession, Project project) {
     Query query1 =
         dataSession.createQuery("from ProjectClient where id.clientCode = ? and id.providerId = ?");
     query1.setParameter(0, project.getClientCode());
     query1.setParameter(1, project.getProviderId());
+    @SuppressWarnings("unchecked")
     List<ProjectClient> projectClientList = query1.list();
     project.setProjectClient(projectClientList.size() > 0 ? projectClientList.get(0) : null);
     ProjectPhase projectPhase =
