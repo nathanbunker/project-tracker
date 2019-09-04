@@ -31,6 +31,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
+@SuppressWarnings("serial")
 public class HomeServlet extends ClientServlet {
 
   /**
@@ -98,7 +99,6 @@ public class HomeServlet extends ClientServlet {
                 (ProjectAction) dataSession.get(ProjectAction.class, actionId);
             Transaction trans = dataSession.beginTransaction();
             try {
-              Calendar calendar = TimeTracker.createToday(webUser);
               Date oldDateDue = projectAction.getNextDue();
               try {
                 projectAction.setNextDue(sdf1.parse(request.getParameter("changeNextDue")));
@@ -148,6 +148,7 @@ public class HomeServlet extends ClientServlet {
               }
               switched = true;
             } else if (!webUser.getUsername().equals(username)) {
+              @SuppressWarnings("unchecked")
               List<WebUser> childWebUserList =
                   (List<WebUser>) session.getAttribute("childWebUserList");
               if (childWebUserList != null) {
@@ -188,6 +189,7 @@ public class HomeServlet extends ClientServlet {
 
         printActionsDue(webUser, out, dataSession, nextActionType, nextDue, showLink, true);
 
+        @SuppressWarnings("unchecked")
         List<WebUser> childWebUserList = (List<WebUser>) session.getAttribute("childWebUserList");
         if (childWebUserList != null) {
           out.println("<h2>Select Provider</h2>");
@@ -256,6 +258,7 @@ public class HomeServlet extends ClientServlet {
     query.setParameter(0, webUser.getProviderId());
     query.setParameter(1, webUser.getContactId());
     query.setParameter(2, webUser.getContactId());
+    @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
 
     List<ProjectAction> projectActionListOverdue =
@@ -457,6 +460,7 @@ public class HomeServlet extends ClientServlet {
     out.println("    <th class=\"boxed\">Todo</th>");
     out.println("  </tr>");
 
+    int askingAndWaitingCount = 0;
     int nextTimeEstimateTotal = 0;
     for (ProjectAction projectAction : projectActionList) {
       if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
@@ -465,11 +469,17 @@ public class HomeServlet extends ClientServlet {
       if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
         continue;
       }
+      if (ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
+          || ProjectNextActionType.WAITING.equals(projectAction.getNextActionType()))
+      {
+        askingAndWaitingCount++;
+        continue;
+      }
       if (projectAction.getNextTimeEstimate() != null) {
         nextTimeEstimateTotal += projectAction.getNextTimeEstimate();
       }
     }
-
+    
     for (ProjectAction projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)) {
@@ -497,13 +507,47 @@ public class HomeServlet extends ClientServlet {
           && !projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)
           && !projectAction.getNextActionType().equals(ProjectNextActionType.COMMITTED_TO)
           && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL)
-          && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT)) {
+          && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT)
+          && !projectAction.getNextActionType().equals(ProjectNextActionType.ASKS_TO)
+          && !projectAction.getNextActionType().equals(ProjectNextActionType.WAITING)) {
         printActionLine(webUser, out, sdf1, nextActionType, nextDue, cIndicated, projectAction,
             showLink);
       }
     }
 
     out.println("</table>");
+    
+    if (askingAndWaitingCount > 0)
+    {
+      out.println("<br/>");
+      out.println("<table class=\"boxed\">");
+      out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"title\" colspan=\"3\">Asking or Waiting</th>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project</th>");
+      out.println("    <th class=\"boxed\">Time</th>");
+      out.println("    <th class=\"boxed\">Todo</th>");
+      out.println("  </tr>");
+      for (ProjectAction projectAction : projectActionList) {
+        if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
+          continue;
+        }
+        if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
+          continue;
+        }
+        if (ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
+            || ProjectNextActionType.WAITING.equals(projectAction.getNextActionType()))
+        {
+          printActionLine(webUser, out, sdf1, nextActionType, nextDue, cIndicated, projectAction,
+              showLink);
+        }
+      }
+      out.println("</table>");
+    }
+
+
+    
     if (nextTimeEstimateTotal > 0) {
       out.println("<p>Total estimated time to complete tasks: "
           + ProjectAction.getTimeForDisplay(nextTimeEstimateTotal) + "</p>");
@@ -564,24 +608,6 @@ public class HomeServlet extends ClientServlet {
     printOutAction(webUser, out, sdf1, nextActionType, nextDue, projectAction, showLink);
 
     out.println("  </tr>");
-  }
-
-  private String createTimeString(int nextTimeEstimateTotal) {
-    String time = "";
-    if (nextTimeEstimateTotal < 10) {
-      time = "0:0" + nextTimeEstimateTotal;
-    } else if (nextTimeEstimateTotal < 60) {
-      time = "0:" + nextTimeEstimateTotal;
-    } else {
-      int hour = nextTimeEstimateTotal / 60;
-      int minute = nextTimeEstimateTotal % 60;
-      if (minute < 10) {
-        time = hour + ":0" + minute;
-      } else {
-        time = hour + ":" + minute;
-      }
-    }
-    return time;
   }
 
   private static String printOutAction(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
