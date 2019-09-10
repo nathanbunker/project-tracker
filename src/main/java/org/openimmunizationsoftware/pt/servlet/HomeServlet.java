@@ -384,9 +384,9 @@ public class HomeServlet extends ClientServlet {
     out.println("            <font size=\"-1\">");
     Calendar calendar = webUser.getCalendar();
     SimpleDateFormat day = webUser.getDateFormat("EEE");
-    out.println(
-        "              <a href=\"javascript: void setNextAction('" + sdf1.format(calendar.getTime())
-            + "');\" class=\"" + (sameDay(calendar, nextDue, webUser) ? "box" : "button") + "\">Today</a>");
+    out.println("              <a href=\"javascript: void setNextAction('"
+        + sdf1.format(calendar.getTime()) + "');\" class=\""
+        + (sameDay(calendar, nextDue, webUser) ? "box" : "button") + "\">Today</a>");
     calendar.add(Calendar.DAY_OF_MONTH, 1);
     out.println(
         "              <a href=\"javascript: void setNextAction('" + sdf1.format(calendar.getTime())
@@ -469,9 +469,9 @@ public class HomeServlet extends ClientServlet {
       if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
         continue;
       }
-      if (ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
+      if ((ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
           || ProjectNextActionType.WAITING.equals(projectAction.getNextActionType()))
-      {
+          && projectAction.getContactId() == webUser.getContactId()) {
         askingAndWaitingCount++;
         continue;
       }
@@ -479,7 +479,7 @@ public class HomeServlet extends ClientServlet {
         nextTimeEstimateTotal += projectAction.getNextTimeEstimate();
       }
     }
-    
+
     for (ProjectAction projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)) {
@@ -508,21 +508,21 @@ public class HomeServlet extends ClientServlet {
           && !projectAction.getNextActionType().equals(ProjectNextActionType.COMMITTED_TO)
           && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL)
           && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT)
-          && !projectAction.getNextActionType().equals(ProjectNextActionType.ASKS_TO)
-          && !projectAction.getNextActionType().equals(ProjectNextActionType.WAITING)) {
+          && !((ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
+              || ProjectNextActionType.WAITING.equals(projectAction.getNextActionType()))
+              && projectAction.getContactId() == webUser.getContactId())) {
         printActionLine(webUser, out, sdf1, nextActionType, nextDue, cIndicated, projectAction,
             showLink);
       }
     }
 
     out.println("</table>");
-    
-    if (askingAndWaitingCount > 0)
-    {
+
+    if (askingAndWaitingCount > 0) {
       out.println("<br/>");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"title\" colspan=\"3\">Asking or Waiting</th>");
+      out.println("    <th class=\"title\" colspan=\"3\">Asking or Waiting</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
@@ -533,12 +533,13 @@ public class HomeServlet extends ClientServlet {
         if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
           continue;
         }
-        if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
+        if (!nextActionType.equals("")
+            && !nextActionType.equals(projectAction.getNextActionType())) {
           continue;
         }
-        if (ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
+        if ((ProjectNextActionType.ASKS_TO.equals(projectAction.getNextActionType())
             || ProjectNextActionType.WAITING.equals(projectAction.getNextActionType()))
-        {
+            && projectAction.getContactId() == webUser.getContactId()) {
           printActionLine(webUser, out, sdf1, nextActionType, nextDue, cIndicated, projectAction,
               showLink);
         }
@@ -547,7 +548,7 @@ public class HomeServlet extends ClientServlet {
     }
 
 
-    
+
     if (nextTimeEstimateTotal > 0) {
       out.println("<p>Total estimated time to complete tasks: "
           + ProjectAction.getTimeForDisplay(nextTimeEstimateTotal) + "</p>");
@@ -688,7 +689,8 @@ public class HomeServlet extends ClientServlet {
       SimpleDateFormat day = webUser.getDateFormat("EEE");
       out.println("              <a href=\"javascript: void changeNextAction('"
           + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
-          + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button") + "\">Today</a>");
+          + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button")
+          + "\">Today</a>");
       calendar.add(Calendar.DAY_OF_MONTH, 1);
       out.println("              <a href=\"javascript: void changeNextAction('"
           + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
@@ -700,8 +702,8 @@ public class HomeServlet extends ClientServlet {
         if (nextWeek) {
           out.println("              <a href=\"javascript: void changeNextAction('"
               + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
-              + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button") + "\">Next-"
-              + day.format(calendar.getTime()) + "</a>");
+              + (sameDay(calendar, projectAction.getNextDue(), webUser) ? "box" : "button")
+              + "\">Next-" + day.format(calendar.getTime()) + "</a>");
         } else {
           out.println("              <a href=\"javascript: void changeNextAction('"
               + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""

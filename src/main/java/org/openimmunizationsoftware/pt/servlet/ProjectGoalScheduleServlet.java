@@ -222,7 +222,7 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
             }
             out.println("    <td class=\"boxed\">");
             String nextActionType = ProjectNextActionType.WILL;
-            if (projectActionGoal.getNextContactId() > 0) {
+            if (projectActionGoal.getNextContactId() != null && projectActionGoal.getNextContactId() > 0) {
               nextActionType = ProjectNextActionType.ASKS_TO;
             }
             out.println("<select name=\"na" + projectActionGoal.getActionId() + "\">");
