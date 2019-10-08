@@ -74,6 +74,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectContactEditServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ProjectContactUploadServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectContactUploadServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>LoginServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.LoginServlet</servlet-class>
   </servlet>
@@ -196,6 +200,10 @@
   <servlet-mapping>
     <servlet-name>ProjectContactEditServlet</servlet-name>
     <url-pattern>/ProjectContactEditServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ProjectContactUploadServlet</servlet-name>
+    <url-pattern>/ProjectContactUploadServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>BillEntryEditServlet</servlet-name>
