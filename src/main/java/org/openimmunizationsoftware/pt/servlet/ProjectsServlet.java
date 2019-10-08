@@ -16,7 +16,7 @@ import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -67,7 +67,7 @@ public class ProjectsServlet extends ClientServlet {
     try {
       Session dataSession = getDataSession(session);
       printHtmlHead(out, "Projects", request);
-      String clientCode = n(request.getParameter("clientCode"));
+      String categoryCode = n(request.getParameter("categoryCode"));
       String phaseCode = n(request.getParameter("phaseCode"), NOT_CLOSED);
       String searchField = n(request.getParameter("searchField"), PROJECT_NAME);
 
@@ -97,25 +97,25 @@ public class ProjectsServlet extends ClientServlet {
           + n(request.getParameter("searchText")) + "\" size=\"15\" >");
       out.println("<br>");
       out.println("Limit by Category ");
-      out.println("<select name=\"clientCode\">");
+      out.println("<select name=\"categoryCode\">");
       out.println("  <option value=\"\">ALL</option>");
       Query query = dataSession.createQuery(
-          "from ProjectClient where id.providerId = ? and visible = 'Y' order by sortOrder, clientName");
-      query.setParameter(0, webUser.getProviderId());
+          "from ProjectCategory where provider = :provider and visible = 'Y' order by sortOrder, clientName");
+      query.setParameter("provider", webUser.getProvider());
       @SuppressWarnings("unchecked")
-      List<ProjectClient> projectClientList = query.list();
-      for (ProjectClient projectClient : projectClientList) {
-        if (projectClient.getId().getClientCode().startsWith("PER-")) {
-          if (!projectClient.getId().getClientCode().equals("PER-" + webUser.getContactId())) {
+      List<ProjectCategory> projectCategoryList = query.list();
+      for (ProjectCategory projectCategory : projectCategoryList) {
+        if (projectCategory.getCategoryCode().startsWith("PER-")) {
+          if (!projectCategory.getCategoryCode().equals("PER-" + webUser.getContactId())) {
             continue;
           }
         }
-        if (clientCode.equals(projectClient.getId().getClientCode())) {
-          out.println("  <option value=\"" + projectClient.getId().getClientCode() + "\" selected>"
-              + projectClient.getClientNameForDropdown() + "</option>");
+        if (categoryCode.equals(projectCategory.getCategoryCode())) {
+          out.println("  <option value=\"" + projectCategory.getCategoryCode() + "\" selected>"
+              + projectCategory.getClientNameForDropdown() + "</option>");
         } else {
-          out.println("  <option value=\"" + projectClient.getId().getClientCode() + "\">"
-              + projectClient.getClientNameForDropdown() + "</option>");
+          out.println("  <option value=\"" + projectCategory.getCategoryCode() + "\">"
+              + projectCategory.getClientNameForDropdown() + "</option>");
         }
       }
       out.println("</select>");
@@ -148,7 +148,7 @@ public class ProjectsServlet extends ClientServlet {
       out.println("</form>");
 
       List<Project> projectList =
-          createProjectList(request, webUser, dataSession, clientCode, phaseCode, searchField);
+          createProjectList(request, webUser, dataSession, categoryCode, phaseCode, searchField);
       List<Integer> projectIdList = new ArrayList<Integer>();
       session.setAttribute(SESSION_VAR_PROJECT_ID_LIST, projectIdList);
       session.removeAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
@@ -204,7 +204,7 @@ public class ProjectsServlet extends ClientServlet {
           "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
               + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
       out.println("    <td class=\"boxed\">"
-          + (project.getProjectClient() != null ? project.getProjectClient().getClientName() : "")
+          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName() : "")
           + "</td>");
       out.println("    <td class=\"boxed\">"
           + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
@@ -236,12 +236,12 @@ public class ProjectsServlet extends ClientServlet {
 
   @SuppressWarnings("unchecked")
   private List<Project> createProjectList(HttpServletRequest request, WebUser webUser,
-      Session dataSession, String clientCode, String phaseCode, String searchField) {
+      Session dataSession, String categoryCode, String phaseCode, String searchField) {
     Query query;
     List<Project> projectList;
     {
       String searchText = n(request.getParameter("searchText"));
-      String queryString = "from Project where providerId = ?";
+      String queryString = "from Project where provider = ?";
       if (!searchText.equals("")) {
         if (searchField.equals(PROJECT_NAME)) {
           queryString += " and projectName like ?";
@@ -270,12 +270,12 @@ public class ProjectsServlet extends ClientServlet {
           queryString += " and phaseCode = ?";
         }
       }
-      if (!clientCode.equals("")) {
-        queryString += " and (clientCode = ? or clientCode LIKE ? )";
+      if (!categoryCode.equals("")) {
+        queryString += " and (categoryCode = ? or categoryCode LIKE ? )";
       }
-      queryString += " order by projectName, clientCode";
+      queryString += " order by projectName, categoryCode";
       query = dataSession.createQuery(queryString);
-      query.setParameter(0, webUser.getProviderId());
+      query.setParameter(0, webUser.getProvider());
       int i = 0;
       if (!searchText.equals("")) {
         i++;
@@ -285,11 +285,11 @@ public class ProjectsServlet extends ClientServlet {
         i++;
         query.setParameter(i, phaseCode);
       }
-      if (!clientCode.equals("")) {
+      if (!categoryCode.equals("")) {
         i++;
-        query.setParameter(i, clientCode);
+        query.setParameter(i, categoryCode);
         i++;
-        query.setParameter(i, clientCode + "-%");
+        query.setParameter(i, categoryCode + "-%");
       }
     }
 
@@ -299,12 +299,12 @@ public class ProjectsServlet extends ClientServlet {
 
   protected static void loadProjectsObject(Session dataSession, Project project) {
     Query query1 =
-        dataSession.createQuery("from ProjectClient where id.clientCode = ? and id.providerId = ?");
-    query1.setParameter(0, project.getClientCode());
-    query1.setParameter(1, project.getProviderId());
+        dataSession.createQuery("from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
+    query1.setParameter("categoryCode", project.getCategoryCode());
+    query1.setParameter("provider", project.getProvider());
     @SuppressWarnings("unchecked")
-    List<ProjectClient> projectClientList = query1.list();
-    project.setProjectClient(projectClientList.size() > 0 ? projectClientList.get(0) : null);
+    List<ProjectCategory> projectCategoryList = query1.list();
+    project.setProjectCategory(projectCategoryList.size() > 0 ? projectCategoryList.get(0) : null);
     ProjectPhase projectPhase =
         (ProjectPhase) dataSession.get(ProjectPhase.class, project.getPhaseCode());
     project.setProjectPhase(projectPhase);

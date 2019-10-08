@@ -22,7 +22,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -112,9 +112,8 @@ public class BillEntriesServlet extends ClientServlet {
       out.println("  </tr>");
       SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
       for (BillEntry billEntry : billEntryList) {
-        String clientCode = billEntry.getClientCode();
-        String providerId = billEntry.getProviderId();
-        ProjectClient projectClient = TrackServlet.getClient(dataSession, clientCode, providerId);
+        String categoryCode = billEntry.getCategoryCode();
+        ProjectCategory projectCategory = TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
         Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
         BillCode billCode = null;
         if (billEntry.getBillCode() != null) {
@@ -123,7 +122,7 @@ public class BillEntriesServlet extends ClientServlet {
 
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\">"
-            + (projectClient != null ? projectClient.getClientName() : "") + "</td>");
+            + (projectCategory != null ? projectCategory.getClientName() : "") + "</td>");
         if (project != null) {
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()

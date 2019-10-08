@@ -28,10 +28,11 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ContactEvent.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Project.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAction.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAddress.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectArea.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAreaAssigned.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectBookmark.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectClient.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectCategory.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContact.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactAssigned.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactPosition.hbm.xml"/>
@@ -41,8 +42,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectProvider.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportProfile.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportSchedule.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/Sequence.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerKeys.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/WebUser.hbm.xml"/>    
+    <mapping resource="org/openimmunizationsoftware/pt/model/WebUser.hbm.xml"/>
   </session-factory>
 </hibernate-configuration>

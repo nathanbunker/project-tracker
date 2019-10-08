@@ -65,7 +65,7 @@ public class ProjectContactEditServlet extends ClientServlet {
       if (request.getParameter("projectContactId") == null
           || request.getParameter("projectContactId").equals("")) {
         projectContact = new ProjectContact();
-        projectContact.setProviderId(webUser.getProviderId());
+        projectContact.setProvider(webUser.getProvider());
         projectContact.setEmailAlert("Y");
         projectContact.setNameFirst(n(request.getParameter("nameFirst")));
         projectContact.setNameLast(n(request.getParameter("nameLast")));
@@ -85,17 +85,8 @@ public class ProjectContactEditServlet extends ClientServlet {
           projectContact.setOrganizationName(trim(request.getParameter("organizationName"), 90));
           projectContact.setDepartmentName(trim(request.getParameter("departmentName"), 90));
           projectContact.setPositionTitle(trim(request.getParameter("positionTitle"), 90));
-          projectContact.setNumberPhone(trim(request.getParameter("numberPhone"), 30));
-          projectContact.setNumberCell(trim(request.getParameter("numberCell"), 30));
-          projectContact.setNumberFax(trim(request.getParameter("numberFax"), 30));
-          projectContact.setEmail(trim(request.getParameter("email"), 60));
-          projectContact.setAddressStreet1(trim(request.getParameter("addressStreet1"), 60));
-          projectContact.setAddressStreet2(trim(request.getParameter("addressStreet2"), 60));
-          projectContact.setAddressCity(trim(request.getParameter("addressCity"), 60));
-          projectContact.setAddressState(trim(request.getParameter("addressState"), 60));
-          projectContact.setAddressZip(trim(request.getParameter("addressZip"), 15));
-          projectContact.setAddressCountry(trim(request.getParameter("addressCountry"), 60));
-          projectContact.setTimeZone(trim(request.getParameter("timeZone"), 60));
+          projectContact.setPhoneNumber(trim(request.getParameter("numberPhone"), 30));
+          projectContact.setEmailAddress(trim(request.getParameter("email"), 60));
           projectContact.setContactInfo(trim(request.getParameter("contactInfo"), 1500));
           if (projectContact.getNameFirst().equals("")) {
             message = "First name is required";
@@ -181,22 +172,12 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Email</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"email\" value=\""
-          + n(projectContact.getEmail()) + "\" size=\"30\"></td>");
+          + n(projectContact.getEmailAddress()) + "\" size=\"30\"></td>");
       out.println("  <tr class=\"boxed\">");
-      out.println("  </tr>");
-      out.println("    <th class=\"boxed\">Cell</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"numberCell\" value=\""
-          + n(projectContact.getNumberCell()) + "\" size=\"15\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Fax</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"numberFax\" value=\""
-          + n(projectContact.getNumberFax()) + "\" size=\"15\"></td>");
-      out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Phone</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"numberPhone\" value=\""
-          + n(projectContact.getNumberPhone()) + "\" size=\"15\"></td>");
+          + n(projectContact.getPhoneNumber()) + "\" size=\"15\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Time Zone</th>");
@@ -212,32 +193,6 @@ public class ProjectContactEditServlet extends ClientServlet {
       }
       out.println("      </select>");
       out.println("    </td>");
-      out.println("  </tr>");
-
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Address Line 1</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"addressStreet1\" value=\""
-          + n(projectContact.getAddressStreet1()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Address Line 2</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"addressStreet2\" value=\""
-          + n(projectContact.getAddressStreet2()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">City, State, Zip</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <input type=\"text\" name=\"addressCity\" value=\""
-          + n(projectContact.getAddressCity()) + "\" size=\"15\">");
-      out.println("      <input type=\"text\" name=\"addressState\" value=\""
-          + n(projectContact.getAddressState()) + "\" size=\"2\">");
-      out.println("      <input type=\"text\" name=\"addressZip\" value=\""
-          + n(projectContact.getAddressZip()) + "\" size=\"5\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Country</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"addressCountry\" value=\""
-          + n(projectContact.getAddressCountry()) + "\" size=\"15\"></td>");
       out.println("  </tr>");
 
       out.println("  <tr class=\"boxed\">");

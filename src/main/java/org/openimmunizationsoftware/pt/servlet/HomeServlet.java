@@ -168,8 +168,7 @@ public class HomeServlet extends ClientServlet {
               }
             }
             if (switched) {
-              ProjectProvider projectProvider =
-                  (ProjectProvider) dataSession.get(ProjectProvider.class, webUser.getProviderId());
+              ProjectProvider projectProvider = webUser.getProvider();
               message = "Welcome " + webUser.getProjectContact().getName() + " to "
                   + projectProvider.getProviderName();
 
@@ -198,8 +197,7 @@ public class HomeServlet extends ClientServlet {
           out.println("    <th class=\"title\" colspan=\"1\">Choose Provider</th>");
           out.println("  </tr>");
           if (webUser.getParentWebUser() != null) {
-            ProjectProvider projectProvider = (ProjectProvider) dataSession
-                .get(ProjectProvider.class, webUser.getParentWebUser().getProviderId());
+            ProjectProvider projectProvider = webUser.getParentWebUser().getProvider();
             out.println("  <tr class=\"boxed\">");
             String switchLink = "HomeServlet?action=Switch&childWebUserName="
                 + webUser.getParentWebUser().getUsername();
@@ -209,8 +207,7 @@ public class HomeServlet extends ClientServlet {
                 + switchLabel + "</a></td>");
             out.println("  </tr>");
           } else {
-            ProjectProvider projectProvider =
-                (ProjectProvider) dataSession.get(ProjectProvider.class, webUser.getProviderId());
+            ProjectProvider projectProvider = webUser.getProvider();
             out.println("  <tr class=\"boxed\">");
             String switchLink =
                 "HomeServlet?action=Switch&childWebUserName=" + webUser.getUsername();
@@ -220,8 +217,7 @@ public class HomeServlet extends ClientServlet {
             out.println("  </tr>");
           }
           for (WebUser childWebUser : childWebUserList) {
-            ProjectProvider projectProvider = (ProjectProvider) dataSession
-                .get(ProjectProvider.class, childWebUser.getProviderId());
+            ProjectProvider projectProvider = childWebUser.getProvider();
             out.println("  <tr class=\"boxed\">");
             String switchLink =
                 "HomeServlet?action=Switch&childWebUserName=" + childWebUser.getUsername();
@@ -254,10 +250,12 @@ public class HomeServlet extends ClientServlet {
       String nextActionType, Date nextDue, boolean showLink, boolean showMenu) {
     SimpleDateFormat sdf1 = webUser.getDateFormat();
     Query query = dataSession.createQuery(
-        "from ProjectAction where providerId = ? and (contactId = ? or nextContactId = ?) and nextActionId = 0 and nextDescription <> '' order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
-    query.setParameter(0, webUser.getProviderId());
-    query.setParameter(1, webUser.getContactId());
-    query.setParameter(2, webUser.getContactId());
+        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
+            + "and nextActionId = 0 and nextDescription <> '' "
+            + "order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
+    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("contactId", webUser.getContactId());
+    query.setParameter("nextContactId", webUser.getContactId());
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
 

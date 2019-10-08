@@ -18,8 +18,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
-import org.openimmunizationsoftware.pt.model.ProjectClientId;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -96,46 +95,46 @@ public class SettingsServlet extends ClientServlet {
           setSystemWideMessage(request.getParameter("systemWideMessage"));
         } else if (action.equals("Save Categories") && webUser.isUserTypeAdmin()) {
           Query query = dataSession.createQuery(
-              "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
-          query.setParameter(0, webUser.getProviderId());
+              "from ProjectCategory where provider = :provider order by sortOrder, clientName");
+          query.setParameter("provider", webUser.getProvider());
           @SuppressWarnings("unchecked")
-          List<ProjectClient> projectClientList = query.list();
-          String clientCode = request.getParameter("clientCode");
-          if (clientCode.length() > 15) {
+          List<ProjectCategory> projectCategoryList = query.list();
+          String categoryCode = request.getParameter("categoryCode");
+          if (categoryCode.length() > 15) {
             request.setAttribute(REQUEST_VAR_MESSAGE,
                 "Category code is too long (>15), so new category not created. ");
-            clientCode = "";
+            categoryCode = "";
           }
-          boolean clientCodeIsUnique = true;
-          for (ProjectClient projectClient : projectClientList) {
-            String c = projectClient.getId().getClientCode();
-            if (c.equalsIgnoreCase(clientCode)) {
-              clientCodeIsUnique = false;
+          boolean categoryCodeIsUnique = true;
+          for (ProjectCategory projectCategory : projectCategoryList) {
+            String c = projectCategory.getCategoryCode();
+            if (c.equalsIgnoreCase(categoryCode)) {
+              categoryCodeIsUnique = false;
             }
             String clientName = request.getParameter("clientName_" + c);
             String sortOrder = request.getParameter("sortOrder_" + c);
             String clientAcronym = request.getParameter("clientAcronym_" + c);
             String visible = request.getParameter("visible_" + c);
             if (!clientName.equals("")) {
-              projectClient.setClientName(clientName);
+              projectCategory.setClientName(clientName);
             }
             if (!sortOrder.equals("")) {
               try {
-                projectClient.setSortOrder(Integer.parseInt(sortOrder));
+                projectCategory.setSortOrder(Integer.parseInt(sortOrder));
               } catch (NumberFormatException nfe) {
                 // do nothing
               }
             }
             if (!clientAcronym.equals("")) {
-              projectClient.setClientAcronym(clientAcronym);
+              projectCategory.setClientAcronym(clientAcronym);
             }
-            projectClient.setVisible(visible == null ? "N" : "Y");
+            projectCategory.setVisible(visible == null ? "N" : "Y");
             Transaction trans = dataSession.beginTransaction();
-            dataSession.update(projectClient);
+            dataSession.update(projectCategory);
             trans.commit();
           }
-          if (!clientCode.equals("") && clientCodeIsUnique) {
-            if (clientCodeIsUnique) {
+          if (!categoryCode.equals("") && categoryCodeIsUnique) {
+            if (categoryCodeIsUnique) {
               String clientName = request.getParameter("clientName");
               if (clientName.length() > 150) {
                 request.setAttribute(REQUEST_VAR_MESSAGE,
@@ -146,13 +145,13 @@ public class SettingsServlet extends ClientServlet {
               String clientAcronym = request.getParameter("clientAcronym");
               String visible = request.getParameter("visible");
               if (!clientName.equals("")) {
-                ProjectClientId projectClientId = new ProjectClientId();
-                projectClientId.setClientCode(clientCode);
-                projectClientId.setProviderId(webUser.getProviderId());
-                ProjectClient projectClient = new ProjectClient(projectClientId, clientName);
+                ProjectCategory projectCategory = new ProjectCategory();
+                projectCategory.setCategoryCode(categoryCode);
+                projectCategory.setProvider(webUser.getProvider());
+                projectCategory.setClientName(clientName);
                 if (!sortOrder.equals("")) {
                   try {
-                    projectClient.setSortOrder(Integer.parseInt(sortOrder));
+                    projectCategory.setSortOrder(Integer.parseInt(sortOrder));
                   } catch (NumberFormatException nfe) {
                     // do nothing
                   }
@@ -162,12 +161,12 @@ public class SettingsServlet extends ClientServlet {
                     request.setAttribute(REQUEST_VAR_MESSAGE,
                         "Client acronym is too long (>15), not setting. ");
                   } else {
-                    projectClient.setClientAcronym(clientAcronym);
+                    projectCategory.setClientAcronym(clientAcronym);
                   }
                 }
-                projectClient.setVisible(visible == null ? "N" : "Y");
+                projectCategory.setVisible(visible == null ? "N" : "Y");
                 Transaction trans = dataSession.beginTransaction();
-                dataSession.save(projectClient);
+                dataSession.save(projectCategory);
                 trans.commit();
               } else {
                 request.setAttribute(REQUEST_VAR_MESSAGE,
@@ -261,22 +260,22 @@ public class SettingsServlet extends ClientServlet {
         out.println("     <th>Visible</th>");
         out.println("  </tr>");
         Query query = dataSession.createQuery(
-            "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
-        query.setParameter(0, webUser.getProviderId());
+            "from ProjectCategory where provider = :provider order by sortOrder, clientName");
+        query.setParameter("provider", webUser.getProvider());
         @SuppressWarnings("unchecked")
-        List<ProjectClient> projectClientList = query.list();
-        for (ProjectClient projectClient : projectClientList) {
-          String c = projectClient.getId().getClientCode();
+        List<ProjectCategory> projectCategoryList = query.list();
+        for (ProjectCategory projectCategory : projectCategoryList) {
+          String c = projectCategory.getCategoryCode();
           out.println("  <tr class=\"boxed\">");
-          out.println("     <td>" + projectClient.getId().getClientCode() + "</td>");
+          out.println("     <td>" + projectCategory.getCategoryCode() + "</td>");
           out.println("     <td><input type=\"text\" size=\"30\" name=\"clientName_" + c
-              + "\" value=\"" + projectClient.getClientName() + "\"></td>");
+              + "\" value=\"" + projectCategory.getClientName() + "\"></td>");
           out.println("     <td><input type=\"text\" size=\"3\" name=\"sortOrder_" + c
-              + "\" value=\"" + n(projectClient.getSortOrder()) + "\"></td>");
+              + "\" value=\"" + n(projectCategory.getSortOrder()) + "\"></td>");
           out.println("     <td><input type=\"text\" size=\"7\" name=\"clientAcronym_" + c
-              + "\" value=\"" + n(projectClient.getClientAcronym()) + "\"></td>");
+              + "\" value=\"" + n(projectCategory.getClientAcronym()) + "\"></td>");
           out.println("     <td><input type=\"checkbox\" name=\"visible_" + c + "\""
-              + (projectClient.getVisible() != null && projectClient.getVisible().equals("Y")
+              + (projectCategory.getVisible() != null && projectCategory.getVisible().equals("Y")
                   ? " checked=\"true\""
                   : "")
               + "\"></td>");
@@ -284,7 +283,7 @@ public class SettingsServlet extends ClientServlet {
         }
         out.println("  <tr class=\"boxed\">");
         out.println(
-            "     <td><input type=\"text\" size=\"7\" name=\"clientCode\" value=\"\"></td>");
+            "     <td><input type=\"text\" size=\"7\" name=\"categoryCode\" value=\"\"></td>");
         out.println(
             "     <td><input type=\"text\" size=\"30\" name=\"clientName\" value=\"\"></td>");
         out.println("     <td><input type=\"text\" size=\"3\" name=\"sortOrder\" value=\"\"></td>");

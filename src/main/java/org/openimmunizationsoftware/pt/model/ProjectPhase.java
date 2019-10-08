@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectPhase implements java.io.Serializable {
 
+  private static final long serialVersionUID = -5248995248387742605L;
+
   private String phaseCode;
   private String phaseLabel;
 

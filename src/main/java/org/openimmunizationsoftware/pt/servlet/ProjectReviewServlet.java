@@ -214,7 +214,7 @@ public class ProjectReviewServlet extends ClientServlet {
                 + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
                 + "</a></td>");
             out.println("    <td class=\"boxed\">"
-                + (project.getProjectClient() != null ? project.getProjectClient().getClientName()
+                + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
                     : "")
                 + "</td>");
             out.println("    <td class=\"boxed\">"
@@ -266,7 +266,7 @@ public class ProjectReviewServlet extends ClientServlet {
     out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
         + project.getProjectId() + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
     out.println("    <td class=\"boxed\">"
-        + (project.getProjectClient() != null ? project.getProjectClient().getClientName() : "")
+        + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName() : "")
         + "</td>");
     out.println("    <td class=\"boxed\">");
     String link = "ProjectReviewServlet?action=Update&projectId="

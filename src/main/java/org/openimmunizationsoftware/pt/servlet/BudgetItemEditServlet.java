@@ -304,9 +304,10 @@ public class BudgetItemEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Transfer To</th>");
       out.println("    <td class=\"boxed\"><select name=\"relatedItemId\">");
       query = dataSession.createQuery(
-          "from BudgetItem where budgetAccount.providerId = ? and budgetAccount <> ? order by budgetAccount.accountLabel, itemLabel");
-      query.setParameter(0, webUser.getProviderId());
-      query.setParameter(1, budgetAccount);
+          "from BudgetItem where budgetAccount.provider = :provider and budgetAccount <> :budgetAccount "
+              + "order by budgetAccount.accountLabel, itemLabel");
+      query.setParameter("provider", webUser.getProvider());
+      query.setParameter("budgetAccount", budgetAccount);
       List<BudgetItem> relatedBudgetItemList = query.list();
       out.println("      <option value=\"\"></option>");
 
@@ -324,8 +325,8 @@ public class BudgetItemEditServlet extends ClientServlet {
       }
 
       query =
-          dataSession.createQuery("from BudgetAccount where providerId = ? order by accountLabel");
-      query.setParameter(0, webUser.getProviderId());
+          dataSession.createQuery("from BudgetAccount where provider = :provider order by accountLabel");
+      query.setParameter("provider", webUser.getProvider());
       List<BudgetAccount> relatedBudgetAccountList = query.list();
       for (BudgetAccount lastBudgetAccount : relatedBudgetAccountList) {
         if (lastBudgetAccount.getAccountId() != budgetAccount.getAccountId()) {

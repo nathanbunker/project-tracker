@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectNextActionType implements java.io.Serializable {
 
+  private static final long serialVersionUID = -7007038930961162968L;
+
   public static String WILL = "D";
   public static String WILL_CONTACT = "C";
   public static String WAITING = "W";

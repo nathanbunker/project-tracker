@@ -2,16 +2,16 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
-<hibernate-mapping>
-    <class name="org.openimmunizationsoftware.pt.model.ProjectClient" table="project_client">
-        <composite-id name="id" class="org.openimmunizationsoftware.pt.model.ProjectClientId">
-            <key-property name="clientCode" type="string">
-                <column name="client_code" length="5" />
-            </key-property>
-            <key-property name="providerId" type="string">
-                <column name="provider_id" length="30" />
-            </key-property>
-        </composite-id>
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectCategory" table="project_category">
+     <id name="projectCategoryId" type="int">
+            <column name="project_category_id" length="30" />
+            <generator class="assigned" />
+        </id>
+        <property name="categoryCode" type="string">
+            <column name="category_code" length="150" />
+        </property>
+        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
         <property name="clientName" type="string">
             <column name="client_name" length="30" not-null="true" />
         </property>

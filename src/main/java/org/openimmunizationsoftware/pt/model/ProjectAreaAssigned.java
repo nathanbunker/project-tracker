@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectAreaAssigned implements java.io.Serializable {
 
+  private static final long serialVersionUID = -6106538502927606889L;
+
   private ProjectAreaAssignedId id;
 
   public ProjectAreaAssigned() {}

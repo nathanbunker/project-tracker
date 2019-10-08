@@ -98,45 +98,17 @@ public class ProjectContactServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Email</th>");
-      out.println("    <td class=\"boxed\"><a href=\"mailto:" + projectContact.getEmail()
-          + "\" class=\"button\">" + nbsp(projectContact.getEmail()) + "</a>");
+      out.println("    <td class=\"boxed\"><a href=\"mailto:" + projectContact.getEmailAddress()
+          + "\" class=\"button\">" + nbsp(projectContact.getEmailAddress()) + "</a>");
       out.println("</td>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Cell</th>");
-      out.println("    <td class=\"boxed\">" + nbsp(projectContact.getNumberCell()) + "</td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Fax</th>");
-      out.println("    <td class=\"boxed\">" + nbsp(projectContact.getNumberFax()) + "</td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Phone</th>");
-      out.println("    <td class=\"boxed\">" + nbsp(projectContact.getNumberPhone()) + "</td>");
+      out.println("    <td class=\"boxed\">" + nbsp(projectContact.getPhoneNumber()) + "</td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Time Zone</th>");
       out.println("    <td class=\"boxed\">" + nbsp(projectContact.getTimeZone()) + "</td>");
       out.println("  </tr>");
-      if (projectContact.getAddressStreet1() != null
-          && !projectContact.getAddressStreet1().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Address</th>");
-        out.println("    <td class=\"boxed\">" + projectContact.getAddressStreet1());
-        if (!projectContact.getAddressStreet2().equals("")) {
-          out.println("    <br>" + projectContact.getAddressStreet2());
-        }
-        if (projectContact.getAddressCity().equals("")) {
-          out.println("    <br>" + projectContact.getAddressState());
-        } else {
-          out.println("    <br>" + projectContact.getAddressCity() + ", "
-              + projectContact.getAddressState());
-        }
-        if (!projectContact.getAddressCountry().equals("")) {
-          out.println("    <br>" + projectContact.getAddressCountry());
-        }
-        out.println("</td>");
-        out.println("  </tr>");
-      }
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Other Info</th>");
       out.println("    <td class=\"boxed\">" + nbsp(projectContact.getContactInfo()) + "</td>");
@@ -171,7 +143,7 @@ public class ProjectContactServlet extends ClientServlet {
           ProjectsServlet.loadProjectsObject(dataSession, project);
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">"
-              + (project.getProjectClient() != null ? project.getProjectClient().getClientName()
+              + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
                   : "")
               + "</td>");
           out.println(
@@ -216,7 +188,7 @@ public class ProjectContactServlet extends ClientServlet {
           List<ProjectContactAssigned> assigned = query.list();
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">"
-              + (project.getProjectClient() != null ? project.getProjectClient().getClientName()
+              + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
                   : "")
               + "</td>");
           out.println(
@@ -261,7 +233,7 @@ public class ProjectContactServlet extends ClientServlet {
           List<ProjectContactAssigned> assigned = query.list();
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">"
-              + (project.getProjectClient() != null ? project.getProjectClient().getClientName()
+              + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
                   : "")
               + "</td>");
           out.println(

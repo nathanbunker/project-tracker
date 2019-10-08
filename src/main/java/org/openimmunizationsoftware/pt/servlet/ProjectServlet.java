@@ -177,7 +177,7 @@ public class ProjectServlet extends ClientServlet {
             projectAction.setNextProjectContact((ProjectContact) dataSession
                 .get(ProjectContact.class, projectAction.getNextContactId()));
           }
-          projectAction.setProviderId(webUser.getProviderId());
+          projectAction.setProvider(webUser.getProvider());
           if (message == null) {
             String[] completed = request.getParameterValues("completed");
 
@@ -253,7 +253,7 @@ public class ProjectServlet extends ClientServlet {
                 String emailMessage = "<html><head></head><body>" + emailBody + "</body></html>";
                 for (ProjectContact pc : sendEmailToList) {
                   mailManager.sendEmail(project.getProjectName() + " Project Update", emailMessage,
-                      pc.getEmail());
+                      pc.getEmailAddress());
                 }
               } catch (Exception e) {
                 message = "Unable to send email: " + e.getMessage();
@@ -369,7 +369,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
       out.println("    <td class=\"boxed\">"
-          + (project.getProjectClient() != null ? project.getProjectClient().getClientName() : "")
+          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName() : "")
           + "</td>");
       out.println("  </tr>");
       if (project.getVendorName() != null && !project.getVendorName().equals("")) {
@@ -479,13 +479,13 @@ public class ProjectServlet extends ClientServlet {
             + projectContact.getContactId() + "\" class=\"button\">" + projectContact.getName()
             + "</a></td>");
         out.println("    <td class=\"boxed\">" + n(projectContact.getOrganizationName()) + "</td>");
-        out.println("    <td class=\"boxed\">" + n(projectContact.getNumberPhone()) + "</td>");
+        out.println("    <td class=\"boxed\">" + n(projectContact.getPhoneNumber()) + "</td>");
         out.println("    <td class=\"boxed\">");
-        if (projectContact.getEmail() != null && !projectContact.getEmail().equals("")) {
+        if (projectContact.getEmailAddress() != null && !projectContact.getEmailAddress().equals("")) {
           // new URI("mailto", )
           String projectName = project.getProjectName();
           out.println(
-              " <font size=\"-1\"><a href=\"mailto:" + projectContact.getEmail() + "?subject="
+              " <font size=\"-1\"><a href=\"mailto:" + projectContact.getEmailAddress() + "?subject="
                   + encode(projectName + " Project") + "\" class=\"box\">Email</a></font>");
         }
         out.println(" <font size=\"-1\"><a href=\"ProjectServlet?action=RemoveContact&projectId="

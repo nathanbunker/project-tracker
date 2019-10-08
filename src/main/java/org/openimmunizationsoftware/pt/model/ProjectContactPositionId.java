@@ -9,6 +9,8 @@ import java.util.Date;
  */
 public class ProjectContactPositionId implements java.io.Serializable {
 
+  private static final long serialVersionUID = -3371259441285135384L;
+
   private int contactId;
   private Date positionDate;
 

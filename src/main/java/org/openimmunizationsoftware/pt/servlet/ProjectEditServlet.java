@@ -17,7 +17,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
@@ -68,7 +68,7 @@ public class ProjectEditServlet extends ClientServlet {
             ProjectServlet.getProjectContactAssigned(webUser, dataSession, project);
       } else {
         project = new Project();
-        project.setProviderId(webUser.getProviderId());
+        project.setProvider(webUser.getProvider());
       }
 
       String action = request.getParameter("action");
@@ -76,7 +76,7 @@ public class ProjectEditServlet extends ClientServlet {
         String message = null;
         if (action.equals("Save")) {
           project.setDescription(trim(request.getParameter("description"), 1200));
-          project.setClientCode(request.getParameter("clientCode"));
+          project.setCategoryCode(request.getParameter("categoryCode"));
           project.setPhaseCode(request.getParameter("phaseCode"));
           project.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           project.setPriorityLevel(Integer.parseInt(request.getParameter("priorityLevel")));
@@ -137,24 +137,24 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
-      out.println("    <td class=\"boxed\"><select name=\"clientCode\">");
+      out.println("    <td class=\"boxed\"><select name=\"categoryCode\">");
       {
         Query query = dataSession.createQuery(
-            "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
-        query.setParameter(0, webUser.getProviderId());
-        List<ProjectClient> projectClientList = query.list();
-        for (ProjectClient projectClient : projectClientList) {
-          if (projectClient.getId().getClientCode().startsWith("PER-")) {
-            if (!projectClient.getId().getClientCode().equals("PER-" + webUser.getContactId())) {
+            "from ProjectCategory where provider = :provider order by sortOrder, clientName");
+        query.setParameter("provider", webUser.getProvider());
+        List<ProjectCategory> projectCategoryList = query.list();
+        for (ProjectCategory projectCategory : projectCategoryList) {
+          if (projectCategory.getCategoryCode().startsWith("PER-")) {
+            if (!projectCategory.getCategoryCode().equals("PER-" + webUser.getContactId())) {
               continue;
             }
           }
-          if (projectClient.getId().getClientCode().equals(project.getClientCode())) {
-            out.println("      <option value=\"" + projectClient.getId().getClientCode()
-                + "\" selected>" + projectClient.getClientNameForDropdown() + "</option>");
+          if (projectCategory.getCategoryCode().equals(project.getCategoryCode())) {
+            out.println("      <option value=\"" + projectCategory.getCategoryCode() + "\" selected>"
+                + projectCategory.getClientNameForDropdown() + "</option>");
           } else {
-            out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\">"
-                + projectClient.getClientNameForDropdown() + "</option>");
+            out.println("      <option value=\"" + projectCategory.getCategoryCode() + "\">"
+                + projectCategory.getClientNameForDropdown() + "</option>");
           }
         }
         out.println("      </select>");
@@ -226,9 +226,9 @@ public class ProjectEditServlet extends ClientServlet {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Bill Code</th>");
         out.println("    <td class=\"boxed\"><select name=\"billCode\">");
-        Query query = dataSession
-            .createQuery("from BillCode where providerId = ? and visible = 'Y' order by billLabel");
-        query.setParameter(0, webUser.getProviderId());
+        Query query = dataSession.createQuery(
+            "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
+        query.setParameter("provider", webUser.getProvider());
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {
           if (billCode.getBillCode().equals(project.getBillCode())) {

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="ProjectAddress" table="project_address">
+    <id name="addressId" column="address_id">
+      <generator class="native"/>
+    </id>
+    <property name="addressStatusString" column="address_status" type="string"/>
+    <property name="country" column="country" type="string"/>
+    <property name="line1" column="line1" type="string"/>
+    <property name="line2" column="line2" type="string"/>
+    <property name="line3" column="line3" type="string"/>
+    <property name="line4" column="line4" type="string"/>
+    <property name="city" column="city" type="string"/>
+    <property name="state" column="state" type="string"/>
+    <property name="zip" column="zip" type="string"/>
+    <property name="timeZone" column="time_zone" type="string"/>
+  </class>
+</hibernate-mapping>
+

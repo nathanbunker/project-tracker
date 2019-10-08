@@ -70,14 +70,14 @@ public class TimeTracker {
     HashMap<String, Integer> totalMinsForClientMapCopy =
         new HashMap<String, Integer>(totalMinsForClientMap);
     if (billEntry != null) {
-      if (billEntry.getClientCode() != null) {
-        Integer mins = totalMinsForClientMapCopy.get(billEntry.getClientCode());
+      if (billEntry.getCategoryCode() != null) {
+        Integer mins = totalMinsForClientMapCopy.get(billEntry.getCategoryCode());
         int m = 0;
         if (mins != null) {
           m = mins;
         }
         m += billEntry.getBillMins();
-        totalMinsForClientMapCopy.put(billEntry.getClientCode(), m);
+        totalMinsForClientMapCopy.put(billEntry.getCategoryCode(), m);
       }
     }
     return totalMinsForClientMapCopy;
@@ -213,14 +213,14 @@ public class TimeTracker {
       m += billEntry.getBillMins();
       totalMinsForProjectMap.put(billEntry.getProjectId(), m);
     }
-    if (billEntry.getClientCode() != null) {
-      Integer mins = totalMinsForClientMap.get(billEntry.getClientCode());
+    if (billEntry.getCategoryCode() != null) {
+      Integer mins = totalMinsForClientMap.get(billEntry.getCategoryCode());
       int m = 0;
       if (mins != null) {
         m = mins;
       }
       m += billEntry.getBillMins();
-      totalMinsForClientMap.put(billEntry.getClientCode(), m);
+      totalMinsForClientMap.put(billEntry.getCategoryCode(), m);
     }
     if (billEntry.getBillCode() != null && billEntry.getBillable().equals("Y")) {
       Integer mins = totalMinsForBillCodeMap.get(billEntry.getBillCode());
@@ -282,14 +282,14 @@ public class TimeTracker {
       if (billCode != null) {
         billEntry = new BillEntry();
         billEntry.setProjectId(project.getProjectId());
-        billEntry.setClientCode(project.getClientCode());
+        billEntry.setCategoryCode(project.getCategoryCode());
         billEntry.setUsername(webUser.getUsername());
         billEntry.setStartTime(new Date());
         billEntry.setEndTime(new Date());
         billEntry.setBillMins(0);
         billEntry.setBillable(billCode.getBillable());
         billEntry.setBillCode(billCode.getBillCode());
-        billEntry.setProviderId(webUser.getProviderId());
+        billEntry.setProvider(webUser.getProvider());
         Transaction trans = dataSession.beginTransaction();
         try {
           dataSession.save(billEntry);

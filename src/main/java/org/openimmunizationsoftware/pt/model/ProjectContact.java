@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectContact implements java.io.Serializable {
 
+  private static final long serialVersionUID = 4034025707997290581L;
+  
   private int contactId;
   private String nameLast;
   private String nameFirst;
@@ -14,69 +16,18 @@ public class ProjectContact implements java.io.Serializable {
   private String organizationName;
   private String departmentName;
   private String positionTitle;
-  private String numberPhone;
-  private String numberCell;
-  private String numberPager;
-  private String numberFax;
-  private String email;
-  private String addressStreet1;
-  private String addressStreet2;
-  private String addressCity;
-  private String addressState;
-  private String addressZip;
-  private String addressCountry;
-  private Float addressLat;
-  private Float addressLong;
+  private String phoneNumber = "";
+  private boolean phoneTextable = false;
+  private String emailAddress;
+  private boolean emailConfirmed = false;
   private String contactInfo;
-  private String timeZone;
   private String emailAlert;
-  private String providerId;
-
-  public ProjectContact() {}
+  private ProjectProvider provider = null;
+  private String timeZone = "";
+  private ProjectAddress address = null;
 
   public String getName() {
     return nameFirst + " " + nameLast;
-  }
-
-  public ProjectContact(int contactId, String nameLast, String nameFirst, String emailAlert,
-      String providerId) {
-    this.contactId = contactId;
-    this.nameLast = nameLast;
-    this.nameFirst = nameFirst;
-    this.emailAlert = emailAlert;
-    this.providerId = providerId;
-  }
-
-  public ProjectContact(int contactId, String nameLast, String nameFirst, String nameTitle,
-      String organizationName, String departmentName, String positionTitle, String numberPhone,
-      String numberCell, String numberPager, String numberFax, String email, String addressStreet1,
-      String addressStreet2, String addressCity, String addressState, String addressZip,
-      String addressCountry, Float addressLat, Float addressLong, String contactInfo,
-      String timeZone, String emailAlert, String providerId) {
-    this.contactId = contactId;
-    this.nameLast = nameLast;
-    this.nameFirst = nameFirst;
-    this.nameTitle = nameTitle;
-    this.organizationName = organizationName;
-    this.departmentName = departmentName;
-    this.positionTitle = positionTitle;
-    this.numberPhone = numberPhone;
-    this.numberCell = numberCell;
-    this.numberPager = numberPager;
-    this.numberFax = numberFax;
-    this.email = email;
-    this.addressStreet1 = addressStreet1;
-    this.addressStreet2 = addressStreet2;
-    this.addressCity = addressCity;
-    this.addressState = addressState;
-    this.addressZip = addressZip;
-    this.addressCountry = addressCountry;
-    this.addressLat = addressLat;
-    this.addressLong = addressLong;
-    this.contactInfo = contactInfo;
-    this.timeZone = timeZone;
-    this.emailAlert = emailAlert;
-    this.providerId = providerId;
   }
 
   public int getContactId() {
@@ -135,108 +86,20 @@ public class ProjectContact implements java.io.Serializable {
     this.positionTitle = positionTitle;
   }
 
-  public String getNumberPhone() {
-    return this.numberPhone;
+  public String getPhoneNumber() {
+    return this.phoneNumber;
   }
 
-  public void setNumberPhone(String numberPhone) {
-    this.numberPhone = numberPhone;
+  public void setPhoneNumber(String numberPhone) {
+    this.phoneNumber = numberPhone;
   }
 
-  public String getNumberCell() {
-    return this.numberCell;
+  public String getEmailAddress() {
+    return this.emailAddress;
   }
 
-  public void setNumberCell(String numberCell) {
-    this.numberCell = numberCell;
-  }
-
-  public String getNumberPager() {
-    return this.numberPager;
-  }
-
-  public void setNumberPager(String numberPager) {
-    this.numberPager = numberPager;
-  }
-
-  public String getNumberFax() {
-    return this.numberFax;
-  }
-
-  public void setNumberFax(String numberFax) {
-    this.numberFax = numberFax;
-  }
-
-  public String getEmail() {
-    return this.email;
-  }
-
-  public void setEmail(String email) {
-    this.email = email;
-  }
-
-  public String getAddressStreet1() {
-    return this.addressStreet1;
-  }
-
-  public void setAddressStreet1(String addressStreet1) {
-    this.addressStreet1 = addressStreet1;
-  }
-
-  public String getAddressStreet2() {
-    return this.addressStreet2;
-  }
-
-  public void setAddressStreet2(String addressStreet2) {
-    this.addressStreet2 = addressStreet2;
-  }
-
-  public String getAddressCity() {
-    return this.addressCity;
-  }
-
-  public void setAddressCity(String addressCity) {
-    this.addressCity = addressCity;
-  }
-
-  public String getAddressState() {
-    return this.addressState;
-  }
-
-  public void setAddressState(String addressState) {
-    this.addressState = addressState;
-  }
-
-  public String getAddressZip() {
-    return this.addressZip;
-  }
-
-  public void setAddressZip(String addressZip) {
-    this.addressZip = addressZip;
-  }
-
-  public String getAddressCountry() {
-    return this.addressCountry;
-  }
-
-  public void setAddressCountry(String addressCountry) {
-    this.addressCountry = addressCountry;
-  }
-
-  public Float getAddressLat() {
-    return this.addressLat;
-  }
-
-  public void setAddressLat(Float addressLat) {
-    this.addressLat = addressLat;
-  }
-
-  public Float getAddressLong() {
-    return this.addressLong;
-  }
-
-  public void setAddressLong(Float addressLong) {
-    this.addressLong = addressLong;
+  public void setEmailAddress(String email) {
+    this.emailAddress = email;
   }
 
   public String getContactInfo() {
@@ -247,14 +110,6 @@ public class ProjectContact implements java.io.Serializable {
     this.contactInfo = contactInfo;
   }
 
-  public String getTimeZone() {
-    return this.timeZone;
-  }
-
-  public void setTimeZone(String timeZone) {
-    this.timeZone = timeZone;
-  }
-
   public String getEmailAlert() {
     return this.emailAlert;
   }
@@ -263,12 +118,44 @@ public class ProjectContact implements java.io.Serializable {
     this.emailAlert = emailAlert;
   }
 
-  public String getProviderId() {
-    return this.providerId;
+  public String getTimeZone() {
+    return timeZone;
   }
 
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
+  public void setTimeZone(String timeZone) {
+    this.timeZone = timeZone;
+  }
+
+  public ProjectProvider getProvider() {
+    return provider;
+  }
+
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
+  }
+
+  public boolean isPhoneTextable() {
+    return phoneTextable;
+  }
+
+  public void setPhoneTextable(boolean phoneTextable) {
+    this.phoneTextable = phoneTextable;
+  }
+
+  public boolean isEmailConfirmed() {
+    return emailConfirmed;
+  }
+
+  public void setEmailConfirmed(boolean emailConfirmed) {
+    this.emailConfirmed = emailConfirmed;
+  }
+
+  public ProjectAddress getAddress() {
+    return address;
+  }
+
+  public void setAddress(ProjectAddress address) {
+    this.address = address;
   }
 
 }

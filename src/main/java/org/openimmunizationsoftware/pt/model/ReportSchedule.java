@@ -10,6 +10,8 @@ import java.util.Date;
  */
 public class ReportSchedule implements java.io.Serializable {
 
+  private static final long serialVersionUID = -6449413293787916523L;
+
   public static final String STATUS_NEW = "N";
   public static final String STATUS_STOPPED = "S";
   public static final String STATUS_QUEUED = "Q";

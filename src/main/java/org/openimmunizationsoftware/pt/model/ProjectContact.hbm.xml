@@ -2,8 +2,8 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
-<hibernate-mapping>
-    <class name="org.openimmunizationsoftware.pt.model.ProjectContact" table="project_contact">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectContact" table="project_contact">
         <id name="contactId" type="int">
             <column name="contact_id" />
             <generator class="native" />
@@ -26,44 +26,17 @@
         <property name="positionTitle" type="string">
             <column name="position_title" length="90" />
         </property>
-        <property name="numberPhone" type="string">
-            <column name="number_phone" length="30" />
+        <property name="phoneNumber" type="string">
+            <column name="phone_number" length="30" />
         </property>
-        <property name="numberCell" type="string">
-            <column name="number_cell" length="30" />
+        <property name="phoneTextable" type="yes_no">
+            <column name="phone_textable" />
         </property>
-        <property name="numberPager" type="string">
-            <column name="number_pager" length="30" />
+        <property name="emailAddress" type="string">
+            <column name="email_address" length="60" />
         </property>
-        <property name="numberFax" type="string">
-            <column name="number_fax" length="30" />
-        </property>
-        <property name="email" type="string">
-            <column name="email" length="60" />
-        </property>
-        <property name="addressStreet1" type="string">
-            <column name="address_street1" length="60" />
-        </property>
-        <property name="addressStreet2" type="string">
-            <column name="address_street2" length="60" />
-        </property>
-        <property name="addressCity" type="string">
-            <column name="address_city" length="60" />
-        </property>
-        <property name="addressState" type="string">
-            <column name="address_state" length="60" />
-        </property>
-        <property name="addressZip" type="string">
-            <column name="address_zip" length="15" />
-        </property>
-        <property name="addressCountry" type="string">
-            <column name="address_country" length="60" />
-        </property>
-        <property name="addressLat" type="java.lang.Float">
-            <column name="address_lat" precision="12" scale="0" />
-        </property>
-        <property name="addressLong" type="java.lang.Float">
-            <column name="address_long" precision="12" scale="0" />
+        <property name="emailConfirmed" type="yes_no">
+            <column name="email_confirmed" />
         </property>
         <property name="contactInfo" type="string">
             <column name="contact_info" length="1500" />
@@ -74,8 +47,9 @@
         <property name="emailAlert" type="string">
             <column name="email_alert" length="1" not-null="true" />
         </property>
-        <property name="providerId" type="string">
-            <column name="provider_id" length="30" not-null="true" />
-        </property>
+        
+        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <many-to-one name="address" column="address_id" class="ProjectAddress"/>
+        
     </class>
 </hibernate-mapping>

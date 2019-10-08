@@ -7,13 +7,14 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class BillCode implements java.io.Serializable {
 
+  private static final long serialVersionUID = -6825144623396164007L;
   private String billCode;
   private String billLabel;
   private String billable;
   private String visible;
   private String clientBillCode;
   private String clientBillDescription;
-  private String providerId;
+  private ProjectProvider provider;
   private int estimateMin;
   private int billRate;
   private int billRound;
@@ -41,28 +42,6 @@ public class BillCode implements java.io.Serializable {
 
   public void setBillRound(int billRound) {
     this.billRound = billRound;
-  }
-
-  public BillCode() {}
-
-  public BillCode(String billCode, String billLabel, String billable, String visible,
-      String providerId) {
-    this.billCode = billCode;
-    this.billLabel = billLabel;
-    this.billable = billable;
-    this.visible = visible;
-    this.providerId = providerId;
-  }
-
-  public BillCode(String billCode, String billLabel, String billable, String visible,
-      String clientBillCode, String clientBillDescription, String providerId) {
-    this.billCode = billCode;
-    this.billLabel = billLabel;
-    this.billable = billable;
-    this.visible = visible;
-    this.clientBillCode = clientBillCode;
-    this.clientBillDescription = clientBillDescription;
-    this.providerId = providerId;
   }
 
   public String getBillCode() {
@@ -113,12 +92,12 @@ public class BillCode implements java.io.Serializable {
     this.clientBillDescription = clientBillDescription;
   }
 
-  public String getProviderId() {
-    return this.providerId;
+  public ProjectProvider getProvider() {
+    return provider;
   }
 
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
   }
 
 }

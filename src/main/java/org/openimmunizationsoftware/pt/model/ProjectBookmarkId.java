@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectBookmarkId implements java.io.Serializable {
 
+  private static final long serialVersionUID = 2629497607368586648L;
+
   private int projectId;
   private String bookmarkLabel;
 

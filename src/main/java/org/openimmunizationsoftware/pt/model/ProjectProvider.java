@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class ProjectProvider implements java.io.Serializable {
 
+  private static final long serialVersionUID = -505698309635710349L;
+
   private String providerId;
   private String providerName;
 

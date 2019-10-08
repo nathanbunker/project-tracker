@@ -9,6 +9,8 @@ import java.util.Date;
  */
 public class BillExpectedId implements java.io.Serializable {
 
+  private static final long serialVersionUID = -1668990878557896228L;
+
   private String username;
   private Date billDate;
 

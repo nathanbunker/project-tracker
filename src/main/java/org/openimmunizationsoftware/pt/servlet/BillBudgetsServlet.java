@@ -172,10 +172,12 @@ public class BillBudgetsServlet extends ClientServlet {
 
     Query query;
     query = dataSession.createQuery(
-        "from BillBudget where billCode.providerId = ? and billCode.visible = 'Y'  and startDate <= ? and endDate > ? order by billCode.billLabel, billBudgetCode");
-    query.setParameter(0, webUser.getProviderId());
-    query.setParameter(1, today);
-    query.setParameter(2, today);
+        "from BillBudget where billCode.provider = :provider and billCode.visible = 'Y' "
+            + "and startDate <= :startDate and endDate > :endDate "
+            + "order by billCode.billLabel, billBudgetCode");
+    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("startDate", today);
+    query.setParameter("endDate", today);
     List<BillBudget> billBudgetList = query.list();
 
     SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM");

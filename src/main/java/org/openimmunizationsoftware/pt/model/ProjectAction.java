@@ -21,7 +21,7 @@ public class ProjectAction implements java.io.Serializable {
   private Integer nextTimeEstimate;
   private Integer nextContactId;
   private Integer nextActionId;
-  private String providerId;
+  private ProjectProvider provider;
   private ProjectContact nextProjectContact = null;
   private ProjectContact contact = null;
   private Project project = null;
@@ -57,34 +57,6 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setNextProjectContact(ProjectContact nextProjectContact) {
     this.nextProjectContact = nextProjectContact;
-  }
-
-  public ProjectAction() {}
-
-  public ProjectAction(int actionId, int projectId, int contactId, Date actionDate,
-      String providerId) {
-    this.actionId = actionId;
-    this.projectId = projectId;
-    this.contactId = contactId;
-    this.actionDate = actionDate;
-    this.providerId = providerId;
-  }
-
-  public ProjectAction(int actionId, int projectId, int contactId, Date actionDate,
-      String actionDescription, String nextDescription, Date nextDue, String nextActionType,
-      Integer nextTimeEstimate, Integer nextContactId, Integer nextActionId, String providerId) {
-    this.actionId = actionId;
-    this.projectId = projectId;
-    this.contactId = contactId;
-    this.actionDate = actionDate;
-    this.actionDescription = actionDescription;
-    this.nextDescription = nextDescription;
-    this.nextDue = nextDue;
-    this.nextActionType = nextActionType;
-    this.nextTimeEstimate = nextTimeEstimate;
-    this.nextContactId = nextContactId;
-    this.nextActionId = nextActionId;
-    this.providerId = providerId;
   }
 
   public int getActionId() {
@@ -263,12 +235,11 @@ public class ProjectAction implements java.io.Serializable {
     this.nextActionId = nextActionId;
   }
 
-  public String getProviderId() {
-    return this.providerId;
+  public ProjectProvider getProvider() {
+    return provider;
   }
 
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
   }
-
 }

@@ -55,8 +55,8 @@ public class ReportsServlet extends ClientServlet {
       printHtmlHead(out, "Reports", request);
 
       Query query = dataSession.createQuery(
-          "from ReportProfile where providerId = ? and useStatus = 'E' order by profileLabel");
-      query.setParameter(0, webUser.getProviderId());
+          "from ReportProfile where provider = :provider and useStatus = 'E' order by profileLabel");
+      query.setParameter("provider", webUser.getProvider());
       List<ReportProfile> reportProfileList = query.list();
 
       out.println("<table class=\"boxed\">");

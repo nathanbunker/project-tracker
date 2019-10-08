@@ -9,44 +9,17 @@ import java.util.Date;
  */
 public class BillEntry implements java.io.Serializable {
 
+  private static final long serialVersionUID = 2295578399737856747L;
   private int billId;
   private int projectId;
-  private String clientCode;
+  private String categoryCode;
   private String username;
   private Date startTime;
   private Date endTime;
   private Integer billMins;
   private String billable;
   private String billCode;
-  private String providerId;
-
-  public BillEntry() {}
-
-  public BillEntry(int billId, int projectId, String clientCode, String username, Date startTime,
-      Date endTime, String billable, String providerId) {
-    this.billId = billId;
-    this.projectId = projectId;
-    this.clientCode = clientCode;
-    this.username = username;
-    this.startTime = startTime;
-    this.endTime = endTime;
-    this.billable = billable;
-    this.providerId = providerId;
-  }
-
-  public BillEntry(int billId, int projectId, String clientCode, String username, Date startTime,
-      Date endTime, Integer billMins, String billable, String billCode, String providerId) {
-    this.billId = billId;
-    this.projectId = projectId;
-    this.clientCode = clientCode;
-    this.username = username;
-    this.startTime = startTime;
-    this.endTime = endTime;
-    this.billMins = billMins;
-    this.billable = billable;
-    this.billCode = billCode;
-    this.providerId = providerId;
-  }
+  private ProjectProvider provider;
 
   public int getBillId() {
     return this.billId;
@@ -64,12 +37,12 @@ public class BillEntry implements java.io.Serializable {
     this.projectId = projectId;
   }
 
-  public String getClientCode() {
-    return this.clientCode;
+  public String getCategoryCode() {
+    return this.categoryCode;
   }
 
-  public void setClientCode(String clientCode) {
-    this.clientCode = clientCode;
+  public void setCategoryCode(String categoryCode) {
+    this.categoryCode = categoryCode;
   }
 
   public String getUsername() {
@@ -121,12 +94,12 @@ public class BillEntry implements java.io.Serializable {
     this.billCode = billCode;
   }
 
-  public String getProviderId() {
-    return this.providerId;
+  public ProjectProvider getProvider() {
+    return provider;
   }
 
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
   }
 
 }

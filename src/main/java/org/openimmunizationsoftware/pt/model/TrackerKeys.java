@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class TrackerKeys implements java.io.Serializable {
 
+  private static final long serialVersionUID = -3754988515852475529L;
+
   private TrackerKeysId id;
   private String keyValue;
   private byte[] keyContent;

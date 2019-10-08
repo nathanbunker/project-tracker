@@ -64,7 +64,7 @@ public class BillCodeEditServlet extends ClientServlet {
       String billCodeString = request.getParameter("billCode");
       if (billCodeString == null) {
         billCode = new BillCode();
-        billCode.setProviderId(webUser.getProviderId());
+        billCode.setProvider(webUser.getProvider());
       } else {
         billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
         if (billCode == null) {
@@ -83,7 +83,7 @@ public class BillCodeEditServlet extends ClientServlet {
           billCode.setEstimateMin(TimeTracker.readTime(request.getParameter("estimateMin")));
           billCode.setBillRate(Integer.parseInt(request.getParameter("billRate")));
           billCode.setBillRound(Integer.parseInt(request.getParameter("billRound")));
-          billCode.setProviderId(webUser.getProviderId());
+          billCode.setProvider(webUser.getProvider());
           Transaction trans = dataSession.beginTransaction();
           try {
             dataSession.saveOrUpdate(billCode);

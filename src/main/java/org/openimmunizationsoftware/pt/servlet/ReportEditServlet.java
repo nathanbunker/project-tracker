@@ -87,7 +87,7 @@ public class ReportEditServlet extends ClientServlet {
 
         reportProfile = new ReportProfile();
         reportProfile.setExtendsProfileId(extendsReportProfile.getProfileId());
-        reportProfile.setProviderId(webUser.getProviderId());
+        reportProfile.setProvider(webUser.getProvider());
         reportProfile.setUsername(webUser.getUsername());
         reportProfile.setReportSchedule(new ReportSchedule());
         reportProfile.setProfileType(extendsReportProfile.getProfileType());

@@ -6,7 +6,7 @@ public class BudgetAccount {
 
   private int accountId = 0;
   private String accountLabel = "";
-  private String providerId = "";
+  private ProjectProvider provider;
   private int balanceAmount = 0;
   private Date balanceDate = null;
   private int startAmount = 0;
@@ -44,14 +44,6 @@ public class BudgetAccount {
     this.accountLabel = accountLabel;
   }
 
-  public String getProviderId() {
-    return providerId;
-  }
-
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
-  }
-
   public int getBalanceAmount() {
     return balanceAmount;
   }
@@ -68,5 +60,12 @@ public class BudgetAccount {
     this.balanceDate = balanceDate;
   }
 
+  public ProjectProvider getProvider() {
+    return provider;
+  }
+
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
+  }
 
 }

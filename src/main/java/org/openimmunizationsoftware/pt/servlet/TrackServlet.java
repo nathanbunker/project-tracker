@@ -33,10 +33,10 @@ import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillDay;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
-import org.openimmunizationsoftware.pt.model.TrackerKeys;
+import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -435,10 +435,11 @@ public class TrackServlet extends ClientServlet {
     }
     timeEntryList = new ArrayList<TimeEntry>();
     Map<String, Integer> clientMap = timeTracker.getTotalMinsForClientMap();
-    for (String clientCode : clientMap.keySet()) {
-      ProjectClient projectClient = getClient(dataSession, clientCode, webUser.getProviderId());
-      if (projectClient != null) {
-        timeEntryList.add(new TimeEntry(projectClient.getClientName(), clientMap.get(clientCode)));
+    for (String categoryCode : clientMap.keySet()) {
+      ProjectCategory projectCategory = getClient(dataSession, categoryCode, webUser.getProvider());
+      if (projectCategory != null) {
+        timeEntryList
+            .add(new TimeEntry(projectCategory.getClientName(), clientMap.get(categoryCode)));
       }
     }
     Collections.sort(timeEntryList);
@@ -519,19 +520,19 @@ public class TrackServlet extends ClientServlet {
     }
   }
 
-  protected static ProjectClient getClient(Session dataSession, String clientCode,
-      String providerId) {
+  protected static ProjectCategory getClient(Session dataSession, String categoryCode,
+      ProjectProvider provider) {
     Query query;
-    query =
-        dataSession.createQuery("from ProjectClient where id.clientCode = ? and id.providerId = ?");
-    query.setParameter(0, clientCode);
-    query.setParameter(1, providerId);
-    List<ProjectClient> projectClientList = query.list();
-    ProjectClient projectClient = null;
-    if (projectClientList.size() > 0) {
-      projectClient = projectClientList.get(0);
+    query = dataSession
+        .createQuery("from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
+    query.setParameter("categoryCode", categoryCode);
+    query.setParameter("provider", provider);
+    List<ProjectCategory> projectCategoryList = query.list();
+    ProjectCategory projectCategory = null;
+    if (projectCategoryList.size() > 0) {
+      projectCategory = projectCategoryList.get(0);
     }
-    return projectClient;
+    return projectCategory;
   }
 
   // <editor-fold defaultstate="collapsed"

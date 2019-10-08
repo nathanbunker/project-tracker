@@ -61,7 +61,7 @@ public class BudgetAccountEditServlet extends ClientServlet {
       }
       if (budgetAccount == null) {
         budgetAccount = new BudgetAccount();
-        budgetAccount.setProviderId(webUser.getProviderId());
+        budgetAccount.setProvider(webUser.getProvider());
       }
 
       SimpleDateFormat sdf = webUser.getDateFormat();

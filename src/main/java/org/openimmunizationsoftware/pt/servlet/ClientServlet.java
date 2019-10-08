@@ -7,7 +7,6 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -242,8 +241,7 @@ public class ClientServlet extends HttpServlet {
       if (webUser.getParentWebUser() == null) {
         menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME, "Home"});
       } else {
-        ProjectProvider projectProvider =
-            (ProjectProvider) dataSession.get(ProjectProvider.class, webUser.getProviderId());
+        ProjectProvider projectProvider = webUser.getProvider();
         menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME,
             projectProvider.getProviderName() + " Home"});
       }

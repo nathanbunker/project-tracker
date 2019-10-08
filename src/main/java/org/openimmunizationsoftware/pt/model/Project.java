@@ -9,8 +9,9 @@ import java.util.List;
  */
 public class Project implements java.io.Serializable {
 
+  private static final long serialVersionUID = -5980583072580894435L;
   private int projectId;
-  private String clientCode;
+  private String categoryCode;
   private String projectName;
   private String providerName;
   private String vendorName;
@@ -20,12 +21,12 @@ public class Project implements java.io.Serializable {
   private Integer profileId;
   private String billCode;
   private String fileLocation;
-  private String providerId;
+  private ProjectProvider provider;
   private String username;
   private String iisSubmissionCode;
   private String iisFacilityId;
   private String medicalOrganization;
-  private ProjectClient projectClient = null;
+  private ProjectCategory projectCategory = null;
   private ProjectPhase projectPhase = null;
   private String iisRegionCode;
   private int priorityLevel = 0;
@@ -62,12 +63,12 @@ public class Project implements java.io.Serializable {
     this.medicalOrganization = medicalOrganization;
   }
 
-  public ProjectClient getProjectClient() {
-    return projectClient;
+  public ProjectCategory getProjectCategory() {
+    return projectCategory;
   }
 
-  public void setProjectClient(ProjectClient projectClient) {
-    this.projectClient = projectClient;
+  public void setProjectCategory(ProjectCategory projectCategory) {
+    this.projectCategory = projectCategory;
   }
 
   public ProjectPhase getProjectPhase() {
@@ -107,32 +108,6 @@ public class Project implements java.io.Serializable {
     this.projectContactAssignedList = projectContactAssignedList;
   }
 
-  public Project() {}
-
-  public Project(int projectId, String projectName, String username) {
-    this.projectId = projectId;
-    this.projectName = projectName;
-    this.username = username;
-  }
-
-  public Project(int projectId, String clientCode, String projectName, String providerName,
-      String vendorName, String systemName, String description, String phaseCode, Integer profileId,
-      String billCode, String fileLocation, String providerId, String username) {
-    this.projectId = projectId;
-    this.clientCode = clientCode;
-    this.projectName = projectName;
-    this.providerName = providerName;
-    this.vendorName = vendorName;
-    this.systemName = systemName;
-    this.description = description;
-    this.phaseCode = phaseCode;
-    this.profileId = profileId;
-    this.billCode = billCode;
-    this.fileLocation = fileLocation;
-    this.providerId = providerId;
-    this.username = username;
-  }
-
   public int getProjectId() {
     return this.projectId;
   }
@@ -141,12 +116,12 @@ public class Project implements java.io.Serializable {
     this.projectId = projectId;
   }
 
-  public String getClientCode() {
-    return this.clientCode;
+  public String getCategoryCode() {
+    return this.categoryCode;
   }
 
-  public void setClientCode(String clientCode) {
-    this.clientCode = clientCode;
+  public void setCategoryCode(String categoryCode) {
+    this.categoryCode = categoryCode;
   }
 
   public String getProjectName() {
@@ -221,20 +196,20 @@ public class Project implements java.io.Serializable {
     this.fileLocation = fileLocation;
   }
 
-  public String getProviderId() {
-    return this.providerId;
-  }
-
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
-  }
-
   public String getUsername() {
     return this.username;
   }
 
   public void setUsername(String username) {
     this.username = username;
+  }
+
+  public ProjectProvider getProvider() {
+    return provider;
+  }
+
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
   }
 
 }

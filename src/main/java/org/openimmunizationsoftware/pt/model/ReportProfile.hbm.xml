@@ -2,8 +2,8 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
-<hibernate-mapping>
-    <class name="org.openimmunizationsoftware.pt.model.ReportProfile" table="report_profile">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ReportProfile" table="report_profile">
         <id name="profileId" type="int">
             <column name="profile_id" />
             <generator class="native" />
@@ -14,9 +14,7 @@
         <property name="profileLabel" type="string">
             <column name="profile_label" length="50" />
         </property>
-        <property name="providerId" type="string">
-            <column name="provider_id" length="30" />
-        </property>
+        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
         <property name="username" type="string">
             <column name="username" length="30" />
         </property>

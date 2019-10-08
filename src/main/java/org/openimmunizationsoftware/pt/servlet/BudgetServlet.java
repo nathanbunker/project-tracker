@@ -63,8 +63,8 @@ public class BudgetServlet extends ClientServlet {
       Session dataSession = getDataSession(session);
 
       Query query =
-          dataSession.createQuery("from BudgetAccount where providerId = ? order by accountLabel");
-      query.setParameter(0, webUser.getProviderId());
+          dataSession.createQuery("from BudgetAccount where provider = :provider order by accountLabel");
+      query.setParameter("provider", webUser.getProvider());
       List<BudgetAccount> budgetAccountList = query.list();
       printHtmlHead(out, "Budget", request);
       out.println("<div class=\"main\">");

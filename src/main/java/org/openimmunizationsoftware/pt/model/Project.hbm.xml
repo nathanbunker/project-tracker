@@ -2,14 +2,14 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
-<hibernate-mapping>
-    <class name="org.openimmunizationsoftware.pt.model.Project" table="project">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="Project" table="project">
         <id name="projectId" type="int">
             <column name="project_id" />
             <generator class="native" />
         </id>
-        <property name="clientCode" type="string">
-            <column name="client_code" length="5" />
+        <property name="categoryCode" type="string">
+            <column name="category_code" length="5" />
         </property>
         <property name="projectName" type="string">
             <column name="project_name" length="100" not-null="true" />
@@ -38,9 +38,7 @@
         <property name="fileLocation" type="string">
             <column name="file_location" length="60" />
         </property>
-        <property name="providerId" type="string">
-            <column name="provider_id" length="30" />
-        </property>
+        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
         <property name="username" type="string">
             <column name="username" length="30" not-null="true" />
         </property>

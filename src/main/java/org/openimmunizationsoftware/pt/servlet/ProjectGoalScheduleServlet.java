@@ -160,7 +160,7 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
                   projectAction.setPriorityLevel(priorityLevel);
                   projectAction.setNextContactId(projectActionGoal.getNextContactId());
                   projectAction.setNextProjectContact(projectActionGoal.getNextProjectContact());
-                  projectAction.setProviderId(webUser.getProviderId());
+                  projectAction.setProvider(webUser.getProvider());
                   dataSession.save(projectAction);
                 }
               }

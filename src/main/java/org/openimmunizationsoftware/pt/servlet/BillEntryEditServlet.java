@@ -21,7 +21,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -68,7 +68,7 @@ public class BillEntryEditServlet extends ClientServlet {
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
-          billEntry.setClientCode(request.getParameter("clientCode"));
+          billEntry.setCategoryCode(request.getParameter("categoryCode"));
           billEntry.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           billEntry.setBillCode(request.getParameter("billCode"));
           try {
@@ -113,17 +113,17 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
-      out.println("    <td class=\"boxed\"><select name=\"clientCode\">");
-      Query query = dataSession.createQuery("from ProjectClient where id.providerId = ?");
-      query.setParameter(0, webUser.getProviderId());
-      List<ProjectClient> projectClientList = query.list();
-      for (ProjectClient projectClient : projectClientList) {
-        if (projectClient.getId().getClientCode().equals(billEntry.getClientCode())) {
-          out.println("      <option value=\"" + projectClient.getId().getClientCode()
-              + "\" selected>" + projectClient.getClientName() + "</option>");
+      out.println("    <td class=\"boxed\"><select name=\"categoryCode\">");
+      Query query = dataSession.createQuery("from ProjectCategory where provider = :provider");
+      query.setParameter("provider", webUser.getProvider());
+      List<ProjectCategory> projectCategoryList = query.list();
+      for (ProjectCategory projectCategory : projectCategoryList) {
+        if (projectCategory.getCategoryCode().equals(billEntry.getCategoryCode())) {
+          out.println("      <option value=\"" + projectCategory.getCategoryCode()
+              + "\" selected>" + projectCategory.getClientName() + "</option>");
         } else {
-          out.println("      <option value=\"" + projectClient.getId().getClientCode() + "\">"
-              + projectClient.getClientName() + "</option>");
+          out.println("      <option value=\"" + projectCategory.getCategoryCode() + "\">"
+              + projectCategory.getClientName() + "</option>");
         }
       }
       out.println("    </select>");
@@ -133,16 +133,16 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <td class=\"boxed\"><select name=\"projectId\">");
       query = dataSession
-          .createQuery("from Project where providerId = ? order by clientCode, projectName");
-      query.setParameter(0, webUser.getProviderId());
+          .createQuery("from Project where provider = :provider order by categoryCode, projectName");
+      query.setParameter("provider", webUser.getProvider());
       List<Project> projectList = query.list();
       for (Project project : projectList) {
         if (project.getProjectId() == billEntry.getProjectId()) {
           out.println("      <option value=\"" + project.getProjectId() + "\" selected>"
-              + project.getClientCode() + " " + project.getProjectName() + "</option>");
+              + project.getCategoryCode() + " " + project.getProjectName() + "</option>");
         } else {
           out.println("      <option value=\"" + project.getProjectId() + "\">"
-              + project.getClientCode() + " " + project.getProjectName() + "</option>");
+              + project.getCategoryCode() + " " + project.getProjectName() + "</option>");
         }
       }
       out.println("    </select>");
@@ -152,8 +152,8 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <td class=\"boxed\"><select name=\"billCode\">");
       query = dataSession
-          .createQuery("from BillCode where providerId = ? and visible = 'Y' order by billLabel");
-      query.setParameter(0, webUser.getProviderId());
+          .createQuery("from BillCode where providerId = :provider and visible = 'Y' order by billLabel");
+      query.setParameter("provider", webUser.getProvider());
       List<BillCode> billCodeList = query.list();
       for (BillCode billCode : billCodeList) {
         if (billCode.getBillCode().equals(billEntry.getBillCode())) {

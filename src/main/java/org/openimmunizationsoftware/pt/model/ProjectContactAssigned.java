@@ -9,6 +9,8 @@ import java.util.Date;
  */
 public class ProjectContactAssigned implements java.io.Serializable {
 
+  private static final long serialVersionUID = 6846993933767009631L;
+
   private ProjectContactAssignedId id;
   private Integer priority;
   private String emailAlert;

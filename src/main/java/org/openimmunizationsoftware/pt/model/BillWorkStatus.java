@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.model;
  */
 public class BillWorkStatus implements java.io.Serializable {
 
+  private static final long serialVersionUID = -2599028192345112069L;
+
   private String workStatus;
   private String workLabel;
 

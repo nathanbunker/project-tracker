@@ -55,8 +55,8 @@ public class BillCodesServlet extends ClientServlet {
       printHtmlHead(out, "Track", request);
 
       query = dataSession
-          .createQuery("from BillCode where providerId = ? and visible = 'Y' order by billCode");
-      query.setParameter(0, webUser.getProviderId());
+          .createQuery("from BillCode where provider = :provider and visible = 'Y' order by billCode");
+      query.setParameter("provider", webUser.getProvider());
       List<BillCode> billCodeList = query.list();
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");

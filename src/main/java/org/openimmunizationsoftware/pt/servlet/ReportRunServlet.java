@@ -468,7 +468,7 @@ public class ReportRunServlet extends ClientServlet {
                   .sendEmail(
                       "FYI: " + webUser.getProjectContact().getNameFirst() + " worked "
                           + hoursWorked + " hours",
-                      stringWriter.toString(), webUser.getProjectContact().getEmail());
+                      stringWriter.toString(), webUser.getProjectContact().getEmailAddress());
             } catch (Exception e) {
               e.printStackTrace();
             }
@@ -489,7 +489,7 @@ public class ReportRunServlet extends ClientServlet {
                   if (!cc.equals("")) {
                     cc = cc + ",";
                   }
-                  cc = cc + pcs.getSupervisor().getEmail();
+                  cc = cc + pcs.getSupervisor().getEmailAddress();
                 }
               }
               String report = stringWriter.toString();
@@ -502,7 +502,7 @@ public class ReportRunServlet extends ClientServlet {
                 mailManager.sendEmail(
                     "FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
                         + " hours this week",
-                    stringWriter.toString(), webUser.getProjectContact().getEmail(), cc);
+                    stringWriter.toString(), webUser.getProjectContact().getEmailAddress(), cc);
               } catch (Exception e) {
                 e.printStackTrace();
               }

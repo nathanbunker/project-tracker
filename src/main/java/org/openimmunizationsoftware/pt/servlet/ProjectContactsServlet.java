@@ -83,10 +83,11 @@ public class ProjectContactsServlet extends ClientServlet {
           out.println("    <th class=\"boxed\">Actions</th>");
           out.println("  </tr>");
           query = dataSession.createQuery(
-              "from ProjectContact where providerId = ? and nameFirst like ? and nameLast like ? order by nameFirst, nameLast");
-          query.setParameter(0, webUser.getProviderId());
-          query.setParameter(1, nameFirst + "%");
-          query.setParameter(2, nameLast + "%");
+              "from ProjectContact where provider = :provider and nameFirst like :nameFirst and nameLast like :nameLast "
+                  + "order by nameFirst, nameLast");
+          query.setParameter("provider", webUser.getProvider());
+          query.setParameter("nameFirst", nameFirst + "%");
+          query.setParameter("nameLast", nameLast + "%");
 
           List<ProjectContact> projectContactList = query.list();
           for (ProjectContact projectContact : projectContactList) {
@@ -94,7 +95,7 @@ public class ProjectContactsServlet extends ClientServlet {
             out.println("    <td class=\"boxed\"><a href=\"ProjectContactServlet?projectContactId="
                 + projectContact.getContactId() + "\" class=\"button\">"
                 + projectContact.getNameFirst() + " " + projectContact.getNameLast() + "</a></td>");
-            out.println("    <td class=\"boxed\">" + projectContact.getNumberPhone() + "</td>");
+            out.println("    <td class=\"boxed\">" + projectContact.getPhoneNumber() + "</td>");
             out.println(
                 "    <td class=\"boxed\">" + projectContact.getOrganizationName() + "</td>");
             out.println("    <td class=\"boxed\">");

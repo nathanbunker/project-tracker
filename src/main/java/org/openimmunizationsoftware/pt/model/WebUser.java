@@ -20,7 +20,7 @@ public class WebUser implements java.io.Serializable {
   private String username;
   private int contactId;
   private String password;
-  private String providerId;
+  private ProjectProvider provider = null;
   private boolean trackTime = false;
   private boolean manageBudget = false;
   private String userType;
@@ -103,21 +103,6 @@ public class WebUser implements java.io.Serializable {
     this.projectContact = projectContact;
   }
 
-  public WebUser() {}
-
-  public WebUser(String username, int contactId, String providerId) {
-    this.username = username;
-    this.contactId = contactId;
-    this.providerId = providerId;
-  }
-
-  public WebUser(String username, int contactId, String password, String providerId) {
-    this.username = username;
-    this.contactId = contactId;
-    this.password = password;
-    this.providerId = providerId;
-  }
-
   public String getUsername() {
     return this.username;
   }
@@ -142,20 +127,20 @@ public class WebUser implements java.io.Serializable {
     this.password = password;
   }
 
-  public String getProviderId() {
-    return this.providerId;
-  }
-
-  public void setProviderId(String providerId) {
-    this.providerId = providerId;
-  }
-
   public TimeZone getTimeZone() {
     return timeZone;
   }
 
   public void setTimeZone(TimeZone timeZone) {
     this.timeZone = timeZone;
+  }
+
+  public ProjectProvider getProvider() {
+    return provider;
+  }
+
+  public void setProvider(ProjectProvider provider) {
+    this.provider = provider;
   }
 
 }

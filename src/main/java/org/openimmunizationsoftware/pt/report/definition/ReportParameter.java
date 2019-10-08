@@ -10,7 +10,7 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
-import org.openimmunizationsoftware.pt.model.ProjectClient;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
@@ -23,7 +23,7 @@ public class ReportParameter {
   public static final String TYPE_DROPDOWN = "DROPDOWN";
 
   public static final String DROPDOWN_PROJECT_BILLCODE = "Project billCodes";
-  public static final String DROPDOWN_PROJECT_CLIENT = "Project projectClient";
+  public static final String DROPDOWN_PROJECT_CATEGORY = "Project projectCategory";
   public static final String DROPDOWN_TRACK_BILL_BUDGET_ID = "Track billBudgetId";
 
   private String label = "";
@@ -136,9 +136,9 @@ public class ReportParameter {
       String value = TrackerKeysManager.getReportKeyValue(name, defaultValue, profile, dataSession);
       if (dropdownLink.equals(DROPDOWN_PROJECT_BILLCODE)) {
         sbuf.append("<select name=\"" + name + "\">");
-        Query query = dataSession
-            .createQuery("from BillCode where providerId = ? and visible = 'Y' order by billLabel");
-        query.setParameter(0, webUser.getProviderId());
+        Query query = dataSession.createQuery(
+            "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
+        query.setParameter("provider", webUser.getProvider());
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {
           if (billCode.getBillCode().equals(value)) {
@@ -150,27 +150,28 @@ public class ReportParameter {
           }
         }
         sbuf.append("</select>");
-      } else if (dropdownLink.equals(DROPDOWN_PROJECT_CLIENT)) {
+      } else if (dropdownLink.equals(DROPDOWN_PROJECT_CATEGORY)) {
         sbuf.append("<select name=\"" + name + "\">");
         Query query = dataSession.createQuery(
-            "from ProjectClient where id.providerId = ? order by sortOrder, clientName");
-        query.setParameter(0, webUser.getProviderId());
-        List<ProjectClient> projectClientList = query.list();
-        for (ProjectClient projectClient : projectClientList) {
-          if (projectClient.getId().getClientCode().equals(value)) {
-            sbuf.append("<option value=\"" + projectClient.getId().getClientCode() + "\" selected>"
-                + projectClient.getClientNameForDropdown() + "</option>");
+            "from ProjectCategory where provider = provider order by sortOrder, clientName");
+        query.setParameter("provider", webUser.getProvider());
+        List<ProjectCategory> projectCategoryList = query.list();
+        for (ProjectCategory projectCategory : projectCategoryList) {
+          if (projectCategory.getCategoryCode().equals(value)) {
+            sbuf.append("<option value=\"" + projectCategory.getCategoryCode() + "\" selected>"
+                + projectCategory.getClientNameForDropdown() + "</option>");
           } else {
-            sbuf.append("<option value=\"" + projectClient.getId().getClientCode() + "\">"
-                + projectClient.getClientNameForDropdown() + "</option>");
+            sbuf.append("<option value=\"" + projectCategory.getCategoryCode() + "\">"
+                + projectCategory.getClientNameForDropdown() + "</option>");
           }
         }
         sbuf.append("</select>");
       } else if (dropdownLink.equals(DROPDOWN_TRACK_BILL_BUDGET_ID)) {
         sbuf.append("<select name=\"" + name + "\">");
         Query query = dataSession.createQuery(
-            "from BillBudget where billCode.providerId = ? and billCode.visible = 'Y' order by billCode.billLabel, billBudgetCode");
-        query.setParameter(0, webUser.getProviderId());
+            "from BillBudget where billCode.provider = :provider and billCode.visible = 'Y' "
+                + "order by billCode.billLabel, billBudgetCode");
+        query.setParameter("provider", webUser.getProvider());
         List<BillBudget> billBudgetList = query.list();
         for (BillBudget billBudget : billBudgetList) {
           if (String.valueOf(billBudget.getBillBudgetId()).equals(value)) {
