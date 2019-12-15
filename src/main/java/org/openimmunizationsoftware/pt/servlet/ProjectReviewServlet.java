@@ -10,14 +10,13 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
@@ -94,21 +93,21 @@ public class ProjectReviewServlet extends ClientServlet {
   @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+
       Query query;
 
-      String action = request.getParameter("action");
       if (action != null) {
         if (action.equals("Update")) {
           int updateDue = Integer.parseInt(request.getParameter("updateDue"));
@@ -125,17 +124,17 @@ public class ProjectReviewServlet extends ClientServlet {
           }
         }
       }
-      printHtmlHead(out, "Projects", request);
+      appReq.setTitle("Projects");
+      printHtmlHead(appReq);
+
 
       List<ProjectContactAssigned> projectContactAssignedList =
-          (List<ProjectContactAssigned>) session
-              .getAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
+          appReq.getProjectContactAssignedList();
 
       if (projectContactAssignedList == null) {
         projectContactAssignedList = new ArrayList<ProjectContactAssigned>();
-        session.setAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST, projectContactAssignedList);
-        List<Integer> projectIdList =
-            (List<Integer>) session.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
+        appReq.setProjectContactAssignedList(projectContactAssignedList);
+        List<Integer> projectIdList = appReq.getProjectIdList();
 
         for (int projectId : projectIdList) {
           query = dataSession.createQuery(
@@ -194,7 +193,6 @@ public class ProjectReviewServlet extends ClientServlet {
       out.println("  </tr>");
 
       Calendar today = webUser.getCalendar();
-      SimpleDateFormat sdf = webUser.getDateFormat();
 
       for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
         if (projectContactAssigned.getUpdateDue() > 0) {
@@ -213,10 +211,9 @@ public class ProjectReviewServlet extends ClientServlet {
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
                 + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
                 + "</a></td>");
-            out.println("    <td class=\"boxed\">"
-                + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
-                    : "")
-                + "</td>");
+            out.println("    <td class=\"boxed\">" + (project.getProjectCategory() != null
+                ? project.getProjectCategory().getClientName()
+                : "") + "</td>");
             out.println("    <td class=\"boxed\">"
                 + makeLabel(projectContactAssigned.getUpdateDue()) + "</td>");
             out.println("    <td class=\"boxed\">" + (projectContactAssigned.getUpdateLast() != null
@@ -250,10 +247,10 @@ public class ProjectReviewServlet extends ClientServlet {
         lastIntervalDays = interval.getDays();
       }
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

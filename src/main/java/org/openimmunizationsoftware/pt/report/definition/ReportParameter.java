@@ -3,17 +3,15 @@ package org.openimmunizationsoftware.pt.report.definition;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class ReportParameter {
   public static final String TYPE_STRING = "STRING";
@@ -113,10 +111,9 @@ public class ReportParameter {
     return TrackerKeysManager.getReportKeyValue(name, defaultValue, profile, dataSession);
   }
 
-  public String toHtml(ReportProfile profile, HttpServletRequest request) throws Exception {
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(ClientServlet.SESSION_VAR_WEB_USER);
-    Session dataSession = ClientServlet.getDataSession(session);
+  public String toHtml(ReportProfile profile, AppReq appReq) throws Exception {
+    WebUser webUser = appReq.getWebUser();
+    Session dataSession = appReq.getDataSession();
 
     StringBuilder sbuf = new StringBuilder();
     if (type.equals(TYPE_INT)) {

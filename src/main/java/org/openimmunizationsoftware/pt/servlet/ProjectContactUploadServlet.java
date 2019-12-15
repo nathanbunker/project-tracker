@@ -6,13 +6,13 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import javax.servlet.RequestDispatcher;
+import java.text.SimpleDateFormat;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -36,37 +36,37 @@ public class ProjectContactUploadServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      
-      boolean isMultipart = ServletFileUpload.isMultipartContent(request);
-      if (isMultipart)
-      {
-        
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
       }
-      
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
-      printHtmlHead(out, "Contacts", request);
 
-      Session dataSession = getDataSession(session);
-      
-      out.println("<form action=\"ProjectContactUploadServlet\" method=\"POST\" enctype=\"multipart/form-data\"");
+      boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+      if (isMultipart) {
+
+      }
+
+
+      appReq.setTitle("Contacts");
+      printHtmlHead(appReq);
+
+      out.println(
+          "<form action=\"ProjectContactUploadServlet\" method=\"POST\" enctype=\"multipart/form-data\"");
       out.println("  <input type=\"file\" name=\"file\" size=\"50\"/>");
       out.println("  <input type=\"submit\" name=\"submit\" value=\"Upload Contacts\"");
       out.println("</form>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

@@ -17,14 +17,13 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -57,30 +56,31 @@ public class ProjectServlet extends ClientServlet {
   @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+
       int projectId = Integer.parseInt(request.getParameter("projectId"));
-      Session dataSession = getDataSession(session);
 
       Query query = dataSession.createQuery("from Project where projectId = ? ");
       query.setParameter(0, projectId);
       Project project = ((List<Project>) query.list()).get(0);
       ProjectsServlet.loadProjectsObject(dataSession, project);
 
-      List<Project> projectSelectedListOld =
-          (List<Project>) session.getAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
+      List<Project> projectSelectedListOld = appReq.getProjectSelectedList();
+
       if (projectSelectedListOld == null) {
         projectSelectedListOld = new ArrayList<Project>();
-        session.setAttribute(SESSION_VAR_PROJECT_SELECTED_LIST, projectSelectedListOld);
+        appReq.setProjectSelectedList(projectSelectedListOld);
       }
       List<Project> projectSelectedList;
       if (projectSelectedListOld.size() > 0
@@ -99,16 +99,15 @@ public class ProjectServlet extends ClientServlet {
           }
           pos++;
         }
-        session.setAttribute(SESSION_VAR_PROJECT_SELECTED_LIST, projectSelectedList);
+        appReq.setProjectSelectedList(projectSelectedList);
       }
 
-      session.setAttribute(SESSION_VAR_PROJECT, project);
-      TimeTracker timeTracker = (TimeTracker) session.getAttribute(SESSION_VAR_TIME_TRACKER);
+      appReq.setProject(project);
+      TimeTracker timeTracker = appReq.getTimeTracker();
 
       ProjectContactAssigned projectContactAssignedForThisUser =
           getProjectContactAssigned(webUser, dataSession, project);
 
-      String action = request.getParameter("action");
       String emailBody = null;
       if (action != null) {
         if (action.equals("Save")) {
@@ -117,7 +116,6 @@ public class ProjectServlet extends ClientServlet {
           projectAction.setProjectId(projectId);
           projectAction.setContactId(webUser.getContactId());
           projectAction.setContact(webUser.getProjectContact());
-          SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
           Date actionDate = new Date();
           try {
             actionDate = sdf.parse(request.getParameter("actionDate"));
@@ -262,7 +260,7 @@ public class ProjectServlet extends ClientServlet {
             }
 
           } else {
-            request.setAttribute(REQUEST_VAR_MESSAGE, message);
+            appReq.setMessageProblem(message);
           }
         } else if (action.equals("RemoveContact")) {
           int contactId = Integer.parseInt(request.getParameter("contactId"));
@@ -273,7 +271,7 @@ public class ProjectServlet extends ClientServlet {
         } else if (action.equals("StartTimer")) {
           if (timeTracker != null) {
             if (webUser.getParentWebUser() != null) {
-              Project parentProject = (Project) session.getAttribute(SESSION_VAR_PARENT_PROJECT);
+              Project parentProject = appReq.getParentProject();
               if (parentProject != null) {
                 timeTracker.startClock(parentProject, dataSession);
               }
@@ -284,7 +282,8 @@ public class ProjectServlet extends ClientServlet {
         }
       }
 
-      printHtmlHead(out, "Projects", request);
+      appReq.setTitle("Projects");
+      printHtmlHead(appReq);
 
       out.println("<div class=\"main\">");
       if (emailBody != null) {
@@ -305,8 +304,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("<table class=\"boxed-fill\" >");
       out.println("  <tr>");
       out.println("    <th class=\"title\">");
-      List<Integer> projectIdList =
-          (List<Integer>) session.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
+      List<Integer> projectIdList = appReq.getProjectIdList();
       if (projectIdList != null && projectIdList.size() > 1) {
         int pos = 0;
         for (int i = 0; i < projectIdList.size(); i++) {
@@ -369,7 +367,8 @@ public class ProjectServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
       out.println("    <td class=\"boxed\">"
-          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName() : "")
+          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
+              : "")
           + "</td>");
       out.println("  </tr>");
       if (project.getVendorName() != null && !project.getVendorName().equals("")) {
@@ -481,12 +480,13 @@ public class ProjectServlet extends ClientServlet {
         out.println("    <td class=\"boxed\">" + n(projectContact.getOrganizationName()) + "</td>");
         out.println("    <td class=\"boxed\">" + n(projectContact.getPhoneNumber()) + "</td>");
         out.println("    <td class=\"boxed\">");
-        if (projectContact.getEmailAddress() != null && !projectContact.getEmailAddress().equals("")) {
+        if (projectContact.getEmailAddress() != null
+            && !projectContact.getEmailAddress().equals("")) {
           // new URI("mailto", )
           String projectName = project.getProjectName();
-          out.println(
-              " <font size=\"-1\"><a href=\"mailto:" + projectContact.getEmailAddress() + "?subject="
-                  + encode(projectName + " Project") + "\" class=\"box\">Email</a></font>");
+          out.println(" <font size=\"-1\"><a href=\"mailto:" + projectContact.getEmailAddress()
+              + "?subject=" + encode(projectName + " Project")
+              + "\" class=\"box\">Email</a></font>");
         }
         out.println(" <font size=\"-1\"><a href=\"ProjectServlet?action=RemoveContact&projectId="
             + projectId + "&contactId=" + projectContact.getContactId()
@@ -860,7 +860,6 @@ public class ProjectServlet extends ClientServlet {
           "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
       query.setParameter(0, projectId);
       projectActionList = query.list();
-      SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
       for (ProjectAction projectAction : projectActionList) {
         ProjectContact projectContact =
             (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId());
@@ -875,10 +874,10 @@ public class ProjectServlet extends ClientServlet {
       out.println("</table>");
       out.println("</div>");
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

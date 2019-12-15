@@ -11,13 +11,12 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
@@ -46,33 +45,35 @@ public class BillEntriesServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null || webUser.getParentWebUser() != null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
-
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
+
+
+
       String billDateString = request.getParameter("billDate");
       Date billDate = null;
       if ((billDateString != null && billDateString.length() > 0)) {
         try {
           billDate = sdf.parse(billDateString);
         } catch (ParseException pe) {
-          request.setAttribute(REQUEST_VAR_MESSAGE, "Unable to parse date: " + pe.getMessage());
+          appReq.setMessageProblem("Unable to parse date: " + pe.getMessage());
         }
       } else {
         billDateString = sdf.format(new Date());
       }
 
-      printHtmlHead(out, "Track", request);
+      appReq.setTitle("Track");
+      printHtmlHead(appReq);
+
 
       out.println("<form action=\"BillEntriesServlet\" method=\"GET\">");
       out.println("Date");
@@ -113,7 +114,8 @@ public class BillEntriesServlet extends ClientServlet {
       SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
       for (BillEntry billEntry : billEntryList) {
         String categoryCode = billEntry.getCategoryCode();
-        ProjectCategory projectCategory = TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
+        ProjectCategory projectCategory =
+            TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
         Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
         BillCode billCode = null;
         if (billEntry.getBillCode() != null) {
@@ -143,10 +145,10 @@ public class BillEntriesServlet extends ClientServlet {
         out.println("  </tr>");
       }
       out.println("</table> ");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

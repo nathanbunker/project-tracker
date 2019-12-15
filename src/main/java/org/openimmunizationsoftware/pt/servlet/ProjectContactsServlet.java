@@ -6,14 +6,14 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -39,24 +39,25 @@ public class ProjectContactsServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Project project = (Project) session.getAttribute(SESSION_VAR_PROJECT);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+      Project project = appReq.getProject();
       String nameFirst = request.getParameter("nameFirst");
       String nameLast = request.getParameter("nameLast");
 
-      printHtmlHead(out, "Contacts", request);
+      appReq.setTitle("Contacts");
+      printHtmlHead(appReq);
 
-      Session dataSession = getDataSession(session);
       Query query;
 
       out.println("<div class=\"main\">");
@@ -68,7 +69,6 @@ public class ProjectContactsServlet extends ClientServlet {
       out.println("<input type=\"submit\" name=\"action\" value=\"Search\" >");
       out.println("</form>");
 
-      String action = request.getParameter("action");
       if (action != null && action.equals("Search")) {
 
         if (!nameFirst.equals("") || !nameLast.equals("")) {
@@ -116,10 +116,10 @@ public class ProjectContactsServlet extends ClientServlet {
       }
       out.println("</div>");
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

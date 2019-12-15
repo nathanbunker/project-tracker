@@ -26,9 +26,8 @@ public class WebUser implements java.io.Serializable {
   private String userType;
   private WebUser parentWebUser = null;
   private TimeZone timeZone = TimeZone.getTimeZone(WebUser.AMERICA_DENVER);
-  
-  public Calendar getCalendar()
-  {
+
+  public Calendar getCalendar() {
     Calendar calendar = Calendar.getInstance(timeZone);
     return calendar;
   }
@@ -38,13 +37,13 @@ public class WebUser implements java.io.Serializable {
     sdf.setTimeZone(timeZone);
     return sdf;
   }
-  
+
   public SimpleDateFormat getTimeFormat() {
     SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
     sdf.setTimeZone(timeZone);
     return sdf;
   }
-  
+
   public SimpleDateFormat getDateFormat() {
     SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
     sdf.setTimeZone(timeZone);

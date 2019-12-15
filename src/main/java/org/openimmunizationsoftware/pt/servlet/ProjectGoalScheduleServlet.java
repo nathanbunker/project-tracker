@@ -13,14 +13,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
@@ -49,18 +48,18 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
   @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
 
 
       List<Calendar> dayList = new ArrayList<Calendar>();
@@ -77,7 +76,7 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
           count++;
         }
       }
-      List<Project> projectList = createProjectList(session, dataSession);
+      List<Project> projectList = appReq.createProjectList();
       Map<ProjectAction, Map<Calendar, ProjectAction>> projectActionDayMap =
           new HashMap<ProjectAction, Map<Calendar, ProjectAction>>();
       Map<Project, List<ProjectAction>> projectActionGoalMap =
@@ -172,7 +171,9 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
       }
 
 
-      printHtmlHead(out, "Projects", request);
+      appReq.setTitle("Projects");
+      printHtmlHead(appReq);
+
       out.println("<form action=\"ProjectGoalScheduleServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
@@ -188,7 +189,6 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
       }
       out.println("    <th class=\"boxed\">Action</th>");
       out.println("  </tr>");
-      SimpleDateFormat sdf = webUser.getDateFormat();
       SimpleDateFormat sdfField = webUser.getDateFormat("yyyyMMdd");
       for (Project project : projectList) {
 
@@ -222,7 +222,8 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
             }
             out.println("    <td class=\"boxed\">");
             String nextActionType = ProjectNextActionType.WILL;
-            if (projectActionGoal.getNextContactId() != null && projectActionGoal.getNextContactId() > 0) {
+            if (projectActionGoal.getNextContactId() != null
+                && projectActionGoal.getNextContactId() > 0) {
               nextActionType = ProjectNextActionType.ASKS_TO;
             }
             out.println("<select name=\"na" + projectActionGoal.getActionId() + "\">");
@@ -246,32 +247,12 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
 
 
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
-
-  private List<Project> createProjectList(HttpSession session, Session dataSession) {
-    List<Project> projectList = new ArrayList<Project>();
-
-    {
-      @SuppressWarnings("unchecked")
-      List<Integer> projectIdList =
-          (List<Integer>) session.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
-      if (projectIdList != null && projectIdList.size() > 0) {
-        for (int projectId : projectIdList) {
-          projectList.add((Project) dataSession.get(Project.class, projectId));
-        }
-      }
-    }
-    return projectList;
-  }
-
-
-  // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.

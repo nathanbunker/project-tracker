@@ -15,10 +15,10 @@ import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
@@ -48,17 +48,21 @@ public class HomeServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      if (webUser != null) {
-        SimpleDateFormat sdf1 = webUser.getDateFormat();
-        Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
 
-        String action = request.getParameter("action");
+      if (webUser == null) {
+        appReq.setTitle("Home");
+        printHtmlHead(appReq);
+        out.println("<h1>Project Tracker</h1>");
+        printHtmlFoot(appReq);
+      } else {
+        SimpleDateFormat sdf = webUser.getDateFormat();
+
         String date = request.getParameter("date");
         String nextActionType = request.getParameter("nextActionType");
         if (nextActionType == null) {
@@ -69,7 +73,7 @@ public class HomeServlet extends ClientServlet {
           nextDue = new Date();
         } else {
           try {
-            nextDue = sdf1.parse(date);
+            nextDue = sdf.parse(date);
           } catch (ParseException pe) {
             nextDue = new Date();
           }
@@ -101,7 +105,7 @@ public class HomeServlet extends ClientServlet {
             try {
               Date oldDateDue = projectAction.getNextDue();
               try {
-                projectAction.setNextDue(sdf1.parse(request.getParameter("changeNextDue")));
+                projectAction.setNextDue(sdf.parse(request.getParameter("changeNextDue")));
               } catch (ParseException pe) {
                 message = "Unable to parse next due date: " + pe.getMessage();
               }
@@ -139,28 +143,21 @@ public class HomeServlet extends ClientServlet {
             if (webUser.getParentWebUser() != null
                 && webUser.getParentWebUser().getUsername().equals(username)) {
               webUser = webUser.getParentWebUser();
-              session.setAttribute(SESSION_VAR_WEB_USER, webUser);
-              Project parentProject = (Project) session.getAttribute(SESSION_VAR_PARENT_PROJECT);
-              if (parentProject != null) {
-                session.setAttribute(SESSION_VAR_PROJECT, parentProject);
-              } else {
-                session.removeAttribute(SESSION_VAR_PROJECT);
-              }
+              appReq.setWebUser(webUser);
               switched = true;
             } else if (!webUser.getUsername().equals(username)) {
               @SuppressWarnings("unchecked")
-              List<WebUser> childWebUserList =
-                  (List<WebUser>) session.getAttribute("childWebUserList");
+              List<WebUser> childWebUserList = appReq.getChildWebUserList();
               if (childWebUserList != null) {
                 for (WebUser childWebUser : childWebUserList) {
                   if (childWebUser.getUsername().equals(username)) {
-                    Project project = (Project) session.getAttribute(SESSION_VAR_PROJECT);
+                    Project project = appReq.getProject();
                     if (webUser.getParentWebUser() == null && project != null) {
-                      session.setAttribute(SESSION_VAR_PARENT_PROJECT, project);
+                      appReq.setParentProject(project);
                     }
-                    session.removeAttribute(SESSION_VAR_PROJECT);
+                    appReq.setProject(null);
                     webUser = childWebUser;
-                    session.setAttribute(SESSION_VAR_WEB_USER, webUser);
+                    appReq.setWebUser(webUser);
                     switched = true;
                     break;
                   }
@@ -171,25 +168,22 @@ public class HomeServlet extends ClientServlet {
               ProjectProvider projectProvider = webUser.getProvider();
               message = "Welcome " + webUser.getProjectContact().getName() + " to "
                   + projectProvider.getProviderName();
-
-              session.removeAttribute(SESSION_VAR_PROJECT_ID_LIST);
-              session.removeAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
-
+              appReq.setProjectIdList(null);
+              appReq.setProjectSelectedList(null);
             }
           }
         }
 
-        if (message != null) {
-          request.setAttribute(REQUEST_VAR_MESSAGE, message);
-        }
+        appReq.setMessageProblem(message);
         boolean showLink = true;
 
-        printHtmlHead(out, "Home", request);
+        appReq.setTitle("Home");
+        printHtmlHead(appReq);
 
         printActionsDue(webUser, out, dataSession, nextActionType, nextDue, showLink, true);
 
         @SuppressWarnings("unchecked")
-        List<WebUser> childWebUserList = (List<WebUser>) session.getAttribute("childWebUserList");
+        List<WebUser> childWebUserList = appReq.getChildWebUserList();
         if (childWebUserList != null) {
           out.println("<h2>Select Provider</h2>");
           out.println("<table class=\"boxed\">");
@@ -233,16 +227,11 @@ public class HomeServlet extends ClientServlet {
         out.println(
             "<p>If you are finished you can <a href=\"LoginServlet?action=Logout\">logout</a>.</p>");
         out.println("</div>");
-        printHtmlFoot(out);
-      } else {
-        printHtmlHead(out, "Home", request);
-
-        out.println("<h1>Project Tracker</h1>");
-        printHtmlFoot(out);
+        printHtmlFoot(appReq);
       }
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

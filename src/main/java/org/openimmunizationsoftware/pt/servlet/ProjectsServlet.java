@@ -8,13 +8,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
@@ -54,19 +53,20 @@ public class ProjectsServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
-      printHtmlHead(out, "Projects", request);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      PrintWriter out = appReq.getOut();
+
+
+      appReq.setTitle("Projects");
+      printHtmlHead(appReq);
+
       String categoryCode = n(request.getParameter("categoryCode"));
       String phaseCode = n(request.getParameter("phaseCode"), NOT_CLOSED);
       String searchField = n(request.getParameter("searchField"), PROJECT_NAME);
@@ -150,8 +150,8 @@ public class ProjectsServlet extends ClientServlet {
       List<Project> projectList =
           createProjectList(request, webUser, dataSession, categoryCode, phaseCode, searchField);
       List<Integer> projectIdList = new ArrayList<Integer>();
-      session.setAttribute(SESSION_VAR_PROJECT_ID_LIST, projectIdList);
-      session.removeAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
+      appReq.setProjectIdList(projectIdList);
+      appReq.setProjectContactAssignedList(null);
 
       printProjectSearchResults(out, dataSession, phaseCode, searchField, projectList,
           projectIdList);
@@ -164,10 +164,10 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<h2>Goal Review &amp; Schedule</h2>");
       out.println(
           "<p><a href=\"ProjectGoalScheduleServlet\">Review all the goals</a> in the selected projects above and schedule next steps. </p>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 
@@ -204,7 +204,8 @@ public class ProjectsServlet extends ClientServlet {
           "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
               + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
       out.println("    <td class=\"boxed\">"
-          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName() : "")
+          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
+              : "")
           + "</td>");
       out.println("    <td class=\"boxed\">"
           + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
@@ -298,8 +299,8 @@ public class ProjectsServlet extends ClientServlet {
   }
 
   protected static void loadProjectsObject(Session dataSession, Project project) {
-    Query query1 =
-        dataSession.createQuery("from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
+    Query query1 = dataSession.createQuery(
+        "from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
     query1.setParameter("categoryCode", project.getCategoryCode());
     query1.setParameter("provider", project.getProvider());
     @SuppressWarnings("unchecked")

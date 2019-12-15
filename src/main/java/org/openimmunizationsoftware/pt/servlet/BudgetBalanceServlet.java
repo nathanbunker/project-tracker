@@ -11,14 +11,13 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MoneyUtil;
 import org.openimmunizationsoftware.pt.model.BudgetAccount;
 import org.openimmunizationsoftware.pt.model.BudgetTrans;
@@ -45,18 +44,16 @@ public class BudgetBalanceServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
       Query query;
@@ -93,7 +90,6 @@ public class BudgetBalanceServlet extends ClientServlet {
         budgetTransList = query.list();
       }
 
-      String action = request.getParameter("action");
       if (action != null) {
         if (action.equals("Balance")) {
           if (message == null) {
@@ -126,10 +122,12 @@ public class BudgetBalanceServlet extends ClientServlet {
       }
 
       if (message != null) {
-        request.setAttribute(REQUEST_VAR_MESSAGE, message);
+        appReq.setMessageProblem(message);
       }
 
-      printHtmlHead(out, "Budget", request);
+      appReq.setTitle("Budget");
+      printHtmlHead(appReq);
+
       out.println("<div class=\"main\">");
       out.println("<form action=\"BudgetBalanceServlet\" method=\"POST\">");
       out.println("<input type=\"hidden\" name=\"accountId\" value=\""
@@ -217,10 +215,10 @@ public class BudgetBalanceServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
       out.println("</div>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

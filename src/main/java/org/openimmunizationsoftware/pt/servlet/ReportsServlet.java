@@ -7,13 +7,12 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.ReportSchedule;
@@ -40,19 +39,17 @@ public class ReportsServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
-      printHtmlHead(out, "Reports", request);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      PrintWriter out = appReq.getOut();
+
+      printHtmlHead(appReq);
 
       Query query = dataSession.createQuery(
           "from ReportProfile where provider = :provider and useStatus = 'E' order by profileLabel");
@@ -105,10 +102,10 @@ public class ReportsServlet extends ClientServlet {
         out.println(
             "<p><a href=\"ReportRunServlet\">See all reports</a> that have been sent since Tracker was initialized.</p>");
       }
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

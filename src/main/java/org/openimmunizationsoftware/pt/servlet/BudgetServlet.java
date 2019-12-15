@@ -12,14 +12,13 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MoneyUtil;
 import org.openimmunizationsoftware.pt.manager.MonthUtil;
 import org.openimmunizationsoftware.pt.model.BudgetAccount;
@@ -49,24 +48,26 @@ public class BudgetServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
-      Query query =
-          dataSession.createQuery("from BudgetAccount where provider = :provider order by accountLabel");
+      Query query = dataSession
+          .createQuery("from BudgetAccount where provider = :provider order by accountLabel");
       query.setParameter("provider", webUser.getProvider());
       List<BudgetAccount> budgetAccountList = query.list();
-      printHtmlHead(out, "Budget", request);
+
+      appReq.setTitle("Budget");
+      printHtmlHead(appReq);
+
       out.println("<div class=\"main\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
@@ -78,7 +79,6 @@ public class BudgetServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Balance</th>");
       out.println("  </tr>");
 
-      SimpleDateFormat sdf = webUser.getDateFormat();
       for (BudgetAccount budgetAccount : budgetAccountList) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\"><a href=\"BudgetServlet?accountId="
@@ -432,10 +432,10 @@ public class BudgetServlet extends ClientServlet {
             + budgetAccount.getAccountId() + "\" class=\"box\">Manage Transaction Records</a></p>");
       }
       out.println("</div>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

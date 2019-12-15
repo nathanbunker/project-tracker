@@ -10,14 +10,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MoneyUtil;
 import org.openimmunizationsoftware.pt.manager.MonthUtil;
 import org.openimmunizationsoftware.pt.model.BudgetAccount;
@@ -47,19 +46,16 @@ public class BudgetItemEditServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
-
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
       BudgetAccount budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class,
@@ -96,7 +92,6 @@ public class BudgetItemEditServlet extends ClientServlet {
         budgetItem.setBudgetAccount(budgetAccount);
       }
 
-      String action = request.getParameter("action");
       if (action != null) {
         if (action.equals("Save")) {
           String message = null;
@@ -122,7 +117,7 @@ public class BudgetItemEditServlet extends ClientServlet {
             }
           }
           if (message != null) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, message);
+            appReq.setMessageProblem(message);
           } else {
             budgetItem.setItemLabel(request.getParameter("itemLabel"));
             budgetItem.setItemStatus(request.getParameter("itemStatus"));
@@ -140,7 +135,7 @@ public class BudgetItemEditServlet extends ClientServlet {
                   Integer.parseInt(relatedItemIdString)));
             }
             if (message != null) {
-              request.setAttribute(REQUEST_VAR_MESSAGE, message);
+              appReq.setMessageProblem(message);
             } else {
               Transaction trans = dataSession.beginTransaction();
               try {
@@ -160,7 +155,7 @@ public class BudgetItemEditServlet extends ClientServlet {
                   budgetTrans.setTransStatus(request.getParameter("transStatus"));
                   budgetTrans.setBudgetItem(budgetItem);
                   if (message != null) {
-                    request.setAttribute(REQUEST_VAR_MESSAGE, message);
+                    appReq.setMessageProblem(message);
                   } else {
                     if (budgetTrans.getTransId() == 0) {
                       dataSession.save(budgetTrans);
@@ -231,7 +226,9 @@ public class BudgetItemEditServlet extends ClientServlet {
         }
       }
 
-      printHtmlHead(out, "Budget", request);
+      appReq.setTitle("Budget");
+      printHtmlHead(appReq);
+
       out.println("<div class=\"main\">");
       out.println("<form action=\"BudgetItemEditServlet\" method=\"POST\">");
       out.println("<input type=\"hidden\" name=\"accountId\" value=\""
@@ -324,8 +321,8 @@ public class BudgetItemEditServlet extends ClientServlet {
         }
       }
 
-      query =
-          dataSession.createQuery("from BudgetAccount where provider = :provider order by accountLabel");
+      query = dataSession
+          .createQuery("from BudgetAccount where provider = :provider order by accountLabel");
       query.setParameter("provider", webUser.getProvider());
       List<BudgetAccount> relatedBudgetAccountList = query.list();
       for (BudgetAccount lastBudgetAccount : relatedBudgetAccountList) {
@@ -464,10 +461,10 @@ public class BudgetItemEditServlet extends ClientServlet {
         out.println("</table>");
       }
       out.println("</div>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

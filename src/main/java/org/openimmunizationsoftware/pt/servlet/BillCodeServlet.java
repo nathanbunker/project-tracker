@@ -8,13 +8,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -42,22 +41,21 @@ public class BillCodeServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null || webUser.getParentWebUser() != null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-    SimpleDateFormat sdf = webUser.getDateFormat();
-
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
       Query query;
-      printHtmlHead(out, "Track", request);
+      appReq.setTitle("Track");
+      printHtmlHead(appReq);
+
       BillCode billCode = null;
       String billCodeString = request.getParameter("billCode");
       billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
@@ -171,10 +169,10 @@ public class BillCodeServlet extends ClientServlet {
               + "\">Bill Budget Report</a></p>");
         }
       }
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

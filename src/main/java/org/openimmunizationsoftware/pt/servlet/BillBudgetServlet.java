@@ -11,13 +11,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -54,32 +53,28 @@ public class BillBudgetServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null || webUser.getParentWebUser() != null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
-      printHtmlHead(out, "Track", request);
-
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+        forwardToHome(request, response);
+        return;
+      }
+      appReq.setTitle("Track");
+      printHtmlHead(appReq);
+      Session dataSession = appReq.getDataSession();
       BillBudget billBudget = (BillBudget) dataSession.get(BillBudget.class,
           Integer.parseInt(request.getParameter("billBudgetId")));
       Date today = new Date();
-
+      PrintWriter out = appReq.getOut();
       generateReport(out, dataSession, billBudget, today, webUser);
-
-      printHtmlFoot(out);
-
+      printHtmlFoot(appReq);
     } finally {
-      out.close();
+      appReq.close();
     }
   }
+
+
 
   public static void generateReport(PrintWriter out, Session dataSession, BillBudget billBudget,
       Date today, WebUser webUser) {

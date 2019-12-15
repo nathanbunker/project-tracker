@@ -7,7 +7,6 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -15,6 +14,7 @@ import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
@@ -44,21 +44,22 @@ public class ProjectEditServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      printHtmlHead(out, "Projects", request);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      HttpSession session = request.getSession(true);
+      PrintWriter out = response.getWriter();
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+
+      appReq.setTitle("Projects");
+      printHtmlHead(appReq);
 
       Project project = null;
-      Session dataSession = getDataSession(session);
       ProjectContactAssigned projectContactAssignedForThisUser = null;
       if (request.getParameter("projectId") != null
           && !request.getParameter("projectId").equals("0")) {
@@ -71,7 +72,6 @@ public class ProjectEditServlet extends ClientServlet {
         project.setProvider(webUser.getProvider());
       }
 
-      String action = request.getParameter("action");
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
@@ -96,7 +96,7 @@ public class ProjectEditServlet extends ClientServlet {
           }
         }
         if (message != null) {
-          request.setAttribute(REQUEST_VAR_MESSAGE, message);
+          appReq.setMessageProblem(message);
         } else {
           Transaction trans = dataSession.beginTransaction();
           try {
@@ -150,8 +150,8 @@ public class ProjectEditServlet extends ClientServlet {
             }
           }
           if (projectCategory.getCategoryCode().equals(project.getCategoryCode())) {
-            out.println("      <option value=\"" + projectCategory.getCategoryCode() + "\" selected>"
-                + projectCategory.getClientNameForDropdown() + "</option>");
+            out.println("      <option value=\"" + projectCategory.getCategoryCode()
+                + "\" selected>" + projectCategory.getClientNameForDropdown() + "</option>");
           } else {
             out.println("      <option value=\"" + projectCategory.getCategoryCode() + "\">"
                 + projectCategory.getClientNameForDropdown() + "</option>");
@@ -276,10 +276,10 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

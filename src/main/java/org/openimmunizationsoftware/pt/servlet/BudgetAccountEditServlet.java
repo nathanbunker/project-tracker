@@ -8,13 +8,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MoneyUtil;
 import org.openimmunizationsoftware.pt.model.BudgetAccount;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -40,18 +39,17 @@ public class BudgetAccountEditServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
       BudgetAccount budgetAccount = null;
       if (request.getParameter("accountId") != null
@@ -64,9 +62,7 @@ public class BudgetAccountEditServlet extends ClientServlet {
         budgetAccount.setProvider(webUser.getProvider());
       }
 
-      SimpleDateFormat sdf = webUser.getDateFormat();
 
-      String action = request.getParameter("action");
       if (action != null) {
         if (action.equals("Save")) {
           String message = null;
@@ -82,7 +78,7 @@ public class BudgetAccountEditServlet extends ClientServlet {
             budgetAccount.setBalanceDate(budgetAccount.getStartDate());
           }
           if (message != null) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, message);
+            appReq.setMessageProblem(message);
           } else {
             Transaction trans = dataSession.beginTransaction();
             try {
@@ -96,7 +92,9 @@ public class BudgetAccountEditServlet extends ClientServlet {
         }
       }
 
-      printHtmlHead(out, "Budget", request);
+      appReq.setTitle("Budget");
+      printHtmlHead(appReq);
+
       out.println("<div class=\"main\">");
       out.println("<form action=\"BudgetAccountEditServlet\" method=\"POST\">");
       out.println("<input type=\"hidden\" name=\"accountId\" value=\""
@@ -130,10 +128,10 @@ public class BudgetAccountEditServlet extends ClientServlet {
 
       out.println("</table>");
       out.println("</div>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

@@ -1,14 +1,13 @@
 package org.openimmunizationsoftware.pt.model;
 
 public enum MailStatus {
-                               PURCHASED("P", "Purchased"),
-                               ASSIGNED("A", "Assigned"),
-                               FIRST_NOTICE_SENT("1", "1st Notice Sent"),
-                               SECOND_NOTICE_SENT("2", "2nd Notice Sent"),
-                               READY("R", "Ready"),
-                               MAILED("M", "Mailed"),
-                               DO_NOT_MAIL("N", "Do Not Mail"),
-                               ;
+                        PURCHASED("P", "Purchased"),
+                        ASSIGNED("A", "Assigned"),
+                        FIRST_NOTICE_SENT("1", "1st Notice Sent"),
+                        SECOND_NOTICE_SENT("2", "2nd Notice Sent"),
+                        READY("R", "Ready"),
+                        MAILED("M", "Mailed"),
+                        DO_NOT_MAIL("N", "Do Not Mail"),;
   private String id = "";
   private String label = "";
 

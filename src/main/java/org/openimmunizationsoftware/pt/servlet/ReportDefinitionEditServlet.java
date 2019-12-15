@@ -6,15 +6,15 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -39,18 +39,19 @@ public class ReportDefinitionEditServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+
 
       ReportProfile reportProfile = null;
 
@@ -60,7 +61,6 @@ public class ReportDefinitionEditServlet extends ClientServlet {
       reportProfile = reportProfileList.get(0);
       ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
 
-      String action = request.getParameter("action");
       if (action != null) {
         if (action.equals("Save")) {
           String message = null;
@@ -69,7 +69,7 @@ public class ReportDefinitionEditServlet extends ClientServlet {
           // TODO check report
 
           if (message != null) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, message);
+            appReq.setMessageProblem(message);
           } else {
             Transaction transaction = dataSession.beginTransaction();
             try {
@@ -83,7 +83,7 @@ public class ReportDefinitionEditServlet extends ClientServlet {
         }
       }
 
-      printHtmlHead(out, "Reports", request);
+      printHtmlHead(appReq);
       out.println("<form action=\"ReportDefinitionEditServlet\" method=\"POST\">");
       if (reportProfile.getProfileId() > 0) {
         out.println("  <input type=\"hidden\" name=\"profileId\" value=\""
@@ -105,10 +105,10 @@ public class ReportDefinitionEditServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

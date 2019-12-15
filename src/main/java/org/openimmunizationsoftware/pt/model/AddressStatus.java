@@ -1,10 +1,9 @@
 package org.openimmunizationsoftware.pt.model;
 
 public enum AddressStatus {
-                               SEND("S", "Send"),
-                               ASK_FIRST("A", "Ask First"),
-                               DO_NOT_SEND("D", "Do Not Send"),
-                               ;
+                           SEND("S", "Send"),
+                           ASK_FIRST("A", "Ask First"),
+                           DO_NOT_SEND("D", "Do Not Send"),;
   private String id = "";
   private String label = "";
 

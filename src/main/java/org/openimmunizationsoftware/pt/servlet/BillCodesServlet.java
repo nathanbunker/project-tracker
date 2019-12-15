@@ -6,14 +6,14 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -38,24 +38,27 @@ public class BillCodesServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+
       Query query;
 
-      printHtmlHead(out, "Track", request);
+      appReq.setTitle("Track");
+      printHtmlHead(appReq);
 
-      query = dataSession
-          .createQuery("from BillCode where provider = :provider and visible = 'Y' order by billCode");
+
+      query = dataSession.createQuery(
+          "from BillCode where provider = :provider and visible = 'Y' order by billCode");
       query.setParameter("provider", webUser.getProvider());
       List<BillCode> billCodeList = query.list();
       out.println("<table class=\"boxed\">");
@@ -92,10 +95,10 @@ public class BillCodesServlet extends ClientServlet {
       out.println("<h2>Create a New Bill Code</h2>");
       out.println(
           "<p>If you do not see your bill code in the list above you can <a href=\"BillCodeEditServlet\">create</a> one.</p>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

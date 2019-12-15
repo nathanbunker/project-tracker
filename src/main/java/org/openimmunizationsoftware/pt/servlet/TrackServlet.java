@@ -17,14 +17,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
@@ -59,20 +58,20 @@ public class TrackServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
-      TimeTracker timeTracker = (TimeTracker) session.getAttribute(SESSION_VAR_TIME_TRACKER);
-      String action = request.getParameter("action");
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+
+      TimeTracker timeTracker = appReq.getTimeTracker();
 
       if (action != null) {
         if (action.equals("StopTimer")) {
@@ -125,7 +124,6 @@ public class TrackServlet extends ClientServlet {
         }
       }
 
-      SimpleDateFormat sdf = webUser.getDateFormat();
       String billDateString = request.getParameter("billDate");
       Date billDate = null;
       if ((billDateString != null && billDateString.length() > 0) || !type.equals("Day")) {
@@ -148,13 +146,15 @@ public class TrackServlet extends ClientServlet {
             calendar.add(Calendar.DAY_OF_MONTH, 1);
           }
         } catch (ParseException pe) {
-          request.setAttribute(REQUEST_VAR_MESSAGE, "Unable to parse date: " + pe.getMessage());
+          appReq.setMessageProblem("Unable to parse date: " + pe.getMessage());
         }
       } else {
         billDateString = sdf.format(new Date());
       }
 
-      printHtmlHead(out, "Track", request);
+      appReq.setTitle("Track");
+      printHtmlHead(appReq);
+
 
       out.println("<form action=\"TrackServlet\" method=\"GET\">");
       Query query = dataSession.createQuery(
@@ -205,10 +205,10 @@ public class TrackServlet extends ClientServlet {
       makeTimeTrackReport(webUserSelected, out, dataSession, timeTracker, type,
           webUserSelected == webUser);
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
 
   }
@@ -523,8 +523,8 @@ public class TrackServlet extends ClientServlet {
   protected static ProjectCategory getClient(Session dataSession, String categoryCode,
       ProjectProvider provider) {
     Query query;
-    query = dataSession
-        .createQuery("from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
+    query = dataSession.createQuery(
+        "from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
     query.setParameter("categoryCode", categoryCode);
     query.setParameter("provider", provider);
     List<ProjectCategory> projectCategoryList = query.list();

@@ -22,14 +22,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.CentralControl;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
@@ -211,20 +210,20 @@ public class ReportRunServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null || !webUser.isUserTypeAdmin()) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (!appReq.isAdmin()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
-      String action = request.getParameter("action");
+
+
       if (action == null) {
         action = "Show All";
       }
@@ -243,7 +242,7 @@ public class ReportRunServlet extends ClientServlet {
         if (message == null) {
           runReportsForToday(runDate);
         } else {
-          request.setAttribute(REQUEST_VAR_MESSAGE, message);
+          appReq.setMessageProblem(message);
         }
 
         action = "Show All";
@@ -303,11 +302,11 @@ public class ReportRunServlet extends ClientServlet {
         }
 
         if (message != null) {
-          request.setAttribute(REQUEST_VAR_MESSAGE, message);
+          appReq.setMessageProblem(message);
         }
 
         String report = "<p><em>Report not run.</em></p>";
-        printHtmlHead(out, "Reports", request);
+        printHtmlHead(appReq);
 
         if (message == null) {
           DailyReportDetails dailyReportDetails = new DailyReportDetails();
@@ -331,10 +330,10 @@ public class ReportRunServlet extends ClientServlet {
           }
         }
         out.print(report);
-        printHtmlFoot(out);
+        printHtmlFoot(appReq);
       } else if (action.equals("Show All")) {
 
-        printHtmlHead(out, "Reports", request);
+        printHtmlHead(appReq);
 
         List<ReportProfile> reportProfileList = new ArrayList<ReportProfile>();
         for (int profileId : dailyReportDetailsMap.keySet()) {
@@ -359,7 +358,6 @@ public class ReportRunServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">Message</th>");
         out.println("    <th class=\"boxed\">&nbsp;</th>");
         out.println("  </tr>");
-        SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy HH:mm:ss");
         for (ReportProfile reportProfile : reportProfileList) {
           ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
           out.println("  <tr class=\"boxed\">");
@@ -403,17 +401,17 @@ public class ReportRunServlet extends ClientServlet {
         out.println("<input type=\"submit\" name=\"action\" value=\"Run All\"/>");
         out.println("<form>");
 
-        printHtmlFoot(out);
+        printHtmlFoot(appReq);
       } else if (action.equals("Show")) {
         DailyReportDetails dailyReportDetails =
             dailyReportDetailsMap.get(Integer.parseInt(request.getParameter("profileId")));
-        printHtmlHead(out, "Reports", request);
+        printHtmlHead(appReq);
         out.print(dailyReportDetails.getReportText());
-        printHtmlFoot(out);
+        printHtmlFoot(appReq);
       }
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 
@@ -464,11 +462,10 @@ public class ReportRunServlet extends ClientServlet {
             try {
               printReportToEmail(report, printWriter);
               printWriter.close();
-              mailManager
-                  .sendEmail(
-                      "FYI: " + webUser.getProjectContact().getNameFirst() + " worked "
-                          + hoursWorked + " hours",
-                      stringWriter.toString(), webUser.getProjectContact().getEmailAddress());
+              mailManager.sendEmail(
+                  "FYI: " + webUser.getProjectContact().getNameFirst() + " worked " + hoursWorked
+                      + " hours",
+                  stringWriter.toString(), webUser.getProjectContact().getEmailAddress());
             } catch (Exception e) {
               e.printStackTrace();
             }

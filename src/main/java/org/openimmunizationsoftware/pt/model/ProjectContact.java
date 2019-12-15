@@ -8,7 +8,7 @@ package org.openimmunizationsoftware.pt.model;
 public class ProjectContact implements java.io.Serializable {
 
   private static final long serialVersionUID = 4034025707997290581L;
-  
+
   private int contactId;
   private String nameLast;
   private String nameFirst;

@@ -8,13 +8,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ContactEvent;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
@@ -26,6 +25,8 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * @author nathan
  */
 public class ProjectContactServlet extends ClientServlet {
+
+  private static final long serialVersionUID = -3950283792363474710L;
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -42,23 +43,22 @@ public class ProjectContactServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
+
+
       int projectContactId = Integer.parseInt(request.getParameter("projectContactId"));
-      Session dataSession = getDataSession(session);
-      Query query = dataSession.createQuery("from ProjectContact where contactId = ? ");
-      query.setParameter(0, projectContactId);
-      ProjectContact projectContact = ((List<ProjectContact>) query.list()).get(0);
-      String action = request.getParameter("action");
+
+      ProjectContact projectContact = getProjectContact(dataSession, projectContactId);
       if (action != null) {
         if (action.equals("RemoveContact")) {
           int projectId = Integer.parseInt(request.getParameter("projectId"));
@@ -69,7 +69,8 @@ public class ProjectContactServlet extends ClientServlet {
         }
       }
 
-      printHtmlHead(out, "Contacts", request);
+      appReq.setTitle("Contacts");
+      printHtmlHead(appReq);
 
       out.println("<div class=\"main\">");
       out.println("<table class=\"boxed\">");
@@ -113,10 +114,7 @@ public class ProjectContactServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Other Info</th>");
       out.println("    <td class=\"boxed\">" + nbsp(projectContact.getContactInfo()) + "</td>");
       out.println("  </tr>");
-      query = dataSession.createQuery("from ContactEvent where projectContact = ?");
-      query.setParameter(0, projectContact);
-      List<ContactEvent> contactEventList = query.list();
-      SimpleDateFormat sdf = webUser.getDateFormat("MMM d");
+      List<ContactEvent> contactEventList = getProjectContactList(dataSession, projectContact);
       for (ContactEvent contactEvent : contactEventList) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">" + contactEvent.getEventTypeLabel() + "</th>");
@@ -126,9 +124,9 @@ public class ProjectContactServlet extends ClientServlet {
       out.println("</table>");
       out.println("<h2>Assigned Projects</h2>");
 
-      query = dataSession.createQuery("from ProjectContactAssigned where id.contactId = ?");
-      query.setParameter(0, projectContactId);
-      List<ProjectContactAssigned> projectContactAssignedList = query.list();
+
+      List<ProjectContactAssigned> projectContactAssignedList =
+          getProjectContactAssigned(dataSession, projectContactId);
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
@@ -165,9 +163,8 @@ public class ProjectContactServlet extends ClientServlet {
 
       out.println("<h2>Other Projects</h2>");
 
-      List<Project> projectSelectedList =
-          (List<Project>) session.getAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
-      query = dataSession
+      List<Project> projectSelectedList = appReq.getProjectSelectedList();
+      Query query = dataSession
           .createQuery("from ProjectContactAssigned where id.projectId = ? and id.contactId = ?");
 
       if (projectSelectedList != null) {
@@ -211,8 +208,7 @@ public class ProjectContactServlet extends ClientServlet {
         out.println("<br/>");
       }
 
-      List<Integer> projectIdList =
-          (List<Integer>) session.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
+      List<Integer> projectIdList = appReq.getProjectIdList();
       if (projectIdList != null) {
         out.println("<table class=\"boxed\">");
         out.println("  <tr>");
@@ -256,11 +252,36 @@ public class ProjectContactServlet extends ClientServlet {
       }
 
       out.println("</div>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
+  }
+
+  private List<ProjectContactAssigned> getProjectContactAssigned(Session dataSession,
+      int projectContactId) {
+    Query query =
+        dataSession.createQuery("from ProjectContactAssigned where id.contactId = :contactId");
+    query.setParameter("contactId", projectContactId);
+    List<ProjectContactAssigned> projectContactAssignedList = query.list();
+    return projectContactAssignedList;
+  }
+
+  private List<ContactEvent> getProjectContactList(Session dataSession,
+      ProjectContact projectContact) {
+    Query query =
+        dataSession.createQuery("from ContactEvent where projectContact = :projectContact");
+    query.setParameter("projectContact", projectContact);
+    List<ContactEvent> contactEventList = query.list();
+    return contactEventList;
+  }
+
+  private ProjectContact getProjectContact(Session dataSession, int projectContactId) {
+    Query query = dataSession.createQuery("from ProjectContact where contactId = :contactId ");
+    query.setParameter("contactId", projectContactId);
+    ProjectContact projectContact = ((List<ProjectContact>) query.list()).get(0);
+    return projectContact;
   }
 
   // <editor-fold defaultstate="collapsed"

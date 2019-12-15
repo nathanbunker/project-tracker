@@ -4,7 +4,6 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
-import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -43,7 +42,8 @@ public class GenerateReport {
     out.println("  <body>");
   }
 
-  public static void doFooter(PrintWriter out, ReportProfile reportProfile, String method, WebUser webUser) {
+  public static void doFooter(PrintWriter out, ReportProfile reportProfile, String method,
+      WebUser webUser) {
     SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a");
     out.println("    <cite>");
     out.println("      " + reportProfile.getProfileLabel());
@@ -54,7 +54,8 @@ public class GenerateReport {
 
   }
 
-  public static void populateStartEndDates(ReportBatch reportBatch, WebUser webUser) throws Exception {
+  public static void populateStartEndDates(ReportBatch reportBatch, WebUser webUser)
+      throws Exception {
     SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a");
     SimpleDateFormat sdfDate = webUser.getDateFormat();
     SimpleDateFormat sdfMonth = webUser.getMonthFormat();

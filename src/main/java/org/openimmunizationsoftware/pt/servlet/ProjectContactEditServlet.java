@@ -11,14 +11,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.TimeZone;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ContactEvent;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -46,19 +45,18 @@ public class ProjectContactEditServlet extends ClientServlet {
   @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
+
 
       ProjectContact projectContact;
 
@@ -76,7 +74,6 @@ public class ProjectContactEditServlet extends ClientServlet {
         projectContact = ((List<ProjectContact>) query.list()).get(0);
       }
 
-      String action = request.getParameter("action");
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
@@ -94,7 +91,7 @@ public class ProjectContactEditServlet extends ClientServlet {
             message = "Last name is required";
           }
           if (message != null) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, message);
+            appReq.setMessageProblem(message);
           } else {
             Transaction trans = dataSession.beginTransaction();
             try {
@@ -123,7 +120,7 @@ public class ProjectContactEditServlet extends ClientServlet {
             message = "Unable to parse event date: " + pe.getMessage();
           }
           if (message != null) {
-            request.setAttribute(REQUEST_VAR_MESSAGE, message);
+            appReq.setMessageProblem(message);
           } else {
             Transaction trans = dataSession.beginTransaction();
             try {
@@ -138,7 +135,8 @@ public class ProjectContactEditServlet extends ClientServlet {
         }
       }
 
-      printHtmlHead(out, "Contacts", request);
+      appReq.setTitle("Contacts");
+      printHtmlHead(appReq);
 
       out.println("<form action=\"ProjectContactEditServlet\" method=\"POST\">");
       out.println("<input type=\"hidden\" name=\"projectContactId\" value=\""
@@ -290,10 +288,10 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("</table>");
       out.println("</form>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

@@ -13,14 +13,13 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MoneyUtil;
 import org.openimmunizationsoftware.pt.model.BudgetAccount;
 import org.openimmunizationsoftware.pt.model.BudgetItem;
@@ -50,140 +49,143 @@ public class BudgetTransRecordServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-    Session dataSession = getDataSession(session);
-    Query query;
+    AppReq appReq = new AppReq(request, response);
+    try {
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
+      PrintWriter out = appReq.getOut();
+      SimpleDateFormat sdf = webUser.getDateFormat();
 
-    SimpleDateFormat sdf = webUser.getDateFormat();
-    int accountId = Integer.parseInt(request.getParameter("accountId"));
+      Query query;
 
-    BudgetAccount budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class, accountId);
+      int accountId = Integer.parseInt(request.getParameter("accountId"));
 
-    String action = request.getParameter("action");
-    if (action != null) {
-      if (action.equals("Link")) {
-        int transId = Integer.parseInt(request.getParameter("transId"));
-        int transRecordId = Integer.parseInt(request.getParameter("transRecordId"));
-        BudgetTrans budgetTrans = (BudgetTrans) dataSession.get(BudgetTrans.class, transId);
-        BudgetTransRecord budgetTransRecord =
-            (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
-        Transaction transaction = dataSession.beginTransaction();
-        try {
+      BudgetAccount budgetAccount = (BudgetAccount) dataSession.get(BudgetAccount.class, accountId);
+
+      if (action != null) {
+        if (action.equals("Link")) {
+          int transId = Integer.parseInt(request.getParameter("transId"));
+          int transRecordId = Integer.parseInt(request.getParameter("transRecordId"));
+          BudgetTrans budgetTrans = (BudgetTrans) dataSession.get(BudgetTrans.class, transId);
+          BudgetTransRecord budgetTransRecord =
+              (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
+          Transaction transaction = dataSession.beginTransaction();
+          try {
+            budgetTrans.setBudgetTransRecord(budgetTransRecord);
+            budgetTrans.setTransAmount(budgetTransRecord.getTransAmount());
+            budgetTrans.setTransDate(budgetTransRecord.getTransDate());
+            budgetTransRecord.setBudgetTrans(budgetTrans);
+            dataSession.update(budgetTrans);
+            dataSession.update(budgetTransRecord);
+          } finally {
+            transaction.commit();
+          }
+        } else if (action.equals("Create Trans Record")) {
+          String itemIdAndMonthId = request.getParameter("itemIdAndMonthId");
+          int pos = itemIdAndMonthId.indexOf("-");
+          int itemId = Integer.parseInt(itemIdAndMonthId.substring(0, pos));
+          int monthId = Integer.parseInt(itemIdAndMonthId.substring(pos + 1));
+          int transRecordId = Integer.parseInt(request.getParameter("transRecordId"));
+          BudgetMonth budgetMonth = (BudgetMonth) dataSession.get(BudgetMonth.class, monthId);
+          BudgetItem budgetItem = (BudgetItem) dataSession.get(BudgetItem.class, itemId);
+          BudgetTransRecord budgetTransRecord =
+              (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
+
+          BudgetTrans budgetTrans = new BudgetTrans();
+          budgetTrans.setBudgetItem(budgetItem);
+          budgetTrans.setBudgetMonth(budgetMonth);
           budgetTrans.setBudgetTransRecord(budgetTransRecord);
           budgetTrans.setTransAmount(budgetTransRecord.getTransAmount());
           budgetTrans.setTransDate(budgetTransRecord.getTransDate());
-          budgetTransRecord.setBudgetTrans(budgetTrans);
-          dataSession.update(budgetTrans);
-          dataSession.update(budgetTransRecord);
-        } finally {
-          transaction.commit();
-        }
-      } else if (action.equals("Create Trans Record")) {
-        String itemIdAndMonthId = request.getParameter("itemIdAndMonthId");
-        int pos = itemIdAndMonthId.indexOf("-");
-        int itemId = Integer.parseInt(itemIdAndMonthId.substring(0, pos));
-        int monthId = Integer.parseInt(itemIdAndMonthId.substring(pos + 1));
-        int transRecordId = Integer.parseInt(request.getParameter("transRecordId"));
-        BudgetMonth budgetMonth = (BudgetMonth) dataSession.get(BudgetMonth.class, monthId);
-        BudgetItem budgetItem = (BudgetItem) dataSession.get(BudgetItem.class, itemId);
-        BudgetTransRecord budgetTransRecord =
-            (BudgetTransRecord) dataSession.get(BudgetTransRecord.class, transRecordId);
+          budgetTrans.setTransStatus(BudgetTrans.TRANS_STATUS_PENDING);
 
-        BudgetTrans budgetTrans = new BudgetTrans();
-        budgetTrans.setBudgetItem(budgetItem);
-        budgetTrans.setBudgetMonth(budgetMonth);
-        budgetTrans.setBudgetTransRecord(budgetTransRecord);
-        budgetTrans.setTransAmount(budgetTransRecord.getTransAmount());
-        budgetTrans.setTransDate(budgetTransRecord.getTransDate());
-        budgetTrans.setTransStatus(BudgetTrans.TRANS_STATUS_PENDING);
-
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-          dataSession.save(budgetTrans);
-          budgetTransRecord.setBudgetTrans(budgetTrans);
-          dataSession.update(budgetTransRecord);
-        } finally {
-          transaction.commit();
-        }
+          Transaction transaction = dataSession.beginTransaction();
+          try {
+            dataSession.save(budgetTrans);
+            budgetTransRecord.setBudgetTrans(budgetTrans);
+            dataSession.update(budgetTransRecord);
+          } finally {
+            transaction.commit();
+          }
 
 
-      } else if (action.equals("Upload")) {
-        String message = null;
-        String csv = request.getParameter("csv");
-        BufferedReader in = new BufferedReader(new StringReader(csv));
-        String line;
-        int lineNumber = 0;
-        String separator = "\",\"";
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-          while ((line = in.readLine()) != null) {
-            lineNumber++;
-            int start = 1;
-            int end = line.indexOf(separator);
-            if (line.startsWith("\"") && line.length() > 30 && end > 0) {
-              // Field #1
-              String dateString = line.substring(start, end);
-              start = end + separator.length();
-              end = line.indexOf(separator, start);
-              if (end > 0) {
-                // Field #2
-                String amountString = line.substring(start, end);
+        } else if (action.equals("Upload")) {
+          String message = null;
+          String csv = request.getParameter("csv");
+          BufferedReader in = new BufferedReader(new StringReader(csv));
+          String line;
+          int lineNumber = 0;
+          String separator = "\",\"";
+          Transaction transaction = dataSession.beginTransaction();
+          try {
+            while ((line = in.readLine()) != null) {
+              lineNumber++;
+              int start = 1;
+              int end = line.indexOf(separator);
+              if (line.startsWith("\"") && line.length() > 30 && end > 0) {
+                // Field #1
+                String dateString = line.substring(start, end);
                 start = end + separator.length();
                 end = line.indexOf(separator, start);
                 if (end > 0) {
-                  // Field #3
+                  // Field #2
+                  String amountString = line.substring(start, end);
                   start = end + separator.length();
                   end = line.indexOf(separator, start);
                   if (end > 0) {
-                    // Field #4
+                    // Field #3
                     start = end + separator.length();
-                    end = line.length() - 1;
-                    if (end > start && line.charAt(end) == '"') {
-                      try {
-                        String description = line.substring(start, end);
-                        int transAmount = MoneyUtil.parse(amountString);
-                        Date transDate = sdf.parse(dateString);
-                        query = dataSession.createQuery(
-                            "from BudgetTransRecord where budgetAccount = ? and transDate = ? and transAmount = ? and description = ? ");
-                        query.setParameter(0, budgetAccount);
-                        query.setParameter(1, transDate);
-                        query.setParameter(2, transAmount);
-                        query.setParameter(3, description);
-                        if (query.list().size() == 0) {
-                          BudgetTransRecord budgetTransRecord = new BudgetTransRecord();
-                          budgetTransRecord.setBudgetAccount(budgetAccount);
-                          budgetTransRecord.setDescription(description);
-                          budgetTransRecord.setTransAmount(transAmount);
-                          budgetTransRecord.setTransDate(transDate);
-                          dataSession.save(budgetTransRecord);
+                    end = line.indexOf(separator, start);
+                    if (end > 0) {
+                      // Field #4
+                      start = end + separator.length();
+                      end = line.length() - 1;
+                      if (end > start && line.charAt(end) == '"') {
+                        try {
+                          String description = line.substring(start, end);
+                          int transAmount = MoneyUtil.parse(amountString);
+                          Date transDate = sdf.parse(dateString);
+                          query = dataSession.createQuery(
+                              "from BudgetTransRecord where budgetAccount = ? and transDate = ? and transAmount = ? and description = ? ");
+                          query.setParameter(0, budgetAccount);
+                          query.setParameter(1, transDate);
+                          query.setParameter(2, transAmount);
+                          query.setParameter(3, description);
+                          if (query.list().size() == 0) {
+                            BudgetTransRecord budgetTransRecord = new BudgetTransRecord();
+                            budgetTransRecord.setBudgetAccount(budgetAccount);
+                            budgetTransRecord.setDescription(description);
+                            budgetTransRecord.setTransAmount(transAmount);
+                            budgetTransRecord.setTransDate(transDate);
+                            dataSession.save(budgetTransRecord);
+                          }
+                        } catch (Exception e) {
+                          message = "Unable to parse on line " + lineNumber + " because "
+                              + e.getMessage();
                         }
-                      } catch (Exception e) {
-                        message =
-                            "Unable to parse on line " + lineNumber + " because " + e.getMessage();
-                      }
 
+                      }
                     }
                   }
                 }
               }
             }
+          } finally {
+            transaction.commit();
           }
-        } finally {
-          transaction.commit();
         }
       }
-    }
 
-    PrintWriter out = response.getWriter();
-    try {
-      printHtmlHead(out, "Budget", request);
+
+
+      appReq.setTitle("Budget");
+      printHtmlHead(appReq);
+
       out.println("<h1>" + budgetAccount.getAccountLabel() + "</h1>");
       query = dataSession.createQuery(
           "from BudgetTransRecord where budgetAccount = ? and budgetTrans is null order by transDate, transAmount ");
@@ -363,10 +365,10 @@ public class BudgetTransRecordServlet extends ClientServlet {
       out.println("<input type=\"hidden\" name=\"accountId\" value=\""
           + budgetAccount.getAccountId() + "\">");
       out.println("</form>");
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
   }
 

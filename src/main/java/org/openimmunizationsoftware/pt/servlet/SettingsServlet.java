@@ -9,7 +9,6 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.TimeZone;
-import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -17,6 +16,7 @@ import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -42,20 +42,18 @@ public class SettingsServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    response.setContentType("text/html;charset=UTF-8");
-    HttpSession session = request.getSession(true);
-    WebUser webUser = (WebUser) session.getAttribute(SESSION_VAR_WEB_USER);
-
-    if (webUser == null) {
-      RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
-      dispatcher.forward(request, response);
-      return;
-    }
-    PrintWriter out = response.getWriter();
+    AppReq appReq = new AppReq(request, response);
     try {
-      Session dataSession = getDataSession(session);
+      WebUser webUser = appReq.getWebUser();
+      if (appReq.isLoggedOut()) {
+        forwardToHome(request, response);
+        return;
+      }
+      HttpSession session = request.getSession(true);
+      PrintWriter out = response.getWriter();
+      Session dataSession = appReq.getDataSession();
+      String action = appReq.getAction();
 
-      String action = request.getParameter("action");
       if (action != null) {
         if (action.equals("Save")) {
           TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE, webUser,
@@ -101,7 +99,7 @@ public class SettingsServlet extends ClientServlet {
           List<ProjectCategory> projectCategoryList = query.list();
           String categoryCode = request.getParameter("categoryCode");
           if (categoryCode.length() > 15) {
-            request.setAttribute(REQUEST_VAR_MESSAGE,
+            appReq.setMessageProblem(
                 "Category code is too long (>15), so new category not created. ");
             categoryCode = "";
           }
@@ -137,8 +135,7 @@ public class SettingsServlet extends ClientServlet {
             if (categoryCodeIsUnique) {
               String clientName = request.getParameter("clientName");
               if (clientName.length() > 150) {
-                request.setAttribute(REQUEST_VAR_MESSAGE,
-                    "Client name is too long (>150), truncating. ");
+                appReq.setMessageProblem("Client name is too long (>150), truncating. ");
                 clientName = clientName.substring(0, 150);
               }
               String sortOrder = request.getParameter("sortOrder");
@@ -158,8 +155,7 @@ public class SettingsServlet extends ClientServlet {
                 }
                 if (!clientAcronym.equals("")) {
                   if (clientAcronym.length() > 15) {
-                    request.setAttribute(REQUEST_VAR_MESSAGE,
-                        "Client acronym is too long (>15), not setting. ");
+                    appReq.setMessageProblem("Client acronym is too long (>15), not setting. ");
                   } else {
                     projectCategory.setClientAcronym(clientAcronym);
                   }
@@ -169,18 +165,19 @@ public class SettingsServlet extends ClientServlet {
                 dataSession.save(projectCategory);
                 trans.commit();
               } else {
-                request.setAttribute(REQUEST_VAR_MESSAGE,
-                    "Category name was not set, so new category not created. ");
+                appReq
+                    .setMessageProblem("Category name was not set, so new category not created. ");
               }
             } else {
-              request.setAttribute(REQUEST_VAR_MESSAGE,
-                  "Category code was not unique, so new category not created. ");
+              appReq
+                  .setMessageProblem("Category code was not unique, so new category not created. ");
             }
 
           }
         }
       }
-      printHtmlHead(out, "Settings", request);
+      appReq.setTitle("Settings");
+      printHtmlHead(appReq);
 
       String displaySize = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE,
           "small", webUser, dataSession);
@@ -274,11 +271,11 @@ public class SettingsServlet extends ClientServlet {
               + "\" value=\"" + n(projectCategory.getSortOrder()) + "\"></td>");
           out.println("     <td><input type=\"text\" size=\"7\" name=\"clientAcronym_" + c
               + "\" value=\"" + n(projectCategory.getClientAcronym()) + "\"></td>");
-          out.println("     <td><input type=\"checkbox\" name=\"visible_" + c + "\""
-              + (projectCategory.getVisible() != null && projectCategory.getVisible().equals("Y")
-                  ? " checked=\"true\""
-                  : "")
-              + "\"></td>");
+          out.println(
+              "     <td><input type=\"checkbox\" name=\"visible_" + c + "\""
+                  + (projectCategory.getVisible() != null
+                      && projectCategory.getVisible().equals("Y") ? " checked=\"true\"" : "")
+                  + "\"></td>");
           out.println("  </tr>");
         }
         out.println("  <tr class=\"boxed\">");
@@ -417,11 +414,12 @@ public class SettingsServlet extends ClientServlet {
 
       }
 
-      printHtmlFoot(out);
+      printHtmlFoot(appReq);
 
     } finally {
-      out.close();
+      appReq.close();
     }
+
   }
 
   // <editor-fold defaultstate="collapsed"
