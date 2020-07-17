@@ -458,16 +458,6 @@ public class ClientServlet extends HttpServlet {
     return s.substring(0, length) + "...";
   }
 
-  private static String getTimeForDisplay(int min) {
-    int hour = min / 60;
-    min = min % 60;
-    if (min < 10) {
-      return hour + ":0" + min;
-    } else {
-      return hour + ":" + min;
-    }
-  }
-
   protected void forwardToHome(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");

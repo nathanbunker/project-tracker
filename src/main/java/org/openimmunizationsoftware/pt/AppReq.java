@@ -106,15 +106,15 @@ public class AppReq {
   }
 
   public boolean isLoggedOut() {
-    return webUser != null;
+    return webUser == null;
   }
 
   public boolean isParentWebUser() {
-    return webUser != null && webUser.getParentWebUser() == null;
+    return isLoggedIn() && webUser.getParentWebUser() == null;
   }
 
   public boolean isDependentWebUser() {
-    return webUser != null && webUser.getParentWebUser() != null;
+    return isLoggedIn() && webUser.getParentWebUser() != null;
   }
 
   public TimeTracker getTimeTracker() {

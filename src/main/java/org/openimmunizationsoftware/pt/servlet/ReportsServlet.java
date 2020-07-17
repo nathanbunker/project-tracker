@@ -88,7 +88,7 @@ public class ReportsServlet extends ClientServlet {
       out.println("</table>");
       out.println("<h2>Create a New Report</h2>");
       query = dataSession.createQuery(
-          "from ReportProfile where providerId = 0 and extendStatus = 'E' order by profileLabel");
+          "from ReportProfile where provider is null and extendStatus = 'E' order by profileLabel");
       List<ReportProfile> extendReportProfileList = query.list();
       out.println("<p>Choose a template to create a new report:</p>");
       out.println("<ul>");

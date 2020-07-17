@@ -18,6 +18,7 @@ public class ProjectNextActionType implements java.io.Serializable {
   public static String MIGHT = "M";
   public static String GOAL = "G";
   public static String OVERDUE_TO = "O";
+  public static String WILL_MEET = "B";
 
   public static String getLabel(String projectNextActionType) {
     if (projectNextActionType.equals(WILL)) {

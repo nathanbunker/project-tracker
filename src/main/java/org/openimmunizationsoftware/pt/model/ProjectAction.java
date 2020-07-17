@@ -17,6 +17,7 @@ public class ProjectAction implements java.io.Serializable {
   private String actionDescription;
   private String nextDescription;
   private Date nextDue;
+  private Date nextDeadline;
   private String nextActionType;
   private Integer nextTimeEstimate;
   private Integer nextContactId;
@@ -241,5 +242,13 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setProvider(ProjectProvider provider) {
     this.provider = provider;
+  }
+
+  public Date getNextDeadline() {
+    return nextDeadline;
+  }
+
+  public void setNextDeadline(Date nextDeadline) {
+    this.nextDeadline = nextDeadline;
   }
 }

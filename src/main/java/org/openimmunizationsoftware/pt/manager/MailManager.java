@@ -15,6 +15,7 @@ public class MailManager {
   private String smtpsUsername = "";
   private boolean useSmtps = false;
   private String address = "";
+  private boolean emailEnabled = false;
 
   public MailManager(Session dataSession) {
     reply = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY,
@@ -30,6 +31,8 @@ public class MailManager {
         .equals("Y");
     address = TrackerKeysManager.getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
         dataSession);
+    emailEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(
+        TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, false, dataSession);
   }
 
   public void sendEmail(String subject, String body, String to) throws Exception {
@@ -37,75 +40,77 @@ public class MailManager {
   }
 
   public void sendEmail(String subject, String body, String to, String cc) throws Exception {
-    if (useSmtps) {
-      // java.security.Security.addProvider(new
-      // com.sun.net.ssl.internal.ssl.Provider());
-      String smptsHost = address;
-      Properties props = System.getProperties();
-      props.put("mail.transport.protocol", "smtps");
-      props.put("mail.smtp.host", smptsHost);
-      props.put("mail.smtps.auth", "true");
-      props.put("mail.smtps.quitwait", "false");
-      javax.mail.Session session = javax.mail.Session.getDefaultInstance(props, null);
-      MimeMessage msg = new MimeMessage(session);
-      msg.setFrom(new InternetAddress(reply));
-      {
-        String[] t = to.split("\\,");
-        InternetAddress[] addressesTo = new InternetAddress[t.length];
-        for (int i = 0; i < t.length; i++) {
-          addressesTo[i] = new InternetAddress(t[i].trim());
+    if (emailEnabled) {
+      if (useSmtps) {
+        // java.security.Security.addProvider(new
+        // com.sun.net.ssl.internal.ssl.Provider());
+        String smptsHost = address;
+        Properties props = System.getProperties();
+        props.put("mail.transport.protocol", "smtps");
+        props.put("mail.smtp.host", smptsHost);
+        props.put("mail.smtps.auth", "true");
+        props.put("mail.smtps.quitwait", "false");
+        javax.mail.Session session = javax.mail.Session.getDefaultInstance(props, null);
+        MimeMessage msg = new MimeMessage(session);
+        msg.setFrom(new InternetAddress(reply));
+        {
+          String[] t = to.split("\\,");
+          InternetAddress[] addressesTo = new InternetAddress[t.length];
+          for (int i = 0; i < t.length; i++) {
+            addressesTo[i] = new InternetAddress(t[i].trim());
+          }
+          msg.setRecipients(Message.RecipientType.TO, addressesTo);
         }
-        msg.setRecipients(Message.RecipientType.TO, addressesTo);
-      }
-      if (cc != null) {
-        String[] c = cc.split("\\,");
-        InternetAddress[] addressesCc = new InternetAddress[c.length];
-        for (int i = 0; i < c.length; i++) {
-          addressesCc[i] = new InternetAddress(c[i].trim());
+        if (cc != null) {
+          String[] c = cc.split("\\,");
+          InternetAddress[] addressesCc = new InternetAddress[c.length];
+          for (int i = 0; i < c.length; i++) {
+            addressesCc[i] = new InternetAddress(c[i].trim());
+          }
+          msg.setRecipients(Message.RecipientType.CC, addressesCc);
         }
-        msg.setRecipients(Message.RecipientType.CC, addressesCc);
-      }
-      msg.setSubject(subject);
-      msg.setSentDate(new Date());
-      msg.setContent(body, "text/html; charset=UTF-8");
-      msg.setHeader("X-Mailer", "Tracker");
-      Transport transport = session.getTransport();
-      transport.connect(smptsHost, smtpsPort, smtpsUsername, smtpsPassword);
-      msg.saveChanges();
-      transport.sendMessage(msg, msg.getAllRecipients());
-      transport.close();
-    } else {
-      Properties props = new Properties();
-      props.put("mail.smtp.auth", "true");
-      props.put("mail.smtp.starttls.enable", "false");
-      javax.mail.Session session = javax.mail.Session.getInstance(props, null);
-      MimeMessage msg = new MimeMessage(session);
-      msg.setFrom(new InternetAddress(reply));
-      {
-        String[] t = to.split("\\,");
-        InternetAddress[] addresses = new InternetAddress[t.length];
-        for (int i = 0; i < t.length; i++) {
-          addresses[i] = new InternetAddress(t[i].trim());
+        msg.setSubject(subject);
+        msg.setSentDate(new Date());
+        msg.setContent(body, "text/html; charset=UTF-8");
+        msg.setHeader("X-Mailer", "Tracker");
+        Transport transport = session.getTransport();
+        transport.connect(smptsHost, smtpsPort, smtpsUsername, smtpsPassword);
+        msg.saveChanges();
+        transport.sendMessage(msg, msg.getAllRecipients());
+        transport.close();
+      } else {
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "false");
+        javax.mail.Session session = javax.mail.Session.getInstance(props, null);
+        MimeMessage msg = new MimeMessage(session);
+        msg.setFrom(new InternetAddress(reply));
+        {
+          String[] t = to.split("\\,");
+          InternetAddress[] addresses = new InternetAddress[t.length];
+          for (int i = 0; i < t.length; i++) {
+            addresses[i] = new InternetAddress(t[i].trim());
+          }
+          msg.setRecipients(Message.RecipientType.TO, addresses);
         }
-        msg.setRecipients(Message.RecipientType.TO, addresses);
-      }
-      if (cc != null) {
-        String[] c = cc.split("\\,");
-        InternetAddress[] addressesCc = new InternetAddress[c.length];
-        for (int i = 0; i < c.length; i++) {
-          addressesCc[i] = new InternetAddress(c[i].trim());
+        if (cc != null) {
+          String[] c = cc.split("\\,");
+          InternetAddress[] addressesCc = new InternetAddress[c.length];
+          for (int i = 0; i < c.length; i++) {
+            addressesCc[i] = new InternetAddress(c[i].trim());
+          }
+          msg.setRecipients(Message.RecipientType.CC, addressesCc);
         }
-        msg.setRecipients(Message.RecipientType.CC, addressesCc);
+        msg.setSubject(subject);
+        msg.setSentDate(new Date());
+        msg.setContent(body, "text/html; charset=UTF-8");
+        msg.setHeader("X-Mailer", "Tracker");
+        Transport tr = session.getTransport("smtp");
+        tr.connect(address, smtpsUsername, smtpsPassword);
+        msg.saveChanges();
+        tr.sendMessage(msg, msg.getAllRecipients());
+        tr.close();
       }
-      msg.setSubject(subject);
-      msg.setSentDate(new Date());
-      msg.setContent(body, "text/html; charset=UTF-8");
-      msg.setHeader("X-Mailer", "Tracker");
-      Transport tr = session.getTransport("smtp");
-      tr.connect(address, smtpsUsername, smtpsPassword);
-      msg.saveChanges();
-      tr.sendMessage(msg, msg.getAllRecipients());
-      tr.close();
     }
   }
 }

@@ -26,6 +26,9 @@
         <property name="nextDue" type="timestamp">
             <column name="next_due" length="19" />
         </property>
+        <property name="nextDeadline" type="timestamp">
+            <column name="next_deadline" length="19" />
+        </property>
         <property name="nextActionType" type="string">
             <column name="next_action_type" length="1" />
         </property>

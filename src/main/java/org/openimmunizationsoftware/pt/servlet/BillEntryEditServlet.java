@@ -54,7 +54,7 @@ public class BillEntryEditServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
-      SimpleDateFormat sdf = webUser.getDateFormat();
+      SimpleDateFormat sdf = webUser.getTimeFormat();
 
       int billId = Integer.parseInt(request.getParameter("billId"));
       BillEntry billEntry = (BillEntry) dataSession.get(BillEntry.class, billId);
@@ -150,7 +150,7 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <td class=\"boxed\"><select name=\"billCode\">");
       query = dataSession.createQuery(
-          "from BillCode where providerId = :provider and visible = 'Y' order by billLabel");
+          "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
       query.setParameter("provider", webUser.getProvider());
       List<BillCode> billCodeList = query.list();
       for (BillCode billCode : billCodeList) {

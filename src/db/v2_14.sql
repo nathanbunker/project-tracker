@@ -42,38 +42,4 @@ CREATE TABLE project_address (
   time_zone       VARCHAR(250)
 );
 
--- Not run yet
-
-CREATE TABLE tour_offered (
-  tour_offered_id INT(11)      AUTO_INCREMENT PRIMARY KEY,
-  tour_label      VARCHAR(250) NOT NULL,
-  cost_cents
-  location
-);
-
-CREATE TABLE tour_posted (
-  tour_posted_id INT(11)       AUTO_INCREMENT PRIMARY KEY,
-  tour_offered_id INT(11)      NOT NULL,
-  tour_date_time
-  
-);
-
-CREATE TABLE tour_booked (
-  tour_bunker_id INT(11)       AUTO_INCREMENT PRIMARY KEY,
-  
-);
-
-CREATE TABLE tour_staff (
-  tour_staff_id INT(11)        AUTO_INCREMENT PRIMARY KEY,
-  tour_bunker_id 
-  contact_id
-  driving
-  preparing
-  guiding
-);
-
-CREATE TABLE tour_participant (
-  tour_participant_id INT(11)  AUTO_INCREMENT PRIMARY KEY,
-  name
-  pref_food
-);
+ALTER TABLE project_action ADD COLUMN (next_deadline DATETIME);

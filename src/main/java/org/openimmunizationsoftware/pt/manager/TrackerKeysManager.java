@@ -23,6 +23,7 @@ public class TrackerKeysManager {
       "report.last_report.date_description";
   public static final String KEY_SYSTEM_EMAIL_DEBUG = "system.email.debug";
   public static final String KEY_SYSTEM_EMAIL_REPLY = "system.email.reply";
+  public static final String KEY_SYSTEM_EMAIL_ENABLE = "system.email.enable";
   public static final String KEY_SYSTEM_EMAIL_SMTPS_PASSWORD = "system.email.smtps.password";
   public static final String KEY_SYSTEM_EMAIL_SMTPS_PORT = "system.email.smtps.port";
   public static final String KEY_SYSTEM_EMAIL_SMTPS_USERNAME = "system.email.smtps.username";

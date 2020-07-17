@@ -111,7 +111,6 @@ public class ProjectServlet extends ClientServlet {
       String emailBody = null;
       if (action != null) {
         if (action.equals("Save")) {
-          String message = null;
           ProjectAction projectAction = new ProjectAction();
           projectAction.setProjectId(projectId);
           projectAction.setContactId(webUser.getContactId());
@@ -120,7 +119,7 @@ public class ProjectServlet extends ClientServlet {
           try {
             actionDate = sdf.parse(request.getParameter("actionDate"));
           } catch (Exception e) {
-            message = "Unable to read action date: " + e;
+            appReq.setMessageProblem("Unable to read action date: " + e);
           }
           int nextTimeEstimate = 0;
           if (request.getParameter("nextTimeEstimate") != null) {
@@ -139,24 +138,9 @@ public class ProjectServlet extends ClientServlet {
           }
           projectAction.setNextActionId(0);
 
-          Date nextDue = null;
-          if (request.getParameter("nextDue") != null
-              && request.getParameter("nextDue").length() > 0) {
-            sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
-            try {
-              nextDue = sdf.parse(request.getParameter("nextDue"));
-            } catch (Exception e) {
-              // try again
-              sdf = webUser.getDateFormat();
-              try {
-                nextDue = sdf.parse(request.getParameter("nextDue"));
-              } catch (Exception e2) {
+          projectAction.setNextDue(parseDate(appReq, request.getParameter("nextDue")));
+          projectAction.setNextDeadline(parseDate(appReq, request.getParameter("nextDeadline")));
 
-                message = "Unable to read next due date: " + e2;
-              }
-            }
-          }
-          projectAction.setNextDue(nextDue);
           String nextActionType = request.getParameter("nextActionType");
           projectAction.setNextActionType(nextActionType);
           int priorityLevel = project.getPriorityLevel();
@@ -176,6 +160,7 @@ public class ProjectServlet extends ClientServlet {
                 .get(ProjectContact.class, projectAction.getNextContactId()));
           }
           projectAction.setProvider(webUser.getProvider());
+          String message = appReq.getMessageProblem();
           if (message == null) {
             String[] completed = request.getParameterValues("completed");
 
@@ -615,6 +600,10 @@ public class ProjectServlet extends ClientServlet {
       out.println("            document.projectAction.nextDue.value = nextActionDate;");
       out.println("            enableForm(); ");
       out.println("          }");
+      out.println("          function setNextDeadline(nextDeadline)");
+      out.println("          {");
+      out.println("            document.projectAction.nextDeadline.value = nextDeadline;");
+      out.println("          }");
       out.println("        </script>");
       out.println("      </table>");
       out.println("   </td>");
@@ -665,23 +654,30 @@ public class ProjectServlet extends ClientServlet {
       out.println("          <th class=\"inside\">Action</th>");
       out.println("          <td class=\"inside\" colspan=\"3\">");
       out.println(
-          "            I: <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('D');\" class=\"button\"> will</a>,");
-      out.println(
-          "            <a href=\"javascript: void selectProjectActionType('M');\" class=\"button\">might</a>, ");
-      out.println(
-          "            <a href=\"javascript: void selectProjectActionType('C');\" class=\"button\">will contact</a></font>");
+          "            I: <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('"
+              + ProjectNextActionType.WILL + "');\" class=\"button\"> will</a>,");
+      out.println("            <a href=\"javascript: void selectProjectActionType('"
+          + ProjectNextActionType.MIGHT + "');\" class=\"button\">might</a>, ");
+      out.println("            <a href=\"javascript: void selectProjectActionType('"
+          + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
+      out.println("            <a href=\"javascript: void selectProjectActionType('"
+          + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a></font>");
       out.println("            I have: ");
       out.println(
-          "            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('T');\" class=\"button\">committed</a>,");
-      out.println(
-          "            <a href=\"javascript: void selectProjectActionType('G');\" class=\"button\">set goal</a></font>");
+          "            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('"
+              + ProjectNextActionType.COMMITTED_TO + "');\" class=\"button\">committed</a>,");
+      out.println("            <a href=\"javascript: void selectProjectActionType('"
+          + ProjectNextActionType.GOAL + "');\" class=\"button\">set goal</a></font>");
+      out.println("            <br/>");
       out.println("            I am:");
       out.println(
-          "            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('W');\" class=\"button\">waiting</a>,");
-      out.println(
-          "            <a href=\"javascript: void selectProjectActionType('A');\" class=\"button\">asking</a></font>");
+          "            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('"
+              + ProjectNextActionType.WAITING + "');\" class=\"button\">waiting</a>,");
+      out.println("            <a href=\"javascript: void selectProjectActionType('"
+          + ProjectNextActionType.ASKS_TO + "');\" class=\"button\">asking</a></font>");
       out.println("            <br>");
-      out.println("            <input type=\"hidden\" name=\"nextActionType\" value=\"D\">");
+      out.println("            <input type=\"hidden\" name=\"nextActionType\" value=\""
+          + ProjectNextActionType.WILL + "\">");
       out.println("            </font>");
       out.println("          </td>");
       out.println("        </tr>");
@@ -742,6 +738,40 @@ public class ProjectServlet extends ClientServlet {
       out.println(
           "              <a href=\"javascript: void selectNextTimeEstimate('360');\" class=\"button\"> 6h</a>");
       out.println("            </font> ");
+      out.println("          </td>");
+      out.println("        </tr>");
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Deadline</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDeadline\" size=\"10\" value=\""
+              + n(request.getParameter("nextDeadline"))
+              + "\" onkeydown=\"resetRefresh()\" disabled>");
+      out.println("            <font size=\"-1\">");
+      sdf1 = webUser.getDateFormat();
+      out.println("              <a href=\"javascript: void setNextDeadline('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
+      calendar.add(Calendar.DAY_OF_MONTH, 1);
+      out.println("              <a href=\"javascript: void setNextDeadline('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+          + day.format(calendar.getTime()) + "</a>");
+      nextWeek = false;
+      for (int i = 0; i < 6; i++) {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        if (nextWeek) {
+          out.println("              <a href=\"javascript: void setNextDeadline('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
+              + day.format(calendar.getTime()) + "</a>");
+        } else {
+          out.println("              <a href=\"javascript: void setNextDeadline('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+              + day.format(calendar.getTime()) + "</a>");
+        }
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+          nextWeek = true;
+        }
+      }
+      out.println("</font>");
+
       out.println("          </td>");
       out.println("        </tr>");
       out.println("      </table>");
@@ -879,6 +909,25 @@ public class ProjectServlet extends ClientServlet {
     } finally {
       appReq.close();
     }
+  }
+
+  private Date parseDate(AppReq appReq, String dateString) {
+    Date date = null;
+    if (dateString != null && dateString.length() > 0) {
+      SimpleDateFormat sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy hh:mm aaa");
+      try {
+        date = sdf1.parse(dateString);
+      } catch (Exception e) {
+        // try again
+        sdf1 = appReq.getWebUser().getDateFormat();
+        try {
+          date = sdf1.parse(dateString);
+        } catch (Exception e2) {
+          appReq.setMessageProblem("Unable to read date: " + e2);
+        }
+      }
+    }
+    return date;
   }
 
   protected static ProjectContactAssigned getProjectContactAssigned(WebUser webUser,
@@ -1045,7 +1094,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("      {");
     out.println("        nextContactName = '';");
     out.println("      }");
-    out.println("      if (actionType == 'C')");
+    out.println("      if (actionType == '" + ProjectNextActionType.WILL_CONTACT + "')");
     out.println("      {");
     out.println("        if (nextContactName == '')");
     out.println("        {");
@@ -1054,10 +1103,10 @@ public class ProjectServlet extends ClientServlet {
     out.println("        {");
     out.println("          return \"I will contact \" + nextContactName + \" about:\";");
     out.println("        }");
-    out.println("      } else if (actionType == 'E')");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_RUN_ERRAND + "')");
     out.println("      {");
     out.println("          return \"I will run errand to:\";");
-    out.println("      } else if (actionType == 'T')");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.COMMITTED_TO + "')");
     out.println("      {");
     out.println("        if (nextContactName == '')");
     out.println("        {");
@@ -1066,7 +1115,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("        {");
     out.println("          return \"I have committed to \" + nextContactName + \" to:\";");
     out.println("        }");
-    out.println("      } else if (actionType == 'G')");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.GOAL + "')");
     out.println("      {");
     out.println("          if (nextContactName == '')");
     out.println("          {");
@@ -1075,7 +1124,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("          {");
     out.println("            return \"I have set goal with \" + nextContactName + \" to:\";");
     out.println("          }");
-    out.println("        } else if (actionType == 'W')");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WAITING + "')");
     out.println("      {");
     out.println("        if (nextContactName == '')");
     out.println("        {");
@@ -1084,7 +1133,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("        {");
     out.println("          return \"I am waiting for \" + nextContactName + \" to:\";");
     out.println("        }");
-    out.println("      } else if (actionType == 'A')");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.ASKS_TO + "')");
     out.println("      {");
     out.println("        if (nextContactName == '')");
     out.println("        {");
@@ -1093,9 +1142,18 @@ public class ProjectServlet extends ClientServlet {
     out.println("        {");
     out.println("          return \"I am asking \" + nextContactName + \" to:\";");
     out.println("        }");
-    out.println("      } else if (actionType == 'M')");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.MIGHT + "')");
     out.println("      {");
     out.println("          return \"I might:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_MEET + "')");
+    out.println("      {");
+    out.println("        if (nextContactName == '')");
+    out.println("        {");
+    out.println("          return \"I will meet:\";");
+    out.println("        } else");
+    out.println("        {");
+    out.println("          return \"I will meet with \" + nextContactName + \" to:\";");
+    out.println("        }");
     out.println("      } else");
     out.println("      {");
     out.println("        return \"I will:\";");
