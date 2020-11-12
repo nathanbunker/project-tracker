@@ -41,6 +41,8 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 @SuppressWarnings("serial")
 public class ProjectServlet extends ClientServlet {
 
+  private static final String PARAM_PROJECT_ID = "projectId";
+
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
    * 
@@ -69,40 +71,12 @@ public class ProjectServlet extends ClientServlet {
       SimpleDateFormat sdf = webUser.getDateFormat();
 
 
-      int projectId = Integer.parseInt(request.getParameter("projectId"));
+      int projectId = Integer.parseInt(request.getParameter(PARAM_PROJECT_ID));
 
-      Query query = dataSession.createQuery("from Project where projectId = ? ");
-      query.setParameter(0, projectId);
-      Project project = ((List<Project>) query.list()).get(0);
-      ProjectsServlet.loadProjectsObject(dataSession, project);
+      Project project = setupProject(appReq, dataSession, projectId);
 
-      List<Project> projectSelectedListOld = appReq.getProjectSelectedList();
+      List<Project> projectSelectedList = setupProjectList(appReq, project);
 
-      if (projectSelectedListOld == null) {
-        projectSelectedListOld = new ArrayList<Project>();
-        appReq.setProjectSelectedList(projectSelectedListOld);
-      }
-      List<Project> projectSelectedList;
-      if (projectSelectedListOld.size() > 0
-          && projectSelectedListOld.get(0).getProjectId() == project.getProjectId()) {
-        projectSelectedList = projectSelectedListOld;
-      } else {
-        projectSelectedList = new ArrayList<Project>();
-        projectSelectedList.add(project);
-        int pos = 0;
-
-        for (ListIterator<Project> it = projectSelectedListOld.listIterator(); it.hasNext()
-            && pos < 7;) {
-          Project projectSelected = it.next();
-          if (projectSelected.getProjectId() != project.getProjectId()) {
-            projectSelectedList.add(projectSelected);
-          }
-          pos++;
-        }
-        appReq.setProjectSelectedList(projectSelectedList);
-      }
-
-      appReq.setProject(project);
       TimeTracker timeTracker = appReq.getTimeTracker();
 
       ProjectContactAssigned projectContactAssignedForThisUser =
@@ -112,7 +86,7 @@ public class ProjectServlet extends ClientServlet {
       if (action != null) {
         if (action.equals("Save")) {
           ProjectAction projectAction = new ProjectAction();
-          projectAction.setProjectId(projectId);
+          projectAction.setProjectId(project.getProjectId());
           projectAction.setContactId(webUser.getContactId());
           projectAction.setContact(webUser.getProjectContact());
           Date actionDate = new Date();
@@ -179,7 +153,8 @@ public class ProjectServlet extends ClientServlet {
               trans.commit();
             }
             boolean userAssignedToProject = false;
-            query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
+            Query query =
+                dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
             query.setParameter(0, projectId);
             List<ProjectContactAssigned> projectContactAssignedList = query.list();
             List<ProjectContact> sendEmailToList = new ArrayList<ProjectContact>();
@@ -430,7 +405,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Phone</th>");
       out.println("    <th class=\"boxed\">Actions</th>");
       out.println("  </tr>");
-      query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
+      Query query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
       query.setParameter(0, projectId);
       List<ProjectContactAssigned> projectContactAssignedList = query.list();
       List<ProjectContact> projectContactList = new ArrayList<ProjectContact>();
@@ -540,8 +515,13 @@ public class ProjectServlet extends ClientServlet {
           out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " "
               + projectContact1.getNameLast() + "</td>");
 
-          out.println("    <td class=\"inside\">"
-              + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact()));
+          {
+            String link = "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "="
+                + projectAction1.getActionId();
+            out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
+                + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact())
+                + "</a>");
+          }
           if (projectAction1.getNextTimeEstimate() != null
               && projectAction1.getNextTimeEstimate() > 0) {
             out.println(" (time estimate: " + projectAction1.getNextTimeEstimateForDisplay() + ")");
@@ -909,6 +889,48 @@ public class ProjectServlet extends ClientServlet {
     } finally {
       appReq.close();
     }
+  }
+
+  protected List<Project> setupProjectList(AppReq appReq, Project project) {
+    List<Project> projectSelectedListOld = appReq.getProjectSelectedList();
+
+    if (projectSelectedListOld == null) {
+      projectSelectedListOld = new ArrayList<Project>();
+      appReq.setProjectSelectedList(projectSelectedListOld);
+    }
+    List<Project> projectSelectedList;
+    if (projectSelectedListOld.size() > 0
+        && projectSelectedListOld.get(0).getProjectId() == project.getProjectId()) {
+      projectSelectedList = projectSelectedListOld;
+    } else {
+      projectSelectedList = new ArrayList<Project>();
+      projectSelectedList.add(project);
+      int pos = 0;
+
+      for (ListIterator<Project> it = projectSelectedListOld.listIterator(); it.hasNext()
+          && pos < 7;) {
+        Project projectSelected = it.next();
+        if (projectSelected.getProjectId() != project.getProjectId()) {
+          projectSelectedList.add(projectSelected);
+        }
+        pos++;
+      }
+      appReq.setProjectSelectedList(projectSelectedList);
+    }
+    return projectSelectedList;
+  }
+
+  @SuppressWarnings("unchecked")
+  protected Project setupProject(AppReq appReq, Session dataSession, int projectId) {
+    Project project;
+    {
+      Query query = dataSession.createQuery("from Project where projectId = ? ");
+      query.setParameter(0, projectId);
+      project = ((List<Project>) query.list()).get(0);
+      ProjectsServlet.loadProjectsObject(dataSession, project);
+    }
+    appReq.setProject(project);
+    return project;
   }
 
   private Date parseDate(AppReq appReq, String dateString) {

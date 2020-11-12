@@ -21,6 +21,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ProjectTodoServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectTodoServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>TrackServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.TrackServlet</servlet-class>
   </servlet>
@@ -168,6 +172,10 @@
   <servlet-mapping>
     <servlet-name>ProjectServlet</servlet-name>
     <url-pattern>/ProjectServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ProjectTodoServlet</servlet-name>
+    <url-pattern>/ProjectTodoServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>TrackServlet</servlet-name>
