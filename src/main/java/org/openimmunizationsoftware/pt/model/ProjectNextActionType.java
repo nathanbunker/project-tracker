@@ -19,6 +19,7 @@ public class ProjectNextActionType implements java.io.Serializable {
   public static String GOAL = "G";
   public static String OVERDUE_TO = "O";
   public static String WILL_MEET = "B";
+  public static String TASK = "K";
 
   public static String getLabel(String projectNextActionType) {
     if (projectNextActionType.equals(WILL)) {
@@ -37,8 +38,12 @@ public class ProjectNextActionType implements java.io.Serializable {
       return "Might";
     } else if (projectNextActionType.equals(GOAL)) {
       return "Goal";
+    } else if (projectNextActionType.equals(TASK)) {
+      return "Task";
     } else if (projectNextActionType.equals(OVERDUE_TO)) {
       return "Overdue";
+    } else if (projectNextActionType.equals(WILL_MEET)) {
+      return "Will Meet";
     }
     return projectNextActionType;
   }

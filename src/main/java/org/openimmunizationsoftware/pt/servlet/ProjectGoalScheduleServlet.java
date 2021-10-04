@@ -99,11 +99,13 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
             for (Calendar day : dayList) {
               Query query = dataSession.createQuery(
                   "from ProjectAction where projectId = :projectId and nextDescription <> '' "
-                      + "and nextActionId = 0 and nextActionType <> :nextActionType "
+                      + "and nextActionId = 0 and nextActionType <> :nextActionType1 "
+                      + "and nextActionType <> :nextActionType2 "
                       + "and nextDue = :nextDue and nextDescription = :nextDescription "
                       + "order by nextDue asc");
               query.setParameter("projectId", project.getProjectId());
-              query.setParameter("nextActionType", ProjectNextActionType.GOAL);
+              query.setParameter("nextActionType1", ProjectNextActionType.GOAL);
+              query.setParameter("nextActionType2", ProjectNextActionType.TASK);
               query.setParameter("nextDue", day.getTime());
               query.setParameter("nextDescription", projectActionGoal.getNextDescription());
               List<ProjectAction> pal = query.list();

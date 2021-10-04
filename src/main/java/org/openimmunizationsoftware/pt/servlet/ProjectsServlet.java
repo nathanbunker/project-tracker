@@ -164,6 +164,9 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<h2>Goal Review &amp; Schedule</h2>");
       out.println(
           "<p><a href=\"ProjectGoalScheduleServlet\">Review all the goals</a> in the selected projects above and schedule next steps. </p>");
+      out.println("<h2>Task Review &amp; Status</h2>");
+      out.println(
+          "<p><a href=\"ProjectTaskScheduleServlet\">Review all the tasks</a> in the selected projects above and indicate current status/p>");
       printHtmlFoot(appReq);
 
     } finally {

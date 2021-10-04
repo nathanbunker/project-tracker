@@ -3,7 +3,7 @@
   <groupId>org.immunizationsoftware.pt</groupId>
   <artifactId>project-tracker</artifactId>
   <packaging>war</packaging>
-  <version>2.14</version>
+  <version>2.15</version>
   <!-- TODO project name -->
   <name>Project Tracker</name>
   <description></description>

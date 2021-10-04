@@ -45,5 +45,8 @@
         <property name="priorityLevel" type="integer">
             <column name="priority_level" not-null="true" />
         </property>
+        <property name="taskStatus" type="string">
+            <column name="task_status" length="1" />
+        </property>
     </class>
 </hibernate-mapping>

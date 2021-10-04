@@ -27,6 +27,7 @@ public class ProjectAction implements java.io.Serializable {
   private ProjectContact contact = null;
   private Project project = null;
   private int priorityLevel = 0;
+  private String taskStatus;
 
   public ProjectContact getContact() {
     return contact;
@@ -118,7 +119,7 @@ public class ProjectAction implements java.io.Serializable {
     String type = getNextActionType();
     if (type == null || type.equals("")) {
       description = getNextDescription();
-    } else if (type.equals("A")) {
+    } else if (type.equals(ProjectNextActionType.ASKS_TO)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_am + "asking for ..</i> " + getNextDescription();
       } else {
@@ -134,32 +135,41 @@ public class ProjectAction implements java.io.Serializable {
       }
     } else if (type.equals(ProjectNextActionType.WILL)) {
       description = "<i>" + i_ + " will</i> " + getNextDescription();
-    } else if (type.equals("E")) {
+    } else if (type.equals(ProjectNextActionType.WILL_MEET)) {
+      description = "<i>" + i_ + " will meet</i> " + getNextDescription();
+    } else if (type.equals(ProjectNextActionType.WILL_RUN_ERRAND)) {
       description = "<i>" + i_ + " will run errand to</i> " + getNextDescription();
-    } else if (type.equals("G")) {
+    } else if (type.equals(ProjectNextActionType.GOAL)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_have + " set a goal to </i> " + getNextDescription();
       } else {
         description = "<i>" + i_have + " set a goal with " + nextProjectContact.getName()
             + " to</i> " + getNextDescription();
       }
-    } else if (type.equals("M")) {
+    } else if (type.equals(ProjectNextActionType.TASK)) {
+      if (nextProjectContact == null) {
+        description = "<i>" + i_have + " set a task to </i> " + getNextDescription();
+      } else {
+        description = "<i>" + i_have + " set a task with " + nextProjectContact.getName()
+            + " to</i> " + getNextDescription();
+      }
+    } else if (type.equals(ProjectNextActionType.MIGHT)) {
       description = "<i>" + i_ + " might</i> " + getNextDescription();
-    } else if (type.equals("T")) {
+    } else if (type.equals(ProjectNextActionType.COMMITTED_TO)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_have + " committed to </i> " + getNextDescription();
       } else {
         description = "<i>" + i_have + " committed to " + nextProjectContact.getName() + " to</i> "
             + getNextDescription();
       }
-    } else if (type.equals("O")) {
+    } else if (type.equals(ProjectNextActionType.OVERDUE_TO)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_am + " overdue to</i> " + getNextDescription();
       } else {
         description = "<i>" + i_am + "overdue in committment to " + nextProjectContact.getName()
             + " to</i> " + getNextDescription();
       }
-    } else if (type.equals("W")) {
+    } else if (type.equals(ProjectNextActionType.WAITING)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_am + "waiting for </i> " + getNextDescription();
       } else {
@@ -250,5 +260,13 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setNextDeadline(Date nextDeadline) {
     this.nextDeadline = nextDeadline;
+  }
+
+  public String getTaskStatus() {
+    return taskStatus;
+  }
+
+  public void setTaskStatus(String taskStatus) {
+    this.taskStatus = taskStatus;
   }
 }

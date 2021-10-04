@@ -1,0 +1,1 @@
+ALTER TABLE project_action ADD COLUMN (task_status varchar(1));
