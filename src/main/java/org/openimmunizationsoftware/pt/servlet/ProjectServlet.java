@@ -640,6 +640,10 @@ public class ProjectServlet extends ClientServlet {
           nextWeek = true;
         }
       }
+      calendar.set(Calendar.MONTH, 12);
+      calendar.set(Calendar.DAY_OF_MONTH, 31);
+      out.println("              <a href=\"javascript: void setNextAction('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
       out.println("</font>");
 
       out.println("          </td>");
@@ -656,6 +660,7 @@ public class ProjectServlet extends ClientServlet {
           + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
       out.println("            <a href=\"javascript: void selectProjectActionType('"
           + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a></font>");
+      out.println("            <br/>");
       out.println("            I have: ");
       out.println(
           "            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('"
@@ -664,7 +669,6 @@ public class ProjectServlet extends ClientServlet {
           + ProjectNextActionType.GOAL + "');\" class=\"button\">set goal</a>,");
       out.println("            <a href=\"javascript: void selectProjectActionType('"
           + ProjectNextActionType.TASK + "');\" class=\"button\">set task</a></font>");
-      out.println("            <br/>");
       out.println("            I am:");
       out.println(
           "            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType('"

@@ -286,5 +286,9 @@
     <filter-name>wicket.tester</filter-name>
     <url-pattern>/ui/*</url-pattern>
   </filter-mapping>
+  
+  <session-config>
+    <session-timeout>240</session-timeout>
+  </session-config>
 
 </web-app>
