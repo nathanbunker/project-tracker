@@ -41,6 +41,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 @SuppressWarnings("serial")
 public class ProjectServlet extends ClientServlet {
 
+  private static final boolean ENABLE_TODO_SERVLET = false;
   private static final String PARAM_PROJECT_ID = "projectId";
 
   /**
@@ -516,11 +517,16 @@ public class ProjectServlet extends ClientServlet {
               + projectContact1.getNameLast() + "</td>");
 
           {
-            String link = "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "="
-                + projectAction1.getActionId();
-            out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
-                + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact())
-                + "</a>");
+            if (ENABLE_TODO_SERVLET) {
+              String link = "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "="
+                  + projectAction1.getActionId();
+              out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
+                  + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact())
+                  + "</a>");
+            } else {
+              out.println("    <td class=\"inside\">"
+                  + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact()));
+            }
           }
           if (projectAction1.getNextTimeEstimate() != null
               && projectAction1.getNextTimeEstimate() > 0) {

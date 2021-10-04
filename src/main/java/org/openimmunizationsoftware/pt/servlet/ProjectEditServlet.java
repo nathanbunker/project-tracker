@@ -52,7 +52,7 @@ public class ProjectEditServlet extends ClientServlet {
         return;
       }
       HttpSession session = request.getSession(true);
-      PrintWriter out = response.getWriter();
+      PrintWriter out = appReq.getOut();
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
 
