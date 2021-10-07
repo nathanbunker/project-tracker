@@ -337,6 +337,11 @@ public class AppReq {
     webSession = request.getSession(true);
   }
 
+
+  public void setProjectSelected(Project projectSelected) {
+    this.projectSelected = projectSelected;
+  }
+
 }
 
 

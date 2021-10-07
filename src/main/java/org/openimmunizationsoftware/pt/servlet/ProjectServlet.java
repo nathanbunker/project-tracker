@@ -75,6 +75,7 @@ public class ProjectServlet extends ClientServlet {
       int projectId = Integer.parseInt(request.getParameter(PARAM_PROJECT_ID));
 
       Project project = setupProject(appReq, dataSession, projectId);
+      appReq.setProjectSelected(project);
 
       List<Project> projectSelectedList = setupProjectList(appReq, project);
 
