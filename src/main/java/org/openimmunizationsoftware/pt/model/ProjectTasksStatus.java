@@ -30,10 +30,10 @@ public class ProjectTasksStatus implements Serializable {
   public static String getColor(String taskStatus) {
     if (taskStatus != null) {
       if (taskStatus.equals(PROGRESSING)) {
-        return "GreenYellow";
+        return "MediumSeaGreen";
       }
       if (taskStatus.equals(DELAYED)) {
-        return "LightYellow";
+        return "Gold";
       }
       if (taskStatus.equals(BLOCKED)) {
         return "OrangeRed";
