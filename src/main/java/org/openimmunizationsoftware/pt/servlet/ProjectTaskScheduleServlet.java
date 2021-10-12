@@ -8,10 +8,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -21,6 +23,8 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectTasksStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -31,6 +35,9 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  */
 @SuppressWarnings("serial")
 public class ProjectTaskScheduleServlet extends ClientServlet {
+
+  public static String ACTION_UPDATE_PRIORITY = "Update Priority";
+  public static String ACTION_SAVE = "Save";
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -63,28 +70,100 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
 
 
       List<ProjectAction> projectActionTaskList = getProjectActionTaskList(dataSession);
+      List<Project> projectNeedUpdateList = new ArrayList<Project>();
 
-      if (action != null) {
+      if (action == null) {
         Transaction transaction = dataSession.beginTransaction();
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.HOUR, -48);
         for (ProjectAction projectAction : projectActionTaskList) {
-          projectAction.setPriorityLevel(Integer
-              .parseInt(request.getParameter("priorityLevel" + projectAction.getActionId())));
-          projectAction
-              .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
-          Date nextDue = null;
-          String s = request.getParameter("nextDue" + projectAction.getActionId());
-          if (!s.equals("")) {
-            try {
-              nextDue = sdf.parse(s);
-            } catch (ParseException e) {
-              nextDue = projectAction.getNextDue();
+          Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
+          if (projectNeedUpdateList.contains(project)) {
+            continue;
+          }
+          if (projectAction.getTaskStatus() == null || projectAction.getTaskStatus().equals("")) {
+            projectNeedUpdateList.add(project);
+          } else {
+            Query query = dataSession.createQuery(
+                "from ProjectAction where projectId = :projectId and actionDate >= :actionDate");
+            query.setParameter("projectId", projectAction.getProjectId());
+            query.setParameter("actionDate", calendar.getTime());
+            List<ProjectAction> projectActionList = query.list();
+            if (projectActionList.size() == 0) {
+              projectNeedUpdateList.add(project);
+              projectAction.setTaskStatus(null);
+              dataSession.update(projectAction);
             }
           }
-          projectAction.setNextDue(nextDue);
-          dataSession.update(projectAction);
         }
         transaction.commit();
-        projectActionTaskList = getProjectActionTaskList(dataSession);
+      } else {
+        if (action.equals(ACTION_UPDATE_PRIORITY)) {
+          Transaction transaction = dataSession.beginTransaction();
+          for (ProjectAction projectAction : projectActionTaskList) {
+            projectAction.setPriorityLevel(Integer
+                .parseInt(request.getParameter("priorityLevel" + projectAction.getActionId())));
+            //            projectAction
+            //                .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
+            Date nextDue = null;
+            String s = request.getParameter("nextDue" + projectAction.getActionId());
+            if (!s.equals("")) {
+              try {
+                nextDue = sdf.parse(s);
+              } catch (ParseException e) {
+                nextDue = projectAction.getNextDue();
+              }
+            }
+            projectAction.setNextDue(nextDue);
+            dataSession.update(projectAction);
+          }
+          transaction.commit();
+          projectActionTaskList = getProjectActionTaskList(dataSession);
+        } else if (action.equals(ACTION_SAVE)) {
+          int projectId = Integer.parseInt(request.getParameter(ProjectServlet.PARAM_PROJECT_ID));
+          Project project = ProjectServlet.setupProject(dataSession, projectId);
+          ProjectServlet.saveProjectAction(appReq, project, "");
+          Transaction transaction = dataSession.beginTransaction();
+          for (ProjectAction projectAction : projectActionTaskList) {
+            if (projectAction.getProjectId() == projectId) {
+              projectAction
+                  .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
+              Date nextDue = null;
+              String s = request.getParameter("nextDue" + projectAction.getActionId());
+              if (!s.equals("")) {
+                try {
+                  nextDue = sdf.parse(s);
+                } catch (ParseException e) {
+                  nextDue = projectAction.getNextDue();
+                }
+              }
+              projectAction.setNextDue(nextDue);
+              dataSession.update(projectAction);
+            }
+          }
+          transaction.commit();
+          projectActionTaskList = getProjectActionTaskList(dataSession);
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.HOUR, -48);
+        for (ProjectAction projectAction : projectActionTaskList) {
+          Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
+          if (projectNeedUpdateList.contains(project)) {
+            continue;
+          }
+          if (projectAction.getTaskStatus() == null || projectAction.getTaskStatus().equals("")) {
+            projectNeedUpdateList.add(project);
+          } else {
+            Query query = dataSession.createQuery(
+                "from ProjectAction where projectId = :projectId and actionDate >= :actionDate");
+            query.setParameter("projectId", projectAction.getProjectId());
+            query.setParameter("actionDate", calendar.getTime());
+            List<ProjectAction> projectActionList = query.list();
+            if (projectActionList.size() == 0) {
+              projectNeedUpdateList.add(project);
+            }
+          }
+        }
       }
 
 
@@ -115,23 +194,13 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
         out.println("    <td class=\"boxed\">");
         out.println(projectAction.getNextDescription());
         out.println("    </td>");
-        out.println("    <td class=\"boxed\" style=\"background-color: "
-            + ProjectTasksStatus.getColor(projectAction.getTaskStatus()) + "\">");
         {
-          String id = "taskStatus" + projectAction.getActionId();
           String taskStatus = projectAction.getTaskStatus();
-          if (taskStatus == null) {
-            taskStatus = "";
-          }
-          for (String ts : new String[] {ProjectTasksStatus.PROGRESSING, ProjectTasksStatus.DELAYED,
-              ProjectTasksStatus.BLOCKED}) {
-            out.println("      <input type=\"radio\" name=\"" + id + "\" id=\"" + id + ts
-                + "\" value=\"" + ts + "\"" + (taskStatus.equals(ts) ? " checked" : "")
-                + "></input> <label for=\"" + id + ts + "\">" + ProjectTasksStatus.getLabel(ts)
-                + "<label>");
-          }
+          out.println("    <td class=\"boxed\" style=\"background-color: "
+              + ProjectTasksStatus.getColor(taskStatus) + "\">");
+          out.println(ProjectTasksStatus.getLabel(taskStatus));
+          out.println("    </td>");
         }
-        out.println("    </td>");
         out.println("    <td class=\"boxed\">");
         {
           String id = "nextDue" + projectAction.getActionId();
@@ -149,8 +218,85 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       out.println("</table>");
 
 
-      out.println("<input type=\"submit\" name=\"action\" value=\"Update Priority and Status\" >");
+      out.println(
+          "<input type=\"submit\" name=\"action\" value=\"" + ACTION_UPDATE_PRIORITY + "\" >");
       out.println("</form>");
+
+      out.println("<h2>Projects to Update</h2>");
+      for (Project project : projectNeedUpdateList) {
+        out.println("<h3>" + project.getProjectName() + "</h3>");
+        out.println("<form name=\"projectAction" + project.getProjectId()
+            + "\" method=\"post\" action=\"ProjectTaskScheduleServlet\" id=\"saveProjectActionForm"
+            + project.getProjectId() + "\">");
+        out.println("<table class=\"boxed\">");
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">Task</th>");
+        out.println("    <th class=\"boxed\">Status</th>");
+        out.println("    <th class=\"boxed\">Due</th>");
+        out.println("  </tr>");
+        for (ProjectAction projectAction : projectActionTaskList) {
+          if (!project.equals(projectAction.getProject())) {
+            continue;
+          }
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <td class=\"boxed\">");
+          out.println(projectAction.getNextDescription());
+          out.println("    </td>");
+          out.println("    <td class=\"boxed\" style=\"background-color: "
+              + ProjectTasksStatus.getColor(projectAction.getTaskStatus()) + "\">");
+          {
+            String id = "taskStatus" + projectAction.getActionId();
+            String taskStatus = projectAction.getTaskStatus();
+            if (taskStatus == null) {
+              taskStatus = "";
+            }
+            for (String ts : new String[] {ProjectTasksStatus.PROGRESSING,
+                ProjectTasksStatus.DELAYED, ProjectTasksStatus.BLOCKED}) {
+              out.println("      <input type=\"radio\" name=\"" + id + "\" id=\"" + id + ts
+                  + "\" value=\"" + ts + "\"" + (taskStatus.equals(ts) ? " checked" : "")
+                  + "></input> <label for=\"" + id + ts + "\">" + ProjectTasksStatus.getLabel(ts)
+                  + "<label>");
+            }
+          }
+          out.println("    </td>");
+          out.println("    <td class=\"boxed\">");
+          {
+            String id = "nextDue" + projectAction.getActionId();
+            if (projectAction.getNextDue() == null) {
+              out.println(
+                  "      <input type=\"text\" name=\"" + id + "\" size=\"10\" value=\"\"></input>");
+            } else {
+              out.println("      <input type=\"text\" name=\"" + id + "\" size=\"10\" value=\""
+                  + sdf.format(projectAction.getNextDue()) + "\"></input>");
+            }
+          }
+          out.println("    </td>");
+          out.println("  </tr>");
+        }
+        out.println("</table>");
+        out.println("<br/>");
+
+        List<ProjectContactAssigned> projectContactAssignedList =
+            ProjectServlet.getProjectContactAssignedList(dataSession, project.getProjectId());
+        List<ProjectContact> projectContactList =
+            ProjectServlet.getProjectContactList(dataSession, project, projectContactAssignedList);
+        Collections.sort(projectContactAssignedList, new Comparator<ProjectContactAssigned>() {
+          public int compare(ProjectContactAssigned arg0, ProjectContactAssigned arg1) {
+            if (arg0.getProjectContact().getNameFirst()
+                .equals(arg1.getProjectContact().getNameFirst())) {
+              return arg0.getProjectContact().getNameLast()
+                  .compareTo(arg1.getProjectContact().getNameLast());
+            }
+            return arg0.getProjectContact().getNameFirst()
+                .compareTo(arg1.getProjectContact().getNameFirst());
+          }
+        });
+        project.setProjectContactAssignedList(projectContactAssignedList);
+
+        ProjectServlet.printProjectUpdateForm(appReq, project.getProjectId(), projectContactList);
+
+        out.println("</form>");
+      }
 
       out.println("<h3>Easy Copy Table</h3>");
 

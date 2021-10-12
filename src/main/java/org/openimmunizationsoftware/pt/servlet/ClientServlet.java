@@ -438,7 +438,7 @@ public class ClientServlet extends HttpServlet {
     return s;
   }
 
-  protected String trim(String s, int length) {
+  protected static String trim(String s, int length) {
     if (s == null) {
       return "";
     }
