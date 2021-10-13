@@ -351,6 +351,11 @@ public class HomeServlet extends ClientServlet {
         + ProjectNextActionType.WILL_CONTACT + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + (nextActionType.equals(ProjectNextActionType.WILL_CONTACT) ? "box" : "button")
         + "\">will contact</a></font>");
+    out.println("            <a href=\"HomeServlet?nextActionType=G&date=" + sdf1.format(nextDue)
+        + "\" class=\""
+        + (nextActionType.equals(ProjectNextActionType.WILL_MEET) ? "box" : "button")
+        + "\">will meet</a></font>");
+    out.println("            <br/> ");
     out.println("            I have: ");
     out.println("            <font size=\"-1\"><a href=\"HomeServlet?nextActionType=T&date="
         + sdf1.format(nextDue) + "\" class=\""
@@ -358,8 +363,12 @@ public class HomeServlet extends ClientServlet {
             || nextActionType.equals(ProjectNextActionType.OVERDUE_TO)) ? "box" : "button")
         + "\">committed</a>,");
     out.println("            <a href=\"HomeServlet?nextActionType=G&date=" + sdf1.format(nextDue)
-        + "\" class=\"" + (nextActionType.equals("G") ? "box" : "button")
+        + "\" class=\"" + (nextActionType.equals(ProjectNextActionType.GOAL) ? "box" : "button")
         + "\">set goal</a></font>");
+    out.println("            <a href=\"HomeServlet?nextActionType=G&date=" + sdf1.format(nextDue)
+        + "\" class=\"" + (nextActionType.equals(ProjectNextActionType.TASK) ? "box" : "button")
+        + "\">set task</a></font>");
+    out.println("            <br/> ");
     out.println("            I am:");
     out.println("            <font size=\"-1\"><a href=\"HomeServlet?nextActionType=W&date="
         + sdf1.format(nextDue) + "\" class=\"" + (nextActionType.equals("W") ? "box" : "button")
@@ -717,6 +726,8 @@ public class HomeServlet extends ClientServlet {
           + changeFormId + "');\" class=\"button\"> 20m</a>,");
       out.println("              <a href=\"javascript: void changeNextTimeEstimate('40', '"
           + changeFormId + "');\" class=\"button\"> 40m</a>");
+      out.println("              <a href=\"javascript: void changeNextTimeEstimate('60', '"
+          + changeFormId + "');\" class=\"button\"> 60m</a>");
       out.println("              <a href=\"javascript: void changeNextTimeEstimate('80', '"
           + changeFormId + "');\" class=\"button\"> 80m</a>");
       out.println("              <a href=\"javascript: void changeNextTimeEstimate('120', '"
