@@ -353,6 +353,19 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       }
       out.println("</table>");
 
+      out.println("<h3>Easy Copy Text</h3>");
+
+      for (ProjectAction projectAction : projectActionTaskList) {
+        if (projectAction.getTaskStatus() == null) {
+          out.println("    <p>" + projectAction.getNextDescription() + " &mdash; ?????</p>");
+        } else if (projectAction.getTaskStatus().equals(ProjectTasksStatus.PROGRESSING)) {
+          out.println("    <p>" + projectAction.getNextDescription() + "</p>");
+        } else {
+          out.println("    <p>" + projectAction.getNextDescription() + " &mdash; "
+              + ProjectTasksStatus.getLabel(projectAction.getTaskStatus()) + "</p>");
+        }
+      }
+
 
       printHtmlFoot(appReq);
 
