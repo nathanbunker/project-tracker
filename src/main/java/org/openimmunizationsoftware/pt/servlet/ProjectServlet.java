@@ -43,6 +43,7 @@ public class ProjectServlet extends ClientServlet {
 
   private static final boolean ENABLE_TODO_SERVLET = false;
   public static final String PARAM_PROJECT_ID = "projectId";
+  public static final String PARAM_ACTION_ID = "actionId";
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
@@ -85,6 +86,7 @@ public class ProjectServlet extends ClientServlet {
       ProjectContactAssigned projectContactAssignedForThisUser =
           getProjectContactAssigned(webUser, dataSession, project);
 
+      ProjectAction projectAction = null;
       String emailBody = null;
       if (action != null) {
         if (action.equals("Save")) {
@@ -107,7 +109,11 @@ public class ProjectServlet extends ClientServlet {
             }
           }
         }
+      } else if (appReq.getRequest().getParameter(PARAM_ACTION_ID) != null) {
+        int actionId = Integer.parseInt(appReq.getRequest().getParameter(PARAM_ACTION_ID));
+        projectAction = (ProjectAction) dataSession.get(ProjectAction.class, actionId);
       }
+
 
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
@@ -315,41 +321,17 @@ public class ProjectServlet extends ClientServlet {
       }
       out.println("</table>");
       out.println("</div>");
-      List<ProjectAction> projectActionList;
+
       out.println("<div id=\"takeAction\">");
       out.println("<form name=\"projectAction" + projectId
           + "\" method=\"post\" action=\"ProjectServlet\" id=\"saveProjectActionForm" + projectId
           + "\">");
-      printProjectUpdateForm(appReq, projectId, projectContactList);
+      printProjectUpdateForm(appReq, projectId, projectContactList, projectAction);
       out.println("</form>");
       out.println("</div>");
 
 
-      out.println("<div class=\"main\">");
-      out.println("<h2>Actions Taken</h2>");
-      out.println("<table class=\"boxed-fill\">");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Date &amp; Time</th>");
-      out.println("    <th class=\"boxed\">Name</th>");
-      out.println("    <th class=\"boxed\">Action</th>");
-      out.println("  </tr>");
-      Query query = dataSession.createQuery(
-          "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
-      query.setParameter(0, projectId);
-      projectActionList = query.list();
-      for (ProjectAction projectAction : projectActionList) {
-        ProjectContact projectContact =
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId());
-        out.println("  <tr class=\"boxed\">");
-        out.println(
-            "    <td class=\"boxed\">" + sdf.format(projectAction.getActionDate()) + "</td>");
-        out.println("    <td class=\"boxed\">" + projectContact.getNameFirst() + " "
-            + projectContact.getNameLast() + "</td>");
-        out.println("    <td class=\"boxed\">" + nbsp(projectAction.getActionDescription()));
-        out.println("  </tr>");
-      }
-      out.println("</table>");
-      out.println("</div>");
+      printActionsTaken(dataSession, out, sdf, projectId);
 
       printHtmlFoot(appReq);
 
@@ -358,14 +340,49 @@ public class ProjectServlet extends ClientServlet {
     }
   }
 
+  private void printActionsTaken(Session dataSession, PrintWriter out, SimpleDateFormat sdf,
+      int projectId) {
+    List<ProjectAction> projectActionList;
+    out.println("<div class=\"main\">");
+    out.println("<h2>Actions Taken</h2>");
+    out.println("<table class=\"boxed-fill\">");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Date &amp; Time</th>");
+    out.println("    <th class=\"boxed\">Name</th>");
+    out.println("    <th class=\"boxed\">Action</th>");
+    out.println("  </tr>");
+    Query query = dataSession.createQuery(
+        "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
+    query.setParameter(0, projectId);
+    projectActionList = query.list();
+    for (ProjectAction pa : projectActionList) {
+      ProjectContact projectContact =
+          (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <td class=\"boxed\">" + sdf.format(pa.getActionDate()) + "</td>");
+      out.println("    <td class=\"boxed\">" + projectContact.getNameFirst() + " "
+          + projectContact.getNameLast() + "</td>");
+      out.println("    <td class=\"boxed\">" + nbsp(pa.getActionDescription()));
+      out.println("  </tr>");
+    }
+    out.println("</table>");
+    out.println("</div>");
+  }
+
   public static String saveProjectAction(AppReq appReq, Project project, String emailBody) {
 
     HttpServletRequest request = appReq.getRequest();
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
     SimpleDateFormat sdf = webUser.getDateFormat();
-    ProjectAction projectAction = new ProjectAction();
-    projectAction.setProjectId(project.getProjectId());
+    ProjectAction projectAction;
+    if (appReq.getRequest().getParameter(PARAM_ACTION_ID) != null) {
+      int actionId = Integer.parseInt(appReq.getRequest().getParameter(PARAM_ACTION_ID));
+      projectAction = (ProjectAction) dataSession.get(ProjectAction.class, actionId);
+    } else {
+      projectAction = new ProjectAction();
+      projectAction.setProjectId(project.getProjectId());
+    }
     projectAction.setContactId(webUser.getContactId());
     projectAction.setContact(webUser.getProjectContact());
     Date actionDate = new Date();
@@ -418,7 +435,7 @@ public class ProjectServlet extends ClientServlet {
 
       Transaction trans = dataSession.beginTransaction();
       try {
-        dataSession.save(projectAction);
+        dataSession.saveOrUpdate(projectAction);
         if (completed != null && completed.length > 0) {
           for (String c : completed) {
             ProjectAction paCompleted =
@@ -526,7 +543,7 @@ public class ProjectServlet extends ClientServlet {
   }
 
   public static void printProjectUpdateForm(AppReq appReq, int projectId,
-      List<ProjectContact> projectContactList) {
+      List<ProjectContact> projectContactList, ProjectAction projectAction) {
     HttpServletRequest request = appReq.getRequest();
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
@@ -542,98 +559,33 @@ public class ProjectServlet extends ClientServlet {
     {
       Date today = new Date();
       for (Iterator<ProjectAction> it = projectActionList.iterator(); it.hasNext();) {
-        ProjectAction projectAction = it.next();
-        if ((projectAction.getNextActionType().equals(ProjectNextActionType.GOAL)
-            || projectAction.getNextActionType().equals(ProjectNextActionType.TASK))
-            && (projectAction.getNextDue() == null || projectAction.getNextDue().after(today))) {
+        ProjectAction pa = it.next();
+        if ((pa.getNextActionType().equals(ProjectNextActionType.GOAL)
+            || pa.getNextActionType().equals(ProjectNextActionType.TASK))
+            && (pa.getNextDue() == null || pa.getNextDue().after(today))) {
           it.remove();
-          if (projectAction.getNextActionType().equals(ProjectNextActionType.GOAL)) {
-            projectActionGoalList.add(projectAction);
-          } else if (projectAction.getNextActionType().equals(ProjectNextActionType.TASK)) {
-            projectActionTaskList.add(projectAction);
+          if (pa.getNextActionType().equals(ProjectNextActionType.GOAL)) {
+            projectActionGoalList.add(pa);
+          } else if (pa.getNextActionType().equals(ProjectNextActionType.TASK)) {
+            projectActionTaskList.add(pa);
           }
         }
       }
     }
 
+    String disabled = (projectAction == null ? " disabled" : "");
     printOutScript(out, projectId, webUser);
     out.println("<input type=\"hidden\" name=\"projectId\" value=\"" + projectId + "\">");
+    if (projectAction != null) {
+      out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
+          + projectAction.getActionId() + "\">");
+    }
     out.println("  <table class=\"boxed\">");
     out.println("    <tr>");
     out.println("      <th class=\"title\">Todo List</th>");
     out.println("    </tr>");
     out.println("    <td class=\"outside\">");
-    if (projectActionList.size() > 0) {
-      out.println("<table class=\"inside\" width=\"100%\">");
-      out.println("  <tr>");
-      out.println("    <th class=\"inside\">Date</th>");
-      out.println("    <th class=\"inside\">Name</th>");
-      out.println("    <th class=\"inside\">To Do</th>");
-      out.println("    <th class=\"inside\">Status</th>");
-      out.println("    <th class=\"inside\">Comp</th>");
-      out.println("  </tr>");
-      SimpleDateFormat sdf11 = webUser.getDateFormat();
-      for (ProjectAction projectAction1 : projectActionList) {
-
-        ProjectContact projectContact1 =
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction1.getContactId());
-        projectAction1.setContact(projectContact1);
-        ProjectContact nextProjectContact = null;
-        if (projectAction1.getNextContactId() != null && projectAction1.getNextContactId() > 0) {
-          nextProjectContact = (ProjectContact) dataSession.get(ProjectContact.class,
-              projectAction1.getNextContactId());
-          projectAction1.setNextProjectContact(nextProjectContact);
-        }
-        out.println("  <tr>");
-        if (projectAction1.getNextDue() != null) {
-          out.println(
-              "    <td class=\"inside\">" + sdf11.format(projectAction1.getNextDue()) + "</td>");
-        } else {
-          out.println("    <td class=\"inside\">&nbsp;</td>");
-        }
-        out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " "
-            + projectContact1.getNameLast() + "</td>");
-
-        {
-          if (ENABLE_TODO_SERVLET) {
-            String link = "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "="
-                + projectAction1.getActionId();
-            out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
-                + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact())
-                + "</a>");
-          } else {
-            out.println("    <td class=\"inside\">"
-                + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact()));
-          }
-        }
-        if (projectAction1.getNextTimeEstimate() != null
-            && projectAction1.getNextTimeEstimate() > 0) {
-          out.println(" (time estimate: " + projectAction1.getNextTimeEstimateForDisplay() + ")");
-        }
-        out.println("</td>");
-        if (projectAction1.getNextDue() != null) {
-          Date today = new Date();
-          Calendar calendar1 = webUser.getCalendar();
-          calendar1.add(Calendar.DAY_OF_MONTH, -1);
-          Date yesterday = calendar1.getTime();
-          if (projectAction1.getNextDue().after(today)) {
-            out.println("    <td class=\"inside\"></td>");
-          } else if (projectAction1.getNextDue().after(yesterday)) {
-            out.println("    <td class=\"inside-highlight\">Due Today</td>");
-          } else {
-            out.println("    <td class=\"inside-highlight\">Overdue</td>");
-          }
-        } else {
-          out.println("    <td class=\"inside\">&nbsp;</td>");
-        }
-        out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
-            + projectAction1.getActionId() + "\"></td>");
-        out.println("  </tr>");
-      }
-      out.println("</table>");
-    } else {
-      out.println("<i>no items</i>");
-    }
+    printTodoList(projectId, webUser, dataSession, out, projectActionList);
 
     out.println("    </td>");
     out.println("  </tr>");
@@ -648,14 +600,19 @@ public class ProjectServlet extends ClientServlet {
     out.println("      <table class=\"inside\">");
     out.println("        <tr>");
     out.println("          <th class=\"inside\">When</th>");
-    out.println(
-        "          <td class=\"inside\"><input type=\"text\" name=\"actionDate\" size=\"20\" value=\""
-            + sdf1.format(new Date()) + "\" onkeydown=\"resetRefresh()\"></td>");
+    {
+      Date d = projectAction == null ? new Date() : projectAction.getActionDate();
+      out.println(
+          "          <td class=\"inside\"><input type=\"text\" name=\"actionDate\" size=\"20\" value=\""
+              + sdf1.format(d) + "\" onkeydown=\"resetRefresh()\"></td>");
+    }
     out.println("        </tr>");
     out.println("        <tr>");
     out.println("          <th class=\"inside\">Action</th>");
     out.println(
-        "          <td class=\"inside\"><textarea name=\"actionDescription\" cols=\"60\" rows=\"7\" onkeydown=\"resetRefresh()\"></textarea></td>");
+        "          <td class=\"inside\"><textarea name=\"actionDescription\" cols=\"60\" rows=\"7\" onkeydown=\"resetRefresh()\">"
+            + (projectAction == null ? "" : projectAction.getActionDescription())
+            + "</textarea></td>");
     out.println("        </tr>");
     out.println("        <script>");
     out.println("          function setNextAction" + projectId + "(nextActionDate)");
@@ -679,91 +636,110 @@ public class ProjectServlet extends ClientServlet {
     out.println("  <tr>");
     out.println("    <td class=\"outside\">");
     out.println("      <table class=\"inside\">");
-    out.println("        <tr>");
-    out.println("          <th class=\"inside\">When</th>");
-    out.println(
-        "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDue\" size=\"10\" value=\""
-            + n(request.getParameter("nextDue")) + "\" onkeydown=\"resetRefresh()\" disabled>");
-    out.println("            <font size=\"-1\">");
-    Calendar calendar = webUser.getCalendar();
-    sdf1 = webUser.getDateFormat();
-    SimpleDateFormat day = webUser.getDateFormat("EEE");
-    out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
-        + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
-    calendar.add(Calendar.DAY_OF_MONTH, 1);
-    out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
-        + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
-        + day.format(calendar.getTime()) + "</a>");
-    boolean nextWeek = false;
-    for (int i = 0; i < 6; i++) {
+    {
+      sdf1 = webUser.getDateFormat();
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">When</th>");
+      {
+        String nextDue = projectAction == null || projectAction.getNextDue() == null
+            ? request.getParameter("nextDue")
+            : sdf1.format(projectAction.getNextDue());
+        out.println(
+            "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDue\" size=\"10\" value=\""
+                + n(nextDue) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      }
+      out.println("            <font size=\"-1\">");
+      Calendar calendar = webUser.getCalendar();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
+      out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
       calendar.add(Calendar.DAY_OF_MONTH, 1);
-      if (nextWeek) {
-        out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
-            + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
-            + day.format(calendar.getTime()) + "</a>");
-      } else {
-        out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
-            + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
-            + day.format(calendar.getTime()) + "</a>");
+      out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+          + day.format(calendar.getTime()) + "</a>");
+      boolean nextWeek = false;
+      for (int i = 0; i < 6; i++) {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        if (nextWeek) {
+          out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
+              + day.format(calendar.getTime()) + "</a>");
+        } else {
+          out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+              + day.format(calendar.getTime()) + "</a>");
 
+        }
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+          nextWeek = true;
+        }
       }
-      if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
-        nextWeek = true;
-      }
+      calendar.set(Calendar.MONTH, 11);
+      calendar.set(Calendar.DAY_OF_MONTH, 31);
+      out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
+      out.println("</font>");
+
+      out.println("          </td>");
+      out.println("        </tr>");
     }
-    calendar.set(Calendar.MONTH, 11);
-    calendar.set(Calendar.DAY_OF_MONTH, 31);
-    out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
-        + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
-    out.println("</font>");
-
-    out.println("          </td>");
-    out.println("        </tr>");
     out.println("        <tr>");
     out.println("          <th class=\"inside\">Action</th>");
     out.println("          <td class=\"inside\" colspan=\"3\">");
     out.println(
-        "            I: <font size=\"-1\"><a href=\"javascript: void selectProjectActionType" + projectId + "('"
-            + ProjectNextActionType.WILL + "');\" class=\"button\"> will</a>,");
+        "            I: <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
+            + projectId + "('" + ProjectNextActionType.WILL + "');\" class=\"button\"> will</a>,");
     out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
         + ProjectNextActionType.MIGHT + "');\" class=\"button\">might</a>, ");
     out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
         + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
-    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId +  "('"
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
         + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a></font>");
     out.println("            <br/>");
     out.println("            I have: ");
-    out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType" + projectId + "('"
-        + ProjectNextActionType.COMMITTED_TO + "');\" class=\"button\">committed</a>,");
+    out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
+        + projectId + "('" + ProjectNextActionType.COMMITTED_TO
+        + "');\" class=\"button\">committed</a>,");
     out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
         + ProjectNextActionType.GOAL + "');\" class=\"button\">set goal</a>,");
     out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
         + ProjectNextActionType.TASK + "');\" class=\"button\">set task</a></font>");
     out.println("            I am:");
-    out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType" + projectId + "('"
-        + ProjectNextActionType.WAITING + "');\" class=\"button\">waiting</a>,");
+    out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
+        + projectId + "('" + ProjectNextActionType.WAITING + "');\" class=\"button\">waiting</a>,");
     out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
         + ProjectNextActionType.ASKS_TO + "');\" class=\"button\">asking</a></font>");
     out.println("            <br>");
-    out.println("            <input type=\"hidden\" name=\"nextActionType\" value=\""
-        + ProjectNextActionType.WILL + "\">");
+    {
+      String nextActionType =
+          projectAction == null ? ProjectNextActionType.WILL : projectAction.getNextActionType();
+      out.println("            <input type=\"hidden\" name=\"nextActionType\" value=\""
+          + nextActionType + "\">");
+      out.println("<script>");
+      out.println("  window.addEventListener('load', function() { selectProjectActionType"
+          + projectId + "('" + nextActionType + "'); }); ");
+      out.println("</script>");
+    }
     out.println("            </font>");
     out.println("          </td>");
     out.println("        </tr>");
     out.println("        <tr>");
     out.println("          <th class=\"inside\">What</th>");
     out.println("          <td class=\"inside\"> ");
+
     out.println(
-        "            <input name=\"startSentance\" size=\"40\" value=\"I will:\" disabled>");
+        "            <input name=\"startSentance\" size=\"40\" value=\"I will:\"" + disabled + ">");
     out.println("          </td>");
     out.println("          <th class=\"inside\">Who</th>");
     out.println("          <td class=\"inside\"> ");
-    out.println(
-        "              <select name=\"nextContactId\" onchange=\"selectProjectActionType" + projectId + "(form.nextActionType.value);\" disabled><option value=\"\">none</option>");
+    out.println("              <select name=\"nextContactId\" onchange=\"selectProjectActionType"
+        + projectId + "(form.nextActionType.value);\"" + disabled
+        + "><option value=\"\">none</option>");
     String nextContactId = n(request.getParameter("nextContactId"));
     for (ProjectContact projectContact1 : projectContactList) {
       if (projectContact1.getContactId() != webUser.getProjectContact().getContactId()) {
-        boolean selected = nextContactId.equals(projectContact1.getContactId());
+        boolean selected = nextContactId.equals(Integer.toString(
+            projectAction == null ? projectContact1.getContactId() : projectAction.getContactId()));
         out.println("                  <option value=\"" + projectContact1.getContactId() + "\""
             + (selected ? " selected" : "") + ">" + projectContact1.getName() + "</option>");
       }
@@ -775,78 +751,80 @@ public class ProjectServlet extends ClientServlet {
     out.println("          <th class=\"inside\"></th>");
     out.println("          <td class=\"inside\" colspan=\"3\"> ");
     out.println(
-        "            <textarea name=\"nextDescription\" cols=\"60\" rows=\"2\" onkeydown=\"resetRefresh()\" disabled></textarea>");
+        "            <textarea name=\"nextDescription\" cols=\"60\" rows=\"2\" onkeydown=\"resetRefresh()\""
+            + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
+            + "</textarea>");
     out.println("          </td>");
     out.println("        </tr>");
     out.println("        <tr>");
     out.println("          <th class=\"inside\">Time</th>");
     out.println("          <td class=\"inside\" colspan=\"3\">");
-    out.println(
-        "            <input type=\"text\" name=\"nextTimeEstimate\" size=\"3\" value=\"\" onkeydown=\"resetRefresh()\" disabled> mins ");
+    out.println("            <input type=\"text\" name=\"nextTimeEstimate\" size=\"3\" value=\""
+        + (projectAction == null ? "" : projectAction.getNextTimeEstimateForDisplay())
+        + "\" onkeydown=\"resetRefresh()\"" + disabled + "> mins ");
     out.println("            <font size=\"-1\">");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('5');\" class=\"button\"> 5m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('10');\" class=\"button\"> 10m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('20');\" class=\"button\"> 20m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('30');\" class=\"button\"> 30m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('40');\" class=\"button\"> 40m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('60');\" class=\"button\"> 60m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('70');\" class=\"button\"> 70m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('90');\" class=\"button\"> 90m</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('120');\" class=\"button\"> 2h</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('240');\" class=\"button\"> 4h</a>");
-    out.println(
-        "              <a href=\"javascript: void selectNextTimeEstimate" + projectId + "('360');\" class=\"button\"> 6h</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('5');\" class=\"button\"> 5m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('10');\" class=\"button\"> 10m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('20');\" class=\"button\"> 20m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('30');\" class=\"button\"> 30m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('40');\" class=\"button\"> 40m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('60');\" class=\"button\"> 60m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('70');\" class=\"button\"> 70m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('90');\" class=\"button\"> 90m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('120');\" class=\"button\"> 2h</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('240');\" class=\"button\"> 4h</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('360');\" class=\"button\"> 6h</a>");
     out.println("            </font> ");
     out.println("          </td>");
     out.println("        </tr>");
-    out.println("        <tr>");
-    out.println("          <th class=\"inside\">Deadline</th>");
-    out.println(
-        "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDeadline\" size=\"10\" value=\""
-            + n(request.getParameter("nextDeadline"))
-            + "\" onkeydown=\"resetRefresh()\" disabled>");
-    out.println("            <font size=\"-1\">");
-    sdf1 = webUser.getDateFormat();
-    out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
-        + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
-    calendar.add(Calendar.DAY_OF_MONTH, 1);
-    out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
-        + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
-        + day.format(calendar.getTime()) + "</a>");
-    nextWeek = false;
-    for (int i = 0; i < 6; i++) {
-      calendar.add(Calendar.DAY_OF_MONTH, 1);
-      if (nextWeek) {
-        out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
-            + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
-            + day.format(calendar.getTime()) + "</a>");
-      } else {
-        out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
-            + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
-            + day.format(calendar.getTime()) + "</a>");
+    {
+      Calendar calendar = webUser.getCalendar();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Deadline</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDeadline\" size=\"10\" value=\""
+              + n(projectAction == null || projectAction.getNextDeadline() == null
+                  ? request.getParameter("nextDeadline")
+                  : sdf1.format(projectAction.getNextDeadline()))
+              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      out.println("            <font size=\"-1\">");
+      sdf1 = webUser.getDateFormat();
+      calendar.add(Calendar.DAY_OF_MONTH, 2);
+      out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+          + day.format(calendar.getTime()) + "</a>");
+      boolean nextWeek = false;
+      for (int i = 0; i < 7; i++) {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        if (nextWeek) {
+          out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
+              + day.format(calendar.getTime()) + "</a>");
+        } else {
+          out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+              + day.format(calendar.getTime()) + "</a>");
+        }
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+          nextWeek = true;
+        }
       }
-      if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
-        nextWeek = true;
-      }
+      out.println("</font>");
+      out.println("          </td>");
+      out.println("        </tr>");
     }
-    calendar.set(Calendar.MONTH, 11);
-    calendar.set(Calendar.DAY_OF_MONTH, 31);
-    out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
-        + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
-    out.println("</font>");
-
-    out.println("          </td>");
-    out.println("        </tr>");
     out.println("      </table>");
     out.println("    </td>");
     out.println("  </tr>");
@@ -855,62 +833,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("      <th class=\"title\">Goals in the Future</th>");
       out.println("    </tr>");
       out.println("    <td class=\"outside\">");
-      out.println("<table class=\"inside\" width=\"100%\">");
-      out.println("  <tr>");
-      out.println("    <th class=\"inside\">Date</th>");
-      out.println("    <th class=\"inside\">Name</th>");
-      out.println("    <th class=\"inside\">To Do</th>");
-      out.println("    <th class=\"inside\">Status</th>");
-      out.println("    <th class=\"inside\">Comp</th>");
-      out.println("  </tr>");
-      SimpleDateFormat sdf11 = webUser.getDateFormat();
-      for (ProjectAction projectAction1 : projectActionGoalList) {
-
-        ProjectContact projectContact1 =
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction1.getContactId());
-        projectAction1.setContact(projectContact1);
-        ProjectContact nextProjectContact = null;
-        if (projectAction1.getNextContactId() != null && projectAction1.getNextContactId() > 0) {
-          nextProjectContact = (ProjectContact) dataSession.get(ProjectContact.class,
-              projectAction1.getNextContactId());
-          projectAction1.setNextProjectContact(nextProjectContact);
-        }
-        out.println("  <tr>");
-        if (projectAction1.getNextDue() != null) {
-          out.println(
-              "    <td class=\"inside\">" + sdf11.format(projectAction1.getNextDue()) + "</td>");
-        } else {
-          out.println("    <td class=\"inside\">&nbsp;</td>");
-        }
-        out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " "
-            + projectContact1.getNameLast() + "</td>");
-        out.println("    <td class=\"inside\">"
-            + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact()));
-        if (projectAction1.getNextTimeEstimate() != null
-            && projectAction1.getNextTimeEstimate() > 0) {
-          out.println(" (time estimate: " + projectAction1.getNextTimeEstimateForDisplay() + ")");
-        }
-        out.println("</td>");
-        if (projectAction1.getNextDue() != null) {
-          Date today = new Date();
-          Calendar calendar1 = webUser.getCalendar();
-          calendar1.add(Calendar.DAY_OF_MONTH, -1);
-          Date yesterday = calendar1.getTime();
-          if (projectAction1.getNextDue().after(today)) {
-            out.println("    <td class=\"inside\"></td>");
-          } else if (projectAction1.getNextDue().after(yesterday)) {
-            out.println("    <td class=\"inside-highlight\">Due Today</td>");
-          } else {
-            out.println("    <td class=\"inside-highlight\">Overdue</td>");
-          }
-        } else {
-          out.println("    <td class=\"inside\">&nbsp;</td>");
-        }
-        out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
-            + projectAction1.getActionId() + "\"></td>");
-        out.println("  </tr>");
-      }
-      out.println("</table>");
+      printGoalsOrTasks(webUser, projectId, dataSession, out, projectActionGoalList);
       out.println("    </td>");
       out.println("  </tr>");
     }
@@ -919,62 +842,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("      <th class=\"title\">Tasks in the Future</th>");
       out.println("    </tr>");
       out.println("    <td class=\"outside\">");
-      out.println("<table class=\"inside\" width=\"100%\">");
-      out.println("  <tr>");
-      out.println("    <th class=\"inside\">Date</th>");
-      out.println("    <th class=\"inside\">Name</th>");
-      out.println("    <th class=\"inside\">To Do</th>");
-      out.println("    <th class=\"inside\">Status</th>");
-      out.println("    <th class=\"inside\">Comp</th>");
-      out.println("  </tr>");
-      SimpleDateFormat sdf11 = webUser.getDateFormat();
-      for (ProjectAction projectAction1 : projectActionTaskList) {
-
-        ProjectContact projectContact1 =
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction1.getContactId());
-        projectAction1.setContact(projectContact1);
-        ProjectContact nextProjectContact = null;
-        if (projectAction1.getNextContactId() != null && projectAction1.getNextContactId() > 0) {
-          nextProjectContact = (ProjectContact) dataSession.get(ProjectContact.class,
-              projectAction1.getNextContactId());
-          projectAction1.setNextProjectContact(nextProjectContact);
-        }
-        out.println("  <tr>");
-        if (projectAction1.getNextDue() != null) {
-          out.println(
-              "    <td class=\"inside\">" + sdf11.format(projectAction1.getNextDue()) + "</td>");
-        } else {
-          out.println("    <td class=\"inside\">&nbsp;</td>");
-        }
-        out.println("    <td class=\"inside\">" + projectContact1.getNameFirst() + " "
-            + projectContact1.getNameLast() + "</td>");
-        out.println("    <td class=\"inside\">"
-            + projectAction1.getNextDescriptionForDisplay(webUser.getProjectContact()));
-        if (projectAction1.getNextTimeEstimate() != null
-            && projectAction1.getNextTimeEstimate() > 0) {
-          out.println(" (time estimate: " + projectAction1.getNextTimeEstimateForDisplay() + ")");
-        }
-        out.println("</td>");
-        if (projectAction1.getNextDue() != null) {
-          Date today = new Date();
-          Calendar calendar1 = webUser.getCalendar();
-          calendar1.add(Calendar.DAY_OF_MONTH, -1);
-          Date yesterday = calendar1.getTime();
-          if (projectAction1.getNextDue().after(today)) {
-            out.println("    <td class=\"inside\"></td>");
-          } else if (projectAction1.getNextDue().after(yesterday)) {
-            out.println("    <td class=\"inside-highlight\">Due Today</td>");
-          } else {
-            out.println("    <td class=\"inside-highlight\">Overdue</td>");
-          }
-        } else {
-          out.println("    <td class=\"inside\">&nbsp;</td>");
-        }
-        out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
-            + projectAction1.getActionId() + "\"></td>");
-        out.println("  </tr>");
-      }
-      out.println("</table>");
+      printGoalsOrTasks(webUser, projectId, dataSession, out, projectActionTaskList);
       out.println("    </td>");
       out.println("  </tr>");
     }
@@ -1011,6 +879,141 @@ public class ProjectServlet extends ClientServlet {
     out.println("    </td>");
     out.println("  </tr>");
     out.println("</table>");
+  }
+
+  private static void printGoalsOrTasks(WebUser webUser, int projectId, Session dataSession,
+      PrintWriter out, List<ProjectAction> projectActionGoalList) {
+    out.println("<table class=\"inside\" width=\"100%\">");
+    out.println("  <tr>");
+    out.println("    <th class=\"inside\">Date</th>");
+    out.println("    <th class=\"inside\">Name</th>");
+    out.println("    <th class=\"inside\">To Do</th>");
+    out.println("    <th class=\"inside\">Status</th>");
+    out.println("    <th class=\"inside\">Comp</th>");
+    out.println("  </tr>");
+    SimpleDateFormat sdf11 = webUser.getDateFormat();
+    for (ProjectAction pa : projectActionGoalList) {
+      String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId + "&"
+          + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
+      ProjectContact projectContact1 =
+          (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+      pa.setContact(projectContact1);
+      ProjectContact nextProjectContact = null;
+      if (pa.getNextContactId() != null && pa.getNextContactId() > 0) {
+        nextProjectContact =
+            (ProjectContact) dataSession.get(ProjectContact.class, pa.getNextContactId());
+        pa.setNextProjectContact(nextProjectContact);
+      }
+      out.println("  <tr>");
+      if (pa.getNextDue() != null) {
+        out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextDue())
+            + "</a></td>");
+      } else {
+        out.println("    <td class=\"inside\">&nbsp;</td>");
+      }
+      out.println("    <td class=\"inside\">" + editActionLink + projectContact1.getNameFirst()
+          + " " + projectContact1.getNameLast() + "</a></td>");
+      out.println("    <td class=\"inside\">" + editActionLink
+          + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
+      if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+        out.println(" (time estimate: " + pa.getNextTimeEstimateForDisplay() + ")");
+      }
+      out.println("</a></td>");
+      if (pa.getNextDue() != null) {
+        Date today = new Date();
+        Calendar calendar1 = webUser.getCalendar();
+        calendar1.add(Calendar.DAY_OF_MONTH, -1);
+        Date yesterday = calendar1.getTime();
+        if (pa.getNextDue().after(today)) {
+          out.println("    <td class=\"inside\"></td>");
+        } else if (pa.getNextDue().after(yesterday)) {
+          out.println("    <td class=\"inside-highlight\">Due Today</td>");
+        } else {
+          out.println("    <td class=\"inside-highlight\">Overdue</td>");
+        }
+      } else {
+        out.println("    <td class=\"inside\">&nbsp;</td>");
+      }
+      out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
+          + pa.getActionId() + "\"></td>");
+      out.println("  </tr>");
+    }
+    out.println("</table>");
+  }
+
+  private static void printTodoList(int projectId, WebUser webUser, Session dataSession,
+      PrintWriter out, List<ProjectAction> projectActionList) {
+    if (projectActionList.size() > 0) {
+      out.println("<table class=\"inside\" width=\"100%\">");
+      out.println("  <tr>");
+      out.println("    <th class=\"inside\">Date</th>");
+      out.println("    <th class=\"inside\">Name</th>");
+      out.println("    <th class=\"inside\">To Do</th>");
+      out.println("    <th class=\"inside\">Status</th>");
+      out.println("    <th class=\"inside\">Comp</th>");
+      out.println("  </tr>");
+      SimpleDateFormat sdf11 = webUser.getDateFormat();
+      for (ProjectAction pa : projectActionList) {
+        String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId
+            + "&" + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
+
+        ProjectContact projectContact1 =
+            (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+        pa.setContact(projectContact1);
+        ProjectContact nextProjectContact = null;
+        if (pa.getNextContactId() != null && pa.getNextContactId() > 0) {
+          nextProjectContact =
+              (ProjectContact) dataSession.get(ProjectContact.class, pa.getNextContactId());
+          pa.setNextProjectContact(nextProjectContact);
+        }
+        out.println("  <tr>");
+        if (pa.getNextDue() != null) {
+          out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextDue())
+              + "</a></td>");
+        } else {
+          out.println("    <td class=\"inside\">&nbsp;</td>");
+        }
+        out.println("    <td class=\"inside\">" + editActionLink + projectContact1.getNameFirst()
+            + " " + projectContact1.getNameLast() + "</a></td>");
+
+        {
+          if (ENABLE_TODO_SERVLET) {
+            String link =
+                "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "=" + pa.getActionId();
+            out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
+                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
+          } else {
+            out.println("    <td class=\"inside\">" + editActionLink
+                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
+          }
+        }
+        if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+          out.println(" (time estimate: " + pa.getNextTimeEstimateForDisplay() + ") </a>");
+        }
+        out.println("</td>");
+        if (pa.getNextDue() != null) {
+          Date today = new Date();
+          Calendar calendar1 = webUser.getCalendar();
+          calendar1.add(Calendar.DAY_OF_MONTH, -1);
+          Date yesterday = calendar1.getTime();
+          if (pa.getNextDue().after(today)) {
+            out.println("    <td class=\"inside\"></td>");
+          } else if (pa.getNextDue().after(yesterday)) {
+            out.println("    <td class=\"inside-highlight\">Due Today</td>");
+          } else {
+            out.println("    <td class=\"inside-highlight\">Overdue</td>");
+          }
+        } else {
+          out.println("    <td class=\"inside\">&nbsp;</td>");
+        }
+        out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
+            + pa.getActionId() + "\"></td>");
+        out.println("  </tr>");
+      }
+      out.println("</table>");
+    } else {
+      out.println("<i>no items</i>");
+    }
   }
 
   protected List<Project> setupProjectList(AppReq appReq, Project project) {
@@ -1204,8 +1207,8 @@ public class ProjectServlet extends ClientServlet {
     out.println("    {");
     out.println("      var form = document.forms['saveProjectActionForm" + projectId + "'];");
     out.println("      var found = false; ");
-    out.println(
-        "      var label = makeIStatement" + projectId + "(actionType, form.nextContactId.options[form.nextContactId.selectedIndex].text);");
+    out.println("      var label = makeIStatement" + projectId
+        + "(actionType, form.nextContactId.options[form.nextContactId.selectedIndex].text);");
     out.println("      form.startSentance.value = label;");
     out.println("      form.nextActionType.value = actionType;");
     out.println("      enableForm" + projectId + "(); ");

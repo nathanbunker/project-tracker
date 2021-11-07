@@ -205,6 +205,9 @@ public class ProjectAction implements java.io.Serializable {
   }
 
   public String getNextTimeEstimateForDisplay() {
+    if (nextTimeEstimate == null) {
+      return "";
+    }
     return getTimeForDisplay(getNextTimeEstimate());
   }
 

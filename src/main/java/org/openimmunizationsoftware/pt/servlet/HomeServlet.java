@@ -345,36 +345,41 @@ public class HomeServlet extends ClientServlet {
     out.println("            I: <font size=\"-1\"><a href=\"HomeServlet?nextActionType="
         + ProjectNextActionType.WILL + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + (nextActionType.equals(ProjectNextActionType.WILL) ? "box" : "button") + "\"> will</a>,");
-    out.println("            <a href=\"HomeServlet?nextActionType=M&date=" + sdf1.format(nextDue)
-        + "\" class=\"" + (nextActionType.equals("M") ? "box" : "button") + "\">might</a>, ");
+    out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.MIGHT + "&date=" + sdf1.format(nextDue)
+        + "\" class=\"" + (nextActionType.equals(ProjectNextActionType.MIGHT) ? "box" : "button") + "\">might</a>, ");
     out.println("            <a href=\"HomeServlet?nextActionType="
         + ProjectNextActionType.WILL_CONTACT + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + (nextActionType.equals(ProjectNextActionType.WILL_CONTACT) ? "box" : "button")
-        + "\">will contact</a></font>");
-    out.println("            <a href=\"HomeServlet?nextActionType=G&date=" + sdf1.format(nextDue)
-        + "\" class=\""
+        + "\">will contact</a>");
+    out.println("            <a href=\"HomeServlet?nextActionType="
+        + ProjectNextActionType.WILL_MEET + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + (nextActionType.equals(ProjectNextActionType.WILL_MEET) ? "box" : "button")
         + "\">will meet</a></font>");
     out.println("            <br/> ");
     out.println("            I have: ");
-    out.println("            <font size=\"-1\"><a href=\"HomeServlet?nextActionType=T&date="
-        + sdf1.format(nextDue) + "\" class=\""
+    out.println("            <font size=\"-1\"><a href=\"HomeServlet?nextActionType="
+        + ProjectNextActionType.COMMITTED_TO + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + ((nextActionType.equals(ProjectNextActionType.COMMITTED_TO)
             || nextActionType.equals(ProjectNextActionType.OVERDUE_TO)) ? "box" : "button")
         + "\">committed</a>,");
-    out.println("            <a href=\"HomeServlet?nextActionType=G&date=" + sdf1.format(nextDue)
-        + "\" class=\"" + (nextActionType.equals(ProjectNextActionType.GOAL) ? "box" : "button")
-        + "\">set goal</a></font>");
-    out.println("            <a href=\"HomeServlet?nextActionType=G&date=" + sdf1.format(nextDue)
-        + "\" class=\"" + (nextActionType.equals(ProjectNextActionType.TASK) ? "box" : "button")
+    out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.GOAL
+        + "&date=" + sdf1.format(nextDue) + "\" class=\""
+        + (nextActionType.equals(ProjectNextActionType.GOAL) ? "box" : "button")
+        + "\">set goal</a>");
+    out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.TASK
+        + "&date=" + sdf1.format(nextDue) + "\" class=\""
+        + (nextActionType.equals(ProjectNextActionType.TASK) ? "box" : "button")
         + "\">set task</a></font>");
     out.println("            <br/> ");
     out.println("            I am:");
-    out.println("            <font size=\"-1\"><a href=\"HomeServlet?nextActionType=W&date="
-        + sdf1.format(nextDue) + "\" class=\"" + (nextActionType.equals("W") ? "box" : "button")
+    out.println("            <font size=\"-1\"><a href=\"HomeServlet?nextActionType="
+        + ProjectNextActionType.WAITING + "&date=" + sdf1.format(nextDue) + "\" class=\""
+        + (nextActionType.equals(ProjectNextActionType.WAITING) ? "box" : "button")
         + "\">waiting</a>,");
-    out.println("            <a href=\"HomeServlet?nextActionType=A&date=" + sdf1.format(nextDue)
-        + "\" class=\"" + (nextActionType.equals("A") ? "box" : "button") + "\">asking</a></font>");
+    out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.ASKS_TO
+        + "&date=" + sdf1.format(nextDue) + "\" class=\""
+        + (nextActionType.equals(ProjectNextActionType.ASKS_TO) ? "box" : "button")
+        + "\">asking</a></font>");
     out.println("           <br>Due <input type=\"text\" name=\"date\" value=\""
         + sdf1.format(nextDue) + "\" size=\"10\" onchange=\"this.form.submit()\">");
     out.println("            <font size=\"-1\">");
@@ -656,7 +661,12 @@ public class HomeServlet extends ClientServlet {
           + ProjectNextActionType.WILL_CONTACT + "', '" + changeFormId + "'); \" class=\""
           + (projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT) ? "box"
               : "button")
-          + "\">will contact</a></font>");
+          + "\">will contact</a>");
+      out.println("            <a href=\"HomeServlet?nextActionType="
+          + ProjectNextActionType.WILL_MEET + "&date=" + sdf1.format(nextDue) + "\" class=\""
+          + (nextActionType.equals(ProjectNextActionType.WILL_MEET) ? "box" : "button")
+          + "\">will meet</a></font>");
+      out.println("            <br/> ");
       out.println("            I have: ");
       out.println("            <font size=\"-1\"><a href=\"javascript: void changeNextActionType('"
           + ProjectNextActionType.COMMITTED_TO + "', '" + changeFormId + "'); \" class=\""
@@ -667,7 +677,11 @@ public class HomeServlet extends ClientServlet {
       out.println("            <a href=\"javascript: void changeNextActionType('G', '"
           + changeFormId + "'); \" class=\""
           + (projectAction.getNextActionType().equals("G") ? "box" : "button")
-          + "\">set goal</a></font>");
+          + "\">set goal</a>");
+      out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.TASK
+          + "&date=" + sdf1.format(nextDue) + "\" class=\""
+          + (nextActionType.equals(ProjectNextActionType.TASK) ? "box" : "button")
+          + "\">set task</a></font>");
       out.println("            I am:");
       out.println(
           "            <font size=\"-1\"><a href=\"javascript: void changeNextActionType('W', '"

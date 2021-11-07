@@ -31,6 +31,8 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class ClientServlet extends HttpServlet {
 
   private static final long serialVersionUID = 8641751774755499569L;
+  
+  public static String PARAM_ACTION = "action";
 
   public static final HashMap<String, Date> webUserLastUsedDate = new HashMap<String, Date>();
   public static String systemWideMessage = "";

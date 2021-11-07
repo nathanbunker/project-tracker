@@ -1,5 +1,5 @@
 package org.openimmunizationsoftware.pt;
 
 public class SoftwareVersion {
-  public static String VERSION = "2.15.4 2021-10-12";
+  public static String VERSION = "2.15.5 2021-11-06";
 }

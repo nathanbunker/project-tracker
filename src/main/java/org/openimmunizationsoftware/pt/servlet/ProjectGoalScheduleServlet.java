@@ -11,8 +11,10 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -151,10 +153,12 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
                   projectAction.setNextActionType(nextActionType);
                   int priorityLevel = project.getPriorityLevel();
                   if (nextActionType != null) {
-                    if (nextActionType.equals("T")) {
+                    if (nextActionType.equals(ProjectNextActionType.COMMITTED_TO)) {
                       priorityLevel += 1;
-                    } else if (nextActionType.equals("N") || nextActionType.equals("W")
-                        || nextActionType.equals("E") || nextActionType.equals("A")) {
+                    } else if (nextActionType.equals(ProjectNextActionType.MIGHT)
+                        || nextActionType.equals(ProjectNextActionType.WAITING)
+                        || nextActionType.equals(ProjectNextActionType.WILL_RUN_ERRAND)
+                        || nextActionType.equals(ProjectNextActionType.ASKS_TO)) {
                       priorityLevel -= 1;
                     }
                   }
@@ -162,6 +166,7 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
                   projectAction.setNextContactId(projectActionGoal.getNextContactId());
                   projectAction.setNextProjectContact(projectActionGoal.getNextProjectContact());
                   projectAction.setProvider(webUser.getProvider());
+                  projectAction.setNextTimeEstimate(projectActionGoal.getNextTimeEstimate());
                   dataSession.save(projectAction);
                 }
               }
@@ -181,27 +186,36 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">Goal</th>");
+      out.println("    <th class=\"boxed\">Time</th>");
+      Set<Calendar> onWeekend = new HashSet<Calendar>();
+      Map<Calendar, Integer> timeMap = new HashMap<Calendar, Integer>();
       {
         SimpleDateFormat sdf1 = new SimpleDateFormat("EEE");
         SimpleDateFormat sdf2 = new SimpleDateFormat("M/d");
         for (Calendar day : dayList) {
           out.println("    <th class=\"boxed\">" + sdf1.format(day.getTime()) + "<br/>"
               + sdf2.format(day.getTime()) + "</th>");
+          timeMap.put(day, 0);
+          if (day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY
+              || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+            onWeekend.add(day);
+          }
         }
       }
       out.println("    <th class=\"boxed\">Action</th>");
       out.println("  </tr>");
       SimpleDateFormat sdfField = webUser.getDateFormat("yyyyMMdd");
+
       for (Project project : projectList) {
 
         List<ProjectAction> projectActionGoalList = projectActionGoalMap.get(project);
         if (projectActionGoalList.size() == 0) {
-          out.println("  <tr class=\"boxed\">");
-          out.println(
-              "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-          out.println("    <td class=\"boxed\" colspan=\"9\"></td>");
-          out.println("  </tr>");
+          //          out.println("  <tr class=\"boxed\">");
+          //          out.println(
+          //              "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
+          //                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+          //          out.println("    <td class=\"boxed\" colspan=\"9\"></td>");
+          //          out.println("  </tr>");
         } else {
           for (ProjectAction projectActionGoal : projectActionGoalList) {
             Map<Calendar, ProjectAction> projectActionMap =
@@ -210,17 +224,30 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
                 + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
                 + "</a></td>");
+            out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
+                + project.getProjectId() + "&" + ProjectServlet.PARAM_ACTION_ID + "="
+                + projectActionGoal.getActionId() + "\" class=\"button\">"
+                + projectActionGoal.getNextDescription() + "</a></td>");
             out.println("    <td class=\"boxed\">");
-            out.println(projectActionGoal.getNextDescription());
+            out.println(projectActionGoal.getNextTimeEstimateForDisplay());
             out.println("    </td>");
             for (Calendar day : dayList) {
               ProjectAction projectAction = projectActionMap.get(day);
-              out.println("    <td class=\"boxed\">");
+              boolean checked = projectAction != null;
+              String style = "boxed";
+              if (onWeekend.contains(day)) {
+                style = "boxed-lowlight";
+              }
+              out.println("    <td class=\"" + style + "\">");
               out.println(
                   "      <input type=\"checkbox\" name=\"s" + projectActionGoal.getActionId() + "."
                       + sdfField.format(day.getTime()) + "\" value=\"" + sdf.format(day.getTime())
-                      + "\"" + (projectAction == null ? "" : " checked") + "/>");
+                      + "\"" + (checked ? " checked" : "") + "/>");
               out.println("    </td>");
+              if (checked && projectActionGoal.getNextTimeEstimate() != null
+                  && projectActionGoal.getNextTimeEstimate() > 0) {
+                timeMap.put(day, timeMap.get(day) + projectActionGoal.getNextTimeEstimate());
+              }
             }
             out.println("    <td class=\"boxed\">");
             String nextActionType = ProjectNextActionType.WILL;
@@ -233,13 +260,20 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
                 ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO,
                 ProjectNextActionType.WAITING, ProjectNextActionType.ASKS_TO}) {
               String label = ProjectNextActionType.getLabel(nat);
-              out.println("  <option value=\"" + nat + "\""
-                  + (nat.equals(nextActionType) ? " selected" : "") + ">" + label + "</option>");
+              boolean selected = nat.equals(nextActionType);
+              out.println("  <option value=\"" + nat + "\"" + (selected ? " selected" : "") + ">"
+                  + label + "</option>");
             }
             out.println("    </td>");
             out.println("  </tr>");
           }
         }
+      }
+      out.println("    <td class=\"boxed\" colspan=\"3\">Total Time</td>");
+      for (Calendar day : dayList) {
+        out.println("    <td class=\"boxed\">");
+        out.println(ProjectAction.getTimeForDisplay(timeMap.get(day)));
+        out.println("    </td>");
       }
       out.println("</table>");
 

@@ -6,6 +6,8 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import javax.servlet.ServletException;
@@ -13,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
@@ -26,6 +29,10 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 @SuppressWarnings("serial")
 public class ProjectsServlet extends ClientServlet {
 
+  private static final String PARAM_SEARCH_TEXT = "searchText";
+  private static final String PARAM_CATEGORY_CODE = "categoryCode";
+  private static final String PARAM_PHASE_CODE = "phaseCode";
+  private static final String PARAM_SEARCH_FIELD = "searchField";
   private static final String MEDICAL_ORGANIZATION = "Medical Organization";
   private static final String IIS_FACILITY_ID = "IIS Facility Id";
   private static final String IIS_SUBMISSION_CODE = "IIS Submission Code";
@@ -37,6 +44,10 @@ public class ProjectsServlet extends ClientServlet {
   private static final String PROJECT_NAME = "Project Name";
   private static final String NOT_CLOSED = "NOT_CLOSED";
   private static final String ALL = "ALL";
+
+  public static final String ACTION_UP = "up";
+  public static final String ACTION_DOWN = "down";
+  public static final String PARAM_PROJECT_ID = "projectId";
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -67,9 +78,55 @@ public class ProjectsServlet extends ClientServlet {
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
 
-      String categoryCode = n(request.getParameter("categoryCode"));
-      String phaseCode = n(request.getParameter("phaseCode"), NOT_CLOSED);
-      String searchField = n(request.getParameter("searchField"), PROJECT_NAME);
+      String categoryCode = n(request.getParameter(PARAM_CATEGORY_CODE));
+      String phaseCode = n(request.getParameter(PARAM_PHASE_CODE), NOT_CLOSED);
+      String searchField = n(request.getParameter(PARAM_SEARCH_FIELD), PROJECT_NAME);
+      String searchText = n(request.getParameter(PARAM_SEARCH_TEXT));
+
+      String action = request.getParameter(PARAM_ACTION);
+
+      if (action != null) {
+        if (action.equals(ACTION_UP) || action.equals(ACTION_DOWN)) {
+          List<Project> projectList = createProjectList(request, webUser, dataSession, categoryCode,
+              phaseCode, searchField, searchText);
+          Integer projectId = Integer.parseInt(request.getParameter(PARAM_PROJECT_ID));
+          Project project = (Project) dataSession.get(Project.class, projectId);
+          if (action.equals(ACTION_DOWN)) {
+            boolean next = false;
+            for (int i = 0; i < projectList.size(); i++) {
+              Project p = projectList.get(i);
+              int priorityLevel = projectList.size() - i;
+              if (p.getProjectId() == project.getProjectId()) {
+                next = true;
+                p.setPriorityLevel(priorityLevel - 1);
+              } else if (next) {
+                p.setPriorityLevel(priorityLevel + 1);
+                next = false;
+              } else {
+                p.setPriorityLevel(priorityLevel);
+              }
+              updateProject(dataSession, p);
+            }
+          } else if (action.equals(ACTION_UP)) {
+            boolean next = false;
+            for (int i = projectList.size() - 1; i >= 0; i--) {
+              Project p = projectList.get(i);
+              int priorityLevel = projectList.size() - i;
+              if (p.getProjectId() == project.getProjectId()) {
+                next = true;
+                p.setPriorityLevel(priorityLevel + 1);
+              } else if (next) {
+                p.setPriorityLevel(priorityLevel - 1);
+                next = false;
+              } else {
+                p.setPriorityLevel(priorityLevel);
+              }
+              updateProject(dataSession, p);
+            }
+          }
+
+        }
+      }
 
       out.println("<form action=\"ProjectsServlet\" method=\"GET\">");
       out.println("Search ");
@@ -93,8 +150,8 @@ public class ProjectsServlet extends ClientServlet {
           + (searchField.equals(MEDICAL_ORGANIZATION) ? " selected" : "")
           + ">Medical Organization</option>");
       out.println("</select>");
-      out.println("for <input type=\"text\" name=\"searchText\" value=\""
-          + n(request.getParameter("searchText")) + "\" size=\"15\" >");
+      out.println("for <input type=\"text\" name=\"searchText\" value=\"" + searchText
+          + "\" size=\"15\" >");
       out.println("<br>");
       out.println("Limit by Category ");
       out.println("<select name=\"categoryCode\">");
@@ -147,14 +204,17 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<input type=\"submit\" name=\"action\" value=\"Search\" >");
       out.println("</form>");
 
-      List<Project> projectList =
-          createProjectList(request, webUser, dataSession, categoryCode, phaseCode, searchField);
+      List<Project> projectList = createProjectList(request, webUser, dataSession, categoryCode,
+          phaseCode, searchField, searchText);
       List<Integer> projectIdList = new ArrayList<Integer>();
       appReq.setProjectIdList(projectIdList);
       appReq.setProjectContactAssignedList(null);
 
-      printProjectSearchResults(out, dataSession, phaseCode, searchField, projectList,
-          projectIdList);
+      boolean showPriorityColumn =
+          searchText.equals("") && categoryCode.equals("") && phaseCode.equals(NOT_CLOSED);
+
+      printProjectSearchResults(out, dataSession, phaseCode, searchField, showPriorityColumn,
+          categoryCode, projectList, projectIdList);
       out.println("<h2>Create a New Project</h2>");
       out.println(
           "<p>If you do not see your project in the list above you can <a href=\"ProjectEditServlet\">create</a> one.</p>");
@@ -174,32 +234,26 @@ public class ProjectsServlet extends ClientServlet {
     }
   }
 
+  private void updateProject(Session dataSession, Project p) {
+    Transaction transaction = dataSession.beginTransaction();
+    dataSession.update(p);
+    transaction.commit();
+  }
+
   private void printProjectSearchResults(PrintWriter out, Session dataSession, String phaseCode,
-      String searchField, List<Project> projectList, List<Integer> projectIdList) {
+      String searchField, boolean showPriority, String categoryCode, List<Project> projectList,
+      List<Integer> projectIdList) throws UnsupportedEncodingException {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Category</th>");
     out.println("    <th class=\"boxed\">Phase</th>");
-    if (!phaseCode.equals(PROJECT_NAME)) {
-      if (searchField.equals(PROVIDER_NAME)) {
-        out.println("    <th class=\"boxed\">Provider Name</th>");
-      } else if (searchField.equals(VENDOR_NAME)) {
-        out.println("    <th class=\"boxed\">Vendor Name</th>");
-      } else if (searchField.equals(SYSTEM_NAME)) {
-        out.println("    <th class=\"boxed\">System Name</th>");
-      } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
-        out.println("    <th class=\"boxed\">IIS Submission Code</th>");
-      } else if (searchField.equals(IIS_FACILITY_ID)) {
-        out.println("    <th class=\"boxed\">IIS Facility Id</th>");
-      } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
-        out.println("    <th class=\"boxed\">Medical Organization</th>");
-      } else if (searchField.equals(DESCRIPTION)) {
-        out.println("    <th class=\"boxed\">Description</th>");
-      }
-    }
+
+    out.println("    <th class=\"boxed\">Priority</th>");
     out.println("  </tr>");
+    int position = 0;
     for (Project project : projectList) {
+      position++;
       projectIdList.add(project.getProjectId());
       loadProjectsObject(dataSession, project);
       out.println("  <tr class=\"boxed\">");
@@ -213,26 +267,18 @@ public class ProjectsServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">"
           + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
           + "</td>");
-      if (!phaseCode.equals(PROJECT_NAME)) {
-        if (searchField.equals(PROVIDER_NAME)) {
-          out.println("    <td class=\"boxed\">" + n(project.getProviderName()) + "</td>");
-        } else if (searchField.equals(VENDOR_NAME)) {
-          out.println("    <td class=\"boxed\">" + n(project.getVendorName()) + "</td>");
-        } else if (searchField.equals(SYSTEM_NAME)) {
-          out.println("    <td class=\"boxed\">" + n(project.getSystemName()) + "</td>");
-        } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
-          out.println("    <td class=\"boxed\">" + n(project.getIisSubmissionCode()) + "</td>");
-        } else if (searchField.equals(IIS_FACILITY_ID)) {
-          out.println("    <td class=\"boxed\">" + n(project.getIisFacilityId()) + "</td>");
-        } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
-          out.println("    <td class=\"boxed\">" + n(project.getMedicalOrganization()) + "</td>");
-        } else if (searchField.equals(IIS_REGION_CODE)) {
-          out.println("    <td class=\"boxed\">" + n(project.getIisRegionCode()) + "</td>");
-        } else if (searchField.equals(DESCRIPTION)) {
-          out.println(
-              "    <td class=\"boxed\">" + trimForDisplay(project.getDescription(), 60) + "</td>");
-        }
+      out.println("    <td>");
+      String link = "ProjectsServlet?" + PARAM_SEARCH_FIELD + "="
+          + URLEncoder.encode(searchField, "UTF-8") + "&" + PARAM_PHASE_CODE + "=" + phaseCode + "&"
+          + PARAM_CATEGORY_CODE + "=" + categoryCode + "&" + PARAM_PROJECT_ID + "="
+          + project.getProjectId() + "&" + PARAM_ACTION + "=";
+      if (position < projectList.size()) {
+        out.println("<a href=\"" + link + ACTION_DOWN + "\" class=\"button\">&#8595; down</a>");
       }
+      if (position > 1) {
+        out.println("<a href=\"" + link + ACTION_UP + "\" class=\"button\">&#8593; up</a>");
+      }
+      out.println("    </td>");
       out.println("  </tr>");
     }
     out.println("</table>");
@@ -240,11 +286,11 @@ public class ProjectsServlet extends ClientServlet {
 
   @SuppressWarnings("unchecked")
   private List<Project> createProjectList(HttpServletRequest request, WebUser webUser,
-      Session dataSession, String categoryCode, String phaseCode, String searchField) {
+      Session dataSession, String categoryCode, String phaseCode, String searchField,
+      String searchText) {
     Query query;
     List<Project> projectList;
     {
-      String searchText = n(request.getParameter("searchText"));
       String queryString = "from Project where provider = ?";
       if (!searchText.equals("")) {
         if (searchField.equals(PROJECT_NAME)) {
@@ -277,7 +323,7 @@ public class ProjectsServlet extends ClientServlet {
       if (!categoryCode.equals("")) {
         queryString += " and (categoryCode = ? or categoryCode LIKE ? )";
       }
-      queryString += " order by projectName, categoryCode";
+      queryString += " order by priorityLevel desc, categoryCode, projectName";
       query = dataSession.createQuery(queryString);
       query.setParameter(0, webUser.getProvider());
       int i = 0;
@@ -304,7 +350,7 @@ public class ProjectsServlet extends ClientServlet {
   protected static void loadProjectsObject(Session dataSession, Project project) {
     Query query1 = dataSession.createQuery(
         "from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
-    query1.setParameter("categoryCode", project.getCategoryCode());
+    query1.setParameter(PARAM_CATEGORY_CODE, project.getCategoryCode());
     query1.setParameter("provider", project.getProvider());
     @SuppressWarnings("unchecked")
     List<ProjectCategory> projectCategoryList = query1.list();

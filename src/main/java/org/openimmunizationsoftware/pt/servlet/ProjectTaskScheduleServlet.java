@@ -75,8 +75,20 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       if (action == null) {
         Transaction transaction = dataSession.beginTransaction();
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.HOUR, -48);
+        boolean splitPriorities = true;
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
+            || calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY) {
+          splitPriorities = false;
+        }
+        calendar.add(Calendar.HOUR, -12);
+        Date priorityHigh = calendar.getTime();
+        calendar.add(Calendar.HOUR, -24);
+        Date priorityMedium = calendar.getTime();
+        calendar.add(Calendar.HOUR, -72);
+        Date priorityLow = calendar.getTime();
+        int count = 0;
         for (ProjectAction projectAction : projectActionTaskList) {
+          count++;
           Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
           if (projectNeedUpdateList.contains(project)) {
             continue;
@@ -84,10 +96,17 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
           if (projectAction.getTaskStatus() == null || projectAction.getTaskStatus().equals("")) {
             projectNeedUpdateList.add(project);
           } else {
+            Date priority = priorityHigh;
+            if (splitPriorities && count > 3) {
+              priority = priorityMedium;
+              if (count > 7) {
+                priority = priorityLow;
+              }
+            }
             Query query = dataSession.createQuery(
                 "from ProjectAction where projectId = :projectId and actionDate >= :actionDate");
             query.setParameter("projectId", projectAction.getProjectId());
-            query.setParameter("actionDate", calendar.getTime());
+            query.setParameter("actionDate", priority);
             List<ProjectAction> projectActionList = query.list();
             if (projectActionList.size() == 0) {
               projectNeedUpdateList.add(project);
@@ -194,13 +213,24 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
         out.println("    <td class=\"boxed\">");
         out.println(projectAction.getNextDescription());
         out.println("    </td>");
+        out.println("    <td class=\"boxed\" style=\"background-color: "
+            + ProjectTasksStatus.getColor(projectAction.getTaskStatus()) + "\">");
         {
+          String id = "taskStatus" + projectAction.getActionId();
           String taskStatus = projectAction.getTaskStatus();
-          out.println("    <td class=\"boxed\" style=\"background-color: "
-              + ProjectTasksStatus.getColor(taskStatus) + "\">");
-          out.println(ProjectTasksStatus.getLabel(taskStatus));
-          out.println("    </td>");
+          if (taskStatus == null) {
+            taskStatus = "";
+          }
+          out.println("      <select name=\"" + id + "\">");
+          for (String ts : new String[] {ProjectTasksStatus.PROGRESSING, ProjectTasksStatus.DELAYED,
+              ProjectTasksStatus.BLOCKED}) {
+            out.println(
+                "    <option value=\"" + ts + "\"" + (taskStatus.equals(ts) ? " selected" : "")
+                    + ">" + ProjectTasksStatus.getLabel(ts) + "</option>");
+          }
+          out.println("      </select>");
         }
+        out.println("    </td>");
         out.println("    <td class=\"boxed\">");
         {
           String id = "nextDue" + projectAction.getActionId();
@@ -293,7 +323,8 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
         });
         project.setProjectContactAssignedList(projectContactAssignedList);
 
-        ProjectServlet.printProjectUpdateForm(appReq, project.getProjectId(), projectContactList);
+        ProjectServlet.printProjectUpdateForm(appReq, project.getProjectId(), projectContactList,
+            null);
 
         out.println("</form>");
       }

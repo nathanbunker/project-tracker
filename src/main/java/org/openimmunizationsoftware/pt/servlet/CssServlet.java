@@ -147,6 +147,8 @@ public class CssServlet extends ClientServlet {
     out.println("td.inside-highlight {padding-left:5px; padding-right:5px; background:#FFFF99; }");
     out.println(
         "td.boxed-highlight {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; background:#FFFF99; }");
+    out.println(
+        "td.boxed-lowlight {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; background:#EEEEEE; }");
 
     out.println(
         "a:link.button {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #FFFFFF; border-width: 1px; border-style: solid}");
