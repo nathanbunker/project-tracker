@@ -122,8 +122,8 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
           for (ProjectAction projectAction : projectActionTaskList) {
             projectAction.setPriorityLevel(Integer
                 .parseInt(request.getParameter("priorityLevel" + projectAction.getActionId())));
-            //            projectAction
-            //                .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
+            projectAction
+                .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
             Date nextDue = null;
             String s = request.getParameter("nextDue" + projectAction.getActionId());
             if (!s.equals("")) {

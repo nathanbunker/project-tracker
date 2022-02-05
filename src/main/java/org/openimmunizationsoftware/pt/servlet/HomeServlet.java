@@ -263,9 +263,24 @@ public class HomeServlet extends ClientServlet {
       out.println("  </tr>");
 
       int nextTimeEstimateTotal = 0;
+      int nextTimeEstimateCommit = 0;
+      int nextTimeEstimateWill = 0;
+      int nextTimeEstimateWillMeet = 0;
+      int nextTimeEstimateMight = 0;
       for (ProjectAction projectAction : projectActionListOverdue) {
         if (projectAction.getNextTimeEstimate() != null) {
           nextTimeEstimateTotal += projectAction.getNextTimeEstimate();
+          if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())
+              || ProjectNextActionType.OVERDUE_TO.equals(projectAction.getNextActionType())) {
+            nextTimeEstimateCommit += projectAction.getNextTimeEstimate();
+          } else if (ProjectNextActionType.WILL.equals(projectAction.getNextActionType())
+              || ProjectNextActionType.WILL_CONTACT.equals(projectAction.getNextActionType())) {
+            nextTimeEstimateWill += projectAction.getNextTimeEstimate();
+          } else if (ProjectNextActionType.WILL_MEET.equals(projectAction.getNextActionType())) {
+            nextTimeEstimateWillMeet += projectAction.getNextTimeEstimate();
+          } else if (ProjectNextActionType.MIGHT.equals(projectAction.getNextActionType())) {
+            nextTimeEstimateMight += projectAction.getNextTimeEstimate();
+          }
         }
       }
       for (ProjectAction projectAction : projectActionListOverdue) {
@@ -274,10 +289,8 @@ public class HomeServlet extends ClientServlet {
       }
       out.println("</table><br/>");
 
-      if (nextTimeEstimateTotal > 0) {
-        out.println("<p>Total estimated time to complete overdue tasks: "
-            + ProjectAction.getTimeForDisplay(nextTimeEstimateTotal) + "</p>");
-      }
+      printTimeEstimateBox(out, nextTimeEstimateTotal, nextTimeEstimateCommit, nextTimeEstimateWill,
+          nextTimeEstimateWillMeet, nextTimeEstimateMight);
 
     }
 
@@ -306,6 +319,37 @@ public class HomeServlet extends ClientServlet {
         cToday, cTomorrow, showLink);
     printDueTable(webUser, out, sdf1, nextActionType, nextDueTomorrow, projectActionList,
         nextDueTomorrowCalendar, cToday, cTomorrow, showLink);
+  }
+
+  private static void printTimeEstimateBox(PrintWriter out, int nextTimeEstimateTotal,
+      int nextTimeEstimateCommit, int nextTimeEstimateWill, int nextTimeEstimateWillMeet,
+      int nextTimeEstimateMight) {
+    if (nextTimeEstimateTotal > 0) {
+      out.println("<table class=\"boxed\">");
+      int runningTotal = 0;
+      runningTotal = printTimeTotal(out, runningTotal, "Will Meet", nextTimeEstimateWillMeet);
+      runningTotal = printTimeTotal(out, runningTotal, "Committed", nextTimeEstimateCommit);
+      runningTotal = printTimeTotal(out, runningTotal, "Will", nextTimeEstimateWill);
+      runningTotal = printTimeTotal(out, runningTotal, "Might", nextTimeEstimateMight);
+      runningTotal =
+          printTimeTotal(out, runningTotal, "Other", nextTimeEstimateTotal - runningTotal);
+      out.println("</table><br/>");
+    } else {
+      out.println("<br/>");
+    }
+  }
+
+  private static int printTimeTotal(PrintWriter out, int runningTotal, String title, int time) {
+    if (time > 0) {
+      runningTotal += time;
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">" + title + "</th>");
+      out.println("    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(time) + "</th>");
+      out.println(
+          "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(runningTotal) + "</th>");
+      out.println("  </tr>");
+    }
+    return runningTotal;
   }
 
   private static void printScript(PrintWriter out, SimpleDateFormat sdf1, String nextActionType,
@@ -345,8 +389,10 @@ public class HomeServlet extends ClientServlet {
     out.println("            I: <font size=\"-1\"><a href=\"HomeServlet?nextActionType="
         + ProjectNextActionType.WILL + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + (nextActionType.equals(ProjectNextActionType.WILL) ? "box" : "button") + "\"> will</a>,");
-    out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.MIGHT + "&date=" + sdf1.format(nextDue)
-        + "\" class=\"" + (nextActionType.equals(ProjectNextActionType.MIGHT) ? "box" : "button") + "\">might</a>, ");
+    out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.MIGHT
+        + "&date=" + sdf1.format(nextDue) + "\" class=\""
+        + (nextActionType.equals(ProjectNextActionType.MIGHT) ? "box" : "button")
+        + "\">might</a>, ");
     out.println("            <a href=\"HomeServlet?nextActionType="
         + ProjectNextActionType.WILL_CONTACT + "&date=" + sdf1.format(nextDue) + "\" class=\""
         + (nextActionType.equals(ProjectNextActionType.WILL_CONTACT) ? "box" : "button")
@@ -463,6 +509,10 @@ public class HomeServlet extends ClientServlet {
 
     int askingAndWaitingCount = 0;
     int nextTimeEstimateTotal = 0;
+    int nextTimeEstimateCommit = 0;
+    int nextTimeEstimateWill = 0;
+    int nextTimeEstimateWillMeet = 0;
+    int nextTimeEstimateMight = 0;
     for (ProjectAction projectAction : projectActionList) {
       if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
         continue;
@@ -478,6 +528,18 @@ public class HomeServlet extends ClientServlet {
       }
       if (projectAction.getNextTimeEstimate() != null) {
         nextTimeEstimateTotal += projectAction.getNextTimeEstimate();
+        if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())
+            || ProjectNextActionType.OVERDUE_TO.equals(projectAction.getNextActionType())) {
+          nextTimeEstimateCommit += projectAction.getNextTimeEstimate();
+        } else if (ProjectNextActionType.WILL.equals(projectAction.getNextActionType())
+            || ProjectNextActionType.WILL_CONTACT.equals(projectAction.getNextActionType())) {
+          nextTimeEstimateWill += projectAction.getNextTimeEstimate();
+        } else if (ProjectNextActionType.WILL_MEET.equals(projectAction.getNextActionType())) {
+          nextTimeEstimateWillMeet += projectAction.getNextTimeEstimate();
+        } else if (ProjectNextActionType.MIGHT.equals(projectAction.getNextActionType())) {
+          nextTimeEstimateMight += projectAction.getNextTimeEstimate();
+        }
+
       }
     }
 
@@ -549,13 +611,8 @@ public class HomeServlet extends ClientServlet {
     }
 
 
-
-    if (nextTimeEstimateTotal > 0) {
-      out.println("<p>Total estimated time to complete tasks: "
-          + ProjectAction.getTimeForDisplay(nextTimeEstimateTotal) + "</p>");
-    } else {
-      out.println("<br/>");
-    }
+    printTimeEstimateBox(out, nextTimeEstimateTotal, nextTimeEstimateCommit, nextTimeEstimateWill,
+        nextTimeEstimateWillMeet, nextTimeEstimateMight);
   }
 
   private static void printActionLine(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
@@ -676,8 +733,7 @@ public class HomeServlet extends ClientServlet {
           + "\">committed</a>,");
       out.println("            <a href=\"javascript: void changeNextActionType('G', '"
           + changeFormId + "'); \" class=\""
-          + (projectAction.getNextActionType().equals("G") ? "box" : "button")
-          + "\">set goal</a>");
+          + (projectAction.getNextActionType().equals("G") ? "box" : "button") + "\">set goal</a>");
       out.println("            <a href=\"HomeServlet?nextActionType=" + ProjectNextActionType.TASK
           + "&date=" + sdf1.format(nextDue) + "\" class=\""
           + (nextActionType.equals(ProjectNextActionType.TASK) ? "box" : "button")
