@@ -334,8 +334,6 @@ public class HomeServlet extends ClientServlet {
       runningTotal =
           printTimeTotal(out, runningTotal, "Other", nextTimeEstimateTotal - runningTotal);
       out.println("</table><br/>");
-    } else {
-      out.println("<br/>");
     }
   }
 
@@ -579,10 +577,9 @@ public class HomeServlet extends ClientServlet {
       }
     }
 
-    out.println("</table>");
+    out.println("</table><br/>");
 
     if (askingAndWaitingCount > 0) {
-      out.println("<br/>");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"title\" colspan=\"3\">Asking or Waiting</th>");
@@ -607,7 +604,7 @@ public class HomeServlet extends ClientServlet {
               showLink);
         }
       }
-      out.println("</table>");
+      out.println("</table><br/>");
     }
 
 
