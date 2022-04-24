@@ -34,6 +34,11 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 @SuppressWarnings("serial")
 public class ProjectGoalScheduleServlet extends ClientServlet {
 
+  private static final String GOAL_SELECTED = "s";
+  private static final String PROJECT_ID = "projectId";
+  private static final String TIME_ESTIMATE = "te";
+  private static final String NEXT_DESCRIPTION = "nd";
+
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
    * methods.
@@ -62,8 +67,6 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
-
-
       List<Calendar> dayList = new ArrayList<Calendar>();
       {
         int count = 0;
@@ -89,8 +92,8 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
           {
             Query query = dataSession.createQuery(
                 "from ProjectAction where projectId = :projectId and nextDescription <> '' "
-                    + "and nextActionId = 0 and nextActionType = :nextActionType order by nextDue asc");
-            query.setParameter("projectId", project.getProjectId());
+                    + "and nextActionId = 0 and nextActionType = :nextActionType order by nextDue asc, nextDescription");
+            query.setParameter(PROJECT_ID, project.getProjectId());
             query.setParameter("nextActionType", ProjectNextActionType.GOAL);
             projectActionGoalList = query.list();
           }
@@ -98,39 +101,59 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
           for (ProjectAction projectActionGoal : projectActionGoalList) {
             Map<Calendar, ProjectAction> projectActionMap = new HashMap<Calendar, ProjectAction>();
             projectActionDayMap.put(projectActionGoal, projectActionMap);
-            for (Calendar day : dayList) {
-              Query query = dataSession.createQuery(
-                  "from ProjectAction where projectId = :projectId and nextDescription <> '' "
-                      + "and nextActionId = 0 and nextActionType <> :nextActionType1 "
-                      + "and nextActionType <> :nextActionType2 "
-                      + "and nextDue = :nextDue and nextDescription = :nextDescription "
-                      + "order by nextDue asc");
-              query.setParameter("projectId", project.getProjectId());
-              query.setParameter("nextActionType1", ProjectNextActionType.GOAL);
-              query.setParameter("nextActionType2", ProjectNextActionType.TASK);
-              query.setParameter("nextDue", day.getTime());
-              query.setParameter("nextDescription", projectActionGoal.getNextDescription());
-              List<ProjectAction> pal = query.list();
-              if (pal.size() > 0) {
-                projectActionMap.put(day, pal.get(0));
+            Query query = dataSession.createQuery("from ProjectAction where "
+                + "goalActionId = :goalActionId and nextDue >= :nextDue ");
+            query.setParameter("goalActionId", projectActionGoal.getActionId());
+            query.setParameter("nextDue", dayList.get(0).getTime());
+            List<ProjectAction> pal = query.list();
+            for (ProjectAction pa : pal) {
+
+              Calendar calendar = null;
+              for (Calendar c : dayList) {
+                if (c.getTime().equals(pa.getNextDue())) {
+                  calendar = c;
+                  break;
+                }
+              }
+              if (calendar != null) {
+                projectActionMap.put(calendar, pa);
               }
             }
           }
         }
       }
 
-      if (request.getParameter("action") != null) {
+      if (action != null) {
         SimpleDateFormat sdfField = webUser.getDateFormat("yyyyMMdd");
+        Date endOfYear = calculateEndOfYear();
         Transaction transaction = dataSession.beginTransaction();
+        ProjectAction projectActionGoalPrevious = null;
         for (Project project : projectList) {
           List<ProjectAction> projectActionGoalList = projectActionGoalMap.get(project);
           for (ProjectAction projectActionGoal : projectActionGoalList) {
             Map<Calendar, ProjectAction> projectActionMap =
                 projectActionDayMap.get(projectActionGoal);
+            projectActionGoalPrevious = projectActionGoal;
+            String nextDescription =
+                request.getParameter(NEXT_DESCRIPTION + projectActionGoal.getActionId());
+            String timeEstimate =
+                request.getParameter(TIME_ESTIMATE + projectActionGoal.getActionId());
+            if (!projectActionGoal.getNextDescription().equals(nextDescription)
+                || !projectActionGoal.getNextTimeEstimateForDisplay().equals(timeEstimate)) {
+              projectActionGoal.setNextDescription(trim(nextDescription, 12000));
+              try {
+                projectActionGoal.setNextTimeEstimate(Integer.parseInt(timeEstimate));
+              } catch (NumberFormatException nfe) {
+                // just ignore and keep going
+              }
+              projectActionGoal.setNextDue(endOfYear);
+              dataSession.update(projectActionGoal);
+            }
             for (Calendar day : dayList) {
-              String fieldName =
-                  "s" + projectActionGoal.getActionId() + "." + sdfField.format(day.getTime());
+              String fieldName = GOAL_SELECTED + projectActionGoal.getActionId() + "."
+                  + sdfField.format(day.getTime());
               ProjectAction projectAction = projectActionMap.get(day);
+
               if (request.getParameter(fieldName) == null) {
                 if (projectAction != null) {
                   dataSession.delete(projectAction);
@@ -167,14 +190,54 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
                   projectAction.setNextProjectContact(projectActionGoal.getNextProjectContact());
                   projectAction.setProvider(webUser.getProvider());
                   projectAction.setNextTimeEstimate(projectActionGoal.getNextTimeEstimate());
+                  projectAction.setGoalActionId(projectActionGoal.getActionId());
                   dataSession.save(projectAction);
+                } else {
+                  projectAction.setNextDescription(projectActionGoal.getNextDescription());
+                  projectAction.setNextTimeEstimate(projectActionGoal.getNextTimeEstimate());
+                  dataSession.update(projectAction);
                 }
               }
             }
           }
+
+        }
+        if (projectActionGoalPrevious != null) {
+          String projectIdString = request.getParameter(PROJECT_ID);
+          String nextDescription = request.getParameter(NEXT_DESCRIPTION);
+          String timeEstimate = request.getParameter(TIME_ESTIMATE);
+          if (!projectIdString.equals("") && !nextDescription.equals("")) {
+            Project project =
+                (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
+            ProjectAction projectActionGoal = new ProjectAction();
+            projectActionGoal.setContactId(webUser.getContactId());
+            projectActionGoal.setContact(webUser.getProjectContact());
+            projectActionGoal.setActionDate(new Date());
+            projectActionGoal.setActionDescription("");
+
+            projectActionGoal.setProjectId(Integer.parseInt(projectIdString));
+            projectActionGoal.setNextDue(endOfYear);
+            projectActionGoal.setNextActionType(ProjectNextActionType.GOAL);
+            projectActionGoal.setNextContactId(projectActionGoalPrevious.getNextContactId());
+            projectActionGoal
+                .setNextProjectContact(projectActionGoalPrevious.getNextProjectContact());
+            projectActionGoal.setNextDescription(trim(nextDescription, 12000));
+            projectActionGoal.setProvider(projectActionGoalPrevious.getProvider());
+            try {
+              projectActionGoal.setNextTimeEstimate(Integer.parseInt(timeEstimate));
+            } catch (NumberFormatException nfe) {
+              // just ignore and keep going
+            }
+            projectActionGoal.setNextActionId(0);
+            projectActionGoal.setPriorityLevel(project.getPriorityLevel());
+            dataSession.save(projectActionGoal);
+            List<ProjectAction> projectActionGoalList = projectActionGoalMap.get(project);
+            if (projectActionGoalList != null) {
+              projectActionGoalList.add(projectActionGoal);
+            }
+          }
         }
         transaction.commit();
-
       }
 
 
@@ -186,7 +249,7 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">Goal</th>");
-      out.println("    <th class=\"boxed\">Time</th>");
+      out.println("    <th class=\"boxed\">Time<br/>(mins)</th>");
       Set<Calendar> onWeekend = new HashSet<Calendar>();
       Map<Calendar, Integer> timeMap = new HashMap<Calendar, Integer>();
       {
@@ -224,25 +287,34 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
                 + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
                 + "</a></td>");
-            out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
-                + project.getProjectId() + "&" + ProjectServlet.PARAM_ACTION_ID + "="
-                + projectActionGoal.getActionId() + "\" class=\"button\">"
-                + projectActionGoal.getNextDescription() + "</a></td>");
             out.println("    <td class=\"boxed\">");
-            out.println(projectActionGoal.getNextTimeEstimateForDisplay());
+            out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION
+                + projectActionGoal.getActionId() + "\" value=\""
+                + projectActionGoal.getNextDescription() + "\" size=\"30\"/>");
+            {
+              String link = "ProjectServlet?projectId=" + project.getProjectId() + "&"
+                  + ProjectServlet.PARAM_ACTION_ID + "=" + projectActionGoal.getActionId();
+              out.println("      <a href=\"" + link + "\" class=\"button\">edit</a>");
+            }
+            out.println("    </td>");
+            out.println("    <td class=\"boxed\">");
+            out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE
+                + projectActionGoal.getActionId() + "\" value=\""
+                + projectActionGoal.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
             out.println("    </td>");
             for (Calendar day : dayList) {
-              ProjectAction projectAction = projectActionMap.get(day);
+              ProjectAction projectAction =
+                  projectActionMap == null ? null : projectActionMap.get(day);
               boolean checked = projectAction != null;
               String style = "boxed";
               if (onWeekend.contains(day)) {
                 style = "boxed-lowlight";
               }
               out.println("    <td class=\"" + style + "\">");
-              out.println(
-                  "      <input type=\"checkbox\" name=\"s" + projectActionGoal.getActionId() + "."
-                      + sdfField.format(day.getTime()) + "\" value=\"" + sdf.format(day.getTime())
-                      + "\"" + (checked ? " checked" : "") + "/>");
+              out.println("      <input type=\"checkbox\" name=\"" + GOAL_SELECTED
+                  + projectActionGoal.getActionId() + "." + sdfField.format(day.getTime())
+                  + "\" value=\"" + sdf.format(day.getTime()) + "\"" + (checked ? " checked" : "")
+                  + "/>");
               out.println("    </td>");
               if (checked && projectActionGoal.getNextTimeEstimate() != null
                   && projectActionGoal.getNextTimeEstimate() > 0) {
@@ -264,30 +336,62 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
               out.println("  <option value=\"" + nat + "\"" + (selected ? " selected" : "") + ">"
                   + label + "</option>");
             }
+            out.println("      </select>");
             out.println("    </td>");
             out.println("  </tr>");
           }
         }
       }
-      out.println("    <td class=\"boxed\" colspan=\"3\">Total Time</td>");
+      out.println("  <tr>");
+      out.println("    <td class=\"boxed\">");
+      out.println("<select name=\"" + PROJECT_ID + "\">");
+      for (Project project : projectList) {
+        out.println("  <option value=\"" + project.getProjectId() + "\">" + project.getProjectName()
+            + "</option>");
+      }
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("    <td class=\"boxed\">");
+      out.println(
+          "      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + "\" value=\"\" size=\"30\"/>");
+      out.println("    </td>");
+      out.println("    <td class=\"boxed\">");
+      out.println(
+          "      <input type=\"text\" name=\"" + TIME_ESTIMATE + "\" value=\"\" size=\"3\"/>");
+      out.println("    </td>");
+
       for (Calendar day : dayList) {
         out.println("    <td class=\"boxed\">");
         out.println(ProjectAction.getTimeForDisplay(timeMap.get(day)));
         out.println("    </td>");
       }
+      out.println("  </tr>");
+
       out.println("</table>");
 
 
-      out.println("<input type=\"submit\" name=\"action\" value=\"Schedule\" >");
+      out.println("<br/>");
+      out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"Update\" >");
       out.println("</form>");
 
 
 
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }
+  }
+
+  private Date calculateEndOfYear() {
+    Calendar calendar = Calendar.getInstance();
+    calendar.add(Calendar.MONTH, 1);
+    calendar.set(Calendar.MONTH, 11);
+    calendar.set(Calendar.DAY_OF_MONTH, 31);
+    Date endOfYear = calendar.getTime();
+    return endOfYear;
   }
 
   /**

@@ -69,6 +69,8 @@ public class BillBudgetServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       generateReport(out, dataSession, billBudget, today, webUser);
       printHtmlFoot(appReq);
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

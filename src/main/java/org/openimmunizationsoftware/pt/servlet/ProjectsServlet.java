@@ -229,6 +229,8 @@ public class ProjectsServlet extends ClientServlet {
           "<p><a href=\"ProjectTaskScheduleServlet\">Review all the tasks</a> in the selected projects above and indicate current status/p>");
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

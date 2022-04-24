@@ -463,6 +463,8 @@ public class BudgetItemEditServlet extends ClientServlet {
       out.println("</div>");
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

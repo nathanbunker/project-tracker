@@ -335,6 +335,8 @@ public class ProjectServlet extends ClientServlet {
 
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }
@@ -412,15 +414,7 @@ public class ProjectServlet extends ClientServlet {
 
     String nextActionType = request.getParameter("nextActionType");
     projectAction.setNextActionType(nextActionType);
-    int priorityLevel = project.getPriorityLevel();
-    if (nextActionType != null) {
-      if (nextActionType.equals("T")) {
-        priorityLevel += 1;
-      } else if (nextActionType.equals("N") || nextActionType.equals("W")
-          || nextActionType.equals("E") || nextActionType.equals("A")) {
-        priorityLevel -= 1;
-      }
-    }
+    int priorityLevel = autoSetPriority(project, nextActionType);
     projectAction.setPriorityLevel(priorityLevel);
     String nextContactIdString = request.getParameter("nextContactId");
     if (nextContactIdString != null && nextContactIdString.length() > 0) {
@@ -517,6 +511,19 @@ public class ProjectServlet extends ClientServlet {
       appReq.setMessageProblem(message);
     }
     return emailBody;
+  }
+
+  private static int autoSetPriority(Project project, String nextActionType) {
+    int priorityLevel = project.getPriorityLevel();
+    if (nextActionType != null) {
+      if (nextActionType.equals("T")) {
+        priorityLevel += 1;
+      } else if (nextActionType.equals("N") || nextActionType.equals("W")
+          || nextActionType.equals("E") || nextActionType.equals("A")) {
+        priorityLevel -= 1;
+      }
+    }
+    return priorityLevel;
   }
 
   public static List<ProjectContactAssigned> getProjectContactAssignedList(Session dataSession,
@@ -760,7 +767,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("          <th class=\"inside\">Time</th>");
     out.println("          <td class=\"inside\" colspan=\"3\">");
     out.println("            <input type=\"text\" name=\"nextTimeEstimate\" size=\"3\" value=\""
-        + (projectAction == null ? "" : projectAction.getNextTimeEstimateForDisplay())
+        + (projectAction == null ? "" : projectAction.getNextTimeEstimateMinsForDisplay())
         + "\" onkeydown=\"resetRefresh()\"" + disabled + "> mins ");
     out.println("            <font size=\"-1\">");
     out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId

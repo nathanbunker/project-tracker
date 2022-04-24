@@ -122,6 +122,8 @@ public class ProjectTodoServlet extends ProjectServlet {
 
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

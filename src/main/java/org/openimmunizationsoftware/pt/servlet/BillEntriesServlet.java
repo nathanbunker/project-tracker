@@ -147,6 +147,8 @@ public class BillEntriesServlet extends ClientServlet {
       out.println("</table> ");
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

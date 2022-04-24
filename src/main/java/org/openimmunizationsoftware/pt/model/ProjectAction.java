@@ -28,6 +28,7 @@ public class ProjectAction implements java.io.Serializable {
   private Project project = null;
   private int priorityLevel = 0;
   private String taskStatus;
+  private int goalActionId;
 
   public ProjectContact getContact() {
     return contact;
@@ -204,6 +205,13 @@ public class ProjectAction implements java.io.Serializable {
     return this.nextTimeEstimate;
   }
 
+  public String getNextTimeEstimateMinsForDisplay() {
+    if (nextTimeEstimate == null) {
+      return "";
+    }
+    return "" + nextTimeEstimate;
+  }
+
   public String getNextTimeEstimateForDisplay() {
     if (nextTimeEstimate == null) {
       return "";
@@ -271,5 +279,13 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setTaskStatus(String taskStatus) {
     this.taskStatus = taskStatus;
+  }
+
+  public int getGoalActionId() {
+    return goalActionId;
+  }
+
+  public void setGoalActionId(int goalActionId) {
+    this.goalActionId = goalActionId;
   }
 }

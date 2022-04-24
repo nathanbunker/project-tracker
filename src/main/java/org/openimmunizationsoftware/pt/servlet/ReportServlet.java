@@ -228,6 +228,8 @@ public class ReportServlet extends ClientServlet {
 
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

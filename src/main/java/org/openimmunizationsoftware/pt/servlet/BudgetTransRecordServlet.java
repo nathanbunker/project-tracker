@@ -367,6 +367,8 @@ public class BudgetTransRecordServlet extends ClientServlet {
       out.println("</form>");
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

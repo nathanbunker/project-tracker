@@ -48,5 +48,8 @@
         <property name="taskStatus" type="string">
             <column name="task_status" length="1" />
         </property>
+        <property name="goalActionId" type="java.lang.Integer">
+            <column name="goal_action_id" />
+        </property>
     </class>
 </hibernate-mapping>

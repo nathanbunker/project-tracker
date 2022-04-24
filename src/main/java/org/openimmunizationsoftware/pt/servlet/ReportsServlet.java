@@ -104,6 +104,8 @@ public class ReportsServlet extends ClientServlet {
       }
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

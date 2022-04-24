@@ -97,6 +97,8 @@ public class BillCodesServlet extends ClientServlet {
           "<p>If you do not see your bill code in the list above you can <a href=\"BillCodeEditServlet\">create</a> one.</p>");
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

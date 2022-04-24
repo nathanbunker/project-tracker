@@ -207,6 +207,8 @@ public class TrackServlet extends ClientServlet {
 
       printHtmlFoot(appReq);
 
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }
@@ -278,26 +280,43 @@ public class TrackServlet extends ClientServlet {
           out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeEntry.getMinutes())
               + "</td>");
 
-          Query query =
-              dataSession.createQuery("from ProjectAction where contactId = ? and projectId = ? "
-                  + "  and actionDescription <> '' and action_date >= ? and action_date < ? order by actionDate asc");
-          query.setParameter(0, webUser.getContactId());
-          query.setParameter(1, Integer.parseInt(timeEntry.getId()));
-          query.setParameter(2, timeTracker.getStartDate());
-          query.setParameter(3, timeTracker.getEndDate());
-          List<ProjectAction> projectActionList = query.list();
+          List<ProjectAction> projectActionList;
+          {
+            Query query =
+                dataSession.createQuery("from ProjectAction where contactId = ? and projectId = ? "
+                    + "  and actionDescription <> '' and action_date >= ? and action_date < ? order by actionDate asc");
+            query.setParameter(0, webUser.getContactId());
+            query.setParameter(1, Integer.parseInt(timeEntry.getId()));
+            query.setParameter(2, timeTracker.getStartDate());
+            query.setParameter(3, timeTracker.getEndDate());
+            projectActionList = query.list();
+          }
           if (projectActionList.size() > 0) {
             out.println("    <td class=\"boxed\">");
             SimpleDateFormat sdf = new SimpleDateFormat(type.equals("Week") ? "EEE" : "h:mm aaa");
             boolean first = true;
             for (ProjectAction projectAction : projectActionList) {
               projectActionListComplete.remove(projectAction);
+              {
+                List<ProjectAction> projectActionCompletedList;
+                Query query = dataSession.createQuery("from ProjectAction where nextActionId = ? ");
+                query.setParameter(0, projectAction.getActionId());
+                projectActionCompletedList = query.list();
+                for (ProjectAction pa : projectActionCompletedList) {
+                  if (!first) {
+                    out.println("    <br/>");
+                  }
+                  first = false;
+                  out.println("    " + sdf.format(projectAction.getActionDate()) + ": Completed ");
+                  out.println("    " + pa.getNextDescription());
+                }
+              }
               if (!first) {
                 out.println("    <br/>");
               }
               first = false;
               out.println("    " + sdf.format(projectAction.getActionDate()) + ": ");
-              out.println("    " + projectAction.getActionDescription());
+              out.println("    " + projectAction.getActionDescription() );
             }
             out.println("    </td>");
           } else {
@@ -329,6 +348,20 @@ public class TrackServlet extends ClientServlet {
             if (projectAction.getProjectId() == project.getProjectId()) {
               SimpleDateFormat sdf = new SimpleDateFormat(type.equals("Week") ? "EEE" : "h:mm aaa");
               it.remove();
+              {
+                List<ProjectAction> projectActionCompletedList;
+                Query query = dataSession.createQuery("from ProjectAction where nextActionId = ? ");
+                query.setParameter(0, projectAction.getActionId());
+                projectActionCompletedList = query.list();
+                for (ProjectAction pa : projectActionCompletedList) {
+                  if (!first) {
+                    out.println("    <br/>");
+                  }
+                  first = false;
+                  out.println("    " + sdf.format(projectAction.getActionDate()) + ": Completed ");
+                  out.println("    " + pa.getNextDescription());
+                }
+              }
               if (!first) {
                 out.println("    <br/>");
               }

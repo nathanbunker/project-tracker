@@ -71,6 +71,8 @@ public class LoginServlet extends ClientServlet {
           printHtmlHead(appReq);
           printLoginForm(out, username, password);
           printHtmlFoot(appReq);
+        } catch (Exception e) {
+          e.printStackTrace();
         } finally {
           appReq.close();
         }
