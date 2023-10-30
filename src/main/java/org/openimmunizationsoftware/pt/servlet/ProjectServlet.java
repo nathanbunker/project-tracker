@@ -112,6 +112,17 @@ public class ProjectServlet extends ClientServlet {
       } else if (appReq.getRequest().getParameter(PARAM_ACTION_ID) != null) {
         int actionId = Integer.parseInt(appReq.getRequest().getParameter(PARAM_ACTION_ID));
         projectAction = (ProjectAction) dataSession.get(ProjectAction.class, actionId);
+      } else {
+        if (timeTracker != null) {
+            if (webUser.getParentWebUser() != null) {
+              Project parentProject = appReq.getParentProject();
+              if (parentProject != null) {
+                timeTracker.update(parentProject, dataSession);
+              }
+            } else {
+              timeTracker.update(project, dataSession);
+            }
+        }
       }
 
 

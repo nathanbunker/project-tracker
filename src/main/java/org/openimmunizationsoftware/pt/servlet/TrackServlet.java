@@ -50,6 +50,11 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  */
 public class TrackServlet extends ClientServlet {
 
+  public static final float DAILY_HOURS = 7.5f;
+  public static final float WEEKLY_HOURS = 37.5f;
+  public static final float MONTHLY_HOURS = 150.0f;
+  public static final float YEARLY_HOURS = 1800.0f;
+
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
    *
@@ -96,6 +101,26 @@ public class TrackServlet extends ClientServlet {
       String type = request.getParameter("type");
       if (type == null) {
         type = "Day";
+      }
+
+      float targetHours = 7.5f;
+      String targetHoursString = request.getParameter(type + "targetHours");
+      if (targetHoursString != null) {
+        targetHours = Float.parseFloat(targetHoursString);
+      }
+      if (targetHours == DAILY_HOURS || targetHours == WEEKLY_HOURS || targetHours == MONTHLY_HOURS || targetHours == YEARLY_HOURS) {
+        if (type.equals("Day") ) {
+          targetHours = DAILY_HOURS;
+        }
+        else if (type.equals("Week") ) {
+          targetHours = WEEKLY_HOURS;
+        }
+        else if (type.equals("Month")) {
+          targetHours = MONTHLY_HOURS;
+        }
+        else if (type.equals("Year")) {
+          targetHours = YEARLY_HOURS;
+        }
       }
 
       int supervisedContactId = 0;
@@ -221,11 +246,15 @@ public class TrackServlet extends ClientServlet {
           "<option value=\"Year\"" + (type.equals("Year") ? " selected" : "") + ">Year</option>");
       out.println("</select>");
 
+      out.println("Target Hours");
+      out.println(
+          "<input type=\"text\" name=\"targetHours\" value=\"" + targetHours + "\" size=\"4\">");
+
       out.println("<input type=\"submit\" name=\"action\" value=\"Refresh\">");
       out.println("</form>");
 
       makeTimeTrackReport(
-          webUserSelected, out, dataSession, timeTracker, type, webUserSelected == webUser);
+          webUserSelected, out, dataSession, timeTracker, type, webUserSelected == webUser, targetHours);
 
       printHtmlFoot(appReq);
 
@@ -243,7 +272,8 @@ public class TrackServlet extends ClientServlet {
       Session dataSession,
       TimeTracker timeTracker,
       String type,
-      boolean showLinks) {
+      boolean showLinks,
+      float targetHours) {
 
     String hours = TimeTracker.formatTime(timeTracker.getTotalMinsBillable());
 
@@ -427,18 +457,30 @@ public class TrackServlet extends ClientServlet {
         out.println("<br/> ");
         if (totalTimeInMinutes > 0) {
           out.println("<h2>Weekly Summary</h2>");
-          out.println("<pre>");
-          out.println(projectNotesInText);
-          out.println("</pre>");
+          // out.println("<pre>");
+          // out.println(projectNotesInText);
+          // out.println("</pre>");
           out.println(
-              "<p>Total Weekly Hours: " + TimeTracker.formatTime(totalTimeInMinutes) + "</p>");
+              "<p>Total Hours: " + TimeTracker.formatTime(totalTimeInMinutes) + "</p>");
+          int targetMinutes = (int) (targetHours * 60);
+          if (totalTimeInMinutes > targetMinutes) {
+            out.println(
+                "<p>Hours Over Target: "
+                    + TimeTracker.formatTime(totalTimeInMinutes - targetMinutes)
+                    + "</p>");
+          } else {
+            out.println(
+                "<p>Hours Under Target: "
+                    + TimeTracker.formatTime(targetMinutes - totalTimeInMinutes)
+                    + "</p>");
+          }
 
           if (false) {
             // API endpoint
             String endpoint = "https://api.openai.com/v1/chat/completions";
 
             // API key
-            String apiKey = "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";
+            String apiKey = "";
 
             // Request parameters
             String modelId = "gpt-3.5-turbo";

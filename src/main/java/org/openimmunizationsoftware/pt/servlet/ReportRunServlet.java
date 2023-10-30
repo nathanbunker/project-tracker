@@ -605,18 +605,18 @@ public class ReportRunServlet extends ClientServlet {
 
       TimeTracker timeTracker = new TimeTracker(webUser, billDate, dataSession);
       hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker,
-          "Day", false);
+          "Day", false, TrackServlet.DAILY_HOURS);
 
       printWriter.println("    <h1>For Week</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
       TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week",
-          false);
+          false, TrackServlet.WEEKLY_HOURS);
 
       SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM yyyy");
       printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
       TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month",
-          false);
+          false, TrackServlet.MONTHLY_HOURS);
 
       printWriter.println("  </body>");
       printWriter.println("</html>");
@@ -638,13 +638,13 @@ public class ReportRunServlet extends ClientServlet {
       TimeTracker timeTracker =
           new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
       hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker,
-          "Week", false);
+          "Week", false, TrackServlet.YEARLY_HOURS);
 
       SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM yyyy");
       printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
       TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month",
-          false);
+          false, TrackServlet.MONTHLY_HOURS);
 
       printWriter.println("  </body>");
       printWriter.println("</html>");
