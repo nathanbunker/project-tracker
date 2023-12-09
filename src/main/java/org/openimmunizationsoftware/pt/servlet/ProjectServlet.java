@@ -422,6 +422,12 @@ public class ProjectServlet extends ClientServlet {
 
     projectAction.setNextDue(parseDate(appReq, request.getParameter("nextDue")));
     projectAction.setNextDeadline(parseDate(appReq, request.getParameter("nextDeadline")));
+    String linkUrl = request.getParameter("linkUrl");
+    if (linkUrl == null || linkUrl.equals("")) {
+      projectAction.setLinkUrl(null);
+    } else {
+      projectAction.setLinkUrl(linkUrl);
+    }
 
     String nextActionType = request.getParameter("nextActionType");
     projectAction.setNextActionType(nextActionType);
@@ -843,6 +849,17 @@ public class ProjectServlet extends ClientServlet {
       out.println("          </td>");
       out.println("        </tr>");
     }
+    {
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Link</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"linkUrl\" size=\"30\" value=\""
+              + n(projectAction == null || projectAction.getLinkUrl() == null
+                  ? request.getParameter("linkUrl")
+                  : projectAction.getLinkUrl())
+                  + "\" onkeydown=\"resetRefresh()\"" + disabled + "></td>");
+      out.println("        </tr>");
+    }
     out.println("      </table>");
     out.println("    </td>");
     out.println("  </tr>");
@@ -904,17 +921,21 @@ public class ProjectServlet extends ClientServlet {
     out.println("<table class=\"inside\" width=\"100%\">");
     out.println("  <tr>");
     out.println("    <th class=\"inside\">Date</th>");
-    out.println("    <th class=\"inside\">Name</th>");
+    out.println("    <th class=\"inside\">Time</th>");
     out.println("    <th class=\"inside\">To Do</th>");
     out.println("    <th class=\"inside\">Status</th>");
     out.println("    <th class=\"inside\">Comp</th>");
     out.println("  </tr>");
     SimpleDateFormat sdf11 = webUser.getDateFormat();
     for (ProjectAction pa : projectActionGoalList) {
+      Date today = new Date();
+      Calendar calendar1 = webUser.getCalendar();
+      calendar1.add(Calendar.DAY_OF_MONTH, -1);
+      Date yesterday = calendar1.getTime();
       String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId + "&"
           + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
       ProjectContact projectContact1 =
-          (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+      (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
       pa.setContact(projectContact1);
       ProjectContact nextProjectContact = null;
       if (pa.getNextContactId() != null && pa.getNextContactId() > 0) {
@@ -929,8 +950,12 @@ public class ProjectServlet extends ClientServlet {
       } else {
         out.println("    <td class=\"inside\">&nbsp;</td>");
       }
-      out.println("    <td class=\"inside\">" + editActionLink + projectContact1.getNameFirst()
-          + " " + projectContact1.getNameLast() + "</a></td>");
+      if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+        out.println("    <td class=\"inside\">" + pa.getNextTimeEstimateForDisplay() + "</td>");
+      }
+      else {
+        out.println("    <td class=\"inside\">&nbsp;</td>");
+      }
       out.println("    <td class=\"inside\">" + editActionLink
           + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
       if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
@@ -938,10 +963,6 @@ public class ProjectServlet extends ClientServlet {
       }
       out.println("</a></td>");
       if (pa.getNextDue() != null) {
-        Date today = new Date();
-        Calendar calendar1 = webUser.getCalendar();
-        calendar1.add(Calendar.DAY_OF_MONTH, -1);
-        Date yesterday = calendar1.getTime();
         if (pa.getNextDue().after(today)) {
           out.println("    <td class=\"inside\"></td>");
         } else if (pa.getNextDue().after(yesterday)) {
@@ -965,7 +986,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("<table class=\"inside\" width=\"100%\">");
       out.println("  <tr>");
       out.println("    <th class=\"inside\">Date</th>");
-      out.println("    <th class=\"inside\">Name</th>");
+      out.println("    <th class=\"inside\">Time</th>");
       out.println("    <th class=\"inside\">To Do</th>");
       out.println("    <th class=\"inside\">Status</th>");
       out.println("    <th class=\"inside\">Comp</th>");
@@ -973,7 +994,11 @@ public class ProjectServlet extends ClientServlet {
       SimpleDateFormat sdf11 = webUser.getDateFormat();
       for (ProjectAction pa : projectActionList) {
         String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId
-            + "&" + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
+          + "&" + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
+        Date today = new Date();
+        Calendar calendar1 = webUser.getCalendar();
+        calendar1.add(Calendar.DAY_OF_MONTH, -1);
+        Date yesterday = calendar1.getTime();
 
         ProjectContact projectContact1 =
             (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
@@ -991,29 +1016,38 @@ public class ProjectServlet extends ClientServlet {
         } else {
           out.println("    <td class=\"inside\">&nbsp;</td>");
         }
-        out.println("    <td class=\"inside\">" + editActionLink + projectContact1.getNameFirst()
-            + " " + projectContact1.getNameLast() + "</a></td>");
+
+        if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+          out.println("    <td class=\"inside\">" + pa.getNextTimeEstimateForDisplay() + "</td>");
+        }
+        else {
+          out.println("    <td class=\"inside\">&nbsp;</td>");
+        }
 
         {
+          String additionalContent = "";
+          if (pa.getLinkUrl() != null && pa.getLinkUrl().length() > 0) {
+            additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
+          }
+          if (pa.getNextDeadline() != null) {
+            if (pa.getNextDeadline().after(today)) {
+              additionalContent += "    <br/>Deadline: " +sdf11.format(pa.getNextDeadline()) ;
+            } else {
+              additionalContent += "    <br/>Deadline: <span class=\"fail\">" 
+                + sdf11.format(pa.getNextDeadline()) + "</span>";
+            }
+          }
           if (ENABLE_TODO_SERVLET) {
             String link =
                 "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "=" + pa.getActionId();
             out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
-                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
+                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
           } else {
             out.println("    <td class=\"inside\">" + editActionLink
-                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
+                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
           }
         }
-        if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
-          out.println(" (time estimate: " + pa.getNextTimeEstimateForDisplay() + ") </a>");
-        }
-        out.println("</td>");
         if (pa.getNextDue() != null) {
-          Date today = new Date();
-          Calendar calendar1 = webUser.getCalendar();
-          calendar1.add(Calendar.DAY_OF_MONTH, -1);
-          Date yesterday = calendar1.getTime();
           if (pa.getNextDue().after(today)) {
             out.println("    <td class=\"inside\"></td>");
           } else if (pa.getNextDue().after(yesterday)) {

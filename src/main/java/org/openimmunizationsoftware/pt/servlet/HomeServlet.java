@@ -260,7 +260,7 @@ public class HomeServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">Time</th>");
-      out.println("    <th class=\"boxed\">Todo</th>");
+      out.println("    <th class=\"boxed\">To Do</th>");
       out.println("  </tr>");
 
       int nextTimeEstimateTotal = 0;
@@ -503,7 +503,7 @@ public class HomeServlet extends ClientServlet {
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Time</th>");
-    out.println("    <th class=\"boxed\">Todo</th>");
+    out.println("    <th class=\"boxed\">To Do</th>");
     out.println("  </tr>");
 
     int askingAndWaitingCount = 0;
@@ -588,7 +588,7 @@ public class HomeServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">Time</th>");
-      out.println("    <th class=\"boxed\">Todo</th>");
+      out.println("    <th class=\"boxed\">To Do</th>");
       out.println("  </tr>");
       for (ProjectAction projectAction : projectActionList) {
         if (!sameDay(cIndicated, projectAction.getNextDue(), webUser)) {
@@ -805,6 +805,9 @@ public class HomeServlet extends ClientServlet {
       out.println("              <a href=\"javascript: void changeNextTimeEstimate('360', '"
           + changeFormId + "');\" class=\"button\"> 6h</a>");
       out.println("            </font>");
+      if (projectAction.getNextDeadline() != null) {
+        out.println("<br/>Deadline:  " + sdf1.format(projectAction.getNextDeadline()));
+      }
       out.println("</form></div>");
     }
 

@@ -29,6 +29,15 @@ public class ProjectAction implements java.io.Serializable {
   private int priorityLevel = 0;
   private String taskStatus;
   private int goalActionId;
+  private String linkUrl = "";
+
+  public String getLinkUrl() {
+    return linkUrl;
+  }
+
+  public void setLinkUrl(String linkUrl) {
+    this.linkUrl = linkUrl;
+  }
 
   public ProjectContact getContact() {
     return contact;
@@ -110,7 +119,7 @@ public class ProjectAction implements java.io.Serializable {
     String i_am = "I am ";
     String i_ = "I ";
     String i_have = "I have";
-    if (forContact == null || forContact != contact) {
+    if (forContact == null || forContact.getContactId() != contact.getContactId()) {
       i_am = contact.getName() + " is ";
       i_ = contact.getName() + " ";
       i_have = contact.getName() + " has ";
