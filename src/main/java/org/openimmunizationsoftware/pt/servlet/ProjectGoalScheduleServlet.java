@@ -70,7 +70,7 @@ public class ProjectGoalScheduleServlet extends ClientServlet {
       List<Calendar> dayList = new ArrayList<Calendar>();
       {
         int count = 0;
-        while (count < 7) {
+        while (count < 8) {
           Calendar day = webUser.getCalendar();
           day.set(Calendar.HOUR_OF_DAY, 0);
           day.set(Calendar.MINUTE, 0);
