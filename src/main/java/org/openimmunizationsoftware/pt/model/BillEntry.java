@@ -20,6 +20,15 @@ public class BillEntry implements java.io.Serializable {
   private String billable;
   private String billCode;
   private ProjectProvider provider;
+  private ProjectAction action = null;
+
+  public ProjectAction getAction() {
+    return action;
+  }
+
+  public void setAction(ProjectAction action) {
+    this.action = action;
+  }
 
   public int getBillId() {
     return this.billId;

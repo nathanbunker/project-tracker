@@ -33,5 +33,6 @@
             <column name="bill_code" length="15" />
         </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <many-to-one name="action" column="action_id" class="ProjectAction"/>
     </class>
 </hibernate-mapping>

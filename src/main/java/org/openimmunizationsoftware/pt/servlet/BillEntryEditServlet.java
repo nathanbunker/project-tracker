@@ -64,8 +64,13 @@ public class BillEntryEditServlet extends ClientServlet {
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
+          int projectId = Integer.parseInt(request.getParameter("projectId"));
+          if (billEntry.getProjectId() != projectId)
+          {
+            billEntry.setAction(null);
+          }
+          billEntry.setProjectId(projectId);
           billEntry.setCategoryCode(request.getParameter("categoryCode"));
-          billEntry.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           billEntry.setBillCode(request.getParameter("billCode"));
           try {
             billEntry.setStartTime(sdf.parse(request.getParameter("startTime")));
@@ -147,7 +152,7 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    </td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Project</th>");
+      out.println("    <th class=\"boxed\">Provider</th>");
       out.println("    <td class=\"boxed\"><select name=\"billCode\">");
       query = dataSession.createQuery(
           "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
@@ -165,6 +170,11 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    </select>");
       out.println("    </td>");
       out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Action</th>");
+      out.println("    <td class=\"boxed\">"
+          + (billEntry.getAction() == null ? "" : billEntry.getAction().getNextDescriptionForDisplay(null)) + "</td>");
+          out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Start Time</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"startTime\" value=\""

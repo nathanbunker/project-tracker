@@ -21,6 +21,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -105,6 +106,7 @@ public class BillEntriesServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
       out.println("    <th class=\"boxed\">Project</th>");
+      out.println("    <th class=\"boxed\">Action</th>");
       out.println("    <th class=\"boxed\">Bill Code</th>");
       out.println("    <th class=\"boxed\">Start</th>");
       out.println("    <th class=\"boxed\">End</th>");
@@ -117,6 +119,7 @@ public class BillEntriesServlet extends ClientServlet {
         ProjectCategory projectCategory =
             TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
         Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
+        ProjectAction projectAction = billEntry.getAction();
         BillCode billCode = null;
         if (billEntry.getBillCode() != null) {
           billCode = (BillCode) dataSession.get(BillCode.class, billEntry.getBillCode());
@@ -129,6 +132,13 @@ public class BillEntriesServlet extends ClientServlet {
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
                   + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+        } else {
+          out.println("    <td class=\"boxed\"></td>");
+        }
+        if (projectAction != null) {
+          out.println(
+              "    <td class=\"boxed\"><a href=\"ActionServlet?actionId=" + projectAction.getActionId()
+                  + "\" class=\"button\">" + projectAction.getNextDescriptionForDisplay(null) + "</a></td>");
         } else {
           out.println("    <td class=\"boxed\"></td>");
         }

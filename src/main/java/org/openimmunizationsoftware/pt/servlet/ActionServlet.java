@@ -56,18 +56,33 @@ public class ActionServlet extends ClientServlet {
         Session dataSession = appReq.getDataSession();
         String action = appReq.getAction();
         PrintWriter out = appReq.getOut();
-        SimpleDateFormat sdf = webUser.getDateFormat();
 
         String message = null;
         if (action != null) {
             // May do something in the future here
         }
 
+        Project project = appReq.getProject();
+        ProjectAction projectAction = appReq.getProjectAction();
+        if (projectAction != null) {
+          project = projectAction.getProject();
+        }
+        appReq.setProject(project);
+        appReq.setProjectSelected(project);
+        appReq.setProjectAction(projectAction);
+        appReq.setProjectActionSelected(projectAction);
+
+        List<ProjectAction> projectActionList = getProjectActionList(webUser, dataSession);
+      
+        if (prepareProjectActionListAndIdentifyOverdue(dataSession, projectActionList, webUser).size() > 0) {
+          // TOOD print a nicer message and a link to clean these up
+          message = "There are actions overdue that are not shown here, only showing what is scheduled for today.";
+        }
         appReq.setMessageProblem(message);
         appReq.setTitle("Home");
         printHtmlHead(appReq);
 
-        printActionsDue(webUser, out, dataSession);
+        printActionsDue(projectActionList, webUser, out, dataSession, appReq);
 
         out.println("</div>");
         printHtmlFoot(appReq);
@@ -79,55 +94,26 @@ public class ActionServlet extends ClientServlet {
     }
   }
 
-  protected static void printActionsDue(WebUser webUser, PrintWriter out, Session dataSession) {
+  protected static void printActionsDue(List<ProjectAction> projectActionList, WebUser webUser, PrintWriter out, Session dataSession, AppReq appReq) {
         Date nextDue = new Date();
     SimpleDateFormat sdf1 = webUser.getDateFormat();
-    Query query = dataSession.createQuery(
-        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
-            + "and nextActionId = 0 and nextDescription <> '' "
-            + "order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
-    query.setParameter("provider", webUser.getProvider());
-    query.setParameter("contactId", webUser.getContactId());
-    query.setParameter("nextContactId", webUser.getContactId());
-    @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionList = query.list();
-
-    List<ProjectAction> projectActionListOverdue =
-        prepareProjectActionListAndIdentifyOverdue(dataSession, projectActionList, webUser);
+        
     out.println("<div class=\"main\">");
-    if (projectActionListOverdue.size() > 0) {
-        // TOOD print a nicer message and a link to clean these up
-      out.println("<p>Actions overdue, please clean up</p>");
-    }
-
     Calendar cIndicated = webUser.getCalendar();
     cIndicated.setTime(nextDue);
-    Calendar cToday = webUser.getCalendar();
-    Calendar cTomorrow = webUser.getCalendar();
-    cTomorrow.add(Calendar.DAY_OF_MONTH, 1);
 
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.OVERDUE_TO, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.COMMITTED_TO, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_CONTACT, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_MEET, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.MIGHT, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_RUN_ERRAND, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.GOAL, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.TASK, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WAITING, nextDue, projectActionList, cIndicated,
-        cToday, cTomorrow);
-
-
+    out.println("<div class=\"projectInfo\">");
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.OVERDUE_TO, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.COMMITTED_TO, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_CONTACT, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_MEET, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.MIGHT, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_RUN_ERRAND, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.GOAL, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.TASK, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, sdf1, ProjectNextActionType.WAITING, nextDue, projectActionList, cIndicated);
+    
     int nextTimeEstimateTotal = 0;
     int nextTimeEstimateCommit = 0;
     int nextTimeEstimateWill = 0;
@@ -140,21 +126,78 @@ public class ActionServlet extends ClientServlet {
       if (projectAction.getNextTimeEstimate() != null) {
         nextTimeEstimateTotal += projectAction.getNextTimeEstimate();
         if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())
-            || ProjectNextActionType.OVERDUE_TO.equals(projectAction.getNextActionType())) {
+        || ProjectNextActionType.OVERDUE_TO.equals(projectAction.getNextActionType())) {
           nextTimeEstimateCommit += projectAction.getNextTimeEstimate();
         } else if (ProjectNextActionType.WILL.equals(projectAction.getNextActionType())
-            || ProjectNextActionType.WILL_CONTACT.equals(projectAction.getNextActionType())) {
+        || ProjectNextActionType.WILL_CONTACT.equals(projectAction.getNextActionType())) {
           nextTimeEstimateWill += projectAction.getNextTimeEstimate();
         } else if (ProjectNextActionType.WILL_MEET.equals(projectAction.getNextActionType())) {
           nextTimeEstimateWillMeet += projectAction.getNextTimeEstimate();
         } else if (ProjectNextActionType.MIGHT.equals(projectAction.getNextActionType())) {
           nextTimeEstimateMight += projectAction.getNextTimeEstimate();
         }
-
+        
       }
     }
     printTimeEstimateBox(out, nextTimeEstimateTotal, nextTimeEstimateCommit, nextTimeEstimateWill,
     nextTimeEstimateWillMeet, nextTimeEstimateMight);
+    out.println("</div>");
+
+    out.println("<div class=\"takeAction\">");
+    ProjectAction projectAction = appReq.getProjectAction();
+    if (projectAction != null) {
+      SimpleDateFormat sdf11 = webUser.getDateFormat();
+      Project project = projectAction.getProject();
+      String editActionLink = "ActionServlet?actionId=" + projectAction.getActionId();
+      out.println("<form action=\"ActionServlet\" method=\"POST\">");
+      out.println("<table class=\"boxed-fill\">");
+      out.println("  <tr>");
+      out.println("    <th>Project</th>");
+      out.println("    <td>" + project.getDescription() +  "</td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <th>Action</th>");
+      out.println("    <td>");
+      ProjectServlet.printActionDescription(webUser, out, sdf11, projectAction, editActionLink, new Date());
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <th>Notes</th>");
+      out.println("    <td>");
+      out.println("      <textarea name=\"nextNotes\" rows=\"10\" cols=\"60\"></textarea>");
+      out.println("      <input type=\"submit\" name=\"action\" value=\"Propose\"/>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <th>Proposed Summary</th>");
+      out.println("    <td>");
+      out.println("      <textarea name=\"nextNotes\" rows=\"10\" cols=\"60\"></textarea>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td colspan=\"2\" class=\"boxed-submit\">");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Save\"/>");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Completed\"/>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("</table>");
+      out.println("</form>");
+    }
+    out.println("</div>");
+    out.println("</div>");
+  }
+
+  private static List<ProjectAction> getProjectActionList(WebUser webUser, Session dataSession) {
+    Query query = dataSession.createQuery(
+        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
+            + "and nextActionId = 0 and nextDescription <> '' "
+            + "order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
+    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("contactId", webUser.getContactId());
+    query.setParameter("nextContactId", webUser.getContactId());
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionList = query.list();
+    return projectActionList;
   }
 
   private static void printTimeEstimateBox(PrintWriter out, int nextTimeEstimateTotal,
@@ -214,7 +257,7 @@ public class ActionServlet extends ClientServlet {
 
   private static void printDueTable(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
       String nextActionType, Date nextDue, List<ProjectAction> projectActionList,
-      Calendar cIndicated, Calendar cToday, Calendar cTomorrow) {
+      Calendar cIndicated) {
 
     List <ProjectAction> paList = new ArrayList<ProjectAction>();
     for (ProjectAction projectAction : projectActionList) {

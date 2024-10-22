@@ -48,19 +48,6 @@ public class ClientServlet extends HttpServlet {
   protected static void printHtmlHead(AppReq appReq) {
     HttpServletResponse response = appReq.getResponse();
     response.setContentType("text/html;charset=UTF-8");
-
-    switch (appReq.getAppType()) {
-      case SENTIMENT:
-        printSentimentHeader(appReq);
-        break;
-      case TRACKER:
-        printTrackerHeader(appReq);
-        break;
-    }
-
-  }
-
-  private static void printTrackerHeader(AppReq appReq) {
     PrintWriter out = appReq.getOut();
     String title = appReq.getTitle();
     TimeTracker timeTracker = appReq.getTimeTracker();
@@ -200,53 +187,6 @@ public class ClientServlet extends HttpServlet {
     if (!systemWideMessage.equals("")) {
       out.println("<p class=\"fail\">" + systemWideMessage + "</p>");
     }
-  }
-
-  private static void printSentimentHeader(AppReq appReq) {
-    PrintWriter out = appReq.getOut();
-
-    out.println("<!DOCTYPE html>");
-    out.println("<html lang=\"en\">");
-    out.println("  <head>");
-    out.println("    <title>W3.CSS Template</title>");
-    out.println("    <meta charset=\"UTF-8\">");
-    out.println("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-    out.println("    <link rel=\"stylesheet\" href=\"css/w3.css\">");
-    out.println(
-        "    <link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css?family=Lato\">");
-    out.println(
-        "    <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css\">");
-    out.println("    <style>");
-    out.println("      body {");
-    out.println("        font-family: \"Lato\", sans-serif");
-    out.println("      }");
-    out.println("      .mySlides {");
-    out.println("        display: none");
-    out.println("      }");
-    out.println("    </style>");
-    out.println("  </head>");
-    out.println("  <body>");
-
-    // nav bar
-    out.println("    <div class=\"w3-top\">");
-    out.println("      <div class=\"w3-bar w3-black w3-card\">");
-    out.println(
-        "        <a class=\"w3-bar-item w3-button w3-padding-large w3-hide-medium w3-hide-large w3-right\"");
-    out.println("          href=\"javascript:void(0)\" onclick=\"myFunction()\" ");
-    out.println("          title=\"Toggle Navigation Menu\"><i class=\"fa fa-bars\"></i></a>");
-    out.println(
-        "        <a href=\"home\" class=\"w3-bar-item w3-button w3-padding-large\">Welcome</a>");
-    out.println(
-        "        <a href=\"home\" class=\"w3-bar-item w3-button w3-padding-large w3-hide-small\">My Contacts</a>");
-    out.println(
-        "        <a href=\"home\" class=\"w3-bar-item w3-button w3-padding-large w3-hide-small\">My Orders</a>");
-    out.println(
-        "        <a href=\"home\" class=\"w3-bar-item w3-button w3-padding-large w3-hide-small\">Buy Cards</a>");
-    out.println(
-        "        <a href=\"login\" class=\"w3-padding-large w3-hover-red w3-hide-small w3-right\">Login or Sign Up</a>");
-    out.println("      </div>");
-    out.println("    </div>");
-    out.println("    <div class=\"w3-content\" style=\"max-width: 2000px; margin-top: 46px\">");
   }
 
   public static String makeMenu(AppReq appReq) {

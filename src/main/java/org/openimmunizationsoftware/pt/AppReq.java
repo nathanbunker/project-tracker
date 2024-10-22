@@ -13,6 +13,7 @@ import org.hibernate.SessionFactory;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
@@ -28,6 +29,8 @@ public class AppReq {
   private static final String SESSION_VAR_PROJECT_SELECTED_LIST = "projectSelectedList";
   private static final String SESSION_VAR_PROJECT = "project";
   private static final String SESSION_VAR_PARENT_PROJECT = "parentProject";
+  private static final String SESSION_VAR_ACTION = "action";
+  private static final String SESSION_VAR_PARENT_ACTION = "parentAction";
   private static final String SESSION_VAR_CHILD_WEB_USER_LIST = "childWebUserList";
   private static final String SESSION_VAR_APP_TYPE = "appType";
 
@@ -44,7 +47,9 @@ public class AppReq {
   private AppType appType = AppType.TRACKER;
   private TimeTracker timeTracker = null;
   private Project projectTrackTime = null;
+  private ProjectAction actionTrackTime = null;
   private Project projectSelected = null;
+  private ProjectAction projectActionSelected = null;
   private WebUser webUser = null;
 
   private String title = "";
@@ -52,12 +57,22 @@ public class AppReq {
   private String displayColor = "";
   private Project project = null;
   private Project parentProject = null;
+  private ProjectAction projectAction = null;
+  private ProjectAction projectActionParent = null;
   private String action = null;
   private List<WebUser> childWebUserList = null;
   private List<Integer> projectIdList = null;
   private List<Project> projectSelectedList = null;
   private List<ProjectContactAssigned> projectContactAssignedList = null;
 
+
+  public ProjectAction getProjectActionSelected() {
+    return projectActionSelected;
+  }
+
+  public ProjectAction getProjectAction() {
+    return projectAction;
+  }
 
   public List<Integer> getProjectIdList() {
     return projectIdList;
@@ -162,13 +177,20 @@ public class AppReq {
       ClientServlet.webUserLastUsedDate.put(webUser.getUsername(), new Date());
       timeTracker = (TimeTracker) webSession.getAttribute(SESSION_VAR_TIME_TRACKER);
       if (timeTracker != null) {
-        projectTrackTime = (Project) webSession.getAttribute(
-            webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT : SESSION_VAR_PARENT_PROJECT);
+        actionTrackTime = (ProjectAction) webSession.getAttribute(webUser.getParentWebUser() == null ? SESSION_VAR_ACTION: SESSION_VAR_PARENT_ACTION);
+        if (actionTrackTime == null) {
+          projectTrackTime = (Project) webSession.getAttribute(
+              webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT : SESSION_VAR_PARENT_PROJECT);
+        }
+        else {
+          projectTrackTime = actionTrackTime.getProject();
+        }
         if (projectTrackTime != null) {
-          timeTracker.update(projectTrackTime, dataSession);
+          timeTracker.update(projectTrackTime, actionTrackTime, dataSession);
         }
       }
       projectSelected = (Project) webSession.getAttribute(SESSION_VAR_PROJECT);
+      projectActionSelected = (ProjectAction) webSession.getAttribute(SESSION_VAR_ACTION);
     }
 
     appType = (AppType) webSession.getAttribute(SESSION_VAR_APP_TYPE);
@@ -191,6 +213,7 @@ public class AppReq {
     }
 
     project = (Project) webSession.getAttribute(SESSION_VAR_PROJECT);
+    projectAction = (ProjectAction) webSession.getAttribute(SESSION_VAR_ACTION);
     parentProject = (Project) webSession.getAttribute(SESSION_VAR_PARENT_PROJECT);
     action = request.getParameter(PARAM_ACTION);
     childWebUserList = (List<WebUser>) webSession.getAttribute(SESSION_VAR_CHILD_WEB_USER_LIST);
@@ -276,6 +299,15 @@ public class AppReq {
     }
   }
 
+  public void setProjectAction(ProjectAction projectAction) {
+    this.projectAction = projectAction;
+    if (projectAction == null) {
+      webSession.removeAttribute(SESSION_VAR_ACTION);
+    } else {
+      webSession.setAttribute(SESSION_VAR_ACTION, projectAction);
+    }
+  }
+
   public Project getParentProject() {
     return parentProject;
   }
@@ -286,6 +318,19 @@ public class AppReq {
       webSession.removeAttribute(SESSION_VAR_PARENT_PROJECT);
     } else {
       webSession.setAttribute(SESSION_VAR_PARENT_PROJECT, parentProject);
+    }
+  }
+  
+  public ProjectAction getProjectActionParent() {
+    return projectActionParent;
+  }
+
+  public void setProjectActionParent(ProjectAction projectActionParent) {
+    this.projectActionParent = projectActionParent;
+    if (projectActionParent == null) {
+      webSession.removeAttribute(SESSION_VAR_PARENT_ACTION);
+    } else {
+      webSession.setAttribute(SESSION_VAR_PARENT_ACTION, projectActionParent);
     }
   }
 
@@ -340,6 +385,10 @@ public class AppReq {
 
   public void setProjectSelected(Project projectSelected) {
     this.projectSelected = projectSelected;
+  }
+
+  public void setProjectActionSelected(ProjectAction projectActionSelected) {
+    this.projectActionSelected = projectActionSelected;
   }
 
 }

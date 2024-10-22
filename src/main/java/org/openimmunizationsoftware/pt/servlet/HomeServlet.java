@@ -156,6 +156,7 @@ public class HomeServlet extends ClientServlet {
                       appReq.setParentProject(project);
                     }
                     appReq.setProject(null);
+                    appReq.setProjectAction(null);
                     webUser = childWebUser;
                     appReq.setWebUser(webUser);
                     switched = true;

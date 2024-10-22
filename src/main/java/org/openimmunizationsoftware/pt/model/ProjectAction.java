@@ -20,6 +20,7 @@ public class ProjectAction implements java.io.Serializable {
   private Date nextDeadline;
   private String nextActionType;
   private Integer nextTimeEstimate;
+  private Integer nextTimeActual;
   private Integer nextContactId;
   private Integer nextActionId;
   private ProjectProvider provider;
@@ -30,6 +31,23 @@ public class ProjectAction implements java.io.Serializable {
   private String taskStatus;
   private int goalActionId;
   private String linkUrl = "";
+  private String nextNotes = "";
+
+  public String getNextNotes() {
+    return nextNotes;
+  }
+
+  public void setNextNotes(String nextNotes) {
+    this.nextNotes = nextNotes;
+  }
+
+  public Integer getNextTimeActual() {
+    return nextTimeActual;
+  }
+
+  public void setNextTimeActual(Integer nextTimeActual) {
+    this.nextTimeActual = nextTimeActual;
+  }
 
   public String getLinkUrl() {
     return linkUrl;

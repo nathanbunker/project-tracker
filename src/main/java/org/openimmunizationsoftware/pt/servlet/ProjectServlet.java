@@ -78,6 +78,8 @@ public class ProjectServlet extends ClientServlet {
       Project project = setupProject(dataSession, projectId);
       appReq.setProjectSelected(project);
       appReq.setProject(project);
+      appReq.setProjectAction(null);
+      appReq.setProjectActionSelected(null);
 
       List<Project> projectSelectedList = setupProjectList(appReq, project);
 
@@ -102,10 +104,10 @@ public class ProjectServlet extends ClientServlet {
             if (webUser.getParentWebUser() != null) {
               Project parentProject = appReq.getParentProject();
               if (parentProject != null) {
-                timeTracker.startClock(parentProject, dataSession);
+                timeTracker.startClock(parentProject, null, dataSession);
               }
             } else {
-              timeTracker.startClock(project, dataSession);
+              timeTracker.startClock(project, null, dataSession);
             }
           }
         }
@@ -117,10 +119,10 @@ public class ProjectServlet extends ClientServlet {
             if (webUser.getParentWebUser() != null) {
               Project parentProject = appReq.getParentProject();
               if (parentProject != null) {
-                timeTracker.update(parentProject, dataSession);
+                timeTracker.update(parentProject, null, dataSession);
               }
             } else {
-              timeTracker.update(project, dataSession);
+              timeTracker.update(project, null, dataSession);
             }
         }
       }
@@ -1024,29 +1026,7 @@ public class ProjectServlet extends ClientServlet {
           out.println("    <td class=\"inside\">&nbsp;</td>");
         }
 
-        {
-          String additionalContent = "";
-          if (pa.getLinkUrl() != null && pa.getLinkUrl().length() > 0) {
-            additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
-          }
-          if (pa.getNextDeadline() != null) {
-            if (pa.getNextDeadline().after(today)) {
-              additionalContent += "    <br/>Deadline: " +sdf11.format(pa.getNextDeadline()) ;
-            } else {
-              additionalContent += "    <br/>Deadline: <span class=\"fail\">" 
-                + sdf11.format(pa.getNextDeadline()) + "</span>";
-            }
-          }
-          if (ENABLE_TODO_SERVLET) {
-            String link =
-                "ProjectTodoServlet?" + ProjectTodoServlet.PARAM_ACTION_ID + "=" + pa.getActionId();
-            out.println("    <td class=\"inside\"><a href=\"" + link + "\">"
-                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
-          } else {
-            out.println("    <td class=\"inside\">" + editActionLink
-                + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
-          }
-        }
+        printActionDescription(webUser, out, sdf11, pa, editActionLink, today);
         if (pa.getNextDue() != null) {
           if (pa.getNextDue().after(today)) {
             out.println("    <td class=\"inside\"></td>");
@@ -1066,6 +1046,24 @@ public class ProjectServlet extends ClientServlet {
     } else {
       out.println("<i>no items</i>");
     }
+  }
+
+  protected static void printActionDescription(WebUser webUser, PrintWriter out, SimpleDateFormat sdf11, ProjectAction pa,
+      String editActionLink, Date today) {
+    String additionalContent = "";
+    if (pa.getLinkUrl() != null && pa.getLinkUrl().length() > 0) {
+      additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
+    }
+    if (pa.getNextDeadline() != null) {
+      if (pa.getNextDeadline().after(today)) {
+        additionalContent += "    <br/>Deadline: " +sdf11.format(pa.getNextDeadline()) ;
+      } else {
+        additionalContent += "    <br/>Deadline: <span class=\"fail\">" 
+          + sdf11.format(pa.getNextDeadline()) + "</span>";
+      }
+    }
+    out.println("    <td class=\"inside\">" + editActionLink
+      + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
   }
 
   protected List<Project> setupProjectList(AppReq appReq, Project project) {
