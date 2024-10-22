@@ -9,6 +9,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.HomeServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ActionServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.ActionServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>CssServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.CssServlet</servlet-class>
   </servlet>
@@ -146,6 +150,10 @@
     <url-pattern>/HomeServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
+    <servlet-name>ActionServlet</servlet-name>
+    <url-pattern>/ActionServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
     <servlet-name>CssServlet</servlet-name>
     <url-pattern>/CssServlet</url-pattern>
   </servlet-mapping>
@@ -269,23 +277,6 @@
     <servlet-name>BudgetItemEditServlet</servlet-name>
     <url-pattern>/BudgetItemEditServlet</url-pattern>
   </servlet-mapping>
-  <!-- There are three means to configure Wickets configuration mode and they are tested in the order given. 1) A system property: -Dwicket.configuration 
-    2) servlet specific <init-param> 3) context specific <context-param> The value might be either "development" (reloading when templates change) or "deployment". 
-    If no configuration is found, "development" is the default. -->
-
-  <filter>
-    <filter-name>wicket.tester</filter-name>
-    <filter-class>org.apache.wicket.protocol.http.WicketFilter</filter-class>
-    <init-param>
-      <param-name>applicationClassName</param-name>
-      <param-value>org.openimmunizationsoftware.pt.WicketApplication</param-value>
-    </init-param>
-  </filter>
-
-  <filter-mapping>
-    <filter-name>wicket.tester</filter-name>
-    <url-pattern>/ui/*</url-pattern>
-  </filter-mapping>
   
   <session-config>
     <session-timeout>240</session-timeout>

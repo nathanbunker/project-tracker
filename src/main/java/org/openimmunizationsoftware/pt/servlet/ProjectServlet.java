@@ -1275,6 +1275,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("      form.startSentance.disabled = false;");
     out.println("      form.nextTimeEstimate.disabled = false;");
     out.println("      form.nextDeadline.disabled = false;");
+    out.println("      form.linkUrl.disabled = false;");
     out.println("      if (form.nextDue.value == \"\")");
     out.println("      {");
     out.println("       document.projectAction" + projectId + ".nextDue.value = '"
