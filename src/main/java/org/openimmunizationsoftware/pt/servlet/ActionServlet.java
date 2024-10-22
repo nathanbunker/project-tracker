@@ -57,6 +57,13 @@ public class ActionServlet extends ClientServlet {
         String action = appReq.getAction();
         PrintWriter out = appReq.getOut();
 
+        String actionIdString = request.getParameter("actionId");
+        if (actionIdString != null) {
+          ProjectAction projectAction = (ProjectAction) dataSession.get(ProjectAction.class, Integer.parseInt(actionIdString));
+          appReq.setProjectAction(projectAction);
+          appReq.setProject(projectAction.getProject());
+        }
+
         String message = null;
         if (action != null) {
             // May do something in the future here
@@ -148,34 +155,56 @@ public class ActionServlet extends ClientServlet {
     if (projectAction != null) {
       SimpleDateFormat sdf11 = webUser.getDateFormat();
       Project project = projectAction.getProject();
-      String editActionLink = "ActionServlet?actionId=" + projectAction.getActionId();
+      String link = "<a href=\"ActionServlet?actionId=" + projectAction.getActionId() + "\">";
       out.println("<form action=\"ActionServlet\" method=\"POST\">");
-      out.println("<table class=\"boxed-fill\">");
+      out.println("<table class=\"boxed\">");
       out.println("  <tr>");
-      out.println("    <th>Project</th>");
-      out.println("    <td>" + project.getDescription() +  "</td>");
+      out.println("    <th class=\"title\">Action</th>");
       out.println("  </tr>");
       out.println("  <tr>");
-      out.println("    <th>Action</th>");
-      out.println("    <td>");
-      ProjectServlet.printActionDescription(webUser, out, sdf11, projectAction, editActionLink, new Date());
+      out.println("    <td class=\"outside\">");
+      out.println("      <table class=\"boxed-fill\">");
+      out.println("        <tr>");
+      out.println("          <th>Action</th>");
+      ProjectServlet.printActionDescription(webUser, out, sdf11, projectAction, link, new Date());
+      out.println("        </tr>");
+      out.println("        <tr>");
+      out.println("          <th>Project</th>");
+      out.println("          <td class=\"inside\">");
+      out.println(project.getProjectName());
+      out.println("          </td>");
+      out.println("        </tr>");
+      out.println("        <tr>");
+      out.println("          <th>Notes</th>");
+      out.println("          <td class=\"inside\">");
+      out.println("            <textarea name=\"nextNotes\" rows=\"10\" cols=\"60\"></textarea>");
+      out.println("            <br/>");
+      out.println("            <input type=\"submit\" name=\"action\" value=\"Propose\"/>");
+      out.println("          </td>");
+      out.println("        </tr>");
+      out.println("      </table>");
       out.println("    </td>");
       out.println("  </tr>");
       out.println("  <tr>");
-      out.println("    <th>Notes</th>");
-      out.println("    <td>");
-      out.println("      <textarea name=\"nextNotes\" rows=\"10\" cols=\"60\"></textarea>");
-      out.println("      <input type=\"submit\" name=\"action\" value=\"Propose\"/>");
+      out.println("    <th class=\"title\">Proposed Summary</th>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td class=\"outside\">");
+      out.println("      <table class=\"boxed-fill\">");
+      out.println("        <tr>");
+      out.println("          <th>Summary</th>");
+      out.println("        </tr>");
+      out.println("        <tr>");
+      out.println("          <th>Notes</th>");
+      out.println("          <td class=\"inside\">");
+      out.println("            <textarea name=\"summary\" rows=\"10\" cols=\"60\"></textarea>");
+      out.println("          </td>");
+      out.println("        </tr>");
+      out.println("      </table>");
       out.println("    </td>");
       out.println("  </tr>");
       out.println("  <tr>");
-      out.println("    <th>Proposed Summary</th>");
-      out.println("    <td>");
-      out.println("      <textarea name=\"nextNotes\" rows=\"10\" cols=\"60\"></textarea>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr>");
-      out.println("    <td colspan=\"2\" class=\"boxed-submit\">");
+      out.println("    <td class=\"boxed-submit\">");
       out.println("     <input type=\"submit\" name=\"action\" value=\"Save\"/>");
       out.println("     <input type=\"submit\" name=\"action\" value=\"Completed\"/>");
       out.println("    </td>");
