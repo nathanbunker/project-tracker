@@ -357,7 +357,6 @@ public class ProjectServlet extends ClientServlet {
 
   private void printActionsTaken(Session dataSession, PrintWriter out, SimpleDateFormat sdf,
       int projectId) {
-    List<ProjectAction> projectActionList;
     out.println("<div class=\"main\">");
     out.println("<h2>Actions Taken</h2>");
     out.println("<table class=\"boxed-fill\">");
@@ -366,10 +365,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("    <th class=\"boxed\">Name</th>");
     out.println("    <th class=\"boxed\">Action</th>");
     out.println("  </tr>");
-    Query query = dataSession.createQuery(
-        "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
-    query.setParameter(0, projectId);
-    projectActionList = query.list();
+    List<ProjectAction> projectActionList = getProjectActionsTakenList(dataSession, projectId);
     for (ProjectAction pa : projectActionList) {
       ProjectContact projectContact =
           (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
@@ -382,6 +378,19 @@ public class ProjectServlet extends ClientServlet {
     }
     out.println("</table>");
     out.println("</div>");
+  }
+
+  protected static List<ProjectAction> getProjectActionsTakenList(Session dataSession, Project project) {
+    return getProjectActionsTakenList(dataSession, project.getProjectId());
+  }
+
+  private static List<ProjectAction> getProjectActionsTakenList(Session dataSession, int projectId) {
+    List<ProjectAction> projectActionList;
+    Query query = dataSession.createQuery(
+        "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
+    query.setParameter(0, projectId);
+    projectActionList = query.list();
+    return projectActionList;
   }
 
   public static String saveProjectAction(AppReq appReq, Project project, String emailBody) {

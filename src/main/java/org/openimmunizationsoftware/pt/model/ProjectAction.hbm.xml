@@ -60,5 +60,8 @@
         <property name="nextNotes" type="string">
             <column name="next_notes"/>
         </property>
+        <property name="nextSummary" type="string">
+            <column name="next_summary"/>
+        </property>
     </class>
 </hibernate-mapping>

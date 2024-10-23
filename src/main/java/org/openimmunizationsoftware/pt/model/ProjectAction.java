@@ -32,6 +32,15 @@ public class ProjectAction implements java.io.Serializable {
   private int goalActionId;
   private String linkUrl = "";
   private String nextNotes = "";
+  private String nextSummary = "";
+
+  public String getNextSummary() {
+    return nextSummary;
+  }
+
+  public void setNextSummary(String nextSummary) {
+    this.nextSummary = nextSummary;
+  }
 
   public String getNextNotes() {
     return nextNotes;
@@ -244,6 +253,13 @@ public class ProjectAction implements java.io.Serializable {
       return "";
     }
     return getTimeForDisplay(getNextTimeEstimate());
+  }
+
+  public String getNextTimeActualForDisplay() {
+    if (nextTimeActual == null) {
+      return "";
+    }
+    return getTimeForDisplay(getNextTimeActual());
   }
 
   public static String getTimeForDisplay(int nextTimeEstimateTotal) {

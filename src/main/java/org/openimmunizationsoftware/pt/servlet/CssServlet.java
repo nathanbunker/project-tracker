@@ -102,6 +102,8 @@ public class CssServlet extends ClientServlet {
     } else {
       out.println("#takeAction {width: 580px; margin-top: 10px; }");
     }
+    out.println("#actionsToday {width: 440px; }");
+    out.println("#actionNow {width: 580px; float: right;}");
     out.println("#providerNavigationBox {position: absolute; left: 1340px; top: 0px;}");
     out.println("a:link.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}");
     out.println("a:visited.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}");

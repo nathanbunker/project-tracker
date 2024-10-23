@@ -475,71 +475,7 @@ public class TrackServlet extends ClientServlet {
                     + "</p>");
           }
 
-          if (false) {
-            // API endpoint
-            String endpoint = "https://api.openai.com/v1/chat/completions";
-
-            // API key
-            String apiKey = "";
-
-            // Request parameters
-            String modelId = "gpt-3.5-turbo";
-            String prompt =
-                "Please write me a weekly report email that I will send to my boss. She has very"
-                    + " little time to read it, but needs to get a summary of my week. I first need"
-                    + " to tell her how I'm using my time and then to say what I've accomplished."
-                    + " After that I can list problems I'm facing and then what I plan to do next."
-                    + " Please format the response in sections with each section having a set of"
-                    + " bullet points. \\\n"
-                    + "\\\n"
-                    + "       The first section should be titled \\\"Project Notes\\\" and list out"
-                    + " each project update with the name of the project, the time spent in the"
-                    + " project, and the details of what happened. \\n"
-                    + "\\n"
-                    + "           The second section should be titled \\\"Challenges and Delays\\\""
-                    + " and list any delays or challenges. If there are none, then just state none."
-                    + "  \\n"
-                    + "\\n"
-                    + "  The third section should be \\\"Collaborations\\\" and list people I"
-                    + " worked with during the week, and what we did.  \\n"
-                    + "\\n"
-                    + "  The fourth section should be \\\"Priorities\\\" for the Next Week listing"
-                    + " out what I will work on next week and what I consider to be a priority."
-                    + " Here are the details of what I did this week:  \\n"
-                    + "\\n"
-                    + "  "
-                    + projectNotesInText;
-
-            // Create an HTTP client
-            try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-              // Create a POST request
-              HttpPost request = new HttpPost(endpoint);
-              request.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-              request.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-
-              // Create the request body
-              out.println("<h3>Request</h3>");
-              String requestBody =
-                  "{\"model\": \""
-                      + modelId
-                      + "\", \"messages\": [{\"role\": \"system\", \"content\": \"You are a helpful"
-                      + " assistant.\"}, {\"role\": \"user\", \"content\": \""
-                      + prompt
-                      + "\"}]}";
-              out.println("<pre>" + requestBody + "</pre>");
-              request.setEntity(new StringEntity(requestBody));
-
-              // Send the request and get the response
-              HttpResponse response = httpClient.execute(request);
-
-              // Process the response
-              String responseBody = EntityUtils.toString(response.getEntity());
-              out.println("<h3>Response</h3>");
-              out.println("<pre>" + responseBody + "</pre>");
-            } catch (IOException ex) {
-              ex.printStackTrace();
-            }
-          }
+         
         }
       }
 

@@ -21,6 +21,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.SoftwareVersion;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -52,6 +53,7 @@ public class ClientServlet extends HttpServlet {
     String title = appReq.getTitle();
     TimeTracker timeTracker = appReq.getTimeTracker();
     Project projectSelected = appReq.getProjectSelected();
+    ProjectAction projectActionSelected = appReq.getProjectAction();
 
     out.println("<html>");
     out.println("  <head>");
@@ -85,8 +87,9 @@ public class ClientServlet extends HttpServlet {
     out.println("      {");
     String link = "HomeServlet";
     if (title.equals("Projects") && projectSelected != null) {
-
       link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
+    } else if (title.equals("Actions") && projectActionSelected != null) {
+      link = "ProjectContactsServlet?actionId=" + projectActionSelected.getActionId();
     }
     out.println("        window.location.href=\"" + link + "\"");
     out.println("      }");
