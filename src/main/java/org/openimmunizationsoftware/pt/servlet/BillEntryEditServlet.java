@@ -20,7 +20,9 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -34,13 +36,13 @@ public class BillEntryEditServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -61,12 +63,19 @@ public class BillEntryEditServlet extends ClientServlet {
       TimeTracker timeTracker = appReq.getTimeTracker();
       String billDate = request.getParameter("billDate");
 
+      ProjectAction projectAction = billEntry.getAction();
+      if (projectAction != null) {
+        projectAction
+            .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
+        projectAction.setContact(
+            (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+      }
+
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
           int projectId = Integer.parseInt(request.getParameter("projectId"));
-          if (billEntry.getProjectId() != projectId)
-          {
+          if (billEntry.getProjectId() != projectId) {
             billEntry.setAction(null);
           }
           billEntry.setProjectId(projectId);
@@ -103,7 +112,6 @@ public class BillEntryEditServlet extends ClientServlet {
 
       appReq.setTitle("Track");
       printHtmlHead(appReq);
-
 
       out.println("<form action=\"BillEntryEditServlet\" method=\"POST\">");
       out.println(
@@ -174,7 +182,7 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Action</th>");
       out.println("    <td class=\"boxed\">"
           + (billEntry.getAction() == null ? "" : billEntry.getAction().getNextDescriptionForDisplay(null)) + "</td>");
-          out.println("  </tr>");
+      out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Start Time</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"startTime\" value=\""
@@ -211,19 +219,20 @@ public class BillEntryEditServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -235,13 +244,13 @@ public class BillEntryEditServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

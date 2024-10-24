@@ -98,7 +98,7 @@ public class CssServlet extends ClientServlet {
     out.println("#projectNavigation {float: right; width: 270px; }");
     out.println("#projectInfo {width: 440px; }");
     if (displaySize.equals(DISPLAY_SIZE_LARGE)) {
-      out.println("#takeAction {position: absolute; left: 740px; top: 55px; width: 993px;}");
+      out.println("#takeAction {position: absolute; left: 740px; top: 55px; width: 700px;}");
     } else {
       out.println("#takeAction {width: 580px; margin-top: 10px; }");
     }
