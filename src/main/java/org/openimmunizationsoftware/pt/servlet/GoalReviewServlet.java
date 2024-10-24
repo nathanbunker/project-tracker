@@ -26,7 +26,7 @@ import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.ProjectTasksStatus;
+import org.openimmunizationsoftware.pt.model.ProjectGoalStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -34,7 +34,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * @author nathan
  */
 @SuppressWarnings("serial")
-public class ProjectTaskScheduleServlet extends ClientServlet {
+public class GoalReviewServlet extends ClientServlet {
 
   public static String ACTION_UPDATE_PRIORITY = "Update Priority";
   public static String ACTION_SAVE = "Save";
@@ -69,7 +69,7 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
 
 
 
-      List<ProjectAction> projectActionTaskList = getProjectActionTaskList(dataSession);
+      List<ProjectAction> projectActionGoalList = getProjectActionGoalList(dataSession);
       List<Project> projectNeedUpdateList = new ArrayList<Project>();
 
       if (action == null) {
@@ -87,13 +87,13 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
         calendar.add(Calendar.HOUR, -72);
         Date priorityLow = calendar.getTime();
         int count = 0;
-        for (ProjectAction projectAction : projectActionTaskList) {
+        for (ProjectAction projectAction : projectActionGoalList) {
           count++;
           Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
           if (projectNeedUpdateList.contains(project)) {
             continue;
           }
-          if (projectAction.getTaskStatus() == null || projectAction.getTaskStatus().equals("")) {
+          if (projectAction.getGoalStatus() == null || projectAction.getGoalStatus().equals("")) {
             projectNeedUpdateList.add(project);
           } else {
             Date priority = priorityHigh;
@@ -110,7 +110,7 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
             List<ProjectAction> projectActionList = query.list();
             if (projectActionList.size() == 0) {
               projectNeedUpdateList.add(project);
-              projectAction.setTaskStatus(null);
+              projectAction.setGoalStatus(null);
               dataSession.update(projectAction);
             }
           }
@@ -119,11 +119,11 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       } else {
         if (action.equals(ACTION_UPDATE_PRIORITY)) {
           Transaction transaction = dataSession.beginTransaction();
-          for (ProjectAction projectAction : projectActionTaskList) {
+          for (ProjectAction projectAction : projectActionGoalList) {
             projectAction.setPriorityLevel(Integer
                 .parseInt(request.getParameter("priorityLevel" + projectAction.getActionId())));
             projectAction
-                .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
+                .setGoalStatus(request.getParameter("goalStatus" + projectAction.getActionId()));
             Date nextDue = null;
             String s = request.getParameter("nextDue" + projectAction.getActionId());
             if (!s.equals("")) {
@@ -137,16 +137,16 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
             dataSession.update(projectAction);
           }
           transaction.commit();
-          projectActionTaskList = getProjectActionTaskList(dataSession);
+          projectActionGoalList = getProjectActionGoalList(dataSession);
         } else if (action.equals(ACTION_SAVE)) {
           int projectId = Integer.parseInt(request.getParameter(ProjectServlet.PARAM_PROJECT_ID));
           Project project = ProjectServlet.setupProject(dataSession, projectId);
           ProjectServlet.saveProjectAction(appReq, project, "");
           Transaction transaction = dataSession.beginTransaction();
-          for (ProjectAction projectAction : projectActionTaskList) {
+          for (ProjectAction projectAction : projectActionGoalList) {
             if (projectAction.getProjectId() == projectId) {
               projectAction
-                  .setTaskStatus(request.getParameter("taskStatus" + projectAction.getActionId()));
+                  .setGoalStatus(request.getParameter("goalStatus" + projectAction.getActionId()));
               Date nextDue = null;
               String s = request.getParameter("nextDue" + projectAction.getActionId());
               if (!s.equals("")) {
@@ -161,16 +161,16 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
             }
           }
           transaction.commit();
-          projectActionTaskList = getProjectActionTaskList(dataSession);
+          projectActionGoalList = getProjectActionGoalList(dataSession);
         }
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR, -48);
-        for (ProjectAction projectAction : projectActionTaskList) {
+        for (ProjectAction projectAction : projectActionGoalList) {
           Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
           if (projectNeedUpdateList.contains(project)) {
             continue;
           }
-          if (projectAction.getTaskStatus() == null || projectAction.getTaskStatus().equals("")) {
+          if (projectAction.getGoalStatus() == null || projectAction.getGoalStatus().equals("")) {
             projectNeedUpdateList.add(project);
           } else {
             Query query = dataSession.createQuery(
@@ -189,16 +189,16 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
 
-      out.println("<form action=\"ProjectTaskScheduleServlet\" method=\"POST\">");
+      out.println("<form action=\"GoalReviewServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">Priority</th>");
-      out.println("    <th class=\"boxed\">Task</th>");
+      out.println("    <th class=\"boxed\">Goal</th>");
       out.println("    <th class=\"boxed\">Status</th>");
       out.println("    <th class=\"boxed\">Due</th>");
       out.println("  </tr>");
-      for (ProjectAction projectAction : projectActionTaskList) {
+      for (ProjectAction projectAction : projectActionGoalList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         Project project = projectAction.getProject();
@@ -214,19 +214,19 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
         out.println(projectAction.getNextDescription());
         out.println("    </td>");
         out.println("    <td class=\"boxed\" style=\"background-color: "
-            + ProjectTasksStatus.getColor(projectAction.getTaskStatus()) + "\">");
+            + ProjectGoalStatus.getColor(projectAction.getGoalStatus()) + "\">");
         {
-          String id = "taskStatus" + projectAction.getActionId();
-          String taskStatus = projectAction.getTaskStatus();
-          if (taskStatus == null) {
-            taskStatus = "";
+          String id = "goalStatus" + projectAction.getActionId();
+          String goalStatus = projectAction.getGoalStatus();
+          if (goalStatus == null) {
+            goalStatus = "";
           }
           out.println("      <select name=\"" + id + "\">");
-          for (String ts : new String[] {ProjectTasksStatus.PROGRESSING, ProjectTasksStatus.DELAYED,
-              ProjectTasksStatus.BLOCKED}) {
+          for (String ts : new String[] {ProjectGoalStatus.PROGRESSING, ProjectGoalStatus.DELAYED,
+              ProjectGoalStatus.BLOCKED}) {
             out.println(
-                "    <option value=\"" + ts + "\"" + (taskStatus.equals(ts) ? " selected" : "")
-                    + ">" + ProjectTasksStatus.getLabel(ts) + "</option>");
+                "    <option value=\"" + ts + "\"" + (goalStatus.equals(ts) ? " selected" : "")
+                    + ">" + ProjectGoalStatus.getLabel(ts) + "</option>");
           }
           out.println("      </select>");
         }
@@ -256,15 +256,15 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       for (Project project : projectNeedUpdateList) {
         out.println("<h3>" + project.getProjectName() + "</h3>");
         out.println("<form name=\"projectAction" + project.getProjectId()
-            + "\" method=\"post\" action=\"ProjectTaskScheduleServlet\" id=\"saveProjectActionForm"
+            + "\" method=\"post\" action=\"GoalReviewServlet\" id=\"saveProjectActionForm"
             + project.getProjectId() + "\">");
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Task</th>");
+        out.println("    <th class=\"boxed\">Goal</th>");
         out.println("    <th class=\"boxed\">Status</th>");
         out.println("    <th class=\"boxed\">Due</th>");
         out.println("  </tr>");
-        for (ProjectAction projectAction : projectActionTaskList) {
+        for (ProjectAction projectAction : projectActionGoalList) {
           if (!project.equals(projectAction.getProject())) {
             continue;
           }
@@ -273,18 +273,18 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
           out.println(projectAction.getNextDescription());
           out.println("    </td>");
           out.println("    <td class=\"boxed\" style=\"background-color: "
-              + ProjectTasksStatus.getColor(projectAction.getTaskStatus()) + "\">");
+              + ProjectGoalStatus.getColor(projectAction.getGoalStatus()) + "\">");
           {
-            String id = "taskStatus" + projectAction.getActionId();
-            String taskStatus = projectAction.getTaskStatus();
-            if (taskStatus == null) {
-              taskStatus = "";
+            String id = "goalStatus" + projectAction.getActionId();
+            String goalStatus = projectAction.getGoalStatus();
+            if (goalStatus == null) {
+              goalStatus = "";
             }
-            for (String ts : new String[] {ProjectTasksStatus.PROGRESSING,
-                ProjectTasksStatus.DELAYED, ProjectTasksStatus.BLOCKED}) {
+            for (String ts : new String[] {ProjectGoalStatus.PROGRESSING,
+                ProjectGoalStatus.DELAYED, ProjectGoalStatus.BLOCKED}) {
               out.println("      <input type=\"radio\" name=\"" + id + "\" id=\"" + id + ts
-                  + "\" value=\"" + ts + "\"" + (taskStatus.equals(ts) ? " checked" : "")
-                  + "></input> <label for=\"" + id + ts + "\">" + ProjectTasksStatus.getLabel(ts)
+                  + "\" value=\"" + ts + "\"" + (goalStatus.equals(ts) ? " checked" : "")
+                  + "></input> <label for=\"" + id + ts + "\">" + ProjectGoalStatus.getLabel(ts)
                   + "<label>");
             }
           }
@@ -324,7 +324,7 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
         project.setProjectContactAssignedList(projectContactAssignedList);
 
         ProjectServlet.printProjectUpdateForm(appReq, project.getProjectId(), projectContactList,
-            null);
+            null, null);
 
         out.println("</form>");
       }
@@ -334,20 +334,20 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
-      out.println("    <th class=\"boxed\">Task</th>");
+      out.println("    <th class=\"boxed\">Goal</th>");
       out.println("    <th class=\"boxed\">Status</th>");
       out.println("  </tr>");
-      for (ProjectAction projectAction : projectActionTaskList) {
+      for (ProjectAction projectAction : projectActionGoalList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         Project project = projectAction.getProject();
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\">" + project.getProjectName() + "</td>");
         out.println("    <td class=\"boxed\">" + projectAction.getNextDescription() + "</td>");
-        String taskStatus = projectAction.getTaskStatus();
+        String goalStatus = projectAction.getGoalStatus();
         out.println("    <td class=\"boxed\" style=\"background-color: "
-            + ProjectTasksStatus.getColor(taskStatus) + "\">");
-        out.println(ProjectTasksStatus.getLabel(taskStatus));
+            + ProjectGoalStatus.getColor(goalStatus) + "\">");
+        out.println(ProjectGoalStatus.getLabel(goalStatus));
         out.println("    </td>");
         out.println("  </tr>");
       }
@@ -355,14 +355,14 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
 
       out.println("<h3>Easy Copy Text</h3>");
 
-      for (ProjectAction projectAction : projectActionTaskList) {
-        if (projectAction.getTaskStatus() == null) {
+      for (ProjectAction projectAction : projectActionGoalList) {
+        if (projectAction.getGoalStatus() == null) {
           out.println("    <p>" + projectAction.getNextDescription() + " &mdash; ?????</p>");
-        } else if (projectAction.getTaskStatus().equals(ProjectTasksStatus.PROGRESSING)) {
+        } else if (projectAction.getGoalStatus().equals(ProjectGoalStatus.PROGRESSING)) {
           out.println("    <p>" + projectAction.getNextDescription() + "</p>");
         } else {
           out.println("    <p>" + projectAction.getNextDescription() + " &mdash; "
-              + ProjectTasksStatus.getLabel(projectAction.getTaskStatus()) + "</p>");
+              + ProjectGoalStatus.getLabel(projectAction.getGoalStatus()) + "</p>");
         }
       }
 
@@ -376,16 +376,16 @@ public class ProjectTaskScheduleServlet extends ClientServlet {
     }
   }
 
-  private List<ProjectAction> getProjectActionTaskList(Session dataSession) {
-    List<ProjectAction> projectActionTaskList;
+  private List<ProjectAction> getProjectActionGoalList(Session dataSession) {
+    List<ProjectAction> projectActionGoalList;
     {
       Query query = dataSession.createQuery("from ProjectAction where nextDescription <> '' "
           + "and nextActionId = 0 and nextActionType = :nextActionType order by priorityLevel desc, projectId, nextDue asc");
-      query.setParameter("nextActionType", ProjectNextActionType.TASK);
-      projectActionTaskList = query.list();
+      query.setParameter("nextActionType", ProjectNextActionType.GOAL);
+      projectActionGoalList = query.list();
 
     }
-    return projectActionTaskList;
+    return projectActionGoalList;
   }
 
   /**

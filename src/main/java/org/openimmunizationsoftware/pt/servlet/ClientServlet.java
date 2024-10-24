@@ -57,6 +57,7 @@ public class ClientServlet extends HttpServlet {
 
     out.println("<html>");
     out.println("  <head>");
+    out.println("   <meta charset=\"UTF-8\">");
 
     if (timeTracker != null) {
       if (timeTracker.isRunningClock()) {
@@ -89,7 +90,7 @@ public class ClientServlet extends HttpServlet {
     if (title.equals("Projects") && projectSelected != null) {
       link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
     } else if (title.equals("Actions") && projectActionSelected != null) {
-      link = "ProjectContactsServlet?actionId=" + projectActionSelected.getActionId();
+      link = "ProjectActionServlet?actionId=" + projectActionSelected.getActionId();
     }
     out.println("        window.location.href=\"" + link + "\"");
     out.println("      }");
@@ -210,7 +211,7 @@ public class ClientServlet extends HttpServlet {
             projectProvider.getProviderName() + " Home"});
       }
       menuList.add(new String[] {"ProjectsServlet", "Projects"});
-      menuList.add(new String[] {"ActionServlet", "Actions"});
+      menuList.add(new String[] {"ProjectActionServlet", "Actions"});
       menuList.add(new String[] {"ProjectContactsServlet", "Contacts"});
 
       if (webUser.isUserTypeAdmin()) {

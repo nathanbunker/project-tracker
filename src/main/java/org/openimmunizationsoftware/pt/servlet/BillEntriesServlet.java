@@ -23,6 +23,7 @@ import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -101,7 +102,7 @@ public class BillEntriesServlet extends ClientServlet {
 
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
-      out.println("    <th class=\"title\" colspan=\"7\">Bill Entries</th>");
+      out.println("    <th class=\"title\" colspan=\"8\">Bill Entries</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
@@ -120,6 +121,13 @@ public class BillEntriesServlet extends ClientServlet {
             TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
         Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
         ProjectAction projectAction = billEntry.getAction();
+        if (projectAction != null) {
+                    projectAction
+            .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
+          projectAction.setContact(
+              (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+        }
+        
         BillCode billCode = null;
         if (billEntry.getBillCode() != null) {
           billCode = (BillCode) dataSession.get(BillCode.class, billEntry.getBillCode());
@@ -137,7 +145,7 @@ public class BillEntriesServlet extends ClientServlet {
         }
         if (projectAction != null) {
           out.println(
-              "    <td class=\"boxed\"><a href=\"ActionServlet?actionId=" + projectAction.getActionId()
+              "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId=" + projectAction.getActionId()
                   + "\" class=\"button\">" + projectAction.getNextDescriptionForDisplay(null) + "</a></td>");
         } else {
           out.println("    <td class=\"boxed\"></td>");

@@ -87,7 +87,7 @@ public class CssServlet extends ClientServlet {
     out.println("body {font-family: Tahoma, Geneva, sans-serif; background:#FFFFFF}");
     out.println("p {width:650px; color:#2B3E42;}");
     if (displaySize.equals(DISPLAY_SIZE_LARGE)) {
-      out.println(".menu {width:1325px; padding:0px; background-color:" + backgroundColor
+      out.println(".menu {width:1525px; padding:0px; background-color:" + backgroundColor
           + "; color: #DDDDDD;margin: 0px; border-color: #2B3E42; border-width: 1px; border-style: solid}");
     } else {
       out.println(".menu {width:720px; padding:0px; background-color:" + backgroundColor
@@ -98,13 +98,19 @@ public class CssServlet extends ClientServlet {
     out.println("#projectNavigation {float: right; width: 270px; }");
     out.println("#projectInfo {width: 440px; }");
     if (displaySize.equals(DISPLAY_SIZE_LARGE)) {
-      out.println("#takeAction {position: absolute; left: 740px; top: 58px; width: 593px;}");
+      out.println("#takeAction {position: absolute; left: 740px; top: 55px; width: 993px;}");
     } else {
       out.println("#takeAction {width: 580px; margin-top: 10px; }");
     }
-    out.println("#actionsToday {width: 440px; }");
+    out.println("#actionsToday {width: 700px; }");
     out.println("#actionNow {width: 580px; float: right;}");
     out.println("#providerNavigationBox {position: absolute; left: 1340px; top: 0px;}");
+    out.println("textarea {" );
+    out.println("        width: 100%;" );
+    out.println("        padding: 3px;" );
+    out.println("        box-sizing: border-box; /* Ensures padding is included in the width */" );
+    out.println("        resize: vertical; /* Allows vertical resizing but prevents horizontal resizing */" );
+    out.println("    }");
     out.println("a:link.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}");
     out.println("a:visited.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}");
     out.println("a:hover.menuLink {padding:5px; color:#FFFFFF; text-decoration:none}");
@@ -134,7 +140,9 @@ public class CssServlet extends ClientServlet {
         ".smallTitle {padding-right: 5px; padding-left: 5px; border-style:solid; border-width: 1px; border-color: #747E80;}");
     out.println(
         ".boxed {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;}");
-    out.println(
+        out.println(
+            ".boxed-full {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; width: 100%;}");
+        out.println(
         ".boxed-fill {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; width: 100%; }");
     out.println(
         ".boxed-submit {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; text-align: right;}");

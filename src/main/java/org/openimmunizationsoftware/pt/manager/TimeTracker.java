@@ -343,6 +343,14 @@ public class TimeTracker {
     return calendar;
   }
 
+  // createTomorow
+  public static Calendar createTomorrow(WebUser webUser) {
+    Calendar calendar = webUser.getCalendar();
+    removeTime(calendar);
+    calendar.add(Calendar.DAY_OF_MONTH, 1);
+    return calendar;
+  }
+
   private static void removeTime(Calendar calendar) {
     calendar.set(Calendar.HOUR_OF_DAY, 0);
     calendar.set(Calendar.MINUTE, 0);

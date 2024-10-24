@@ -5,7 +5,7 @@
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
     <class name="ProjectNextActionType" table="project_next_action_type">
         <id name="nextActionType" type="string">
-            <column name="next_action_type" length="1" />
+            <column name="next_action_type" length="16" />
             <generator class="assigned" />
         </id>
         <property name="nextActionLabel" type="string">

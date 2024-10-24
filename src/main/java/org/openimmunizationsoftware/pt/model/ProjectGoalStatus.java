@@ -2,7 +2,7 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.io.Serializable;
 
-public class ProjectTasksStatus implements Serializable {
+public class ProjectGoalStatus implements Serializable {
   /**
    * 
    */
@@ -12,30 +12,30 @@ public class ProjectTasksStatus implements Serializable {
   public static String DELAYED = "D";
   public static String BLOCKED = "B";
 
-  public static String getLabel(String taskStatus) {
-    if (taskStatus != null) {
-      if (taskStatus.equals(PROGRESSING)) {
+  public static String getLabel(String goalStatus) {
+    if (goalStatus != null) {
+      if (goalStatus.equals(PROGRESSING)) {
         return "Progressing";
       }
-      if (taskStatus.equals(DELAYED)) {
+      if (goalStatus.equals(DELAYED)) {
         return "Delayed";
       }
-      if (taskStatus.equals(BLOCKED)) {
+      if (goalStatus.equals(BLOCKED)) {
         return "Blocked";
       }
     }
     return "";
   }
 
-  public static String getColor(String taskStatus) {
-    if (taskStatus != null) {
-      if (taskStatus.equals(PROGRESSING)) {
+  public static String getColor(String goalStatus) {
+    if (goalStatus != null) {
+      if (goalStatus.equals(PROGRESSING)) {
         return "MediumSeaGreen";
       }
-      if (taskStatus.equals(DELAYED)) {
+      if (goalStatus.equals(DELAYED)) {
         return "Gold";
       }
-      if (taskStatus.equals(BLOCKED)) {
+      if (goalStatus.equals(BLOCKED)) {
         return "OrangeRed";
       }
     }

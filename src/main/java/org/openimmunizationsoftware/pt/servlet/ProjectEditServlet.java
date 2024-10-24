@@ -200,7 +200,7 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Description</th>");
       out.println(
-          "    <td class=\"boxed\"><textarea type=\"text\" name=\"description\" cols=\"30\" rows=\"5\">"
+          "    <td class=\"boxed\"><textarea type=\"text\" name=\"description\" rows=\"5\">"
               + n(project.getDescription()) + "</textarea></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");

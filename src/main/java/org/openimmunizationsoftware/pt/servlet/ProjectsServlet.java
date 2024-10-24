@@ -221,12 +221,12 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<h2>Project Review</h2>");
       out.println(
           "<p>On a regular basis you should <a href=\"ProjectReviewServlet\">review your projects</a> to ensure that each is getting the attention it deserves. </p>");
-      out.println("<h2>Goal Review &amp; Schedule</h2>");
+      out.println("<h2>Schedule from Templates</h2>");
       out.println(
-          "<p><a href=\"ProjectGoalScheduleServlet\">Review all the goals</a> in the selected projects above and schedule next steps. </p>");
-      out.println("<h2>Task Review &amp; Status</h2>");
+          "<p><a href=\"TemplateScheduleServlet\">Review all the templated</a> in the selected projects above and schedule next steps. </p>");
+      out.println("<h2>Goal Review</h2>");
       out.println(
-          "<p><a href=\"ProjectTaskScheduleServlet\">Review all the tasks</a> in the selected projects above and indicate current status/p>");
+          "<p><a href=\"GoalReviewServlet\">Review all goals</a> in the selected projects above and indicate current status/p>");
       printHtmlFoot(appReq);
 
     } catch (Exception e) {

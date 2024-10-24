@@ -28,11 +28,88 @@ public class ProjectAction implements java.io.Serializable {
   private ProjectContact contact = null;
   private Project project = null;
   private int priorityLevel = 0;
-  private String taskStatus;
-  private int goalActionId;
+  private String goalStatus;
+  private int templateActionId;
   private String linkUrl = "";
   private String nextNotes = "";
   private String nextSummary = "";
+  private String nextFeedback = "";
+  private TemplateType templateType = null;
+
+  public String getNextFeedback() {
+    return nextFeedback;
+  }
+
+  public void setNextFeedback(String nextFeedback) {
+    this.nextFeedback = nextFeedback;
+  }
+
+  public boolean isWill() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WILL);
+  }
+
+  public boolean isWillContact() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WILL_CONTACT);
+  }
+
+  public boolean isWillMeet() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WILL_MEET);
+  }
+
+  public boolean isWillReview() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WILL_REVIEW);
+  }
+
+  public boolean isWillDocument() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WILL_DOCUMENT);
+  }
+
+  public boolean isMight() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.MIGHT);
+  }
+
+  public boolean isCommittedTo() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.COMMITTED_TO);
+  }
+
+  public boolean isGoal() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.GOAL);
+  }
+
+  public boolean isFollowUp() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WILL_FOLLOW_UP);
+  }
+
+  public boolean isWaiting() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.WAITING);
+  }
+
+  public boolean isOverdueTo() {
+    return nextActionType != null && nextActionType.equals(ProjectNextActionType.OVERDUE_TO);
+  }
+
+  public boolean isTemplate() {
+    return templateType != null;
+  }
+
+  public TemplateType getTemplateType() {
+      return templateType;
+  }
+
+  public void setTemplateType(TemplateType templateType) {
+      this.templateType = templateType;
+  }
+
+  public String getTemplateTypeString() {
+      if (templateType == null) {
+          return "";
+      }
+      return templateType.getId();
+  } 
+
+  public void setTemplateTypeString(String templateTypeString) {
+      this.templateType = TemplateType.getTemplateType(templateTypeString);
+  }
 
   public String getNextSummary() {
     return nextSummary;
@@ -156,13 +233,6 @@ public class ProjectAction implements java.io.Serializable {
     String type = getNextActionType();
     if (type == null || type.equals("")) {
       description = getNextDescription();
-    } else if (type.equals(ProjectNextActionType.ASKS_TO)) {
-      if (nextProjectContact == null) {
-        description = "<i>" + i_am + "asking for ..</i> " + getNextDescription();
-      } else {
-        description = "<i>" + i_am + "asking " + nextProjectContact.getName() + " to</i> "
-            + getNextDescription();
-      }
     } else if (type.equals(ProjectNextActionType.WILL_CONTACT)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_ + " will make contact about</i> " + getNextDescription();
@@ -174,20 +244,15 @@ public class ProjectAction implements java.io.Serializable {
       description = "<i>" + i_ + " will</i> " + getNextDescription();
     } else if (type.equals(ProjectNextActionType.WILL_MEET)) {
       description = "<i>" + i_ + " will meet</i> " + getNextDescription();
-    } else if (type.equals(ProjectNextActionType.WILL_RUN_ERRAND)) {
-      description = "<i>" + i_ + " will run errand to</i> " + getNextDescription();
+    } else if (type.equals(ProjectNextActionType.WILL_REVIEW)) {
+      description = "<i>" + i_ + " will review</i> " + getNextDescription();
+    } else if (type.equals(ProjectNextActionType.WILL_DOCUMENT)) {
+      description = "<i>" + i_ + " will document</i> " + getNextDescription();
     } else if (type.equals(ProjectNextActionType.GOAL)) {
       if (nextProjectContact == null) {
         description = "<i>" + i_have + " set a goal to </i> " + getNextDescription();
       } else {
         description = "<i>" + i_have + " set a goal with " + nextProjectContact.getName()
-            + " to</i> " + getNextDescription();
-      }
-    } else if (type.equals(ProjectNextActionType.TASK)) {
-      if (nextProjectContact == null) {
-        description = "<i>" + i_have + " set a task to </i> " + getNextDescription();
-      } else {
-        description = "<i>" + i_have + " set a task with " + nextProjectContact.getName()
             + " to</i> " + getNextDescription();
       }
     } else if (type.equals(ProjectNextActionType.MIGHT)) {
@@ -211,6 +276,13 @@ public class ProjectAction implements java.io.Serializable {
         description = "<i>" + i_am + "waiting for </i> " + getNextDescription();
       } else {
         description = "<i>" + i_am + "waiting for " + nextProjectContact.getName() + " to</i> "
+            + getNextDescription();
+      }
+    } else if (type.equals(ProjectNextActionType.WILL_FOLLOW_UP)) {
+      if (nextProjectContact == null) {
+        description = "<i>" + i_+ " will follow up </i> " + getNextDescription();
+      } else {
+        description = "<i>" + i_ + " will follow up with " + nextProjectContact.getName() + " to</i> "
             + getNextDescription();
       }
     }
@@ -316,19 +388,19 @@ public class ProjectAction implements java.io.Serializable {
     this.nextDeadline = nextDeadline;
   }
 
-  public String getTaskStatus() {
-    return taskStatus;
+  public String getGoalStatus() {
+    return goalStatus;
   }
 
-  public void setTaskStatus(String taskStatus) {
-    this.taskStatus = taskStatus;
+  public void setGoalStatus(String goalStatus) {
+    this.goalStatus = goalStatus;
   }
 
-  public int getGoalActionId() {
-    return goalActionId;
+  public int getTemplateActionId() {
+    return templateActionId;
   }
 
-  public void setGoalActionId(int goalActionId) {
-    this.goalActionId = goalActionId;
+  public void setTemplateActionId(int goalTemplateId) {
+    this.templateActionId = goalTemplateId;
   }
 }
