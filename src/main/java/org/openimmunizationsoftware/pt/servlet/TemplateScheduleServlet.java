@@ -93,7 +93,8 @@ public class TemplateScheduleServlet extends ClientServlet {
           {
             Query query = dataSession.createQuery(
                 "from ProjectAction where projectId = :projectId and nextDescription <> '' "
-                    + "and nextActionId = 0 and templateTypeString is NOT NULL order by nextDue asc, nextDescription");
+                    + "and nextActionId = 0 and templateTypeString is NOT NULL and templateTypeString <> '' "
+                    + "order by nextDue asc, nextDescription");
             query.setParameter(PROJECT_ID, project.getProjectId());
             projectActionTemplateList = query.list();
           }
@@ -189,6 +190,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                   projectAction.setProvider(webUser.getProvider());
                   projectAction.setNextTimeEstimate(templateAction.getNextTimeEstimate());
                   projectAction.setTemplateActionId(templateAction.getActionId());
+                  projectAction.setPrioritySpecial(templateAction.getPrioritySpecial());
                   dataSession.save(projectAction);
                 } else {
                   projectAction.setNextDescription(templateAction.getNextDescription());
@@ -242,7 +244,7 @@ public class TemplateScheduleServlet extends ClientServlet {
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
 
-      out.println("<form action=\"ProjectGoalScheduleServlet\" method=\"POST\">");
+      out.println("<form action=\"TemplateScheduleServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
@@ -269,8 +271,8 @@ public class TemplateScheduleServlet extends ClientServlet {
 
       for (Project project : projectList) {
 
-        List<ProjectAction> projectActionGoalList = templateMap.get(project);
-        if (projectActionGoalList.size() == 0) {
+        List<ProjectAction> templateScheduleList = templateMap.get(project);
+        if (templateScheduleList.size() == 0) {
           //          out.println("  <tr class=\"boxed\">");
           //          out.println(
           //              "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
@@ -278,27 +280,27 @@ public class TemplateScheduleServlet extends ClientServlet {
           //          out.println("    <td class=\"boxed\" colspan=\"9\"></td>");
           //          out.println("  </tr>");
         } else {
-          for (ProjectAction projectActionGoal : projectActionGoalList) {
+          for (ProjectAction projectActionTemplate : templateScheduleList) {
             Map<Calendar, ProjectAction> projectActionMap =
-                projectActionDayMap.get(projectActionGoal);
+                projectActionDayMap.get(projectActionTemplate);
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
                 + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
                 + "</a></td>");
             out.println("    <td class=\"boxed\">");
             out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION
-                + projectActionGoal.getActionId() + "\" value=\""
-                + projectActionGoal.getNextDescription() + "\" size=\"30\"/>");
+                + projectActionTemplate.getActionId() + "\" value=\""
+                + projectActionTemplate.getNextDescription() + "\" size=\"30\"/>");
             {
               String link = "ProjectServlet?projectId=" + project.getProjectId() + "&"
-                  + ProjectServlet.PARAM_ACTION_ID + "=" + projectActionGoal.getActionId();
+                  + ProjectServlet.PARAM_ACTION_ID + "=" + projectActionTemplate.getActionId();
               out.println("      <a href=\"" + link + "\" class=\"button\">edit</a>");
             }
             out.println("    </td>");
             out.println("    <td class=\"boxed\">");
             out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE
-                + projectActionGoal.getActionId() + "\" value=\""
-                + projectActionGoal.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
+                + projectActionTemplate.getActionId() + "\" value=\""
+                + projectActionTemplate.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
             out.println("    </td>");
             for (Calendar day : dayList) {
               ProjectAction projectAction =
@@ -310,18 +312,18 @@ public class TemplateScheduleServlet extends ClientServlet {
               }
               out.println("    <td class=\"" + style + "\">");
               out.println("      <input type=\"checkbox\" name=\"" + TEMPLATE_SELECTED
-                  + projectActionGoal.getActionId() + "." + sdfField.format(day.getTime())
+                  + projectActionTemplate.getActionId() + "." + sdfField.format(day.getTime())
                   + "\" value=\"" + sdf.format(day.getTime()) + "\"" + (checked ? " checked" : "")
                   + "/>");
               out.println("    </td>");
-              if (checked && projectActionGoal.getNextTimeEstimate() != null
-                  && projectActionGoal.getNextTimeEstimate() > 0) {
-                timeMap.put(day, timeMap.get(day) + projectActionGoal.getNextTimeEstimate());
+              if (checked && projectActionTemplate.getNextTimeEstimate() != null
+                  && projectActionTemplate.getNextTimeEstimate() > 0) {
+                timeMap.put(day, timeMap.get(day) + projectActionTemplate.getNextTimeEstimate());
               }
             }
             out.println("    <td class=\"boxed\">");
             String nextActionType = ProjectNextActionType.WILL;
-            out.println("<select name=\"na" + projectActionGoal.getActionId() + "\">");
+            out.println("<select name=\"na" + projectActionTemplate.getActionId() + "\">");
             for (String nat : new String[] {ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
                 ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO}) {
               String label = ProjectNextActionType.getLabel(nat);

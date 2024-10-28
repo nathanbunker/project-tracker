@@ -29,3 +29,5 @@ UPDATE project_action SET next_action_type = 'GOAL' WHERE next_action_type = 'K'
 ALTER TABLE project_action RENAME COLUMN task_status TO goal_status;
 
 ALTER TABLE project_action ADD COLUMN (next_feedback TEXT);
+
+ALTER TABLE project_action ADD COLUMN (priority_special VARCHAR(1));

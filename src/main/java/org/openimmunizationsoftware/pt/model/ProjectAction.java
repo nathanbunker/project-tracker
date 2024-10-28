@@ -28,6 +28,7 @@ public class ProjectAction implements java.io.Serializable {
   private ProjectContact contact = null;
   private Project project = null;
   private int priorityLevel = 0;
+  private PrioritySpecial prioritySpecial = null;
   private String goalStatus;
   private int templateActionId;
   private String linkUrl = "";
@@ -109,6 +110,25 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setTemplateTypeString(String templateTypeString) {
       this.templateType = TemplateType.getTemplateType(templateTypeString);
+  }
+
+  public PrioritySpecial getPrioritySpecial() {
+    return prioritySpecial;
+  }
+
+  public void setPrioritySpecial(PrioritySpecial prioritySpecial) {
+    this.prioritySpecial = prioritySpecial;
+  }
+
+  public String getPrioritySpecialString() {
+    if (prioritySpecial == null) {
+      return "";
+    }
+    return prioritySpecial.getId();
+  }
+
+  public void setPrioritySpecialString(String prioritySpecialString) {
+    this.prioritySpecial = PrioritySpecial.getPrioritySpecial(prioritySpecialString);
   }
 
   public String getNextSummary() {

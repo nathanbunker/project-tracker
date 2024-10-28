@@ -26,6 +26,7 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.model.PrioritySpecial;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
@@ -444,6 +445,12 @@ public class ProjectServlet extends ClientServlet {
       projectAction.setTemplateType(null);
     } else {
       projectAction.setTemplateType(TemplateType.getTemplateType(templateTypeString));
+    }
+    String prioritySpecialString = request.getParameter("prioritySpecial");
+    if (prioritySpecialString == null || prioritySpecialString.equals("")) {
+      projectAction.setPrioritySpecial(null);
+    } else {
+      projectAction.setPrioritySpecial(PrioritySpecial.getPrioritySpecial(prioritySpecialString));
     }
 
     String nextActionType = request.getParameter("nextActionType");
@@ -892,22 +899,39 @@ public class ProjectServlet extends ClientServlet {
     }
     {
       out.println("        <tr>");
-      out.println("          <th class=\"inside\">Template</th>");
+      out.println("          <th class=\"inside\">Special</th>");
       out.println(
           "          <td class=\"inside\" colspan=\"3\">");
-      out.println("       <select name=\"templateType\" value=\""
+      out.println("            Template: ");
+      out.println("            <select name=\"templateType\" value=\""
               + n((projectAction == null || projectAction.getTemplateType() == null)
                   ? request.getParameter("templateType")
                   : projectAction.getTemplateType().getId())
               + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
               // default empty option for no template
-      out.println("         <option value=\"\">none</option>");
+      out.println("             <option value=\"\">none</option>");
       for (TemplateType templateType : TemplateType.values()) {
-        out.println("         <option value=\"" + templateType.getId() + "\""
+        out.println("             <option value=\"" + templateType.getId() + "\""
             + (projectAction != null && projectAction.getTemplateType() == templateType ? " selected" : "")
             + ">" + templateType.getLabel() + "</option>");
       }
-      out.println("</td>");
+      out.println("            </select>");
+      // now do Priority Special
+      out.println("            Priority: ");
+      out.println("           <select name=\"prioritySpecial\" value=\""
+              + n((projectAction == null || projectAction.getPrioritySpecial() == null)
+                  ? request.getParameter("prioritySpecial")
+                  : projectAction.getPrioritySpecial().getId())
+              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+              // default empty option for no template
+      out.println("             <option value=\"\">none</option>");
+      for (PrioritySpecial prioritySpecial : PrioritySpecial.values()) {
+        out.println("             <option value=\"" + prioritySpecial.getId() + "\""
+            + (projectAction != null && projectAction.getPrioritySpecial() == prioritySpecial ? " selected" : "")
+            + ">" + prioritySpecial.getLabel() + "</option>");
+      }
+      out.println("            </select>");
+      out.println("          </td>");
       out.println("        </tr>");
     }
     out.println("      </table>");
@@ -1332,6 +1356,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("      form.nextDeadline.disabled = false;");
     out.println("      form.linkUrl.disabled = false;");
     out.println("      form.templateType.disabled = false;");
+    out.println("      form.prioritySpecial.disabled = false;");
     out.println("      if (form.nextDue.value == \"\")");
     out.println("      {");
     out.println("       document.projectAction" + projectId + ".nextDue.value = '"
@@ -1407,9 +1432,12 @@ public class ProjectServlet extends ClientServlet {
     out.println("          return \"I will review:\";");
     out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_DOCUMENT + "')");
     out.println("      {");
+    out.println("          return \"I will document:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_MEET + "')");
+    out.println("      {");
     out.println("        if (nextContactName == '')");
     out.println("        {");
-    out.println("          return \"I will document:\";");
+    out.println("          return \"I will meet:\";");
     out.println("        } else");
     out.println("        {");
     out.println("          return \"I will meet with \" + nextContactName + \" to:\";");

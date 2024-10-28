@@ -21,6 +21,7 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ChatAgent;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.model.PrioritySpecial;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
@@ -473,6 +474,37 @@ public class ProjectActionServlet extends ClientServlet {
     // sorth the projectActionList first by the defaultPriority from the
     // ProjectNextActionType and then by the priority_level
     projectActionList.sort((pa1, pa2) -> {
+      PrioritySpecial ps1 = pa1.getPrioritySpecial();
+      PrioritySpecial ps2 = pa2.getPrioritySpecial();
+      // If one of the priorities is special, then we need to sort by the special priority, unless they are the same
+      if ((ps1 != null || ps2 != null) && ps1 != ps2)
+      {
+        // very complicated logic to sort by priority special
+        // FIRST must go first before any SECOND, or any other priority without a special priority
+        if (ps1 == PrioritySpecial.FIRST) {
+          return -1;
+        } else if (ps2 == PrioritySpecial.FIRST) {
+            return 1;
+        }
+        // SECOND must go after any FIRST, but before any other priority without a special priority
+        if (ps1 == PrioritySpecial.SECOND) {
+          return -1;
+        } else if (ps2 == PrioritySpecial.SECOND) {
+          return 1;
+        }
+        // LAST must go last after any other priority without a special priority and PENULTIMATE
+        if (ps1 == PrioritySpecial.LAST) {
+          return 1;
+        } else if (ps2 == PrioritySpecial.LAST) {
+          return -1;
+        }
+        // PENUlTIMATE must go last after any other priority without a special priority, but before any LAST
+        if (ps1 == PrioritySpecial.PENULTIMATE) {
+          return 1;
+        } else if (ps2 == PrioritySpecial.PENULTIMATE) {
+          return -1;
+        }
+      }
       int p1 = ProjectNextActionType.defaultPriority(pa1.getNextActionType());
       int p2 = ProjectNextActionType.defaultPriority(pa2.getNextActionType());
       if (p1 != p2) {
