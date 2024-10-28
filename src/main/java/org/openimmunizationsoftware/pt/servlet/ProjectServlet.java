@@ -1042,6 +1042,8 @@ public class ProjectServlet extends ClientServlet {
       out.println("  </tr>");
       SimpleDateFormat sdf11 = webUser.getDateFormat();
       for (ProjectAction pa : projectActionList) {
+        String workActionLink = "<a href=\"ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "=" + pa.getActionId()
+            + "\" class=\"button\">";
         String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId
             + "&" + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
         Date today = new Date();
@@ -1065,7 +1067,7 @@ public class ProjectServlet extends ClientServlet {
         }
 
         if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
-          out.println("    <td class=\"inside\">" + pa.getNextTimeEstimateForDisplay() + "</td>");
+          out.println("    <td class=\"inside\">" + workActionLink + pa.getNextTimeEstimateForDisplay() + "</a></td>");
         } else {
           out.println("    <td class=\"inside\">&nbsp;</td>");
         }

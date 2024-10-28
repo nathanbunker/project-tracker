@@ -123,10 +123,11 @@ public class ProjectEditServlet extends ClientServlet {
         }
       }
 
+      out.println("<div class=\"main\">");
       out.println("<form action=\"ProjectEditServlet\" method=\"POST\">");
       out.println(
           "<input type=\"hidden\" name=\"projectId\" value=\"" + project.getProjectId() + "\">");
-      out.println("<table class=\"boxed\">");
+      out.println("<table class=\"boxed-full\">");
       out.println("  <tr>");
       out.println("    <th class=\"title\" colspan=\"2\">Edit Project Information</th>");
       out.println("  </tr>");
@@ -275,6 +276,7 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("</table>");
       out.println("</form>");
+      out.println("</div>");
 
       printHtmlFoot(appReq);
     } catch (Exception e) {

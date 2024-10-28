@@ -48,6 +48,9 @@ public class ProjectNextActionType implements java.io.Serializable {
   
   public static int defaultPriority(String projectNextActionType)
   {
+    if (projectNextActionType == null) {
+      return 0;
+    }
     if (projectNextActionType.equals(WILL)) {
       return 3;
     } else if (projectNextActionType.equals(WILL_CONTACT)) {

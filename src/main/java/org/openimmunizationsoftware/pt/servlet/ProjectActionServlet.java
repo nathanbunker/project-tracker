@@ -38,6 +38,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SuppressWarnings("serial")
 public class ProjectActionServlet extends ClientServlet {
 
+  protected static final String PARAM_COMPLETING_ACTION_ID = "completingActionId";
+
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
    * methods.
@@ -65,10 +67,10 @@ public class ProjectActionServlet extends ClientServlet {
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
 
-      String actionIdString = request.getParameter("actionId");
-      if (actionIdString != null) {
+      String completingActionIdString = request.getParameter(PARAM_COMPLETING_ACTION_ID);
+      if (completingActionIdString != null) {
         ProjectAction projectAction = (ProjectAction) dataSession.get(ProjectAction.class,
-            Integer.parseInt(actionIdString));
+            Integer.parseInt(completingActionIdString));
         setupProjectActionAndSaveToAppReq(appReq, dataSession, projectAction);
       }
 
@@ -163,18 +165,23 @@ public class ProjectActionServlet extends ClientServlet {
             basePrompt += "The current summary is: \n" + projectAction.getNextSummary() + " \n";
           }
           proposePrompt = basePrompt;
-          proposePrompt += "The recent actions taken are previously generated summaries of actions taken for this project. Use the previously document recent actions taken as examples of what to create, although keep in mind that actions written before November 2024 are often too short and lack detail. Please use the working on next action and the next action notes as the basis for creating a complete update of the action taken. It will join the list of recent actions taken.  \n";
-          proposePrompt += "I will report this to my supervisor and other contacts as this action having been completed on today's date "
+          proposePrompt += "The recent actions taken are previously generated summaries of actions taken for this project. "
+              + "Please create a succinct summary of what action was taken based on the next action I am working on and the next action notes I took (if any) "
+              + "while completing this action. "
+              + "Keep in mind that this summary will be added to the list of recent actions taken, so should be in the same format as the other summaries. "
+              + "Be careful to only document what has occured and do not mention what is planned to happen next. \n";
+          proposePrompt += "I will report this and the list of completed actions to my supervisor and other contacts as this action having been completed on today's date "
               + sdf.format(new Date())
               + ". Please give me only the text of the update, as it would appear after the date and no other commentary. Thanks!";
 
           feedbackPrompt = basePrompt;
-          feedbackPrompt += "Please review my current summary and tell me what other questions my superisor or others might have about the project. "
+          feedbackPrompt += "Please review my current summary and give me three to five questions my superisor or others might have that could help me clarify and add more detail to this update. "
               + " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
               + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions.. Thanks! \n";
 
           nextPrompt = basePrompt;
-          nextPrompt += "Please review my current summary of what I accomplished and what I have accomplished in the past with this project and suggest a list of next steps I should consider taking.  "
+          nextPrompt += "Please review my current summary of what I accomplished and what I have accomplished in the past with this project and suggest a list "
+              + "of two or three next steps I should indicate in my project tracker  "
               + " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
               + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions.. Thanks! \n";
         }
@@ -262,17 +269,13 @@ public class ProjectActionServlet extends ClientServlet {
       printActionsDue(projectActionList, isCompleted, webUser, out, dataSession, appReq);
 
       if (!isCompleted && projectAction != null && projectAction.getNextFeedback() != null) {
-        out.println("<div id=\"takeAction\">");
         out.println("<h3>Feedback</h3>");
         out.println("" + projectAction.getNextFeedback() + "");
-        out.println("</div>");
       }
 
       if (isCompleted && nextSuggest != null) {
-        out.println("<div id=\"takeAction\">");
         out.println("<h3>Next Step Suggestions</h3>");
         out.println("" + projectAction.getNextFeedback() + "");
-        out.println("</div>");
       }
 
       if (chatAgent != null) {
@@ -332,75 +335,78 @@ public class ProjectActionServlet extends ClientServlet {
           + "\" method=\"post\" action=\"ProjectActionServlet\" id=\"saveProjectActionForm" + projectId
           + "\">");
       out.println("<table class=\"boxed-full\">");
-      if (!isCompleted) {
-        out.println("  <tr>");
-        out.println("    <th class=\"title\">Work on this action now</th>");
-        out.println("  </tr>");
-        out.println("  <tr>");
-        out.println("    <td class=\"outside\">");
-        out.println("      <table class=\"boxed-fill\">");
-        out.println("        <tr>");
-        out.println("          <th width=\"15%\">Action</th>");
-        ProjectServlet.printActionDescription(webUser, out, sdf11, projectAction, null, new Date());
-        out.println("        </tr>");
-        out.println("        <tr>");
-        out.println("          <th>Notes</th>");
-        out.println("          <td class=\"inside\">");
-        if (projectAction.getNextNotes() != null) {
-          out.println(projectAction.getNextNotes().replace("\n", "<br/>"));
-          out.println("<br/>");
-        }
-        out.println("            <textarea name=\"nextNotes\" rows=\"7\" onkeydown=\"resetRefresh()\"></textarea>");
-        out.println("          </td>");
-        out.println("        </tr>");
-        out.println("      </table>");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr>");
-        out.println("    <th class=\"title\">Proposed Summary</th>");
-        out.println("  </tr>");
-        out.println("  <tr>");
-        out.println("    <td class=\"outside\">");
-        out.println("      <table class=\"boxed-fill\">");
-        out.println("        <tr>");
-        out.println("          <th width=\"15%\">Action Taken</th>");
-        out.println("          <td class=\"inside\">");
-        out.println("            <textarea name=\"nextSummary\" rows=\"12\" onkeydown=\"resetRefresh()\">"
-            + n(projectAction.getNextSummary()) + "</textarea>");
-        out.println("          </td>");
-        out.println("        </tr>");
-        out.println("      </table>");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr>");
-        out.println("    <td class=\"boxed-submit\">");
-        out.println("       <input type=\"hidden\" name=\"actionId\" value=\"" + projectAction.getActionId() + "\"/>");
-        out.println("     <input type=\"submit\" name=\"action\" value=\"Save\"/>");
-        out.println("     <input type=\"submit\" name=\"action\" value=\"Propose\"/>");
-        out.println("     <input type=\"submit\" name=\"action\" value=\"Feedback\"/>");
-        out.println("     <input type=\"submit\" name=\"action\" value=\"Completed\"/>");
-        out.println("     <input type=\"submit\" name=\"action\" value=\"Completed and Suggest\"/>");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("</table>");
+
+      out.println("  <tr>");
+      out.println("    <th class=\"title\">Work on this action now</th>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td class=\"outside\">");
+      out.println("      <table class=\"boxed-fill\">");
+      out.println("        <tr>");
+      out.println("          <th width=\"15%\">Action</th>");
+      ProjectServlet.printActionDescription(webUser, out, sdf11, projectAction, null, new Date());
+      out.println("        </tr>");
+      out.println("        <tr>");
+      out.println("          <th>Notes</th>");
+      out.println("          <td class=\"inside\">");
+      if (projectAction.getNextNotes() != null) {
+        out.println(projectAction.getNextNotes().replace("\n", "<br/>"));
         out.println("<br/>");
       }
+      out.println("            <textarea name=\"nextNotes\" rows=\"7\" onkeydown=\"resetRefresh()\"></textarea>");
+      out.println("          </td>");
+      out.println("        </tr>");
+      out.println("      </table>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td class=\"boxed-submit\">");
+      out.println("       <input type=\"hidden\" name=\"actionId\" value=\"" + projectAction.getActionId() + "\"/>");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Note\"/>");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Propose\"/>");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Feedback\"/>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <th class=\"title\">Proposed Summary</th>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td class=\"outside\">");
+      out.println("      <table class=\"boxed-fill\">");
+      out.println("        <tr>");
+      out.println("          <th width=\"15%\">Action Taken</th>");
+      out.println("          <td class=\"inside\">");
+      out.println("            <textarea name=\"nextSummary\" rows=\"12\" onkeydown=\"resetRefresh()\">"
+          + n(projectAction.getNextSummary()) + "</textarea>");
+      out.println("          </td>");
+      out.println("        </tr>");
+      out.println("      </table>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td class=\"boxed-submit\">");
+      out.println(
+          "       <input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID +  "\" value=\"" + projectAction.getActionId() + "\"/>");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Completed\"/>");
+      out.println("     <input type=\"submit\" name=\"action\" value=\"Completed and Suggest\"/>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("</table>");
+      out.println("<br/>");
 
-      if (isCompleted) {
-        Project project = projectAction.getProject();
-        projectId = project.getProjectId();
-        List<ProjectContactAssigned> projectContactAssignedList = ProjectServlet
-            .getProjectContactAssignedList(dataSession, projectId);
-        List<ProjectContact> projectContactList = ProjectServlet.getProjectContactList(dataSession, project,
-            projectContactAssignedList);
-        ProjectServlet.printProjectUpdateForm(appReq, projectId, projectContactList, null, projectAction);
-      }
+      out.println("<div id=\"takeAction\">");
+      Project project = projectAction.getProject();
+      projectId = project.getProjectId();
+      List<ProjectContactAssigned> projectContactAssignedList = ProjectServlet
+          .getProjectContactAssignedList(dataSession, projectId);
+      List<ProjectContact> projectContactList = ProjectServlet.getProjectContactList(dataSession, project,
+          projectContactAssignedList);
+      ProjectServlet.printProjectUpdateForm(appReq, projectId, projectContactList, null, (isCompleted ? projectAction : null));
+      out.println("</div>");
 
       out.println("</form>");
     }
-    out.println("</div>");
 
-    out.println("<div class=\"actionToday\">");
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"3\">All actions scheduled for today</th>");
@@ -445,7 +451,6 @@ public class ProjectActionServlet extends ClientServlet {
     }
     printTimeEstimateBox(out, nextTimeEstimateTotal, nextTimeEstimateCommit, nextTimeEstimateWill,
         nextTimeEstimateWillMeet, nextTimeEstimateMight);
-    out.println("</div>");
 
     out.println("</div>");
   }
@@ -542,7 +547,7 @@ public class ProjectActionServlet extends ClientServlet {
     } else {
       for (ProjectAction projectAction : projectActionList) {
         if (projectAction.getNextActionType() != null
-        && projectAction.getNextActionType().equals(nextActionType)) {
+            && projectAction.getNextActionType().equals(nextActionType)) {
           paList.add(projectAction);
         }
       }
@@ -560,7 +565,7 @@ public class ProjectActionServlet extends ClientServlet {
 
     for (ProjectAction projectAction : paList) {
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId="
+      out.println("    <td class=\"boxed\"><a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
           + projectAction.getActionId() + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a></td>");
       if (projectAction.getNextTimeEstimate() == null || projectAction.getNextTimeEstimate() == 0) {
