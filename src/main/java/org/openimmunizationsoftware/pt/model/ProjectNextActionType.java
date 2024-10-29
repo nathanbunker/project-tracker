@@ -52,27 +52,27 @@ public class ProjectNextActionType implements java.io.Serializable {
       return 0;
     }
     if (projectNextActionType.equals(WILL)) {
-      return 3;
-    } else if (projectNextActionType.equals(WILL_CONTACT)) {
-      return 3;
-    } else if (projectNextActionType.equals(WILL_MEET)) {
-      return 3;
-    } else if (projectNextActionType.equals(WILL_REVIEW)) {
-      return 3;
-    } else if (projectNextActionType.equals(WILL_DOCUMENT)) {
-      return 3;
-    } else if (projectNextActionType.equals(WILL_FOLLOW_UP)) {
-      return 3;
-    } else if (projectNextActionType.equals(MIGHT)) {
-      return 2;
-    } else if (projectNextActionType.equals(COMMITTED_TO)) {
       return 4;
-    } else if (projectNextActionType.equals(GOAL)) {
+    } else if (projectNextActionType.equals(WILL_CONTACT)) {
+      return 4;
+    } else if (projectNextActionType.equals(WILL_MEET)) {
       return 1;
-    } else if (projectNextActionType.equals(WAITING)) {
-      return 1;
-    } else if (projectNextActionType.equals(OVERDUE_TO)) {
+    } else if (projectNextActionType.equals(WILL_REVIEW)) {
+      return 4;
+    } else if (projectNextActionType.equals(WILL_DOCUMENT)) {
+      return 4;
+    } else if (projectNextActionType.equals(WILL_FOLLOW_UP)) {
+      return 4;
+    } else if (projectNextActionType.equals(MIGHT)) {
+      return 3;
+    } else if (projectNextActionType.equals(COMMITTED_TO)) {
       return 5;
+    } else if (projectNextActionType.equals(GOAL)) {
+      return 2;
+    } else if (projectNextActionType.equals(WAITING)) {
+      return 2;
+    } else if (projectNextActionType.equals(OVERDUE_TO)) {
+      return 6;
     }
     return 0;
   }
