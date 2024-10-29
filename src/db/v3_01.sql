@@ -31,3 +31,27 @@ ALTER TABLE project_action RENAME COLUMN task_status TO goal_status;
 ALTER TABLE project_action ADD COLUMN (next_feedback TEXT);
 
 ALTER TABLE project_action ADD COLUMN (priority_special VARCHAR(1));
+
+ALTER TABLE project_action ADD COLUMN (next_action_status VARCHAR(1));
+
+-- mark ready next actions
+-- PROPOSED("P", "Proposed"), READY("R", "Ready"), COMPLETED("C", "Completed"), CANCELLED("X", "Cancelled");
+-- There are no proposed actions in the system
+UPDATE project_action SET next_action_status = 'R' WHERE next_action_id = 0 and next_description <> "";
+-- Need to write a query where the action status is set to complete where the associated action, identified by next_action_id has a description of the action taken
+UPDATE project_action pa
+JOIN project_action npa ON pa.next_action_id = npa.action_id
+SET pa.next_action_status = 'C'
+WHERE pa.next_action_id <> 0
+  AND pa.next_description <> ''
+  AND npa.action_description <> '';
+
+UPDATE project_action pa
+JOIN project_action npa ON pa.next_action_id = npa.action_id
+SET pa.next_action_status = 'X'
+WHERE pa.next_action_id <> 0
+  AND pa.next_description <> ''
+  AND npa.action_description = '';
+
+ALTER TABLE project_action ADD COLUMN (next_change_date DATETIME);
+UPDATE project_action SET next_change_date = next_due;

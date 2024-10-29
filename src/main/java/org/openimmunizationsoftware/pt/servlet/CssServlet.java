@@ -102,8 +102,6 @@ public class CssServlet extends ClientServlet {
     } else {
       out.println("#takeAction {width: 580px; margin-top: 10px; }");
     }
-    out.println("#actionsToday {width: 700px; }");
-    out.println("#actionNow {width: 580px; float: right;}");
     out.println("#providerNavigationBox {position: absolute; left: 1340px; top: 0px;}");
     out.println("textarea {" );
     out.println("        width: 100%;" );
@@ -111,6 +109,32 @@ public class CssServlet extends ClientServlet {
     out.println("        box-sizing: border-box; /* Ensures padding is included in the width */" );
     out.println("        resize: vertical; /* Allows vertical resizing but prevents horizontal resizing */" );
     out.println("    }");
+
+        out.println("/* Container for the three columns */");
+    out.println("#three-column-container {");
+    out.println("    display: flex;");
+    out.println("    justify-content: space-between;");
+    out.println("    width: 1525px;");
+    out.println("    padding: 0px; /* Adjust as needed */");
+    out.println("    box-sizing: border-box;");
+    out.println("}");
+    out.println("");
+    out.println("/* Common styling for each action section */");
+    out.println("#actionNow, #actionLater, #actionNext {");
+    out.println("    padding: 2px; /* Adjust for your preference */");
+    out.println("    box-sizing: border-box;");
+    out.println("}");
+    out.println("");
+    out.println("/* Specific width for each column */");
+    out.println("#actionNow, #actionLater {");
+    out.println("    width: 525px; /* Adjust as needed */");
+    out.println("}");
+    out.println("");
+    out.println("#actionNext {");
+    out.println("    width: 475px; /* Adjust as needed */");
+    out.println("}");
+
+
     out.println("a:link.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}");
     out.println("a:visited.menuLink {padding:5px; color:#AAAAAA; text-decoration:none}");
     out.println("a:hover.menuLink {padding:5px; color:#FFFFFF; text-decoration:none}");

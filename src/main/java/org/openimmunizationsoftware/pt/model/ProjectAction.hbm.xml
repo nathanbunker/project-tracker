@@ -72,5 +72,8 @@
         <property name="templateTypeString" type="string">
             <column name="template_type"/>
         </property>
+        <property name="nextActionStatusString" type="string">
+            <column name="next_action_status"/>
+        </property>
     </class>
 </hibernate-mapping>

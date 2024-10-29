@@ -32,6 +32,7 @@ import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -411,11 +412,6 @@ public class ProjectServlet extends ClientServlet {
     projectAction.setContactId(webUser.getContactId());
     projectAction.setContact(webUser.getProjectContact());
     Date actionDate = new Date();
-    try {
-      actionDate = sdf.parse(request.getParameter("actionDate"));
-    } catch (Exception e) {
-      appReq.setMessageProblem("Unable to read action date: " + e);
-    }
     int nextTimeEstimate = 0;
     if (request.getParameter("nextTimeEstimate") != null) {
       try {
@@ -464,6 +460,13 @@ public class ProjectServlet extends ClientServlet {
           (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getNextContactId()));
     }
     projectAction.setProvider(webUser.getProvider());
+    if (projectAction.hasNextDescription()) {
+      if (projectAction.hasNextDue()) {
+        projectAction.setNextActionStatus(ProjectNextActionStatus.READY);
+      } else {
+        projectAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
+      }
+    }
     String message = appReq.getMessageProblem();
     if (message == null) {
       String[] completed = request.getParameterValues("completed");
@@ -476,6 +479,11 @@ public class ProjectServlet extends ClientServlet {
           for (String c : completed) {
             ProjectAction paCompleted = (ProjectAction) dataSession.get(ProjectAction.class, Integer.parseInt(c));
             paCompleted.setNextActionId(projectAction.getActionId());
+            if (projectAction.hasActionDescription()) {
+              paCompleted.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
+            } else {
+              paCompleted.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+            }
             dataSession.update(paCompleted);
             if (nextFeedback == null && paCompleted.getNextFeedback() != null) {
               nextFeedback = paCompleted.getNextFeedback();
@@ -561,7 +569,7 @@ public class ProjectServlet extends ClientServlet {
     return emailBody;
   }
 
-  private static int autoSetPriority(Project project, String nextActionType) {
+  protected static int autoSetPriority(Project project, String nextActionType) {
     int priorityLevel = project.getPriorityLevel();
     if (nextActionType != null) {
       if (nextActionType.equals("T")) {
@@ -643,24 +651,9 @@ public class ProjectServlet extends ClientServlet {
 
     out.println("    </td>");
     out.println("  </tr>");
-
-    out.println("  <tr>");
-    out.println("    <th class=\"title\">What happened?</th>");
-    out.println("  </tr>");
     out.println("    <td class=\"outside\">");
 
-    SimpleDateFormat sdf1 = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
-
     out.println("      <table class=\"inside\" width=\"100%\">");
-    out.println("        <tr>");
-    out.println("          <th class=\"inside\">When</th>");
-    {
-      Date d = projectAction == null ? new Date() : projectAction.getActionDate();
-      out.println(
-          "          <td class=\"inside\"><input type=\"text\" name=\"actionDate\" size=\"20\" value=\""
-              + sdf1.format(d) + "\" onkeydown=\"resetRefresh()\"></td>");
-    }
-    out.println("        </tr>");
     out.println("        <tr>");
     out.println("          <th class=\"inside\">Action</th>");
     String actionDescription = "";
@@ -690,12 +683,16 @@ public class ProjectServlet extends ClientServlet {
     out.println("      </table>");
     out.println("   </td>");
     out.println("  </tr>");
+    out.println("  </table>");
+    out.println("  </br>");
+    out.println("  <table class=\"boxed\">");
     out.println("  <tr>");
     out.println("    <th class=\"title\">What is next?</th>");
     out.println("  </tr>");
     out.println("  <tr>");
     out.println("    <td class=\"outside\">");
     out.println("      <table class=\"inside\">");
+    SimpleDateFormat sdf1 = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
     {
       sdf1 = webUser.getDateFormat();
       out.println("        <tr>");
@@ -992,7 +989,7 @@ public class ProjectServlet extends ClientServlet {
 
   }
 
-  private static void printTemplatesOrGoals(WebUser webUser, int projectId, Session dataSession,
+  protected static void printTemplatesOrGoals(WebUser webUser, int projectId, Session dataSession,
       PrintWriter out, List<ProjectAction> projectActionGoalList) {
     out.println("<table class=\"inside\" width=\"100%\">");
     out.println("  <tr>");
@@ -1053,7 +1050,7 @@ public class ProjectServlet extends ClientServlet {
     out.println("</table>");
   }
 
-  private static void printTodoList(int projectId, WebUser webUser, Session dataSession,
+  protected static void printTodoList(int projectId, WebUser webUser, Session dataSession,
       PrintWriter out, List<ProjectAction> projectActionList, ProjectAction completingProjectAction) {
     if (projectActionList.size() > 0) {
       out.println("<table class=\"inside\" width=\"100%\">");
@@ -1187,7 +1184,7 @@ public class ProjectServlet extends ClientServlet {
     return project;
   }
 
-  private static Date parseDate(AppReq appReq, String dateString) {
+  protected static Date parseDate(AppReq appReq, String dateString) {
     Date date = null;
     if (dateString != null && dateString.length() > 0) {
       SimpleDateFormat sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy hh:mm aaa");
@@ -1326,7 +1323,7 @@ public class ProjectServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
-  private static void printOutScript(PrintWriter out, int projectId, WebUser webUser) {
+  protected static void printOutScript(PrintWriter out, int projectId, WebUser webUser) {
     SimpleDateFormat sdf = webUser.getDateFormat();
     out.println(" <script>");
     out.println("    function clickForEmail" + projectId + "(projectContactId) { ");
@@ -1364,6 +1361,11 @@ public class ProjectServlet extends ClientServlet {
     out.println("      }");
     out.println("    }");
     out.println("    ");
+    generateSelectNextTimeEstimateFunction(out, projectId);
+    out.println("  </script>");
+  }
+
+  protected static void generateSelectNextTimeEstimateFunction(PrintWriter out, int projectId) {
     out.println("    function selectNextTimeEstimate" + projectId + "(timeInMinutes)");
     out.println("    {");
     out.println("      var form = document.forms['saveProjectActionForm" + projectId + "'];");
@@ -1448,7 +1450,6 @@ public class ProjectServlet extends ClientServlet {
     out.println("      }");
     out.println("    }");
     out.println("    ");
-    out.println("  </script>");
   }
 
 }

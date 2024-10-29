@@ -36,6 +36,35 @@ public class ProjectAction implements java.io.Serializable {
   private String nextSummary = "";
   private String nextFeedback = "";
   private TemplateType templateType = null;
+  private ProjectNextActionStatus nextActionStatus = null;
+  private Date nextChangeDate;
+
+  public Date getNextChangeDate() {
+      return nextChangeDate;
+  }
+
+  public void setNextChangeDate(Date nextChangeDate) {
+      this.nextChangeDate = nextChangeDate;
+  }
+
+  public ProjectNextActionStatus getNextActionStatus() {
+      return nextActionStatus;
+  }
+
+  public void setNextActionStatus(ProjectNextActionStatus nextActionStatus) {
+      this.nextActionStatus = nextActionStatus;
+  }
+
+  public String getNextActionStatusString() {
+      if (nextActionStatus == null) {
+          return "";
+      }
+      return nextActionStatus.getId();
+  }
+
+  public void setNextActionStatusString(String nextActionStatusString) {
+      this.nextActionStatus = ProjectNextActionStatus.getProjectNextActionStatus(nextActionStatusString);
+  }
 
   public String getNextFeedback() {
     return nextFeedback;
@@ -239,6 +268,18 @@ public class ProjectAction implements java.io.Serializable {
     return this.nextDescription;
   }
 
+  public boolean hasActionDescription() {
+    return actionDescription != null && !actionDescription.equals("");
+  }
+
+  public boolean hasNextDescription() {
+    return nextDescription != null && !nextDescription.equals("");
+  } 
+
+  public boolean hasNextDue() {
+    return nextDue != null;
+  }
+
   public String getNextDescriptionForDisplay(ProjectContact forContact) {
     String i_am = "I am ";
     String i_ = "I ";
@@ -422,5 +463,13 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setTemplateActionId(int goalTemplateId) {
     this.templateActionId = goalTemplateId;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null || !(obj instanceof ProjectAction)) {
+      return false;
+    }
+    return this.actionId == ((ProjectAction)obj).actionId;
   }
 }

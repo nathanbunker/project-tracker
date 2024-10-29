@@ -51,6 +51,30 @@ public class TimeTracker {
     return timeEntryList;
   }
 
+  public synchronized int getTotalMinsForAction(ProjectAction projectAction) {
+    HashMap<Integer, Integer> totalMinsForProjectMapCopy =
+        new HashMap<Integer, Integer>(totalMinsForProjectMap);
+    int totalMins = 0;
+    if (billEntry != null) {
+      if (billEntry.getAction() != null && billEntry.getAction().equals(projectAction)) {
+        totalMins += billEntry.getBillMins();
+      }
+    }
+    return totalMins;
+  }
+
+  public synchronized int getTotalMinsForProject(Project project) {
+    HashMap<Integer, Integer> totalMinsForProjectMapCopy =
+        new HashMap<Integer, Integer>(totalMinsForProjectMap);
+    int totalMins = 0;
+    if (billEntry != null) {
+      if (billEntry.getProjectId() == project.getProjectId()) {
+        totalMins += billEntry.getBillMins();
+      }
+    }
+    return totalMins;
+  }
+
   public synchronized HashMap<Integer, Integer> getTotalMinsForProjectMap() {
     HashMap<Integer, Integer> totalMinsForProjectMapCopy =
         new HashMap<Integer, Integer>(totalMinsForProjectMap);
@@ -370,7 +394,10 @@ public class TimeTracker {
     return min;
   }
 
-  public static String formatTime(int min) {
+  public static String formatTime(Integer min) {
+    if (min == null) {
+      return "0:00";
+    }
     int hour = min / 60;
     min = min % 60;
     if (min < 0) {

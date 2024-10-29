@@ -262,10 +262,8 @@ public class ClientServlet extends HttpServlet {
               + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
           if (timeTracker != null) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
-            Integer mins = timeTracker.getTotalMinsForProjectMap().get(project.getProjectId());
-            if (mins != null) {
-              time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
-            }
+            int mins = timeTracker.getTotalMinsForProject(project);
+            time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
             if (timeTracker.isRunningClock()) {
               result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
                   + time + "</a>");
