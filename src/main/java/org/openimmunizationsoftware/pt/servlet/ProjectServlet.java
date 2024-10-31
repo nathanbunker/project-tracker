@@ -636,7 +636,8 @@ public class ProjectServlet extends ClientServlet {
     }
 
     String disabled = (projectAction == null ? " disabled" : "");
-    printOutScript(out, projectId, webUser);
+    String formName = "" + projectId;
+    printOutScript(out, formName, webUser);
     out.println("<input type=\"hidden\" name=\"projectId\" value=\"" + projectId + "\">");
     if (projectAction != null) {
       out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
@@ -1323,28 +1324,28 @@ public class ProjectServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
-  protected static void printOutScript(PrintWriter out, int projectId, WebUser webUser) {
+  protected static void printOutScript(PrintWriter out, String formName, WebUser webUser) {
     SimpleDateFormat sdf = webUser.getDateFormat();
     out.println(" <script>");
-    out.println("    function clickForEmail" + projectId + "(projectContactId) { ");
-    out.println("      var form = document.forms['saveProjectActionForm" + projectId + "']; ");
+    out.println("    function clickForEmail" + formName + "(projectContactId) { ");
+    out.println("      var form = document.forms['saveProjectActionForm" + formName + "']; ");
     out.println("      var checkBox = form['sendEmailTo' + projectContactId];");
     out.println("      checkBox.checked = !checkBox.checked; ");
     out.println("    }");
-    out.println("    function selectProjectActionType" + projectId + "(actionType)");
+    out.println("    function selectProjectActionType" + formName + "(actionType)");
     out.println("    {");
-    out.println("      var form = document.forms['saveProjectActionForm" + projectId + "'];");
+    out.println("      var form = document.forms['saveProjectActionForm" + formName + "'];");
     out.println("      var found = false; ");
-    out.println("      var label = makeIStatement" + projectId
+    out.println("      var label = makeIStatement" + formName
         + "(actionType, form.nextContactId.options[form.nextContactId.selectedIndex].text);");
     out.println("      form.startSentance.value = label;");
     out.println("      form.nextActionType.value = actionType;");
-    out.println("      enableForm" + projectId + "(); ");
+    out.println("      enableForm" + formName + "(); ");
     out.println("    }");
     out.println("    ");
-    out.println("    function enableForm" + projectId + "()");
+    out.println("    function enableForm" + formName + "()");
     out.println("    {");
-    out.println("      var form = document.forms['saveProjectActionForm" + projectId + "'];");
+    out.println("      var form = document.forms['saveProjectActionForm" + formName + "'];");
     out.println("      form.nextDue.disabled = false;");
     out.println("      form.nextDescription.disabled = false;");
     out.println("      form.nextContactId.disabled = false;");
@@ -1356,23 +1357,23 @@ public class ProjectServlet extends ClientServlet {
     out.println("      form.prioritySpecial.disabled = false;");
     out.println("      if (form.nextDue.value == \"\")");
     out.println("      {");
-    out.println("       document.projectAction" + projectId + ".nextDue.value = '"
+    out.println("       document.projectAction" + formName + ".nextDue.value = '"
         + sdf.format(new Date()) + "';");
     out.println("      }");
     out.println("    }");
     out.println("    ");
-    generateSelectNextTimeEstimateFunction(out, projectId);
+    generateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
   }
 
-  protected static void generateSelectNextTimeEstimateFunction(PrintWriter out, int projectId) {
-    out.println("    function selectNextTimeEstimate" + projectId + "(timeInMinutes)");
+  protected static void generateSelectNextTimeEstimateFunction(PrintWriter out, String formName) {
+    out.println("    function selectNextTimeEstimate" + formName + "(timeInMinutes)");
     out.println("    {");
-    out.println("      var form = document.forms['saveProjectActionForm" + projectId + "'];");
+    out.println("      var form = document.forms['saveProjectActionForm" + formName + "'];");
     out.println("      form.nextTimeEstimate.value = timeInMinutes;");
     out.println("    }");
     out.println("    ");
-    out.println("    function makeIStatement" + projectId + "(actionType, nextContactName)");
+    out.println("    function makeIStatement" + formName + "(actionType, nextContactName)");
     out.println("    {");
     out.println("      if (nextContactName == 'none')");
     out.println("      {");
