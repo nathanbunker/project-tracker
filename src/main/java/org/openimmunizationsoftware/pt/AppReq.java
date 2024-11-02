@@ -24,8 +24,7 @@ public class AppReq {
   private static final String SESSION_VAR_DATA_SESSION = "dataSession";
   private static final String SESSION_VAR_WEB_USER = "webUser";
   private static final String SESSION_VAR_PROJECT_ID_LIST = "projectIdList";
-  private static final String SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST =
-      "projectContactAssignedList";
+  private static final String SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST = "projectContactAssignedList";
   private static final String SESSION_VAR_PROJECT_SELECTED_LIST = "projectSelectedList";
   private static final String SESSION_VAR_PROJECT = "project";
   private static final String SESSION_VAR_PARENT_PROJECT = "parentProject";
@@ -57,7 +56,7 @@ public class AppReq {
   private String displayColor = "";
   private Project project = null;
   private Project parentProject = null;
-  private ProjectAction projectAction = null;
+  private ProjectAction completingAction = null;
   private ProjectAction projectActionParent = null;
   private String action = null;
   private List<WebUser> childWebUserList = null;
@@ -65,13 +64,12 @@ public class AppReq {
   private List<Project> projectSelectedList = null;
   private List<ProjectContactAssigned> projectContactAssignedList = null;
 
-
   public ProjectAction getProjectActionSelected() {
     return projectActionSelected;
   }
 
-  public ProjectAction getProjectAction() {
-    return projectAction;
+  public ProjectAction getCompletingAction() {
+    return completingAction;
   }
 
   public List<Integer> getProjectIdList() {
@@ -177,12 +175,12 @@ public class AppReq {
       ClientServlet.webUserLastUsedDate.put(webUser.getUsername(), new Date());
       timeTracker = (TimeTracker) webSession.getAttribute(SESSION_VAR_TIME_TRACKER);
       if (timeTracker != null) {
-        actionTrackTime = (ProjectAction) webSession.getAttribute(webUser.getParentWebUser() == null ? SESSION_VAR_ACTION: SESSION_VAR_PARENT_ACTION);
+        actionTrackTime = (ProjectAction) webSession
+            .getAttribute(webUser.getParentWebUser() == null ? SESSION_VAR_ACTION : SESSION_VAR_PARENT_ACTION);
         if (actionTrackTime == null) {
           projectTrackTime = (Project) webSession.getAttribute(
               webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT : SESSION_VAR_PARENT_PROJECT);
-        }
-        else {
+        } else {
           projectTrackTime = actionTrackTime.getProject();
         }
         if (projectTrackTime != null) {
@@ -213,13 +211,12 @@ public class AppReq {
     }
 
     project = (Project) webSession.getAttribute(SESSION_VAR_PROJECT);
-    projectAction = (ProjectAction) webSession.getAttribute(SESSION_VAR_ACTION);
+    completingAction = (ProjectAction) webSession.getAttribute(SESSION_VAR_ACTION);
     parentProject = (Project) webSession.getAttribute(SESSION_VAR_PARENT_PROJECT);
     action = request.getParameter(PARAM_ACTION);
     childWebUserList = (List<WebUser>) webSession.getAttribute(SESSION_VAR_CHILD_WEB_USER_LIST);
     projectIdList = (List<Integer>) webSession.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
-    projectSelectedList =
-        (List<Project>) webSession.getAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
+    projectSelectedList = (List<Project>) webSession.getAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
     projectContactAssignedList = (List<ProjectContactAssigned>) webSession
         .getAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
   }
@@ -256,7 +253,6 @@ public class AppReq {
       dataSession = null;
     }
   }
-
 
   public PrintWriter getOut() {
     return out;
@@ -299,8 +295,8 @@ public class AppReq {
     }
   }
 
-  public void setProjectAction(ProjectAction projectAction) {
-    this.projectAction = projectAction;
+  public void setCompletingAction(ProjectAction projectAction) {
+    this.completingAction = projectAction;
     if (projectAction == null) {
       webSession.removeAttribute(SESSION_VAR_ACTION);
     } else {
@@ -320,7 +316,7 @@ public class AppReq {
       webSession.setAttribute(SESSION_VAR_PARENT_PROJECT, parentProject);
     }
   }
-  
+
   public ProjectAction getProjectActionParent() {
     return projectActionParent;
   }
@@ -341,7 +337,6 @@ public class AppReq {
   public void setAction(String action) {
     this.action = action;
   }
-
 
   public List<Project> createProjectList() {
     List<Project> projectList = new ArrayList<Project>();
@@ -382,7 +377,6 @@ public class AppReq {
     webSession = request.getSession(true);
   }
 
-
   public void setProjectSelected(Project projectSelected) {
     this.projectSelected = projectSelected;
   }
@@ -392,5 +386,3 @@ public class AppReq {
   }
 
 }
-
-

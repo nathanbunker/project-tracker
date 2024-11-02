@@ -81,7 +81,7 @@ public class ProjectServlet extends ClientServlet {
       Project project = setupProject(dataSession, projectId);
       appReq.setProjectSelected(project);
       appReq.setProject(project);
-      appReq.setProjectAction(null);
+      appReq.setCompletingAction(null);
       appReq.setProjectActionSelected(null);
 
       List<Project> projectSelectedList = setupProjectList(appReq, project);
@@ -902,11 +902,11 @@ public class ProjectServlet extends ClientServlet {
           "          <td class=\"inside\" colspan=\"3\">");
       out.println("            Template: ");
       out.println("            <select name=\"templateType\" value=\""
-              + n((projectAction == null || projectAction.getTemplateType() == null)
-                  ? request.getParameter("templateType")
-                  : projectAction.getTemplateType().getId())
-              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
-              // default empty option for no template
+          + n((projectAction == null || projectAction.getTemplateType() == null)
+              ? request.getParameter("templateType")
+              : projectAction.getTemplateType().getId())
+          + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      // default empty option for no template
       out.println("             <option value=\"\">none</option>");
       for (TemplateType templateType : TemplateType.values()) {
         out.println("             <option value=\"" + templateType.getId() + "\""
@@ -917,11 +917,11 @@ public class ProjectServlet extends ClientServlet {
       // now do Priority Special
       out.println("            Priority: ");
       out.println("           <select name=\"prioritySpecial\" value=\""
-              + n((projectAction == null || projectAction.getPrioritySpecial() == null)
-                  ? request.getParameter("prioritySpecial")
-                  : projectAction.getPrioritySpecial().getId())
-              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
-              // default empty option for no template
+          + n((projectAction == null || projectAction.getPrioritySpecial() == null)
+              ? request.getParameter("prioritySpecial")
+              : projectAction.getPrioritySpecial().getId())
+          + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      // default empty option for no template
       out.println("             <option value=\"\">none</option>");
       for (PrioritySpecial prioritySpecial : PrioritySpecial.values()) {
         out.println("             <option value=\"" + prioritySpecial.getId() + "\""
@@ -1064,7 +1064,8 @@ public class ProjectServlet extends ClientServlet {
       out.println("  </tr>");
       SimpleDateFormat sdf11 = webUser.getDateFormat();
       for (ProjectAction pa : projectActionList) {
-        String workActionLink = "<a href=\"ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "=" + pa.getActionId()
+        String workActionLink = "<a href=\"ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID
+            + "=" + pa.getActionId()
             + "\" class=\"button\">";
         String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId
             + "&" + PARAM_ACTION_ID + "=" + pa.getActionId() + "\" class=\"button\">";
@@ -1135,12 +1136,12 @@ public class ProjectServlet extends ClientServlet {
             + sdf11.format(pa.getNextDeadline()) + "</span>";
       }
     }
-    if (editActionLink == null){
-    out.println("    <td class=\"inside\">"
-        + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + additionalContent + "</td>");
+    if (editActionLink == null) {
+      out.println("    <td class=\"inside\">"
+          + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + additionalContent + "</td>");
     } else {
-    out.println("    <td class=\"inside\">" + editActionLink
-        + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
+      out.println("    <td class=\"inside\">" + editActionLink
+          + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
     }
   }
 
@@ -1362,11 +1363,11 @@ public class ProjectServlet extends ClientServlet {
     out.println("      }");
     out.println("    }");
     out.println("    ");
-    generateSelectNextTimeEstimateFunction(out, formName);
+    printGenerateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
   }
 
-  protected static void generateSelectNextTimeEstimateFunction(PrintWriter out, String formName) {
+  protected static void printGenerateSelectNextTimeEstimateFunction(PrintWriter out, String formName) {
     out.println("    function selectNextTimeEstimate" + formName + "(timeInMinutes)");
     out.println("    {");
     out.println("      var form = document.forms['saveProjectActionForm" + formName + "'];");

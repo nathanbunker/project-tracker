@@ -40,30 +40,30 @@ public class ProjectAction implements java.io.Serializable {
   private Date nextChangeDate;
 
   public Date getNextChangeDate() {
-      return nextChangeDate;
+    return nextChangeDate;
   }
 
   public void setNextChangeDate(Date nextChangeDate) {
-      this.nextChangeDate = nextChangeDate;
+    this.nextChangeDate = nextChangeDate;
   }
 
   public ProjectNextActionStatus getNextActionStatus() {
-      return nextActionStatus;
+    return nextActionStatus;
   }
 
   public void setNextActionStatus(ProjectNextActionStatus nextActionStatus) {
-      this.nextActionStatus = nextActionStatus;
+    this.nextActionStatus = nextActionStatus;
   }
 
   public String getNextActionStatusString() {
-      if (nextActionStatus == null) {
-          return "";
-      }
-      return nextActionStatus.getId();
+    if (nextActionStatus == null) {
+      return "";
+    }
+    return nextActionStatus.getId();
   }
 
   public void setNextActionStatusString(String nextActionStatusString) {
-      this.nextActionStatus = ProjectNextActionStatus.getProjectNextActionStatus(nextActionStatusString);
+    this.nextActionStatus = ProjectNextActionStatus.getProjectNextActionStatus(nextActionStatusString);
   }
 
   public String getNextFeedback() {
@@ -123,22 +123,22 @@ public class ProjectAction implements java.io.Serializable {
   }
 
   public TemplateType getTemplateType() {
-      return templateType;
+    return templateType;
   }
 
   public void setTemplateType(TemplateType templateType) {
-      this.templateType = templateType;
+    this.templateType = templateType;
   }
 
   public String getTemplateTypeString() {
-      if (templateType == null) {
-          return "";
-      }
-      return templateType.getId();
-  } 
+    if (templateType == null) {
+      return "";
+    }
+    return templateType.getId();
+  }
 
   public void setTemplateTypeString(String templateTypeString) {
-      this.templateType = TemplateType.getTemplateType(templateTypeString);
+    this.templateType = TemplateType.getTemplateType(templateTypeString);
   }
 
   public PrioritySpecial getPrioritySpecial() {
@@ -274,7 +274,7 @@ public class ProjectAction implements java.io.Serializable {
 
   public boolean hasNextDescription() {
     return nextDescription != null && !nextDescription.equals("");
-  } 
+  }
 
   public boolean hasNextDue() {
     return nextDue != null;
@@ -284,7 +284,7 @@ public class ProjectAction implements java.io.Serializable {
     String i_am = "I am ";
     String i_ = "I ";
     String i_have = "I have";
-    if (forContact == null || forContact.getContactId() != contact.getContactId()) {
+    if (forContact != null && contact != null && forContact.getContactId() != contact.getContactId()) {
       i_am = contact.getName() + " is ";
       i_ = contact.getName() + " ";
       i_have = contact.getName() + " has ";
@@ -341,7 +341,7 @@ public class ProjectAction implements java.io.Serializable {
       }
     } else if (type.equals(ProjectNextActionType.WILL_FOLLOW_UP)) {
       if (nextProjectContact == null) {
-        description = "<i>" + i_+ " will follow up </i> " + getNextDescription();
+        description = "<i>" + i_ + " will follow up </i> " + getNextDescription();
       } else {
         description = "<i>" + i_ + " will follow up with " + nextProjectContact.getName() + " to</i> "
             + getNextDescription();
@@ -470,6 +470,6 @@ public class ProjectAction implements java.io.Serializable {
     if (obj == null || !(obj instanceof ProjectAction)) {
       return false;
     }
-    return this.actionId == ((ProjectAction)obj).actionId;
+    return this.actionId == ((ProjectAction) obj).actionId;
   }
 }

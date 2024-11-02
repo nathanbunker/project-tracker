@@ -18,19 +18,27 @@ public class ChatAgent {
     public static final String RESPONSE_FORMAT_TEXT = "text";
     public static final String RESPONSE_FORMAT_JSON = "json_object";
 
+    private String title = "";
     private String rawRequestBody = null;
     private String rawResponseBody = null;
     private String responseText = null;
     private String responseError = null;
     private String responseFormat = RESPONSE_FORMAT_TEXT;
+    private String requestPrompt = null;
 
+    public String getTitle() {
+        return title;
+    }
+
+    public String getRequestPrompt() {
+        return requestPrompt;
+    }
 
     public void setResponseFormat(String responseFormat) {
         this.responseFormat = responseFormat;
     }
 
-    public boolean hasResponse()
-    {
+    public boolean hasResponse() {
         return responseText != null && responseError == null;
     }
 
@@ -63,11 +71,13 @@ public class ChatAgent {
     public ChatAgent() {
     }
 
-    public ChatAgent(String systemInsructions) {
+    public ChatAgent(String title, String systemInsructions) {
+        this.title = title;
         this.systemInsructions = systemInsructions;
     }
 
     public void chat(String prompt) {
+        this.requestPrompt = prompt;
         String endpoint = "https://api.openai.com/v1/chat/completions";
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -90,7 +100,7 @@ public class ChatAgent {
                     + objectMapper.writeValueAsString(systemInsructions) + "}]}, "
                     + "{\"role\": \"user\", \"content\": [{ \"type\": \"text\", \"text\":  "
                     + objectMapper.writeValueAsString(prompt) + "}]}], "
-                    + "\"temperature\": 1, \"max_tokens\": 2048, \"top_p\": 1, \"frequency_penalty\": 0, \"presence_penalty\": 0, " 
+                    + "\"temperature\": 1, \"max_tokens\": 2048, \"top_p\": 1, \"frequency_penalty\": 0, \"presence_penalty\": 0, "
                     + "\"response_format\": {\"type\": \"" + responseFormat + "\"}}";
 
             postRequest.setEntity(new StringEntity(rawRequestBody));

@@ -35,16 +35,17 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class HomeServlet extends ClientServlet {
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+   * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -83,8 +84,7 @@ public class HomeServlet extends ClientServlet {
           if (action.equals("DoToday") || action.equals("DoNextWeek")
               || action.equals("DoTomorrow")) {
             int actionId = Integer.parseInt(request.getParameter("actionId"));
-            ProjectAction projectAction =
-                (ProjectAction) dataSession.get(ProjectAction.class, actionId);
+            ProjectAction projectAction = (ProjectAction) dataSession.get(ProjectAction.class, actionId);
             Transaction trans = dataSession.beginTransaction();
             try {
               Calendar calendar = TimeTracker.createToday(webUser);
@@ -99,8 +99,7 @@ public class HomeServlet extends ClientServlet {
             }
           } else if (action.equals("UpdateAction")) {
             int actionId = Integer.parseInt(request.getParameter("actionId"));
-            ProjectAction projectAction =
-                (ProjectAction) dataSession.get(ProjectAction.class, actionId);
+            ProjectAction projectAction = (ProjectAction) dataSession.get(ProjectAction.class, actionId);
             Transaction trans = dataSession.beginTransaction();
             try {
               Date oldDateDue = projectAction.getNextDue();
@@ -156,7 +155,7 @@ public class HomeServlet extends ClientServlet {
                       appReq.setParentProject(project);
                     }
                     appReq.setProject(null);
-                    appReq.setProjectAction(null);
+                    appReq.setCompletingAction(null);
                     webUser = childWebUser;
                     appReq.setWebUser(webUser);
                     switched = true;
@@ -204,8 +203,7 @@ public class HomeServlet extends ClientServlet {
           } else {
             ProjectProvider projectProvider = webUser.getProvider();
             out.println("  <tr class=\"boxed\">");
-            String switchLink =
-                "HomeServlet?action=Switch&childWebUserName=" + webUser.getUsername();
+            String switchLink = "HomeServlet?action=Switch&childWebUserName=" + webUser.getUsername();
             String switchLabel = webUser.getUsername() + " on " + projectProvider.getProviderName();
             out.println("    <td class=\"boxed\"><a href=\"" + switchLink + "\" class=\"button\">"
                 + switchLabel + "</a></td>");
@@ -214,10 +212,8 @@ public class HomeServlet extends ClientServlet {
           for (WebUser childWebUser : childWebUserList) {
             ProjectProvider projectProvider = childWebUser.getProvider();
             out.println("  <tr class=\"boxed\">");
-            String switchLink =
-                "HomeServlet?action=Switch&childWebUserName=" + childWebUser.getUsername();
-            String switchLabel =
-                childWebUser.getUsername() + " on " + projectProvider.getProviderName();
+            String switchLink = "HomeServlet?action=Switch&childWebUserName=" + childWebUser.getUsername();
+            String switchLabel = childWebUser.getUsername() + " on " + projectProvider.getProviderName();
             out.println("    <td class=\"boxed\"><a href=\"" + switchLink + "\" class=\"button\">"
                 + switchLabel + "</a></td>");
             out.println("  </tr>");
@@ -250,8 +246,8 @@ public class HomeServlet extends ClientServlet {
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
 
-    List<ProjectAction> projectActionListOverdue =
-        prepareProjectActionListAndIdentifyOverdue(dataSession, projectActionList, webUser);
+    List<ProjectAction> projectActionListOverdue = prepareProjectActionListAndIdentifyOverdue(dataSession,
+        projectActionList, webUser);
     out.println("<div class=\"main\">");
     if (projectActionListOverdue.size() > 0) {
       out.println("<table class=\"boxed\">");
@@ -333,8 +329,7 @@ public class HomeServlet extends ClientServlet {
       runningTotal = printTimeTotal(out, runningTotal, "Committed", nextTimeEstimateCommit);
       runningTotal = printTimeTotal(out, runningTotal, "Will", nextTimeEstimateWill);
       runningTotal = printTimeTotal(out, runningTotal, "Might", nextTimeEstimateMight);
-      runningTotal =
-          printTimeTotal(out, runningTotal, "Other", nextTimeEstimateTotal - runningTotal);
+      runningTotal = printTimeTotal(out, runningTotal, "Other", nextTimeEstimateTotal - runningTotal);
       out.println("</table><br/>");
     }
   }
@@ -513,7 +508,7 @@ public class HomeServlet extends ClientServlet {
         continue;
       }
       if (ProjectNextActionType.WAITING.equals(projectAction.getNextActionType())
-         && projectAction.getContactId() == webUser.getContactId()) {
+          && projectAction.getContactId() == webUser.getContactId()) {
         askingAndWaitingCount++;
         continue;
       }
@@ -597,7 +592,6 @@ public class HomeServlet extends ClientServlet {
       }
       out.println("</table><br/>");
     }
-
 
     printTimeEstimateBox(out, nextTimeEstimateTotal, nextTimeEstimateCommit, nextTimeEstimateWill,
         nextTimeEstimateWillMeet, nextTimeEstimateMight);
@@ -818,19 +812,20 @@ public class HomeServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -842,13 +837,13 @@ public class HomeServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

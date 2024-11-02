@@ -32,7 +32,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class ClientServlet extends HttpServlet {
 
   private static final long serialVersionUID = 8641751774755499569L;
-  
+
   public static String PARAM_ACTION = "action";
 
   public static final HashMap<String, Date> webUserLastUsedDate = new HashMap<String, Date>();
@@ -53,7 +53,7 @@ public class ClientServlet extends HttpServlet {
     String title = appReq.getTitle();
     TimeTracker timeTracker = appReq.getTimeTracker();
     Project projectSelected = appReq.getProjectSelected();
-    ProjectAction projectActionSelected = appReq.getProjectAction();
+    ProjectAction completingAction = appReq.getCompletingAction();
 
     out.println("<html>");
     out.println("  <head>");
@@ -89,8 +89,9 @@ public class ClientServlet extends HttpServlet {
     String link = "HomeServlet";
     if (title.equals("Projects") && projectSelected != null) {
       link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
-    } else if (title.equals("Actions") && projectActionSelected != null) {
-      link = "ProjectActionServlet?actionId=" + projectActionSelected.getActionId();
+    } else if (title.equals("Actions") && completingAction != null) {
+      link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "="
+          + completingAction.getActionId();
     }
     out.println("        window.location.href=\"" + link + "\"");
     out.println("      }");
@@ -204,32 +205,32 @@ public class ClientServlet extends HttpServlet {
 
     if (loggedIn) {
       if (webUser.getParentWebUser() == null) {
-        menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME, "Home"});
+        menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
       } else {
         ProjectProvider projectProvider = webUser.getProvider();
-        menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME,
-            projectProvider.getProviderName() + " Home"});
+        menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME,
+            projectProvider.getProviderName() + " Home" });
       }
-      menuList.add(new String[] {"ProjectsServlet", "Projects"});
-      menuList.add(new String[] {"ProjectActionServlet", "Actions"});
-      menuList.add(new String[] {"ProjectContactsServlet", "Contacts"});
+      menuList.add(new String[] { "ProjectsServlet", "Projects" });
+      menuList.add(new String[] { "ProjectActionServlet", "Actions" });
+      menuList.add(new String[] { "ProjectContactsServlet", "Contacts" });
 
       if (webUser.isUserTypeAdmin()) {
-        menuList.add(new String[] {"ReportsServlet", "Reports"});
+        menuList.add(new String[] { "ReportsServlet", "Reports" });
       }
 
       if (webUser.getParentWebUser() == null) {
         if (timeTracker != null) {
-          menuList.add(new String[] {"TrackServlet", "Track"});
+          menuList.add(new String[] { "TrackServlet", "Track" });
         }
         if (webUser.isManageBudget()) {
-          menuList.add(new String[] {"BudgetServlet", "Budget"});
+          menuList.add(new String[] { "BudgetServlet", "Budget" });
         }
       }
-      menuList.add(new String[] {"SettingsServlet", "Settings"});
+      menuList.add(new String[] { "SettingsServlet", "Settings" });
     } else {
-      menuList.add(new String[] {Authenticate.APP_DEFAULT_HOME, "Home"});
-      menuList.add(new String[] {"LoginServlet", "Login"});
+      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
+      menuList.add(new String[] { "LoginServlet", "Login" });
     }
     StringBuilder result = new StringBuilder();
     result.append("    <table class=\"menu\"><tr><td>");
@@ -281,8 +282,7 @@ public class ClientServlet extends HttpServlet {
               + parentProject.getProjectName() + "</a>");
           if (timeTracker != null && parentProject != null && timeTracker.isRunningClock()) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
-            Integer mins =
-                timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
+            Integer mins = timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
             if (mins != null) {
               time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
             }
