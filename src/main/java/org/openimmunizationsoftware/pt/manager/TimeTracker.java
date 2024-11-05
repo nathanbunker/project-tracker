@@ -26,7 +26,6 @@ public class TimeTracker {
   private Date startDate = null;
   private Date endDate = null;
 
-
   public Date getStartDate() {
     return startDate;
   }
@@ -38,7 +37,6 @@ public class TimeTracker {
   public HashMap<String, Integer> getTotalMinsForBillCodeMap() {
     return totalMinsForBillCodeMap;
   }
-
 
   public List<TimeEntry> createTimeEntryList() {
     List<TimeEntry> timeEntryList;
@@ -52,8 +50,7 @@ public class TimeTracker {
   }
 
   public synchronized int getTotalMinsForAction(ProjectAction projectAction) {
-    HashMap<Integer, Integer> totalMinsForProjectMapCopy =
-        new HashMap<Integer, Integer>(totalMinsForProjectMap);
+    HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     int totalMins = 0;
     if (billEntry != null) {
       if (billEntry.getAction() != null && billEntry.getAction().equals(projectAction)) {
@@ -64,8 +61,7 @@ public class TimeTracker {
   }
 
   public synchronized int getTotalMinsForProject(Project project) {
-    HashMap<Integer, Integer> totalMinsForProjectMapCopy =
-        new HashMap<Integer, Integer>(totalMinsForProjectMap);
+    HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     int totalMins = 0;
     if (billEntry != null) {
       if (billEntry.getProjectId() == project.getProjectId()) {
@@ -76,8 +72,7 @@ public class TimeTracker {
   }
 
   public synchronized HashMap<Integer, Integer> getTotalMinsForProjectMap() {
-    HashMap<Integer, Integer> totalMinsForProjectMapCopy =
-        new HashMap<Integer, Integer>(totalMinsForProjectMap);
+    HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     if (billEntry != null) {
       if (billEntry.getProjectId() > 0) {
         Integer mins = totalMinsForProjectMapCopy.get(billEntry.getProjectId());
@@ -93,8 +88,7 @@ public class TimeTracker {
   }
 
   public synchronized HashMap<String, Integer> getTotalMinsForClientMap() {
-    HashMap<String, Integer> totalMinsForClientMapCopy =
-        new HashMap<String, Integer>(totalMinsForClientMap);
+    HashMap<String, Integer> totalMinsForClientMapCopy = new HashMap<String, Integer>(totalMinsForClientMap);
     if (billEntry != null) {
       if (billEntry.getCategoryCode() != null) {
         Integer mins = totalMinsForClientMapCopy.get(billEntry.getCategoryCode());
@@ -273,6 +267,20 @@ public class TimeTracker {
     }
   }
 
+  public synchronized void update(ProjectAction projectAction, Session dataSession) {
+    if (runningClock) {
+      Project project = projectAction.getProject();
+      if (billEntry != null) {
+        saveTime(dataSession);
+        if (projectOrActionChanged(project, projectAction)) {
+          startTime(project, projectAction, dataSession);
+        }
+      } else {
+        startTime(project, projectAction, dataSession);
+      }
+    }
+  }
+
   public synchronized void startClock(Project project, ProjectAction action, Session dataSession) {
     if (runningClock) {
       saveTime(dataSession);
@@ -287,8 +295,7 @@ public class TimeTracker {
   }
 
   private boolean projectOrActionChanged(Project project, ProjectAction action) {
-    if (billEntry.getProjectId() != project.getProjectId())
-    {
+    if (billEntry.getProjectId() != project.getProjectId()) {
       return true;
     }
     if (action == null && billEntry.getAction() == null) {

@@ -257,6 +257,7 @@ public class ClientServlet extends HttpServlet {
     result.append("</td><td class=\"right\">");
     if (loggedIn) {
       Project project = appReq.getProject();
+      ProjectAction completingAction = appReq.getCompletingAction();
       if (appReq.isParentWebUser()) {
         if (project != null) {
           result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
@@ -269,8 +270,14 @@ public class ClientServlet extends HttpServlet {
               result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
                   + time + "</a>");
             } else {
-              result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                  + "&action=StartTimer\" class=\"timerStopped\">" + time + "</a>");
+              String link = "ProjectServlet?projectId=" + project.getProjectId()
+                  + "&action=StartTimer";
+              if (completingAction != null) {
+                link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "="
+                    + completingAction.getActionId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
+                    + ProjectActionServlet.ACTION_START_TIMER;
+              }
+              result.append("<a href=\"" + link + "\" class=\"timerStopped\">" + time + "</a>");
             }
           }
         }

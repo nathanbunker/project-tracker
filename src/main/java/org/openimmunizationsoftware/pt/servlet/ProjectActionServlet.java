@@ -62,11 +62,12 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_NOTES = "nextNotes";
   private static final String PARAM_NEXT_SUMMARY = "nextSummary";
   private static final String PARAM_NEXT_TIME_ESTIMATE = "nextTimeEstimate";
+  private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
   private static final String PARAM_PROJECT_ID = "projectId";
   protected static final String PARAM_COMPLETING_ACTION_ID = "completingActionId";
   private static final String PARAM_ACTION_ID = "actionId";
-  private static final String PARAM_ACTION = "action";
-  private static final String ACTION_START_TIMER = "StartTimer";
+  protected static final String PARAM_ACTION = "action";
+  protected static final String ACTION_START_TIMER = "StartTimer";
   private static final String ACTION_STOP_TIMER = "StopTimer";
   private static final String ACTION_NOTE = "Note";
   private static final String ACTION_PROPOSE = "Propose";
@@ -154,26 +155,20 @@ public class ProjectActionServlet extends ClientServlet {
             }
             completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
+            Project nextProject = project;
             if (projectAction == null) {
-              String projectIdString = request.getParameter(PARAM_PROJECT_ID);
-              if (projectIdString != null) {
-                project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
-                appReq.setProject(project);
+              String nextProjectIdString = request.getParameter(PARAM_NEXT_PROJECT_ID);
+              if (nextProjectIdString != null) {
+                nextProject = (Project) dataSession.get(Project.class, Integer.parseInt(nextProjectIdString));
               }
             }
-            projectAction = saveProjectAction(appReq, projectAction, project);
+            projectAction = saveProjectAction(appReq, projectAction, nextProject);
             if (action.equals(ACTION_START)) {
               completingAction = projectAction;
               setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
               project = completingAction.getProject();
               projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
-            } else {
-              project = null;
-              if (completingAction != null) {
-                project = completingAction.getProject();
-              }
             }
-
           } else if (action.equals(ACTION_DELETE)) {
             String nextDescription = "";
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.CANCELLED;
@@ -198,6 +193,13 @@ public class ProjectActionServlet extends ClientServlet {
         // TOOD print a nicer message and a link to clean these up
         appReq.setMessageProblem(
             "There are actions overdue that are not shown here, only showing what is scheduled for today.");
+      }
+
+      if (completingAction != null) {
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        if (timeTracker != null) {
+          timeTracker.update(completingAction, dataSession);
+        }
       }
 
       // register project so it shows up in list of projects recently referred to
@@ -1093,7 +1095,8 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("          <th class=\"inside\">Project</th>");
       out.println("          <td>");
       if (projectAction == null) {
-        out.println("            <select name=\"" + PARAM_PROJECT_ID + "\" onchange=\"enableForm" + formName + "()\">");
+        out.println(
+            "            <select name=\"" + PARAM_NEXT_PROJECT_ID + "\" onchange=\"enableForm" + formName + "()\">");
         for (Project p : projectList) {
           out.println("              <option value=\"" + p.getProjectId() + "\""
               + (project != null && project.getProjectId() == p.getProjectId() ? " selected" : "")
@@ -1103,8 +1106,9 @@ public class ProjectActionServlet extends ClientServlet {
       } else {
         // print project name
         out.println("            " + project.getProjectName());
-        out.println("<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + projectAction.getProjectId()
-            + "\">");
+        out.println(
+            "<input type=\"hidden\" name=\"" + PARAM_NEXT_PROJECT_ID + "\" value=\"" + projectAction.getProjectId()
+                + "\">");
 
       }
       out.println("          </td>");
