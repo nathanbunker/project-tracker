@@ -162,7 +162,23 @@ public class ProjectActionServlet extends ClientServlet {
             }
             projectAction = saveProjectAction(appReq, projectAction, project);
             if (appReq.getCompletingAction() != null && appReq.getCompletingAction().equals(projectAction)) {
-              completingAction = null;
+              if (webUser.isToday(projectAction.getNextDue())) {
+                // leave alone
+              } else {
+                completingAction = null;
+                project = null;
+              }
+            } else if (completingAction != null
+                && completingAction.getNextActionType() != null
+                && completingAction.getNextActionType().equals(ProjectNextActionType.WILL_MEET)) {
+              // if currently in a meeting, then this next action is something that is coming
+              // out of the meeting, so stay on this current action. Don't leave the meeting.
+              project = completingAction.getProject();
+            } else {
+              completingAction = projectAction;
+              setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
+              project = completingAction.getProject();
+              projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
             }
           } else if (action.equals(ACTION_DELETE)) {
             String nextDescription = "";
@@ -188,6 +204,11 @@ public class ProjectActionServlet extends ClientServlet {
         // TOOD print a nicer message and a link to clean these up
         appReq.setMessageProblem(
             "There are actions overdue that are not shown here, only showing what is scheduled for today.");
+      }
+
+      // register project so it shows up in list of projects recently referred to
+      if (project != null) {
+        ProjectServlet.setupProjectList(appReq, project);
       }
       appReq.setTitle("Actions");
       printHtmlHead(appReq);
@@ -306,7 +327,7 @@ public class ProjectActionServlet extends ClientServlet {
 
       String queryString = "from Project where provider = ?";
       queryString += " and phaseCode <> 'Clos'";
-      queryString += " order by priorityLevel, projectName";
+      queryString += " order by projectName";
       Query query = dataSession.createQuery(queryString);
       query.setParameter(0, webUser.getProvider());
       projectList = query.list();
@@ -952,11 +973,11 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      }");
     out.println("    }");
     out.println("    function setNextAction" + formName + "(nextActionDate) {");
-    out.println("      document.projectAction" + formName + ".nextDue.value = nextActionDate;");
+    out.println("      document.projectAction" + formName + "." + PARAM_NEXT_DUE + ".value = nextActionDate;");
     out.println("      enableForm" + formName + "(); ");
     out.println("    }");
     out.println("    function setNextDeadline" + formName + "(nextDeadline) {");
-    out.println("      document.projectAction" + formName + ".nextDeadline.value = nextDeadline;");
+    out.println("      document.projectAction" + formName + "." + PARAM_NEXT_DEADLINE + ".value = nextDeadline;");
     out.println("    }");
     ProjectServlet.printGenerateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
@@ -1022,7 +1043,7 @@ public class ProjectActionServlet extends ClientServlet {
     int nextTimeEstimateWillMeet = 0;
     int nextTimeEstimateMight = 0;
     for (ProjectAction pa : projectActionList) {
-      if (!sameDay(cIndicated, pa.getNextDue(), webUser)) {
+      if (!webUser.sameDay(cIndicated, pa.getNextDue())) {
         continue;
       }
       if (pa.getNextTimeEstimate() != null) {
@@ -1723,22 +1744,6 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("  </tr>");
     }
-  }
-
-  private static boolean sameDay(Calendar c1, Date d, WebUser webUser) {
-    if (d == null) {
-      return false;
-    }
-    Calendar c2 = webUser.getCalendar();
-    c2.setTime(d);
-    boolean s = sameDay(c1, c2);
-    return s;
-  }
-
-  private static boolean sameDay(Calendar c1, Calendar c2) {
-    return c1.get(Calendar.MONTH) == c2.get(Calendar.MONTH)
-        && c1.get(Calendar.DAY_OF_MONTH) == c2.get(Calendar.DAY_OF_MONTH)
-        && c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR);
   }
 
   // <editor-fold defaultstate="collapsed"

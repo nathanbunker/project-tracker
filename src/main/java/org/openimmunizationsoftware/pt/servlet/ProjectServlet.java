@@ -1145,7 +1145,7 @@ public class ProjectServlet extends ClientServlet {
     }
   }
 
-  protected List<Project> setupProjectList(AppReq appReq, Project project) {
+  protected static List<Project> setupProjectList(AppReq appReq, Project project) {
     List<Project> projectSelectedListOld = appReq.getProjectSelectedList();
 
     if (projectSelectedListOld == null) {
