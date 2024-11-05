@@ -75,6 +75,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_COMPLETED_AND_SUGGEST = "Completed and Suggest";
   private static final String ACTION_SAVE = "Save";
   private static final String ACTION_DELETE = "Delete";
+  private static final String ACTION_START = "Start";
 
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
@@ -152,7 +153,7 @@ public class ProjectActionServlet extends ClientServlet {
               chatNext(appReq, completingAction, chatAgentList, projectActionTakenList);
             }
             completingAction = null;
-          } else if (action.equals(ACTION_SAVE)) {
+          } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             if (projectAction == null) {
               String projectIdString = request.getParameter(PARAM_PROJECT_ID);
               if (projectIdString != null) {
@@ -161,25 +162,18 @@ public class ProjectActionServlet extends ClientServlet {
               }
             }
             projectAction = saveProjectAction(appReq, projectAction, project);
-            if (appReq.getCompletingAction() != null && appReq.getCompletingAction().equals(projectAction)) {
-              if (webUser.isToday(projectAction.getNextDue())) {
-                // leave alone
-              } else {
-                completingAction = null;
-                project = null;
-              }
-            } else if (completingAction != null
-                && completingAction.getNextActionType() != null
-                && completingAction.getNextActionType().equals(ProjectNextActionType.WILL_MEET)) {
-              // if currently in a meeting, then this next action is something that is coming
-              // out of the meeting, so stay on this current action. Don't leave the meeting.
-              project = completingAction.getProject();
-            } else {
+            if (action.equals(ACTION_START)) {
               completingAction = projectAction;
               setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
               project = completingAction.getProject();
               projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+            } else {
+              project = null;
+              if (completingAction != null) {
+                project = completingAction.getProject();
+              }
             }
+
           } else if (action.equals(ACTION_DELETE)) {
             String nextDescription = "";
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.CANCELLED;
@@ -1057,14 +1051,14 @@ public class ProjectActionServlet extends ClientServlet {
         nextTimeEstimateTotal += nextTimeEstimate;
         if (ProjectNextActionType.COMMITTED_TO.equals(pa.getNextActionType())
             || ProjectNextActionType.OVERDUE_TO.equals(pa.getNextActionType())) {
-          nextTimeEstimateCommit += pa.getNextTimeEstimate();
+          nextTimeEstimateCommit += nextTimeEstimate;
         } else if (ProjectNextActionType.WILL.equals(pa.getNextActionType())
             || ProjectNextActionType.WILL_CONTACT.equals(pa.getNextActionType())) {
-          nextTimeEstimateWill += pa.getNextTimeEstimate();
+          nextTimeEstimateWill += nextTimeEstimate;
         } else if (ProjectNextActionType.WILL_MEET.equals(pa.getNextActionType())) {
-          nextTimeEstimateWillMeet += pa.getNextTimeEstimate();
+          nextTimeEstimateWillMeet += nextTimeEstimate;
         } else if (ProjectNextActionType.MIGHT.equals(pa.getNextActionType())) {
-          nextTimeEstimateMight += pa.getNextTimeEstimate();
+          nextTimeEstimateMight += nextTimeEstimate;
         }
       }
     }
@@ -1500,6 +1494,11 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<span class=\"right\">");
     out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE + "\">"
         + ACTION_SAVE + "</button>");
+    if (projectAction == null || appReq.getCompletingAction() == null
+        || !projectAction.equals(appReq.getCompletingAction())) {
+      out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_START + "\">"
+          + ACTION_START + "</button>");
+    }
     if (projectAction != null) {
       out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\">"
           + ACTION_DELETE + "</button>");

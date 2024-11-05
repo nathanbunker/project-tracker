@@ -263,8 +263,8 @@ public class ClientServlet extends HttpServlet {
               + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
           if (timeTracker != null) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
-            int mins = timeTracker.getTotalMinsForProject(project);
-            time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
+            // int mins = timeTracker.getTotalMinsForProject(project);
+            // time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
             if (timeTracker.isRunningClock()) {
               result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
                   + time + "</a>");
@@ -282,10 +282,11 @@ public class ClientServlet extends HttpServlet {
               + parentProject.getProjectName() + "</a>");
           if (timeTracker != null && parentProject != null && timeTracker.isRunningClock()) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
-            Integer mins = timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
-            if (mins != null) {
-              time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
-            }
+            // Integer mins =
+            // timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
+            // if (mins != null) {
+            // time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
+            // }
             result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">" + time
                 + "</a>");
           }
