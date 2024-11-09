@@ -65,7 +65,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
   private static final String PARAM_PROJECT_ID = "projectId";
   protected static final String PARAM_COMPLETING_ACTION_ID = "completingActionId";
-  private static final String PARAM_ACTION_ID = "actionId";
+  private static final String PARAM_EDIT_ACTION_ID = "editActionId";
   protected static final String PARAM_ACTION = "action";
   protected static final String ACTION_START_TIMER = "StartTimer";
   private static final String ACTION_STOP_TIMER = "StopTimer";
@@ -144,11 +144,11 @@ public class ProjectActionServlet extends ClientServlet {
         } else if (action.equals(ACTION_FEEDBACK)) {
           chatFeedback(appReq, completingAction, chatAgentList, projectActionTakenList);
         } else {
-          ProjectAction projectAction = readProjectAction(appReq);
+          ProjectAction editProjectAction = readEditProjectAction(appReq);
           if (action.equals(ACTION_COMPLETED) || action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
             String nextDescription = completingAction.getNextSummary();
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.COMPLETED;
-            closeAction(appReq, projectAction, project, nextDescription, nextActionStatus);
+            closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
             emailBody = sendEmail(request, appReq, webUser, dataSession, project, completingAction, emailBody);
             if (action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
               chatNext(appReq, completingAction, chatAgentList, projectActionTakenList);
@@ -156,15 +156,15 @@ public class ProjectActionServlet extends ClientServlet {
             completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             Project nextProject = project;
-            if (projectAction == null) {
+            if (editProjectAction == null) {
               String nextProjectIdString = request.getParameter(PARAM_NEXT_PROJECT_ID);
               if (nextProjectIdString != null) {
                 nextProject = (Project) dataSession.get(Project.class, Integer.parseInt(nextProjectIdString));
               }
             }
-            projectAction = saveProjectAction(appReq, projectAction, nextProject);
+            editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
             if (action.equals(ACTION_START)) {
-              completingAction = projectAction;
+              completingAction = editProjectAction;
               setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
               project = completingAction.getProject();
               projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
@@ -172,8 +172,8 @@ public class ProjectActionServlet extends ClientServlet {
           } else if (action.equals(ACTION_DELETE)) {
             String nextDescription = "";
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.CANCELLED;
-            closeAction(appReq, projectAction, project, nextDescription, nextActionStatus);
-            if (appReq.getCompletingAction() != null && appReq.getCompletingAction().equals(projectAction)) {
+            closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
+            if (appReq.getCompletingAction() != null && appReq.getCompletingAction().equals(editProjectAction)) {
               completingAction = null;
             }
           }
@@ -523,32 +523,32 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private ProjectAction readProjectAction(AppReq appReq) {
+  private ProjectAction readEditProjectAction(AppReq appReq) {
     Session dataSession = appReq.getDataSession();
     HttpServletRequest request = appReq.getRequest();
-    String actionIdString = request.getParameter(PARAM_ACTION_ID);
-    ProjectAction projectAction = null;
+    String actionIdString = request.getParameter(PARAM_EDIT_ACTION_ID);
+    ProjectAction editProjectAction = null;
     if (actionIdString != null) {
-      projectAction = (ProjectAction) dataSession.get(ProjectAction.class,
+      editProjectAction = (ProjectAction) dataSession.get(ProjectAction.class,
           Integer.parseInt(actionIdString));
-      setupProjectAction(appReq, dataSession, projectAction);
+      setupProjectAction(appReq, dataSession, editProjectAction);
     }
-    return projectAction;
+    return editProjectAction;
   }
 
   private ProjectAction saveProjectAction(AppReq appReq,
-      ProjectAction projectAction, Project project) {
+      ProjectAction editProjectAction, Project nextProject) {
     HttpServletRequest request = appReq.getRequest();
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
-    if (projectAction == null) {
-      projectAction = new ProjectAction();
-      projectAction.setProject(project);
-      projectAction.setProjectId(project.getProjectId());
-      projectAction.setActionDescription("");
+    if (editProjectAction == null) {
+      editProjectAction = new ProjectAction();
+      editProjectAction.setProject(nextProject);
+      editProjectAction.setProjectId(nextProject.getProjectId());
+      editProjectAction.setActionDescription("");
     }
-    projectAction.setContactId(webUser.getContactId());
-    projectAction.setContact(webUser.getProjectContact());
+    editProjectAction.setContactId(webUser.getContactId());
+    editProjectAction.setContact(webUser.getProjectContact());
     int nextTimeEstimate = 0;
     if (request.getParameter(PARAM_NEXT_TIME_ESTIMATE) != null) {
       try {
@@ -557,60 +557,60 @@ public class ProjectActionServlet extends ClientServlet {
         nextTimeEstimate = 0;
       }
     }
-    projectAction.setActionDate(new Date());
-    projectAction.setActionDescription("");
-    projectAction.setNextDescription(trim(request.getParameter(PARAM_NEXT_DESCRIPTION), 1200));
+    editProjectAction.setActionDate(new Date());
+    editProjectAction.setActionDescription("");
+    editProjectAction.setNextDescription(trim(request.getParameter(PARAM_NEXT_DESCRIPTION), 1200));
     if (nextTimeEstimate > 0) {
-      projectAction.setNextTimeEstimate(nextTimeEstimate);
+      editProjectAction.setNextTimeEstimate(nextTimeEstimate);
     }
-    projectAction.setNextActionId(0);
+    editProjectAction.setNextActionId(0);
 
-    projectAction.setNextDue(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DUE)));
-    projectAction.setNextDeadline(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
+    editProjectAction.setNextDue(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DUE)));
+    editProjectAction.setNextDeadline(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
     String linkUrl = request.getParameter(PARAM_LINK_URL);
     if (linkUrl == null || linkUrl.equals("")) {
-      projectAction.setLinkUrl(null);
+      editProjectAction.setLinkUrl(null);
     } else {
-      projectAction.setLinkUrl(linkUrl);
+      editProjectAction.setLinkUrl(linkUrl);
     }
     String templateTypeString = request.getParameter(PARAM_TEMPLATE_TYPE);
     if (templateTypeString == null || templateTypeString.equals("")) {
-      projectAction.setTemplateType(null);
+      editProjectAction.setTemplateType(null);
     } else {
-      projectAction.setTemplateType(TemplateType.getTemplateType(templateTypeString));
+      editProjectAction.setTemplateType(TemplateType.getTemplateType(templateTypeString));
     }
     String prioritySpecialString = request.getParameter(PARAM_PRIORITY_SPECIAL);
     if (prioritySpecialString == null || prioritySpecialString.equals("")) {
-      projectAction.setPrioritySpecial(null);
+      editProjectAction.setPrioritySpecial(null);
     } else {
-      projectAction.setPrioritySpecial(PrioritySpecial.getPrioritySpecial(prioritySpecialString));
+      editProjectAction.setPrioritySpecial(PrioritySpecial.getPrioritySpecial(prioritySpecialString));
     }
 
     String nextActionType = request.getParameter(PARAM_NEXT_ACTION_TYPE);
-    projectAction.setNextActionType(nextActionType);
-    int priorityLevel = project.getPriorityLevel();
-    projectAction.setPriorityLevel(priorityLevel);
+    editProjectAction.setNextActionType(nextActionType);
+    int priorityLevel = editProjectAction.getProject().getPriorityLevel();
+    editProjectAction.setPriorityLevel(priorityLevel);
     String nextContactIdString = request.getParameter(PARAM_NEXT_CONTACT_ID);
     if (nextContactIdString != null && nextContactIdString.length() > 0) {
-      projectAction.setNextContactId(Integer.parseInt(nextContactIdString));
-      projectAction.setNextProjectContact(
-          (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getNextContactId()));
+      editProjectAction.setNextContactId(Integer.parseInt(nextContactIdString));
+      editProjectAction.setNextProjectContact(
+          (ProjectContact) dataSession.get(ProjectContact.class, editProjectAction.getNextContactId()));
     }
-    projectAction.setProvider(webUser.getProvider());
-    if (projectAction.getNextActionStatus() == null) {
-      if (projectAction.hasNextDescription()) {
-        if (projectAction.hasNextDue()) {
-          projectAction.setNextActionStatus(ProjectNextActionStatus.READY);
+    editProjectAction.setProvider(webUser.getProvider());
+    if (editProjectAction.getNextActionStatus() == null) {
+      if (editProjectAction.hasNextDescription()) {
+        if (editProjectAction.hasNextDue()) {
+          editProjectAction.setNextActionStatus(ProjectNextActionStatus.READY);
         } else {
-          projectAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
+          editProjectAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
         }
       }
     }
 
     Transaction trans = dataSession.beginTransaction();
-    dataSession.saveOrUpdate(projectAction);
+    dataSession.saveOrUpdate(editProjectAction);
     trans.commit();
-    return projectAction;
+    return editProjectAction;
   }
 
   private void closeAction(AppReq appReq, ProjectAction projectAction, Project project,
@@ -914,7 +914,7 @@ public class ProjectActionServlet extends ClientServlet {
     return basePrompt;
   }
 
-  private void printEditProjectActionForm(AppReq appReq, ProjectAction projectAction,
+  private void printEditProjectActionForm(AppReq appReq, ProjectAction editProjectAction,
       List<ProjectContact> projectContactList, String formName, Project project, List<Project> projectList) {
     WebUser webUser = appReq.getWebUser();
     PrintWriter out = appReq.getOut();
@@ -977,11 +977,11 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    }");
     ProjectServlet.printGenerateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
-    if (projectAction != null) {
-      out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
-          + projectAction.getActionId() + "\">");
+    if (editProjectAction != null) {
+      out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
+          + editProjectAction.getActionId() + "\">");
     }
-    printCurrentActionEdit(appReq, webUser, out, projectAction, project, projectContactList, formName, projectList);
+    printCurrentActionEdit(appReq, webUser, out, editProjectAction, project, projectContactList, formName, projectList);
 
     out.println("</form>");
     out.println("</div>");
@@ -992,7 +992,7 @@ public class ProjectActionServlet extends ClientServlet {
       SimpleDateFormat sdf1, Calendar cIndicated) {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"3\">All actions scheduled for today</th>");
+    out.println("    <th class=\"title\" colspan=\"4\">All actions scheduled for today</th>");
     out.println("  </tr>");
     printDueTable(webUser, out, sdf1, ProjectNextActionType.OVERDUE_TO, nextDue, projectActionList, cIndicated);
     printDueTable(webUser, out, sdf1, ProjectNextActionType.COMMITTED_TO, nextDue, projectActionList, cIndicated);
@@ -1013,9 +1013,10 @@ public class ProjectActionServlet extends ClientServlet {
       SimpleDateFormat sdf1, Calendar cIndicated) {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"3\">All actions completed for today</th>");
+    out.println("    <th class=\"title\" colspan=\"4\">All actions completed for today</th>");
     out.println("  </tr>");
     out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Completed</th>");
     out.println("    <th class=\"boxed\">Est</th>");
     out.println("    <th class=\"boxed\">Act</th>");
@@ -1391,8 +1392,6 @@ public class ProjectActionServlet extends ClientServlet {
     }
     out.println("<textarea name=\"nextNotes\" id=\"nextNotes\" rows=\"7\" onkeydown=\"resetRefresh()\"></textarea>");
     out.println("<br/><span class=\"right\">");
-    out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
-        + completingAction.getActionId() + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_PROPOSE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_FEEDBACK + "\"/>");
@@ -1718,18 +1717,19 @@ public class ProjectActionServlet extends ClientServlet {
     }
     if (nextActionType != null) {
       out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">" + ProjectNextActionType.getLabel(nextActionType) + "</th>");
       out.println("    <th class=\"boxed\">Est</th>");
       out.println("    <th class=\"boxed\">Act</th>");
       out.println("  </tr>");
     }
-
     printActionItems(webUser, out, paList);
   }
 
   private static void printActionItems(WebUser webUser, PrintWriter out, List<ProjectAction> paList) {
     for (ProjectAction projectAction : paList) {
       out.println("  <tr class=\"boxed\">");
+      out.println("    <td class=\"boxed\">" + projectAction.getProject().getProjectName() + "</td>");
       out.println("    <td class=\"boxed\"><a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
           + projectAction.getActionId() + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a></td>");
