@@ -11,9 +11,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -210,6 +212,8 @@ public class ProjectActionServlet extends ClientServlet {
       printHtmlHead(appReq);
       ProjectServlet.printOutEmailSent(out, emailBody);
 
+      Set<String> formNameSet = new HashSet<String>();
+
       Date nextDue = new Date();
       SimpleDateFormat sdf1 = webUser.getDateFormat();
 
@@ -236,7 +240,7 @@ public class ProjectActionServlet extends ClientServlet {
         // ACTION NEXT
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionNext\">");
-        printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList);
+        printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList, formNameSet);
         out.println("</div>");
 
         // ---------------------------------------------------------------------------------------------------
@@ -244,7 +248,7 @@ public class ProjectActionServlet extends ClientServlet {
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionNow\">");
         {
-          printActionNow(appReq, webUser, out, project, completingAction, projectList, projectContactList);
+          printActionNow(appReq, webUser, out, project, completingAction, projectList, projectContactList, formNameSet);
         }
         out.println("</div>");
 
@@ -288,7 +292,8 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printActionNow(AppReq appReq, WebUser webUser, PrintWriter out, Project project,
-      ProjectAction completingAction, List<Project> projectList, List<ProjectContact> projectContactList) {
+      ProjectAction completingAction, List<Project> projectList, List<ProjectContact> projectContactList,
+      Set<String> formNameSet) {
     String formName = "" + completingAction.getActionId();
     out.println(
         "<form name=\"actionNowForm\" id=\"actionNowForm\" method=\"post\" action=\"ProjectActionServlet\">");
@@ -303,7 +308,8 @@ public class ProjectActionServlet extends ClientServlet {
     printPressEnterScript(out);
     out.println("</form>");
 
-    printEditProjectActionForm(appReq, completingAction, projectContactList, formName, project, projectList);
+    printEditProjectActionForm(appReq, completingAction, projectContactList, formName, formNameSet, project,
+        projectList);
 
     if (completingAction.getNextFeedback() != null
         && !completingAction.getNextFeedback().equals("")) {
@@ -332,7 +338,7 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printActionsNext(AppReq appReq, Project project, List<ProjectContact> projectContactList,
-      List<Project> projectList, List<ProjectAction> projectActionTakenList) {
+      List<Project> projectList, List<ProjectAction> projectActionTakenList, Set<String> formNameSet) {
 
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
@@ -373,10 +379,10 @@ public class ProjectActionServlet extends ClientServlet {
       }
     }
     printEditProjectActionForm(appReq, null, projectContactList, "" +
-        0, project, projectList);
+        0, formNameSet, project, projectList);
     for (ProjectAction pa : allProjectActionsList) {
       printEditProjectActionForm(appReq, pa, projectContactList, "" +
-          pa.getActionId(), project, projectList);
+          pa.getActionId(), formNameSet, project, projectList);
     }
 
     if (projectActionTakenList.size() > 0) {
@@ -916,7 +922,12 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printEditProjectActionForm(AppReq appReq, ProjectAction editProjectAction,
-      List<ProjectContact> projectContactList, String formName, Project project, List<Project> projectList) {
+      List<ProjectContact> projectContactList, String formName, Set<String> formNameSet, Project project,
+      List<Project> projectList) {
+    if (formNameSet.contains(formName)) {
+      return;
+    }
+    formNameSet.add(formName);
     WebUser webUser = appReq.getWebUser();
     PrintWriter out = appReq.getOut();
     out.println("<div id=\"formDialog" + formName + "\" class=\"dialog\">");
