@@ -693,9 +693,11 @@ public class HomeServlet extends ClientServlet {
               + (projectAction.getNextActionType().equals(ProjectNextActionType.WILL) ? "box"
                   : "button")
               + "\"> will</a>,");
-      out.println("            <a href=\"javascript: void changeNextActionType('M', '"
-          + changeFormId + "'); \" class=\""
-          + (projectAction.getNextActionType().equals("M") ? "box" : "button") + "\">might</a>, ");
+      out.println(
+          "            <a href=\"javascript: void changeNextActionType('" + ProjectNextActionType.MIGHT + "', '"
+              + changeFormId + "'); \" class=\""
+              + (projectAction.getNextActionType().equals(ProjectNextActionType.MIGHT) ? "box" : "button")
+              + "\">might</a>, ");
       out.println("            <a href=\"javascript: void changeNextActionType('"
           + ProjectNextActionType.WILL_CONTACT + "', '" + changeFormId + "'); \" class=\""
           + (projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT) ? "box"
@@ -713,18 +715,17 @@ public class HomeServlet extends ClientServlet {
               || projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)) ? "box"
                   : "button")
           + "\">committed</a>,");
-      out.println("            <a href=\"javascript: void changeNextActionType('G', '"
+      out.println("            <a href=\"javascript: void changeNextActionType('" + ProjectNextActionType.GOAL + "', '"
           + changeFormId + "'); \" class=\""
-          + (projectAction.getNextActionType().equals("G") ? "box" : "button") + "\">set goal</a></font>");
+          + (projectAction.getNextActionType().equals(ProjectNextActionType.GOAL) ? "box" : "button")
+          + "\">set goal</a></font>");
       out.println("            I am:");
       out.println(
-          "            <font size=\"-1\"><a href=\"javascript: void changeNextActionType('W', '"
+          "            <font size=\"-1\"><a href=\"javascript: void changeNextActionType('" + ProjectNextActionType.WILL
+              + "', '"
               + changeFormId + "'); \" class=\""
-              + (projectAction.getNextActionType().equals("W") ? "box" : "button")
-              + "\">waiting</a>,");
-      out.println("            <a href=\"javascript: void setNextActionType('A', '" + changeFormId
-          + "'); \" class=\"" + (projectAction.getNextActionType().equals("A") ? "box" : "button")
-          + "\">asking</a></font>");
+              + (projectAction.getNextActionType().equals(ProjectNextActionType.WILL) ? "box" : "button")
+              + "\">waiting</a></font>");
       out.println("           <br> Due <input type=\"text\" name=\"changeNextDue\" value=\""
           + (projectAction.getNextDue() == null ? "" : sdf1.format(projectAction.getNextDue()))
           + "\" size=\"10\" onchange=\"this.form.submit()\">");

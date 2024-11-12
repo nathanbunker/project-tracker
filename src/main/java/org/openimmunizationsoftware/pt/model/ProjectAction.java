@@ -198,6 +198,9 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setContact(ProjectContact contact) {
     this.contact = contact;
+    if (contact != null) {
+      this.contactId = contact.getContactId();
+    }
   }
 
   public int getPriorityLevel() {
@@ -346,6 +349,8 @@ public class ProjectAction implements java.io.Serializable {
         description = "<i>" + i_ + " will follow up with " + nextProjectContact.getName() + " to</i> "
             + getNextDescription();
       }
+    } else {
+      description = "<i>" + i_ + " will " + type + "</i> " + getNextDescription();
     }
     return description;
   }

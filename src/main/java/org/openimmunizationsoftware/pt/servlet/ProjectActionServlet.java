@@ -149,7 +149,7 @@ public class ProjectActionServlet extends ClientServlet {
             String nextDescription = completingAction.getNextSummary();
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.COMPLETED;
             closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
-            emailBody = sendEmail(request, appReq, webUser, dataSession, project, completingAction, emailBody);
+            emailBody = sendEmail(request, appReq, webUser, dataSession, project, editProjectAction, emailBody);
             if (action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
               chatNext(appReq, completingAction, chatAgentList, projectActionTakenList);
             }
@@ -624,6 +624,7 @@ public class ProjectActionServlet extends ClientServlet {
     nextAction.setActionDescription(nextDescription);
     nextAction.setNextDescription("");
     nextAction.setProvider(webUser.getProvider());
+    nextAction.setContact(webUser.getProjectContact());
     Transaction trans = dataSession.beginTransaction();
     dataSession.saveOrUpdate(nextAction);
     projectAction.setNextActionId(nextAction.getActionId());
@@ -1402,6 +1403,8 @@ public class ProjectActionServlet extends ClientServlet {
     printSendEmailSelection(out, formName, projectContactList);
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID + "\" value=\""
+        + completingAction.getActionId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
         + completingAction.getActionId() + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED_AND_SUGGEST
