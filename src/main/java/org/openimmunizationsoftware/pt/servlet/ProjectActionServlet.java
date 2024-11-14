@@ -39,6 +39,8 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
+import com.fasterxml.jackson.core.exc.StreamWriteException;
+import com.fasterxml.jackson.databind.DatabindException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -151,35 +153,7 @@ public class ProjectActionServlet extends ClientServlet {
         if (action.equals(ACTION_START_TIMER)) {
           startTimer(appReq, dataSession, completingAction);
         } else if (action.equals(ACTION_REFRESH_TIME)) {
-          // This is a JSON call
-          response.setContentType("application/json");
-          response.setCharacterEncoding("UTF-8");
-
-          String timeRunningString = "0:00";
-          if (completingAction != null) {
-            timeRunningString = TimeTracker.formatTime(completingAction.getNextTimeActual());
-          }
-          List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession);
-          TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
-          Map<String, String> timeData = new HashMap<>();
-          timeData.put(ID_TIME_RUNNING, timeRunningString);
-          timeData.put(ID_TIME_TODAY, getFullDayAndTime());
-          timeData.put(ID_TIME_OTHER + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getOtherEst()));
-          timeData.put(ID_TIME_OTHER + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getOtherAct()));
-          timeData.put(ID_TIME_MIGHT + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getMightEst()));
-          timeData.put(ID_TIME_MIGHT + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getMightAct()));
-          timeData.put(ID_TIME_WILL + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillEst()));
-          timeData.put(ID_TIME_WILL + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillAct()));
-          timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCommittedEst()));
-          timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCommittedAct()));
-          timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
-          timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
-          timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetEst()));
-          timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetAct()));
-
-          // Use Jackson to convert the map to JSON and write it to the response
-          ObjectMapper mapper = new ObjectMapper();
-          mapper.writeValue(out, timeData);
+          printOutRefreshedTimeJson(response, appReq, webUser, dataSession, out, completingAction);
           return;
         } else if (action.equals(ACTION_STOP_TIMER)) {
           stopTimer(appReq, dataSession);
@@ -200,18 +174,28 @@ public class ProjectActionServlet extends ClientServlet {
             completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             Project nextProject = project;
+            Date originalNextDue = null;
             if (editProjectAction == null) {
               String nextProjectIdString = request.getParameter(PARAM_NEXT_PROJECT_ID);
               if (nextProjectIdString != null) {
                 nextProject = (Project) dataSession.get(Project.class, Integer.parseInt(nextProjectIdString));
               }
+            } else {
+              originalNextDue = editProjectAction.getNextDue();
             }
             editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
+            Date nextDue = editProjectAction.getNextDue();
             if (action.equals(ACTION_START)) {
               completingAction = editProjectAction;
               setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
               project = completingAction.getProject();
               projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+            } else if (nextDue != null && !webUser.isToday(nextDue)
+                && (originalNextDue == null || !nextDue.equals(originalNextDue))) {
+              // if next action is being saved and the user didn't signal they wanted to work
+              // on this next.
+              // Then we should shift off this task if it's been rescheduled to a future date
+              completingAction = null;
             }
           } else if (action.equals(ACTION_DELETE)) {
             String nextDescription = "";
@@ -290,11 +274,6 @@ public class ProjectActionServlet extends ClientServlet {
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionNow\">");
         printActionNow(appReq, webUser, out, project, completingAction, projectList, projectContactList, formNameSet);
-
-        String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&"
-            + PARAM_COMPLETING_ACTION_ID
-            + "=" + completingAction.getActionId();
-        out.println("<a href=\"" + link + "\">Refresh Time</a>");
         out.println("</div>");
 
         // ---------------------------------------------------------------------------------------------------
@@ -334,6 +313,40 @@ public class ProjectActionServlet extends ClientServlet {
     } finally {
       appReq.close();
     }
+  }
+
+  private void printOutRefreshedTimeJson(HttpServletResponse response, AppReq appReq, WebUser webUser,
+      Session dataSession,
+      PrintWriter out, ProjectAction completingAction) throws IOException, StreamWriteException, DatabindException {
+    // This is a JSON call
+    response.setContentType("application/json");
+    response.setCharacterEncoding("UTF-8");
+
+    String timeRunningString = "0:00";
+    if (completingAction != null) {
+      timeRunningString = TimeTracker.formatTime(completingAction.getNextTimeActual());
+    }
+    List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession);
+    TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
+    Map<String, String> timeData = new HashMap<>();
+    timeData.put(ID_TIME_RUNNING, timeRunningString);
+    timeData.put(ID_TIME_TODAY, getFullDayAndTime());
+    timeData.put(ID_TIME_OTHER + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getOtherEst()));
+    timeData.put(ID_TIME_OTHER + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getOtherAct()));
+    timeData.put(ID_TIME_MIGHT + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getMightEst()));
+    timeData.put(ID_TIME_MIGHT + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getMightAct()));
+    timeData.put(ID_TIME_WILL + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillEst()));
+    timeData.put(ID_TIME_WILL + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillAct()));
+    timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCommittedEst()));
+    timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCommittedAct()));
+    timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
+    timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
+    timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetEst()));
+    timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetAct()));
+
+    // Use Jackson to convert the map to JSON and write it to the response
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.writeValue(out, timeData);
   }
 
   private void printActionNow(AppReq appReq, WebUser webUser, PrintWriter out, Project project,
@@ -1748,7 +1761,11 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {
-    out.println("  <tr class=\"boxed\">");
+    String hide = "";
+    if (timeEst == 0) {
+      hide = " style=\"display: none;\"";
+    }
+    out.println("  <tr class=\"boxed\"" + hide + ">");
     out.println("    <th class=\"boxed\">" + title + "</th>");
     String idBaseEst = idBase + ID_EST;
     String idBaseAct = idBase + ID_ACT;
@@ -1816,10 +1833,11 @@ public class ProjectActionServlet extends ClientServlet {
 
   private static void printActionItems(WebUser webUser, PrintWriter out, List<ProjectAction> paList) {
     for (ProjectAction projectAction : paList) {
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionId();
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed\">" + projectAction.getProject().getProjectName() + "</td>");
-      out.println("    <td class=\"boxed\"><a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
-          + projectAction.getActionId() + "\" class=\"button\">"
+      out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
+          + projectAction.getProject().getProjectName() + "</a></td>");
+      out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a></td>");
       if (projectAction.getNextTimeEstimate() == null || projectAction.getNextTimeEstimate() == 0) {
         out.println("    <td class=\"boxed\">&nbsp;</a></td>");

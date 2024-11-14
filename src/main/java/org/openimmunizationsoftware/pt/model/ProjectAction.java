@@ -402,7 +402,9 @@ public class ProjectAction implements java.io.Serializable {
 
   public static String getTimeForDisplay(int nextTimeEstimateTotal) {
     String time = "";
-    if (nextTimeEstimateTotal < 10) {
+    if (nextTimeEstimateTotal == 0) {
+      time = "-";
+    } else if (nextTimeEstimateTotal < 10) {
       time = "0:0" + nextTimeEstimateTotal;
     } else if (nextTimeEstimateTotal < 60) {
       time = "0:" + nextTimeEstimateTotal;

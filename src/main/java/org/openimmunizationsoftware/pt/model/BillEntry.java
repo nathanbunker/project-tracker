@@ -82,7 +82,6 @@ public class BillEntry implements java.io.Serializable {
     return this.billMins;
   }
 
-
   public void setBillMins(Integer billMins) {
     this.billMins = billMins;
   }
@@ -109,6 +108,15 @@ public class BillEntry implements java.io.Serializable {
 
   public void setProvider(ProjectProvider provider) {
     this.provider = provider;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj != null && obj instanceof BillEntry) {
+      BillEntry be = (BillEntry) obj;
+      return be.getBillId() == billId;
+    }
+    return false;
   }
 
 }

@@ -291,7 +291,6 @@ public class TimeTracker {
       startTime(project, action, dataSession);
       runningClock = true;
     }
-
   }
 
   private boolean projectOrActionChanged(Project project, ProjectAction action) {
@@ -301,13 +300,10 @@ public class TimeTracker {
     if (action == null && billEntry.getAction() == null) {
       return false;
     }
-    if (action == null && billEntry.getAction() != null) {
+    if (action == null || billEntry.getAction() == null) {
       return true;
     }
-    if (action != null && billEntry.getAction() == null) {
-      return true;
-    }
-    return action != billEntry.getAction();
+    return !billEntry.getAction().equals(action);
   }
 
   public synchronized void stopClock(Session dataSession) {
