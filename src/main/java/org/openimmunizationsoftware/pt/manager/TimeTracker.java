@@ -199,7 +199,7 @@ public class TimeTracker {
       t.add(Calendar.MONTH, 1);
     } else if (calendarField == Calendar.YEAR) {
       t.set(Calendar.DAY_OF_MONTH, 1);
-      t.set(Calendar.MONTH, Calendar.JANUARY);
+      t.add(Calendar.YEAR, -1);
       today = t.getTime();
       t.add(Calendar.YEAR, 1);
     } else {
