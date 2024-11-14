@@ -27,6 +27,7 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ChatAgent;
 import org.openimmunizationsoftware.pt.manager.MailManager;
+import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.PrioritySpecial;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -48,6 +49,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SuppressWarnings("serial")
 public class ProjectActionServlet extends ClientServlet {
 
+  private static final String ID_TIME_RUNNING = "TimeRunning";
+  private static final String ID_TIME_TODAY = "TimeToday";
+  private static final String ID_TIME_OTHER = "TimeOther";
+  private static final String ID_TIME_MIGHT = "TimeMight";
+  private static final String ID_TIME_WILL = "TimeWill";
+  private static final String ID_TIME_COMMITTED = "TimeCommitted";
+  private static final String ID_TIME_COMPLETED = "TimeCompleted";
+  private static final String ID_TIME_WILL_MEET = "TimeWillMeet";
+  private static final String ID_EST = "Est";
+  private static final String ID_ACT = "Act";
   private static final String SAVE_PROJECT_ACTION_FORM = "saveProjectActionForm";
   private static final String FORM_ACTION_NOW = "ActionNow";
   private static final String FORM_ACTION_NEXT = "ActionNext";
@@ -79,6 +90,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_SAVE = "Save";
   private static final String ACTION_DELETE = "Delete";
   private static final String ACTION_START = "Start";
+  private static final String ACTION_REFRESH_TIME = "RefreshTime";
 
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
@@ -136,9 +148,39 @@ public class ProjectActionServlet extends ClientServlet {
       }
 
       if (action != null) {
-
         if (action.equals(ACTION_START_TIMER)) {
           startTimer(appReq, dataSession, completingAction);
+        } else if (action.equals(ACTION_REFRESH_TIME)) {
+          // This is a JSON call
+          response.setContentType("application/json");
+          response.setCharacterEncoding("UTF-8");
+
+          String timeRunningString = "0:00";
+          if (completingAction != null) {
+            timeRunningString = TimeTracker.formatTime(completingAction.getNextTimeActual());
+          }
+          List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession);
+          TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
+          Map<String, String> timeData = new HashMap<>();
+          timeData.put(ID_TIME_RUNNING, timeRunningString);
+          timeData.put(ID_TIME_TODAY, getFullDayAndTime());
+          timeData.put(ID_TIME_OTHER + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getOtherEst()));
+          timeData.put(ID_TIME_OTHER + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getOtherAct()));
+          timeData.put(ID_TIME_MIGHT + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getMightEst()));
+          timeData.put(ID_TIME_MIGHT + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getMightAct()));
+          timeData.put(ID_TIME_WILL + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillEst()));
+          timeData.put(ID_TIME_WILL + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillAct()));
+          timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCommittedEst()));
+          timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCommittedAct()));
+          timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
+          timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
+          timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetEst()));
+          timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetAct()));
+
+          // Use Jackson to convert the map to JSON and write it to the response
+          ObjectMapper mapper = new ObjectMapper();
+          mapper.writeValue(out, timeData);
+          return;
         } else if (action.equals(ACTION_STOP_TIMER)) {
           stopTimer(appReq, dataSession);
         } else if (action.equals(ACTION_PROPOSE)) {
@@ -223,7 +265,7 @@ public class ProjectActionServlet extends ClientServlet {
       List<Project> projectList = getProjectList(webUser, dataSession);
 
       if (completingAction == null) {
-        printTimeManagementBox(appReq, webUser, out, projectActionDueTodayList, cIndicated);
+        printTimeManagementBox(appReq, projectActionDueTodayList);
         out.println("<h2>Good Job!</h2>");
         out.println("<p>You have no more actions to take today. Have a great evening! </p>");
         printActionsCompletedForToday(webUser, out, projectActionClosedTodayList, nextDue, sdf1, cIndicated);
@@ -247,16 +289,19 @@ public class ProjectActionServlet extends ClientServlet {
         // ACTION NOW
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionNow\">");
-        {
-          printActionNow(appReq, webUser, out, project, completingAction, projectList, projectContactList, formNameSet);
-        }
+        printActionNow(appReq, webUser, out, project, completingAction, projectList, projectContactList, formNameSet);
+
+        String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&"
+            + PARAM_COMPLETING_ACTION_ID
+            + "=" + completingAction.getActionId();
+        out.println("<a href=\"" + link + "\">Refresh Time</a>");
         out.println("</div>");
 
         // ---------------------------------------------------------------------------------------------------
         // ACTION LATER
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionLater\">");
-        printTimeManagementBox(appReq, webUser, out, projectActionDueTodayList, cIndicated);
+        printTimeManagementBox(appReq, projectActionDueTodayList);
         printActionsScheduledForToday(webUser, out, projectActionDueTodayList, nextDue, sdf1, cIndicated);
         printActionsCompletedForToday(webUser, out, projectActionClosedTodayList, nextDue, sdf1, cIndicated);
         out.println("</div>");
@@ -306,6 +351,7 @@ public class ProjectActionServlet extends ClientServlet {
     printActionNow(appReq, webUser, out, completingAction, projectContactList,
         FORM_ACTION_NOW);
     printPressEnterScript(out);
+    printFetchAndUpdateTimesScript(out, completingAction);
     out.println("</form>");
 
     printEditProjectActionForm(appReq, completingAction, projectContactList, formName, formNameSet, project,
@@ -414,7 +460,7 @@ public class ProjectActionServlet extends ClientServlet {
       query.setParameter(0, project.getProjectId());
       allProjectActionsList = query.list();
       for (ProjectAction pa : allProjectActionsList) {
-        setupProjectAction(appReq, dataSession, pa);
+        setupProjectAction(dataSession, pa);
       }
     }
     return allProjectActionsList;
@@ -442,6 +488,41 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  }");
     out.println("});");
     out.println("</script>");
+  }
+
+  private void printFetchAndUpdateTimesScript(PrintWriter out, ProjectAction completingAction) {
+    String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&" + PARAM_COMPLETING_ACTION_ID
+        + "=" + completingAction.getActionId();
+    out.println("<script>");
+    out.println("async function fetchAndUpdateTimes() { ");
+    out.println("    try { ");
+    out.println("        const response = await fetch('" + link + "'); ");
+    out.println("        const data = await response.json();\n");
+    out.println("        // Update each cell based on the JSON keys\n");
+    out.println(
+        "        document.getElementById(\"" + ID_TIME_RUNNING + "\").innerText = data." + ID_TIME_RUNNING + ";\n");
+    out.println("        document.getElementById(\"" + ID_TIME_TODAY + "\").innerText = data." + ID_TIME_TODAY + ";\n");
+    printFieldTransferScript(out, ID_TIME_COMMITTED);
+    printFieldTransferScript(out, ID_TIME_WILL_MEET);
+    printFieldTransferScript(out, ID_TIME_WILL);
+    printFieldTransferScript(out, ID_TIME_MIGHT);
+    printFieldTransferScript(out, ID_TIME_OTHER);
+    out.println("    } catch (error) {\n");
+    out.println("        console.error(\"Error fetching time updates:\", error);\n");
+    out.println("    }\n");
+    out.println("}\n");
+    out.println("\n");
+    out.println("// Fetch and update every 60 seconds (1 minute)\n");
+    out.println("setInterval(fetchAndUpdateTimes, 60000);");
+    out.println("fetchAndUpdateTimes();");
+    out.println("</script>");
+  }
+
+  private void printFieldTransferScript(PrintWriter out, String field) {
+    String fieldEst = field + ID_EST;
+    String fieldAct = field + ID_ACT;
+    out.println("        document.getElementById(\"" + fieldEst + "\").innerText = data." + fieldEst + ";\n");
+    out.println("        document.getElementById(\"" + fieldAct + "\").innerText = data." + fieldAct + ";\n");
   }
 
   private void setupListAndMap(WebUser webUser, List<ProjectAction> allProjectActionsList,
@@ -537,7 +618,7 @@ public class ProjectActionServlet extends ClientServlet {
     if (actionIdString != null) {
       editProjectAction = (ProjectAction) dataSession.get(ProjectAction.class,
           Integer.parseInt(actionIdString));
-      setupProjectAction(appReq, dataSession, editProjectAction);
+      setupProjectAction(dataSession, editProjectAction);
     }
     return editProjectAction;
   }
@@ -1037,49 +1118,40 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</table><br/>");
   }
 
-  private void printTimeManagementBox(AppReq appReq, WebUser webUser, PrintWriter out,
-      List<ProjectAction> projectActionList, Calendar cIndicated) {
-    int timeSpentSoFar = 0;
-    {
-      TimeTracker timeTracker = appReq.getTimeTracker();
-      if (timeTracker != null) {
-        timeSpentSoFar = timeTracker.getTotalMinsBillable();
-      }
+  private void printTimeManagementBox(AppReq appReq, List<ProjectAction> projectActionList) {
+    PrintWriter out = appReq.getOut();
+    TimeAdder timeAdder = new TimeAdder(projectActionList, appReq);
+    out.println("<table class=\"boxed float-right\">");
+    printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
+    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
+    printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Might", ID_TIME_MIGHT, timeAdder.getMightEst(), timeAdder.getMightAct());
+    printTimeTotal(out, "Other", ID_TIME_OTHER, timeAdder.getOtherEst(), timeAdder.getOtherAct());
+    out.println("</table>");
+    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime() + "</h3>");
+    if (timeAdder.getCommittedWillMeetAndWill() == 0) {
+      out.println("<p>You have finished everything you said you would do today. Good job! </p>");
+    } else if (timeAdder.getCompletedAct() < 30) {
+      out.println("<p>Good morning! Welcome to another day of productivity. </p>");
+    } else if (timeAdder.getCompletedAct() > (7 * 60 + 30)) {
+      out.println(
+          "<p><span class=\"fail\">Time to be done!</span> You have spent a full day working already. You should not be working now. </p>");
+    } else if ((timeAdder.getCommittedWillMeetAndWill() + timeAdder.getCompletedAct()) > (7 * 60 + 30)) {
+      out.println("<p><span class=\"fail\">You are over committed for today.</span> Time to re-plan your day. </p>");
+    } else {
+      out.println("<p>Good job! You are on track to finish your day on time. </p>");
     }
-    int nextTimeEstimateTotal = 0;
-    int nextTimeEstimateCommit = 0;
-    int nextTimeEstimateWill = 0;
-    int nextTimeEstimateWillMeet = 0;
-    int nextTimeEstimateMight = 0;
-    for (ProjectAction pa : projectActionList) {
-      if (!webUser.sameDay(cIndicated, pa.getNextDue())) {
-        continue;
-      }
-      if (pa.getNextTimeEstimate() != null) {
-        int nextTimeEstimate = pa.getNextTimeEstimate();
-        int nextTimeActual = pa.getNextTimeActual() == null ? 0 : pa.getNextTimeActual();
-        if (nextTimeActual <= nextTimeEstimate) {
-          nextTimeEstimate = nextTimeEstimate - nextTimeActual;
-        } else {
-          nextTimeEstimate = nextTimeActual;
-        }
-        nextTimeEstimateTotal += nextTimeEstimate;
-        if (ProjectNextActionType.COMMITTED_TO.equals(pa.getNextActionType())
-            || ProjectNextActionType.OVERDUE_TO.equals(pa.getNextActionType())) {
-          nextTimeEstimateCommit += nextTimeEstimate;
-        } else if (ProjectNextActionType.WILL.equals(pa.getNextActionType())
-            || ProjectNextActionType.WILL_CONTACT.equals(pa.getNextActionType())) {
-          nextTimeEstimateWill += nextTimeEstimate;
-        } else if (ProjectNextActionType.WILL_MEET.equals(pa.getNextActionType())) {
-          nextTimeEstimateWillMeet += nextTimeEstimate;
-        } else if (ProjectNextActionType.MIGHT.equals(pa.getNextActionType())) {
-          nextTimeEstimateMight += nextTimeEstimate;
-        }
-      }
-    }
+    Random Random = new Random();
+    String quote = QUOTES[Random.nextInt(QUOTES.length)];
+    out.println("<h4>Get Inspired</h4>");
+    out.println("<q>" + quote + "</q>");
+  }
 
-    printTimeEstimateBox(out, timeSpentSoFar, nextTimeEstimateTotal, nextTimeEstimateCommit, nextTimeEstimateWill,
-        nextTimeEstimateWillMeet, nextTimeEstimateMight);
+  private String getFullDayAndTime() {
+    SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd MMM yyyy HH:mm z");
+    String fullDayAndTime = sdf.format(new Date());
+    return fullDayAndTime;
   }
 
   private void printSendEmailSelection(PrintWriter out, String formName, List<ProjectContact> projectContactList) {
@@ -1460,13 +1532,19 @@ public class ProjectActionServlet extends ClientServlet {
         String t = TimeTracker.formatTime(completingAction.getNextTimeActual());
         if (timeTracker.isRunningClock()) {
           timeString += "<a href=\"ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_STOP_TIMER
-              + "\" class=\"timerRunning\">"
-              + t + "</a>";
+              + "\" class=\"timerRunning\" id=\"" + ID_TIME_RUNNING + "\">" + t + "</a>";
         } else {
           timeString += "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
               + completingAction.getActionId()
-              + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + "\" class=\"timerStopped\">" + t + "</a>";
+              + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + "\" class=\"timerStopped\" id=\"" + ID_TIME_RUNNING
+              + "\">" + t
+              + "</a>";
         }
+      } else {
+        // hidden text with time
+        timeString += "<span id=\"" + ID_TIME_RUNNING + "\">"
+            + TimeTracker.formatTime(completingAction.getNextTimeActual())
+            + "</span>";
       }
     }
     return timeString;
@@ -1525,8 +1603,7 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private void setupProjectAction(AppReq appReq, Session dataSession,
-      ProjectAction projectAction) {
+  private void setupProjectAction(Session dataSession, ProjectAction projectAction) {
     projectAction
         .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
     projectAction.setContact(
@@ -1551,7 +1628,7 @@ public class ProjectActionServlet extends ClientServlet {
     appReq.setProject(completingProjectAction.getProject());
   }
 
-  private static List<ProjectAction> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
+  private List<ProjectAction> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
     Date today = TimeTracker.createToday(webUser).getTime();
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
     Query query = dataSession.createQuery(
@@ -1565,6 +1642,10 @@ public class ProjectActionServlet extends ClientServlet {
     query.setParameter("today", today);
     query.setParameter("tomorrow", tomorrow);
     List<ProjectAction> projectActionList = query.list();
+    // setup the prjoect action
+    for (ProjectAction projectAction : projectActionList) {
+      setupProjectAction(dataSession, projectAction);
+    }
     return projectActionList;
   }
 
@@ -1631,37 +1712,31 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 
-  private static void printTimeEstimateBox(PrintWriter out, int timeSpentSoFar, int nextTimeEstimateTotal,
-      int nextTimeEstimateCommit, int nextTimeEstimateWill, int nextTimeEstimateWillMeet,
-      int nextTimeEstimateMight) {
+  private static void printTimeEstimateBox(PrintWriter out, TimeAdder timeAdder) {
     out.println("<table class=\"boxed float-right\">");
-    int runningTotal = 0;
-    runningTotal = printTimeTotal(out, runningTotal, "Completed", timeSpentSoFar);
-    if (nextTimeEstimateTotal > 0) {
-      runningTotal = printTimeTotal(out, runningTotal, "Will Meet", nextTimeEstimateWillMeet);
-      runningTotal = printTimeTotal(out, runningTotal, "Committed", nextTimeEstimateCommit);
-      runningTotal = printTimeTotal(out, runningTotal, "Will", nextTimeEstimateWill);
-      runningTotal = printTimeTotal(out, runningTotal, "Might", nextTimeEstimateMight);
-      runningTotal = printTimeTotal(out, runningTotal, "Other", nextTimeEstimateTotal - runningTotal);
-    }
+    printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
+    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
+    printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Might", ID_TIME_MIGHT, timeAdder.getMightEst(), timeAdder.getMightAct());
+    printTimeTotal(out, "Other", ID_TIME_OTHER, timeAdder.getOtherEst(), timeAdder.getOtherAct());
     out.println("</table>");
     SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd MMM yyyy HH:mm z");
-    out.println("<h3>" + sdf.format(new Date()) + "</h3>");
+    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + sdf.format(new Date()) + "</h3>");
     // need to print three messages
     // -- done for the day
     // -- time is completed is less than 30 minutes, Good morning!
     // -- if timespentsofar is greater than 7.5 hours, then say: time to be done!
     // - if WillMeet + Commit + Will are over 7.5 hours, then say: You are over
     // committed for today
-    int committedForToday = nextTimeEstimateCommit + nextTimeEstimateWill + nextTimeEstimateWillMeet;
-    if (committedForToday == 0) {
+    if (timeAdder.getCommittedWillMeetAndWill() == 0) {
       out.println("<p>You have finished everything you said you would do today. Good job! </p>");
-    } else if (timeSpentSoFar < 30) {
+    } else if (timeAdder.getCompletedAct() < 30) {
       out.println("<p>Good morning! Welcome to another day of productivity. </p>");
-    } else if (timeSpentSoFar > (7 * 60 + 30)) {
+    } else if (timeAdder.getCompletedAct() > (7 * 60 + 30)) {
       out.println(
           "<p><span class=\"fail\">Time to be done!</span> You have spent a full day working already. You should not be working now. </p>");
-    } else if ((committedForToday + timeSpentSoFar) > (7 * 60 + 30)) {
+    } else if ((timeAdder.getCommittedWillMeetAndWill() + timeAdder.getCompletedAct()) > (7 * 60 + 30)) {
       out.println("<p><span class=\"fail\">You are over committed for today.</span> Time to re-plan your day. </p>");
     } else {
       out.println("<p>Good job! You are on track to finish your day on time. </p>");
@@ -1672,17 +1747,16 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<q>" + quote + "</q>");
   }
 
-  private static int printTimeTotal(PrintWriter out, int runningTotal, String title, int time) {
-    if (time > 0) {
-      runningTotal += time;
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">" + title + "</th>");
-      out.println("    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(time) + "</th>");
-      out.println(
-          "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(runningTotal) + "</th>");
-      out.println("  </tr>");
-    }
-    return runningTotal;
+  private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">" + title + "</th>");
+    String idBaseEst = idBase + ID_EST;
+    String idBaseAct = idBase + ID_ACT;
+    String timeEstString = ProjectAction.getTimeForDisplay(timeEst);
+    String timeActString = ProjectAction.getTimeForDisplay(timeAct);
+    out.println("    <td class=\"boxed\" id=\"" + idBaseEst + "\">" + timeEstString + "</th>");
+    out.println("    <td class=\"boxed\" id=\"" + idBaseAct + "\">" + timeActString + "</th>");
+    out.println("  </tr>");
   }
 
   protected static List<ProjectAction> prepareProjectActionListAndIdentifyOverdue(
