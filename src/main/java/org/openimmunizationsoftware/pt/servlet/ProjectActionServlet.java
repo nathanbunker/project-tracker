@@ -88,11 +88,11 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_PROPOSE = "Propose";
   private static final String ACTION_FEEDBACK = "Feedback";
   private static final String ACTION_COMPLETED = "Completed";
-  private static final String ACTION_COMPLETED_AND_SUGGEST = "Completed and Suggest";
   private static final String ACTION_SAVE = "Save";
   private static final String ACTION_DELETE = "Delete";
   private static final String ACTION_START = "Start";
   private static final String ACTION_REFRESH_TIME = "RefreshTime";
+  private static final String ACTION_SUGGEST = "Suggest";
 
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
@@ -151,6 +151,8 @@ public class ProjectActionServlet extends ClientServlet {
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
 
+      String nextSuggest = null;
+
       if (action != null) {
         if (action.equals(ACTION_START_TIMER)) {
           startTimer(appReq, dataSession, completingAction);
@@ -163,16 +165,16 @@ public class ProjectActionServlet extends ClientServlet {
           chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else if (action.equals(ACTION_FEEDBACK)) {
           chatFeedback(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
+        } else if (action.equals(ACTION_SUGGEST)) {
+          nextSuggest = chatNext(appReq, completingAction, chatAgentList, projectActionTakenList,
+              projectActionScheduledList);
         } else {
           ProjectAction editProjectAction = readEditProjectAction(appReq);
-          if (action.equals(ACTION_COMPLETED) || action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
-            String nextDescription = completingAction.getNextSummary();
+          if (action.equals(ACTION_COMPLETED)) {
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.COMPLETED;
+            String nextDescription = completingAction.getNextSummary();
             closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
             emailBody = sendEmail(request, appReq, webUser, dataSession, project, editProjectAction, emailBody);
-            if (action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
-              chatNext(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
-            }
             completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             Project nextProject = project;
@@ -217,6 +219,7 @@ public class ProjectActionServlet extends ClientServlet {
         setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
         project = completingAction.getProject();
         projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+        projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
       List<ProjectAction> projectActionClosedTodayList = getProjectActionListClosedToday(webUser, dataSession);
 
@@ -271,6 +274,10 @@ public class ProjectActionServlet extends ClientServlet {
         out.println("<div id=\"actionNext\">");
         printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList,
             projectActionScheduledList, formNameSet);
+        if (nextSuggest != null) {
+          out.println("<h3>Suggested Next Actions</h3>");
+          out.println(nextSuggest);
+        }
         out.println("</div>");
 
         // ---------------------------------------------------------------------------------------------------
@@ -312,7 +319,9 @@ public class ProjectActionServlet extends ClientServlet {
       }
       printHtmlFoot(appReq);
 
-    } catch (Exception e) {
+    } catch (
+
+    Exception e) {
       e.printStackTrace();
     } finally {
       appReq.close();
@@ -398,15 +407,23 @@ public class ProjectActionServlet extends ClientServlet {
     PrintWriter out = appReq.getOut();
     out.println("<h2>" + project.getProjectName());
     out.println("</h2>");
-    String link = "ProjectEditServlet?" + PARAM_PROJECT_ID + "=" + project.getProjectId();
-
-    if (project.getDescription() == null || project.getDescription().equals("")) {
-      // put edit button here
-      out.println("<p><a href=\"" + link + "\" class=\"edit-link\">Add Description</a></p>");
-    } else {
-      out.println("<p>" + project.getDescription() + " <a href=\"" + link + "\" class=\"edit-link\">Edit</a></p>");
+    {
+      String link = "ProjectEditServlet?" + PARAM_PROJECT_ID + "=" + project.getProjectId();
+      if (project.getDescription() == null || project.getDescription().equals("")) {
+        // put edit button here
+        out.println("<p><a href=\"" + link + "\" class=\"edit-link\">Add Description</a></p>");
+      } else {
+        out.println("<p>" + project.getDescription() + " <a href=\"" + link + "\" class=\"edit-link\">Edit</a></p>");
+      }
     }
     out.println("<button id=\"editButton0\" type=\"button\">Add Action</button>");
+    {
+      String link = "ProjectActionServlet?" + PARAM_PROJECT_ID + "=" + project.getProjectId() + "&" + PARAM_ACTION
+          + "=" + ACTION_SUGGEST;
+      // print out button that will use link
+      out.println("<button id=\"suggestButton0\" type=\"button\" onclick=\"window.location.href='" + link
+          + "'\">Suggest</button>");
+    }
 
     List<String> dateLabelList = new ArrayList<String>();
     Map<String, List<ProjectAction>> projectActionMap = new HashMap<String, List<ProjectAction>>();
@@ -919,12 +936,13 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private void chatNext(AppReq appReq, ProjectAction completingAction,
+  private String chatNext(AppReq appReq, ProjectAction completingAction,
       List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList,
       List<ProjectAction> projectActionScheduledList) {
 
     String nextPrompt = getNextPrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
 
+    String nextSuggest = null;
     ChatAgent chatAgent = null;
     chatAgent = new ChatAgent("Next Steps", SYSTEM_INSTRUCTIONS);
 
@@ -936,12 +954,12 @@ public class ProjectActionServlet extends ClientServlet {
         String json = chatAgent.getResponseText();
         ObjectMapper mapper = new ObjectMapper();
         JsonNode jsonNode = mapper.readTree(json);
-        String nextSuggest = jsonNode.get("html").asText();
+        nextSuggest = jsonNode.get("html").asText();
       } catch (Exception e) {
         e.printStackTrace();
       }
     }
-
+    return nextSuggest;
   }
 
   private String getProposePrompt(ProjectAction completingAction, AppReq appReq,
@@ -1525,8 +1543,6 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
         + completingAction.getActionId() + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED + "\"/>");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED_AND_SUGGEST
-        + "\"/>");
     out.println("</span>");
 
   }
