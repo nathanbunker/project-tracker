@@ -145,8 +145,10 @@ public class ProjectActionServlet extends ClientServlet {
       String emailBody = null;
 
       List<ProjectAction> projectActionTakenList = null;
+      List<ProjectAction> projectActionScheduledList = null;
       if (project != null) {
         projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+        projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
 
       if (action != null) {
@@ -158,9 +160,9 @@ public class ProjectActionServlet extends ClientServlet {
         } else if (action.equals(ACTION_STOP_TIMER)) {
           stopTimer(appReq, dataSession);
         } else if (action.equals(ACTION_PROPOSE)) {
-          chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList);
+          chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else if (action.equals(ACTION_FEEDBACK)) {
-          chatFeedback(appReq, completingAction, chatAgentList, projectActionTakenList);
+          chatFeedback(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else {
           ProjectAction editProjectAction = readEditProjectAction(appReq);
           if (action.equals(ACTION_COMPLETED) || action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
@@ -169,7 +171,7 @@ public class ProjectActionServlet extends ClientServlet {
             closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
             emailBody = sendEmail(request, appReq, webUser, dataSession, project, editProjectAction, emailBody);
             if (action.equals(ACTION_COMPLETED_AND_SUGGEST)) {
-              chatNext(appReq, completingAction, chatAgentList, projectActionTakenList);
+              chatNext(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
             }
             completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
@@ -191,6 +193,7 @@ public class ProjectActionServlet extends ClientServlet {
               project = completingAction.getProject();
               projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
             } else if (nextDue != null && !webUser.isToday(nextDue)
+                && (completingAction != null && completingAction.equals(editProjectAction))
                 && (originalNextDue == null || !nextDue.equals(originalNextDue))) {
               // if next action is being saved and the user didn't signal they wanted to work
               // on this next.
@@ -266,7 +269,8 @@ public class ProjectActionServlet extends ClientServlet {
         // ACTION NEXT
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionNext\">");
-        printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList, formNameSet);
+        printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList,
+            projectActionScheduledList, formNameSet);
         out.println("</div>");
 
         // ---------------------------------------------------------------------------------------------------
@@ -370,16 +374,6 @@ public class ProjectActionServlet extends ClientServlet {
     printEditProjectActionForm(appReq, completingAction, projectContactList, formName, formNameSet, project,
         projectList);
 
-    if (completingAction.getNextFeedback() != null
-        && !completingAction.getNextFeedback().equals("")) {
-      out.println("<h3>Feedback</h3>");
-      out.println("" + completingAction.getNextFeedback() + "");
-    }
-
-    if (completingAction.getNextFeedback() != null && !completingAction.getNextFeedback().equals("")) {
-      out.println("<h3>Next Step Suggestions</h3>");
-      out.println("" + completingAction.getNextFeedback() + "");
-    }
   }
 
   private List<Project> getProjectList(WebUser webUser, Session dataSession) {
@@ -397,10 +391,10 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printActionsNext(AppReq appReq, Project project, List<ProjectContact> projectContactList,
-      List<Project> projectList, List<ProjectAction> projectActionTakenList, Set<String> formNameSet) {
+      List<Project> projectList, List<ProjectAction> projectActionTakenList,
+      List<ProjectAction> projectActionScheduledList, Set<String> formNameSet) {
 
     WebUser webUser = appReq.getWebUser();
-    Session dataSession = appReq.getDataSession();
     PrintWriter out = appReq.getOut();
     out.println("<h2>" + project.getProjectName());
     out.println("</h2>");
@@ -414,10 +408,9 @@ public class ProjectActionServlet extends ClientServlet {
     }
     out.println("<button id=\"editButton0\" type=\"button\">Add Action</button>");
 
-    List<ProjectAction> allProjectActionsList = getAllProjectActionsList(appReq, project, dataSession);
     List<String> dateLabelList = new ArrayList<String>();
     Map<String, List<ProjectAction>> projectActionMap = new HashMap<String, List<ProjectAction>>();
-    setupListAndMap(webUser, allProjectActionsList, dateLabelList, projectActionMap);
+    setupListAndMap(webUser, projectActionScheduledList, dateLabelList, projectActionMap);
 
     // Go through dateLabelList and print out actions for each entry, as a list
     for (String label : dateLabelList) {
@@ -439,7 +432,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     printEditProjectActionForm(appReq, null, projectContactList, "" +
         0, formNameSet, project, projectList);
-    for (ProjectAction pa : allProjectActionsList) {
+    for (ProjectAction pa : projectActionScheduledList) {
       printEditProjectActionForm(appReq, pa, projectContactList, "" +
           pa.getActionId(), formNameSet, project, projectList);
     }
@@ -465,7 +458,7 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private List<ProjectAction> getAllProjectActionsList(AppReq appReq, Project project, Session dataSession) {
+  private List<ProjectAction> getAllProjectActionsScheduledList(AppReq appReq, Project project, Session dataSession) {
     List<ProjectAction> allProjectActionsList = null;
     {
       Query query = dataSession.createQuery(
@@ -866,10 +859,11 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private void chatPropose(AppReq appReq, ProjectAction completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList) {
+  private void chatPropose(AppReq appReq, ProjectAction completingAction, List<ChatAgent> chatAgentList,
+      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
 
-    String proposePrompt = getProposePrompt(completingAction, appReq, projectActionTakenList);
+    String proposePrompt = getProposePrompt(completingAction, appReq, projectActionTakenList,
+        projectActionScheduledList);
 
     ChatAgent chatAgent = null;
     chatAgent = new ChatAgent("Propose", SYSTEM_INSTRUCTIONS);
@@ -894,9 +888,11 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void chatFeedback(AppReq appReq, ProjectAction completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList) {
+      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList,
+      List<ProjectAction> projectActionScheduledList) {
 
-    String feedbackPrompt = getFeedbackPrompt(completingAction, appReq, projectActionTakenList);
+    String feedbackPrompt = getFeedbackPrompt(completingAction, appReq, projectActionTakenList,
+        projectActionScheduledList);
 
     ChatAgent chatAgent = null;
     chatAgent = new ChatAgent("Feedback", SYSTEM_INSTRUCTIONS);
@@ -924,9 +920,10 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void chatNext(AppReq appReq, ProjectAction completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList) {
+      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList,
+      List<ProjectAction> projectActionScheduledList) {
 
-    String nextPrompt = getNextPrompt(completingAction, appReq, projectActionTakenList);
+    String nextPrompt = getNextPrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
 
     ChatAgent chatAgent = null;
     chatAgent = new ChatAgent("Next Steps", SYSTEM_INSTRUCTIONS);
@@ -948,10 +945,10 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private String getProposePrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList) {
+      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
-    String proposePrompt = getBasePrompt(completingAction, appReq, projectActionTakenList);
+    String proposePrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     proposePrompt += "The recent actions taken are previously generated summaries of actions taken for this project. "
         + "Please create a succinct summary of what action was taken based on the next action I am working on and the next action notes I took (if any) "
         + "while completing this action. "
@@ -965,8 +962,8 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private String getFeedbackPrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList) {
-    String feedbackPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList);
+      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+    String feedbackPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     feedbackPrompt += "Please review my current summary and give me three to five questions my superisor or others might have that could help me clarify and add more detail to this update. "
         + " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
         + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions.. Thanks! \n";
@@ -975,23 +972,33 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private String getNextPrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList) {
-    String nextPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList);
+      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+    String nextPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     nextPrompt += "Please review my current summary of what I accomplished and what I have accomplished in the past with this project and suggest a list "
-        + "of two or three next steps I should indicate in my project tracker  "
-        + " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
-        + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions.. Thanks! \n";
+        + "of two or three next steps I should indicate in my project tracker. These statements should be short and should start with one of these phrases:  "
+        + "I will ..., I might ..., I have committed ..., I will meet ..., I will review ..., I will document ..., I will follow up ..., or I am waiting for ... \n\n";
+    List<ProjectAction> projectActionsScheduledAndCompletedList = getProjectActionsScheduledAndCompletedList(
+        appReq.getDataSession(), completingAction.getProject().getProjectId());
+    if (projectActionsScheduledAndCompletedList.size() > 0) {
+      nextPrompt += "Here are examples of steps previously taken on this project: \n";
+      for (ProjectAction projectAction : projectActionsScheduledAndCompletedList) {
+        nextPrompt += LIST_START + projectAction.getNextDescription() + " \n";
+      }
+    }
+    nextPrompt += " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
+        + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions. Thanks! \n";
     return nextPrompt;
   }
 
-  private String getBasePrompt(ProjectAction completingAction,
-      AppReq appReq, List<ProjectAction> projectActionTakenList) {
+  private String getBasePrompt(ProjectAction completingAction, AppReq appReq,
+      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
     Project project = completingAction.getProject();
     WebUser webUser = appReq.getWebUser();
     String basePrompt = "";
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
-    basePrompt = "I have taken action on a recent project and need to provide an update to be included in reporting to my supervisor and other project participants.  \n\n"
+    basePrompt = "I have taken action on a recent project and need to provide an update to be included in reporting to my "
+        + "supervisor and other project participants.  \n\n"
         + "Project name: " + project.getProjectName() + " \n"
         + "Project description: " + project.getDescription() + " \n"
         + "Recent actions taken: \n";
@@ -1003,7 +1010,17 @@ public class ProjectActionServlet extends ClientServlet {
         break;
       }
     }
-    basePrompt += "Working on this next action: "
+    if (projectActionScheduledList.size() > 1) {
+      basePrompt += "Actions scheduled in the future: \n";
+      for (ProjectAction projectAction : projectActionScheduledList) {
+        if (projectAction.equals(completingAction)) {
+          continue;
+        }
+        basePrompt += LIST_START + sdf.format(projectAction.getNextDue()) + " "
+            + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + " \n";
+      }
+    }
+    basePrompt += "Now working on this next action: "
         + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + " \n";
     if (completingAction.getNextNotes() != null && completingAction.getNextNotes().length() > 0) {
       basePrompt += "Next action notes: \n" + completingAction.getNextNotes() + " \n";
@@ -1487,12 +1504,17 @@ public class ProjectActionServlet extends ClientServlet {
     if (completingAction.getNextNotes() != null) {
       out.println(convertToHtmlList(completingAction.getNextNotes()));
     }
+    if (completingAction.getNextFeedback() != null && !completingAction.getNextFeedback().equals("")) {
+      out.println("<h4>Next Step Suggestions</h4>");
+      out.println("" + completingAction.getNextFeedback() + "");
+    }
     out.println("<textarea name=\"nextNotes\" id=\"nextNotes\" rows=\"7\" onkeydown=\"resetRefresh()\"></textarea>");
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_PROPOSE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_FEEDBACK + "\"/>");
     out.println("</span>");
+
     out.println("<h3>Summary</h3>");
     out.println("<textarea name=\"nextSummary\" rows=\"12\" onkeydown=\"resetRefresh()\">"
         + n(completingAction.getNextSummary()) + "</textarea>");
@@ -1959,5 +1981,22 @@ public class ProjectActionServlet extends ClientServlet {
       "A goal without a plan is just a wish",
       "If you want to fly, give up everything that weighs you down"
   };
+
+  private static List<ProjectAction> getProjectActionsScheduledAndCompletedList(Session dataSession, int projectId) {
+    List<ProjectAction> projectActionList;
+    Query query = dataSession.createQuery(
+        "from ProjectAction pa \n" +
+            "where pa.nextDescription <> '' \n" +
+            "  and pa.nextActionId <> 0> \n" +
+            "  and exists ( \n" +
+            "    select 1 \n" +
+            "    from ProjectAction nextPa \n" +
+            "    where nextPa.actionId = pa.nextActionId \n" +
+            "      and nextPa.actionDescription <> '' \n" +
+            "  )");
+    query.setParameter(0, projectId);
+    projectActionList = query.list();
+    return projectActionList;
+  }
 
 }
