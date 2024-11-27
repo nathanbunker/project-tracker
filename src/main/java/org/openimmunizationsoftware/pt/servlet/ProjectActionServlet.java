@@ -556,8 +556,8 @@ public class ProjectActionServlet extends ClientServlet {
     dateLabelList.add("Goals");
     dateLabelList.add("Overdue");
     List<Date> dateList = new ArrayList<Date>();
-    Calendar c = webUser.getCalendar();
-    c.setTime(new Date());
+
+    Calendar c = getCalendarForTodayNoTime(webUser);
     int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
     int count = 0;
     boolean nextWeek = false;
@@ -573,7 +573,8 @@ public class ProjectActionServlet extends ClientServlet {
         label = "Next " + label;
       }
       dateLabelList.add(label);
-      dateList.add(c.getTime());
+      Date date = c.getTime();
+      dateList.add(date);
       c.add(Calendar.DAY_OF_MONTH, 1);
       dateToLabelMap.put(c.getTime(), label);
       dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
@@ -856,8 +857,13 @@ public class ProjectActionServlet extends ClientServlet {
       // the time spent
       // Here is the query: select sum(bill_mins) from bill_entry where action_id =
       // {action_id}
-      Query query = dataSession.createQuery("select sum(billMins) from BillEntry where action = :action");
+      Query query = dataSession.createQuery("select sum(billMins) from BillEntry where action = :action "
+          + "and startTime >= :today and startTime < :tomorrow");
       query.setParameter("action", completingAction);
+      Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
+      query.setParameter("today", calendar.getTime());
+      calendar.add(Calendar.DAY_OF_MONTH, 1);
+      query.setParameter("tomorrow", calendar.getTime());
       List<Long> billMinsList = query.list();
       if (billMinsList.size() > 0) {
         if (billMinsList.get(0) != null) {
@@ -874,6 +880,16 @@ public class ProjectActionServlet extends ClientServlet {
       dataSession.update(completingAction);
       transaction.commit();
     }
+  }
+
+  private Calendar getCalendarForTodayNoTime(WebUser webUser) {
+    Calendar calendar = webUser.getCalendar();
+    calendar.setTime(new Date());
+    calendar.set(Calendar.HOUR_OF_DAY, 0);
+    calendar.set(Calendar.MINUTE, 0);
+    calendar.set(Calendar.SECOND, 0);
+    calendar.set(Calendar.MILLISECOND, 0);
+    return calendar;
   }
 
   private void chatPropose(AppReq appReq, ProjectAction completingAction, List<ChatAgent> chatAgentList,
@@ -1178,15 +1194,15 @@ public class ProjectActionServlet extends ClientServlet {
     printTimeTotal(out, "Other", ID_TIME_OTHER, timeAdder.getOtherEst(), timeAdder.getOtherAct());
     out.println("</table>");
     out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime() + "</h3>");
-    if (timeAdder.getCommittedWillMeetAndWill() == 0) {
+    if ((timeAdder.getCommittedEst() + timeAdder.getWillMeetEst() + timeAdder.getWillEst()) == 0) {
       out.println("<p>You have finished everything you said you would do today. Good job! </p>");
-    } else if (timeAdder.getCompletedAct() < 30) {
-      out.println("<p>Good morning! Welcome to another day of productivity. </p>");
-    } else if (timeAdder.getCompletedAct() > (7 * 60 + 30)) {
+    } else if (timeAdder.getCompletedAct() > (8 * 60)) {
       out.println(
           "<p><span class=\"fail\">Time to be done!</span> You have spent a full day working already. You should not be working now. </p>");
-    } else if ((timeAdder.getCommittedWillMeetAndWill() + timeAdder.getCompletedAct()) > (7 * 60 + 30)) {
+    } else if (timeAdder.getWillAct() > (8 * 60)) {
       out.println("<p><span class=\"fail\">You are over committed for today.</span> Time to re-plan your day. </p>");
+    } else if (timeAdder.getCompletedAct() < 30) {
+      out.println("<p>Good morning! Welcome to another day of productivity. </p>");
     } else {
       out.println("<p>Good job! You are on track to finish your day on time. </p>");
     }
@@ -1761,41 +1777,6 @@ public class ProjectActionServlet extends ClientServlet {
       return pa2.getPriorityLevel() - pa1.getPriorityLevel();
     });
     return projectActionList;
-  }
-
-  private static void printTimeEstimateBox(PrintWriter out, TimeAdder timeAdder) {
-    out.println("<table class=\"boxed float-right\">");
-    printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
-    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
-    printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
-    printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
-    printTimeTotal(out, "Might", ID_TIME_MIGHT, timeAdder.getMightEst(), timeAdder.getMightAct());
-    printTimeTotal(out, "Other", ID_TIME_OTHER, timeAdder.getOtherEst(), timeAdder.getOtherAct());
-    out.println("</table>");
-    SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd MMM yyyy HH:mm z");
-    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + sdf.format(new Date()) + "</h3>");
-    // need to print three messages
-    // -- done for the day
-    // -- time is completed is less than 30 minutes, Good morning!
-    // -- if timespentsofar is greater than 7.5 hours, then say: time to be done!
-    // - if WillMeet + Commit + Will are over 7.5 hours, then say: You are over
-    // committed for today
-    if (timeAdder.getCommittedWillMeetAndWill() == 0) {
-      out.println("<p>You have finished everything you said you would do today. Good job! </p>");
-    } else if (timeAdder.getCompletedAct() < 30) {
-      out.println("<p>Good morning! Welcome to another day of productivity. </p>");
-    } else if (timeAdder.getCompletedAct() > (7 * 60 + 30)) {
-      out.println(
-          "<p><span class=\"fail\">Time to be done!</span> You have spent a full day working already. You should not be working now. </p>");
-    } else if ((timeAdder.getCommittedWillMeetAndWill() + timeAdder.getCompletedAct()) > (7 * 60 + 30)) {
-      out.println("<p><span class=\"fail\">You are over committed for today.</span> Time to re-plan your day. </p>");
-    } else {
-      out.println("<p>Good job! You are on track to finish your day on time. </p>");
-    }
-    Random Random = new Random();
-    String quote = QUOTES[Random.nextInt(QUOTES.length)];
-    out.println("<h4>Get Inspired</h4>");
-    out.println("<q>" + quote + "</q>");
   }
 
   private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {

@@ -23,10 +23,6 @@ public class TimeAdder {
     private int otherEst = 0;
     private int otherAct = 0;
 
-    public int getCommittedWillMeetAndWill() {
-        return committedAct + willMeetEst + willEst;
-    }
-
     public int getCommittedAct() {
         return committedAct;
     }
