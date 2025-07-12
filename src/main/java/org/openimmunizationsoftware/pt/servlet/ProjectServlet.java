@@ -890,7 +890,7 @@ public class ProjectServlet extends ClientServlet {
       out.println(
           "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"linkUrl\" size=\"30\" value=\""
               + n(projectAction == null || projectAction.getLinkUrl() == null
-                  ? request.getParameter("linkUrl")
+                  ? ""
                   : projectAction.getLinkUrl())
               + "\" onkeydown=\"resetRefresh()\"" + disabled + "></td>");
       out.println("        </tr>");

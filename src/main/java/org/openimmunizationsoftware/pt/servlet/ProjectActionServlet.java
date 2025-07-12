@@ -76,6 +76,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_DUE = "nextDue";
   private static final String PARAM_NEXT_DESCRIPTION = "nextDescription";
   private static final String PARAM_NEXT_NOTES = "nextNotes";
+  private static final String PARAM_NEXT_NOTE = "nextNote";
   private static final String PARAM_NEXT_SUMMARY = "nextSummary";
   private static final String PARAM_NEXT_TIME_ESTIMATE = "nextTimeEstimate";
   private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
@@ -211,6 +212,9 @@ public class ProjectActionServlet extends ClientServlet {
               completingAction = null;
             }
           }
+          // refresh the project actions taken and scheduled lists
+          projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+          projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
         }
       }
 
@@ -796,6 +800,16 @@ public class ProjectActionServlet extends ClientServlet {
       editProjectAction.setNextTimeEstimate(nextTimeEstimate);
     }
     editProjectAction.setNextActionId(0);
+
+    String nextNote = request.getParameter(PARAM_NEXT_NOTE);
+    if (nextNote != null && nextNote.length() > 0) {
+      if (editProjectAction.getNextNotes() != null && editProjectAction.getNextNotes().trim().length() > 0) {
+        nextNote = editProjectAction.getNextNotes() + "\n - " + nextNote;
+      } else {
+        nextNote = LIST_START + nextNote;
+      }
+      editProjectAction.setNextNotes(nextNote);
+    }
 
     editProjectAction.setNextDue(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DUE)));
     editProjectAction.setNextDeadline(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
@@ -1545,11 +1559,23 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("          <th class=\"inside\"></th>");
     out.println("          <td class=\"inside\" colspan=\"3\"> ");
     out.println(
-        "            <textarea name=\"nextDescription\" rows=\"2\" onkeydown=\"resetRefresh()\""
+        "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION + "\" rows=\"1\" onkeydown=\"resetRefresh()\""
             + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
             + "</textarea>");
     out.println("          </td>");
     out.println("        </tr>");
+    {
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Note</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><textarea rows=\"3\" name=\"" + PARAM_NEXT_NOTE
+              + "\" size=\"30\" onkeydown=\"resetRefresh()\" " + disabled + ">"
+              + n(projectAction == null || projectAction.getNextNotes() == null
+                  ? ""
+                  : projectAction.getNextNotes())
+              + "</textarea></td>");
+      out.println("        </tr>");
+    }
     out.println("        <tr>");
     out.println("          <th class=\"inside\">Time</th>");
     out.println("          <td class=\"inside\" colspan=\"3\">");
@@ -1627,7 +1653,7 @@ public class ProjectActionServlet extends ClientServlet {
           "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_LINK_URL
               + "\" size=\"30\" value=\""
               + n(projectAction == null || projectAction.getLinkUrl() == null
-                  ? request.getParameter(PARAM_LINK_URL)
+                  ? ""
                   : projectAction.getLinkUrl())
               + "\" onkeydown=\"resetRefresh()\"" + disabled + "></td>");
       out.println("        </tr>");
