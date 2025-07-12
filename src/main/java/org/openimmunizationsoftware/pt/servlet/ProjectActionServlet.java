@@ -6,6 +6,7 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Time;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -213,7 +214,27 @@ public class ProjectActionServlet extends ClientServlet {
         }
       }
 
-      List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession);
+      List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+      List<List<ProjectAction>> projectActionDueNextWorkingDayListList = new ArrayList<>();
+      {
+        int daysFound = 0;
+        int dayOffset = 1;
+        while (daysFound < 5 && dayOffset < 14) {
+          List<ProjectAction> projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession,
+              dayOffset);
+          while (projectActionDueNextWorkingDayList.size() == 0 && dayOffset < 14) {
+            // if there are no actions scheduled for tomorrow, then we should look at the
+            // next day
+            dayOffset++;
+            projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession, dayOffset);
+          }
+          prepareProjectActionList(dataSession, projectActionDueNextWorkingDayList, webUser);
+          projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
+          dayOffset++;
+          daysFound++;
+        }
+
+      }
       if (completingAction == null && projectActionDueTodayList.size() > 0) {
         completingAction = projectActionDueTodayList.get(0);
         setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
@@ -246,7 +267,7 @@ public class ProjectActionServlet extends ClientServlet {
 
       Set<String> formNameSet = new HashSet<String>();
 
-      Date nextDue = new Date();
+      Date nextDue = webUser.getCalendar().getTime();
       SimpleDateFormat sdf1 = webUser.getDateFormat();
 
       Calendar cIndicated = webUser.getCalendar();
@@ -258,7 +279,7 @@ public class ProjectActionServlet extends ClientServlet {
         printTimeManagementBox(appReq, projectActionDueTodayList);
         out.println("<h2>Good Job!</h2>");
         out.println("<p>You have no more actions to take today. Have a great evening! </p>");
-        printActionsCompletedForToday(webUser, out, projectActionClosedTodayList, nextDue, sdf1, cIndicated);
+        printActionsCompletedForToday(webUser, out, projectActionClosedTodayList);
       } else {
 
         List<ProjectContactAssigned> projectContactAssignedList = ProjectServlet
@@ -292,8 +313,65 @@ public class ProjectActionServlet extends ClientServlet {
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionLater\">");
         printTimeManagementBox(appReq, projectActionDueTodayList);
-        printActionsScheduledForToday(webUser, out, projectActionDueTodayList, nextDue, sdf1, cIndicated);
-        printActionsCompletedForToday(webUser, out, projectActionClosedTodayList, nextDue, sdf1, cIndicated);
+        printActionsScheduledForToday(webUser, out, projectActionDueTodayList);
+        printActionsCompletedForToday(webUser, out, projectActionClosedTodayList);
+        {
+          List<TimeAdder> timeAdderList = new ArrayList<>();
+          for (List<ProjectAction> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+            TimeAdder timeAdder = new TimeAdder(projectActionDueNextWorkingDayList, appReq, workingDayDate);
+            timeAdderList.add(timeAdder);
+          }
+
+          out.println("<table class=\"boxed\">");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"title\">Planning</th>");
+          for (List<ProjectAction> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+            SimpleDateFormat sdf = new SimpleDateFormat("EEE MM/dd");
+            out.println("    <th class=\"boxed\">" + sdf.format(workingDayDate) + "</th>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Will Meet</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getWillMeetEst()) + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Committed</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getCommittedEst()) + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Will</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println("    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getWillEst()) + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Might</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getMightEst()) + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Planned</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println("    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getWillAct()) + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("</table><br/>");
+        }
+        for (List<ProjectAction> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+          Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+          printActionsScheduledForNextWorkingDay(webUser, out, projectActionDueNextWorkingDayList, workingDayDate);
+          printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
+        }
         out.println("</div>");
 
         out.println("</div>");
@@ -339,7 +417,7 @@ public class ProjectActionServlet extends ClientServlet {
     if (completingAction != null) {
       timeRunningString = TimeTracker.formatTime(completingAction.getNextTimeActual());
     }
-    List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession);
+    List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
     TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
     Map<String, String> timeData = new HashMap<>();
     timeData.put(ID_TIME_RUNNING, timeRunningString);
@@ -575,8 +653,8 @@ public class ProjectActionServlet extends ClientServlet {
       dateLabelList.add(label);
       Date date = c.getTime();
       dateList.add(date);
+      dateToLabelMap.put(date, label);
       c.add(Calendar.DAY_OF_MONTH, 1);
-      dateToLabelMap.put(c.getTime(), label);
       dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
       count++;
     }
@@ -594,26 +672,69 @@ public class ProjectActionServlet extends ClientServlet {
       } else if (pa.hasNextDue()) {
         String label = "Overdue";
         if (pa.getNextDue().before(dateList.get(0))) {
-          addToMap(projectActionMap, pa, "Overdue");
+          addToMap(projectActionMap, pa, label);
         } else {
+          label = "Today";
           boolean found = false;
           for (int i = 0; i < dateList.size(); i++) {
             Date date = dateList.get(i);
-            if (pa.getNextDue().before(date)) {
+            if (sameDayOrBefore(pa, date)) {
+              label = dateToLabelMap.get(date);
               addToMap(projectActionMap, pa, label);
               found = true;
               break;
             }
-            label = dateToLabelMap.get(date);
           }
           if (!found) {
             addToMap(projectActionMap, pa, "Due Later");
           }
         }
       } else {
-        addToMap(projectActionMap, pa, "Overdue");
+        addToMap(projectActionMap, pa, "Sometime");
       }
     }
+  }
+
+  private static boolean sameDayOrBefore(ProjectAction pa, Date dateFromDateList) {
+    Date nextDue = pa.getNextDue();
+    // need to chop off the time from the date
+    Calendar c = Calendar.getInstance();
+    c.setTime(dateFromDateList);
+    c.set(Calendar.HOUR_OF_DAY, 0);
+    c.set(Calendar.MINUTE, 0);
+    c.set(Calendar.SECOND, 0);
+    c.set(Calendar.MILLISECOND, 0);
+    dateFromDateList = c.getTime();
+    c = Calendar.getInstance();
+    c.setTime(nextDue);
+    c.set(Calendar.HOUR_OF_DAY, 0);
+    c.set(Calendar.MINUTE, 0);
+    c.set(Calendar.SECOND, 0);
+    c.set(Calendar.MILLISECOND, 0);
+    nextDue = c.getTime();
+
+    return dateFromDateList.equals(nextDue) || nextDue.before(dateFromDateList);
+  }
+
+  private static boolean before(ProjectAction pa, Date dateFromDateList) {
+    Date nextDue = pa.getNextDue();
+    // need to chop off the time from the date
+    Calendar c = Calendar.getInstance();
+    c.setTime(dateFromDateList);
+    c.set(Calendar.HOUR_OF_DAY, 0);
+    c.set(Calendar.MINUTE, 0);
+    c.set(Calendar.SECOND, 0);
+    c.set(Calendar.MILLISECOND, 0);
+    dateFromDateList = c.getTime();
+    c = Calendar.getInstance();
+    c.setTime(nextDue);
+    c.set(Calendar.HOUR_OF_DAY, 0);
+    c.set(Calendar.MINUTE, 0);
+    c.set(Calendar.SECOND, 0);
+    c.set(Calendar.MILLISECOND, 0);
+    nextDue = c.getTime();
+
+    return nextDue.before(dateFromDateList);
   }
 
   private void addToMap(Map<String, List<ProjectAction>> projectActionMap, ProjectAction pa, String key) {
@@ -1144,30 +1265,53 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</div>");
   }
 
-  private void printActionsScheduledForToday(WebUser webUser, PrintWriter out, List<ProjectAction> projectActionList,
-      Date nextDue,
-      SimpleDateFormat sdf1, Calendar cIndicated) {
+  private void printActionsScheduledForToday(WebUser webUser, PrintWriter out, List<ProjectAction> projectActionList) {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"4\">All actions scheduled for today</th>");
     out.println("  </tr>");
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.OVERDUE_TO, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.COMMITTED_TO, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_CONTACT, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_MEET, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.MIGHT, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.GOAL, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_FOLLOW_UP, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WAITING, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_REVIEW, nextDue, projectActionList, cIndicated);
-    printDueTable(webUser, out, sdf1, ProjectNextActionType.WILL_DOCUMENT, nextDue, projectActionList, cIndicated);
+    printDueTable(webUser, out, ProjectNextActionType.OVERDUE_TO, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.COMMITTED_TO, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_CONTACT, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_MEET, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.MIGHT, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.GOAL, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WAITING, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_REVIEW, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_DOCUMENT, projectActionList);
     out.println("</table><br/>");
   }
 
-  private void printActionsCompletedForToday(WebUser webUser, PrintWriter out, List<ProjectAction> projectActionList,
-      Date nextDue,
-      SimpleDateFormat sdf1, Calendar cIndicated) {
+  private void printActionsScheduledForNextWorkingDay(WebUser webUser, PrintWriter out,
+      List<ProjectAction> projectActionList, Date workingDay) {
+    String title = "All actions scheduled for ";
+    // print name of next working day, either "Monday" or "Next Monday". that format
+    Calendar nextWorkingDay = Calendar.getInstance();
+    nextWorkingDay.setTime(workingDay);
+    SimpleDateFormat daynameSdf = new SimpleDateFormat("EEEE dd MMMM yyyy");
+    title += daynameSdf.format(nextWorkingDay.getTime());
+    out.println("<table class=\"boxed\">");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"title\" colspan=\"4\">" + title + "</th>");
+    out.println("  </tr>");
+    printDueTable(webUser, out, ProjectNextActionType.OVERDUE_TO, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.COMMITTED_TO, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_CONTACT, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_MEET, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.MIGHT, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.GOAL, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WAITING, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_REVIEW, projectActionList);
+    printDueTable(webUser, out, ProjectNextActionType.WILL_DOCUMENT, projectActionList);
+    out.println("</table><br/>");
+    // print out size of list
+  }
+
+  private void printActionsCompletedForToday(WebUser webUser, PrintWriter out, List<ProjectAction> projectActionList) {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"4\">All actions completed for today</th>");
@@ -1210,6 +1354,28 @@ public class ProjectActionServlet extends ClientServlet {
     String quote = QUOTES[Random.nextInt(QUOTES.length)];
     out.println("<h4>Get Inspired</h4>");
     out.println("<q>" + quote + "</q>");
+  }
+
+  private void printTimeManagementBoxForNextWorkingDay(AppReq appReq, List<ProjectAction> projectActionList,
+      Date date) {
+    PrintWriter out = appReq.getOut();
+    TimeAdder timeAdder = new TimeAdder(projectActionList, appReq, date);
+    out.println("<table class=\"boxed\">");
+    printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
+    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
+    printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Might", ID_TIME_MIGHT, timeAdder.getMightEst(), timeAdder.getMightAct());
+    printTimeTotal(out, "Other", ID_TIME_OTHER, timeAdder.getOtherEst(), timeAdder.getOtherAct());
+    out.println("</table>");
+    if (timeAdder.getWillAct() > (8 * 60)) {
+      out.println(
+          "<p><span class=\"fail\">You are over committed for this working day.</span> You need to plan this day. </p>");
+    } else if (timeAdder.getWillAct() < (7 * 60)) {
+      out.println("<p>You can schedule more time this working day. </p>");
+    } else {
+      out.println("<p>This day is full.</p>");
+    }
   }
 
   private String getFullDayAndTime() {
@@ -1716,9 +1882,19 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 
-  private static List<ProjectAction> getProjectActionListForToday(WebUser webUser, Session dataSession) {
+  private static List<ProjectAction> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
     Date today = TimeTracker.createToday(webUser).getTime();
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
+    if (dayOffset > 0) {
+      // add number of days to today and tomorrow to get new "today" and "tomorrow"
+      Calendar calendar = Calendar.getInstance();
+      calendar.setTime(today);
+      calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
+      today = calendar.getTime();
+      calendar.setTime(tomorrow);
+      calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
+      tomorrow = calendar.getTime();
+    }
     Query query = dataSession.createQuery(
         "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
             + "and nextActionId = 0 and nextDescription <> '' "
@@ -1807,7 +1983,7 @@ public class ProjectActionServlet extends ClientServlet {
         if (projectAction.getProject() == null) {
           continue;
         }
-        if (projectAction.getNextDue() == null || projectAction.getNextDue().before(today)) {
+        if (projectAction.getNextDue() == null || before(projectAction, today)) {
           projectActionListOverdue.add(projectAction);
         }
         projectAction.setContact(
@@ -1821,9 +1997,27 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionListOverdue;
   }
 
-  private static void printDueTable(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
-      String nextActionType, Date nextDue, List<ProjectAction> projectActionList,
-      Calendar cIndicated) {
+  protected static void prepareProjectActionList(
+      Session dataSession, List<ProjectAction> projectActionList, WebUser webUser) {
+    {
+      for (ProjectAction projectAction : projectActionList) {
+        projectAction
+            .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
+        if (projectAction.getProject() == null) {
+          continue;
+        }
+        projectAction.setContact(
+            (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+        if (projectAction.getNextContactId() != null && projectAction.getNextContactId() > 0) {
+          projectAction.setNextProjectContact((ProjectContact) dataSession.get(ProjectContact.class,
+              projectAction.getNextContactId()));
+        }
+      }
+    }
+  }
+
+  private static void printDueTable(WebUser webUser, PrintWriter out,
+      String nextActionType, List<ProjectAction> projectActionList) {
 
     List<ProjectAction> paList = new ArrayList<ProjectAction>();
     if (nextActionType == null) {
@@ -1854,8 +2048,12 @@ public class ProjectActionServlet extends ClientServlet {
     for (ProjectAction projectAction : paList) {
       String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionId();
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
-          + projectAction.getProject().getProjectName() + "</a></td>");
+      if (projectAction.getProject() == null) {
+        out.println("    <td class=\"boxed\">&nbsp;</td>");
+      } else {
+        out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
+            + projectAction.getProject().getProjectName() + "</a></td>");
+      }
       out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a></td>");
       if (projectAction.getNextTimeEstimate() == null || projectAction.getNextTimeEstimate() == 0) {

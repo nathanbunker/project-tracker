@@ -68,13 +68,26 @@ public class TimeAdder {
     }
 
     public TimeAdder(List<ProjectAction> projectActionList, AppReq appReq) {
+        this(projectActionList, appReq, null);
+    }
+
+    public TimeAdder(List<ProjectAction> projectActionList, AppReq appReq, Date evaluationDate) {
+        boolean isToday = true;
+        if (evaluationDate == null) {
+            evaluationDate = new Date();
+        } else {
+            isToday = false;
+        }
+
         WebUser webUser = appReq.getWebUser();
         Calendar cIndicated = webUser.getCalendar();
-        cIndicated.setTime(new Date());
+        cIndicated.setTime(evaluationDate);
         completedAct = 0;
-        TimeTracker timeTracker = appReq.getTimeTracker();
-        if (timeTracker != null) {
-            completedAct = timeTracker.getTotalMinsBillable();
+        if (isToday) {
+            TimeTracker timeTracker = appReq.getTimeTracker();
+            if (timeTracker != null) {
+                completedAct = timeTracker.getTotalMinsBillable();
+            }
         }
         committedEst = 0;
         willEst = 0;
@@ -82,7 +95,7 @@ public class TimeAdder {
         mightEst = 0;
         otherEst = 0;
         for (ProjectAction pa : projectActionList) {
-            if (!webUser.sameDay(cIndicated, pa.getNextDue())) {
+            if (isToday && !webUser.sameDay(cIndicated, pa.getNextDue())) {
                 continue;
             }
             if (pa.getNextTimeEstimate() != null) {
