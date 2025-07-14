@@ -219,6 +219,9 @@ public class ProjectActionServlet extends ClientServlet {
       }
 
       List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+      prepareProjectActionList(dataSession, projectActionDueTodayList, webUser);
+      List<ProjectAction> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
+      prepareProjectActionList(dataSession, projectActionOverdueList, webUser);
       List<List<ProjectAction>> projectActionDueNextWorkingDayListList = new ArrayList<>();
       {
         int daysFound = 0;
@@ -247,12 +250,6 @@ public class ProjectActionServlet extends ClientServlet {
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
       List<ProjectAction> projectActionClosedTodayList = getProjectActionListClosedToday(webUser, dataSession);
-
-      if (prepareProjectActionListAndIdentifyOverdue(dataSession, projectActionDueTodayList, webUser).size() > 0) {
-        // TOOD print a nicer message and a link to clean these up
-        appReq.setMessageProblem(
-            "There are actions overdue that are not shown here, only showing what is scheduled for today.");
-      }
 
       if (completingAction != null) {
         TimeTracker timeTracker = appReq.getTimeTracker();
@@ -317,7 +314,7 @@ public class ProjectActionServlet extends ClientServlet {
         // ---------------------------------------------------------------------------------------------------
         out.println("<div id=\"actionLater\">");
         printTimeManagementBox(appReq, projectActionDueTodayList);
-        printActionsScheduledForToday(webUser, out, projectActionDueTodayList);
+        printActionsScheduledForToday(webUser, out, projectActionDueTodayList, projectActionOverdueList);
         printActionsCompletedForToday(webUser, out, projectActionClosedTodayList);
         {
           List<TimeAdder> timeAdderList = new ArrayList<>();
@@ -1279,8 +1276,18 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</div>");
   }
 
-  private void printActionsScheduledForToday(WebUser webUser, PrintWriter out, List<ProjectAction> projectActionList) {
+  private void printActionsScheduledForToday(WebUser webUser, PrintWriter out, List<ProjectAction> projectActionList,
+      List<ProjectAction> projectActionOverdueList) {
     out.println("<table class=\"boxed\">");
+    if (projectActionOverdueList.size() > 0) {
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project</th>");
+      out.println("    <th class=\"boxed\">Overdue</th>");
+      out.println("    <th class=\"boxed\">Est</th>");
+      out.println("    <th class=\"boxed\">Act</th>");
+      out.println("  </tr>");
+      printActionItems(webUser, out, projectActionOverdueList);
+    }
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"4\">All actions scheduled for today</th>");
     out.println("  </tr>");
@@ -1920,6 +1927,15 @@ public class ProjectActionServlet extends ClientServlet {
       calendar.setTime(tomorrow);
       calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
       tomorrow = calendar.getTime();
+    } else if (dayOffset < 0) {
+      // getting overdue actions, going back a year
+      Calendar calendar = Calendar.getInstance();
+      calendar.setTime(today);
+      calendar.add(Calendar.YEAR, -1);
+      today = calendar.getTime();
+      calendar.setTime(tomorrow);
+      calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
+      tomorrow = calendar.getTime();
     }
     Query query = dataSession.createQuery(
         "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
@@ -1997,34 +2013,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  </tr>");
   }
 
-  protected static List<ProjectAction> prepareProjectActionListAndIdentifyOverdue(
-      Session dataSession, List<ProjectAction> projectActionList, WebUser webUser) {
-    List<ProjectAction> projectActionListOverdue = new ArrayList<ProjectAction>();
-
-    {
-      Date today = TimeTracker.createToday(webUser).getTime();
-      for (ProjectAction projectAction : projectActionList) {
-        projectAction
-            .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
-        if (projectAction.getProject() == null) {
-          continue;
-        }
-        if (projectAction.getNextDue() == null || before(projectAction, today)) {
-          projectActionListOverdue.add(projectAction);
-        }
-        projectAction.setContact(
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
-        if (projectAction.getNextContactId() != null && projectAction.getNextContactId() > 0) {
-          projectAction.setNextProjectContact((ProjectContact) dataSession.get(ProjectContact.class,
-              projectAction.getNextContactId()));
-        }
-      }
-    }
-    return projectActionListOverdue;
-  }
-
-  protected static void prepareProjectActionList(
-      Session dataSession, List<ProjectAction> projectActionList, WebUser webUser) {
+  protected static void prepareProjectActionList(Session dataSession, List<ProjectAction> projectActionList,
+      WebUser webUser) {
     {
       for (ProjectAction projectAction : projectActionList) {
         projectAction

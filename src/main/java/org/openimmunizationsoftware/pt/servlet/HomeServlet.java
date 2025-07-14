@@ -461,7 +461,7 @@ public class HomeServlet extends ClientServlet {
         if (projectAction.getProject() == null) {
           continue;
         }
-        if (projectAction.getNextDue() == null || projectAction.getNextDue().before(today)) {
+        if (projectAction.getNextDue() != null && projectAction.getNextDue().before(today)) {
           projectActionListOverdue.add(projectAction);
         }
         projectAction.setContact(
