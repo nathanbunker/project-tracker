@@ -235,6 +235,9 @@ public class ProjectActionServlet extends ClientServlet {
             dayOffset++;
             projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession, dayOffset);
           }
+          if (projectActionDueNextWorkingDayList.size() == 0) {
+            break;
+          }
           prepareProjectActionList(dataSession, projectActionDueNextWorkingDayList, webUser);
           projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
           dayOffset++;
@@ -1576,11 +1579,7 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("          <th class=\"inside\">Note</th>");
       out.println(
           "          <td class=\"inside\" colspan=\"3\"><textarea rows=\"3\" name=\"" + PARAM_NEXT_NOTE
-              + "\" size=\"30\" onkeydown=\"resetRefresh()\" " + disabled + ">"
-              + n(projectAction == null || projectAction.getNextNotes() == null
-                  ? ""
-                  : projectAction.getNextNotes())
-              + "</textarea></td>");
+              + "\" size=\"30\" onkeydown=\"resetRefresh()\" " + disabled + "></textarea></td>");
       out.println("        </tr>");
     }
     out.println("        <tr>");
