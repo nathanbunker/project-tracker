@@ -9,16 +9,22 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.SoftwareVersion;
+import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
@@ -265,7 +271,19 @@ public class ClientServlet extends HttpServlet {
           if (timeTracker != null) {
             String time = timeTracker.getTotalMinsBillableForDisplay();
             // int mins = timeTracker.getTotalMinsForProject(project);
-            // time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
+            int minsForWeek = 0;
+            {
+              Session dataSession = appReq.getDataSession();
+              Date today = new Date();
+              TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
+              Map<Integer, Integer> projectMap = timeTrackerForWeek.getTotalMinsForProjectMap();
+              for (Integer projectId : projectMap.keySet()) {
+                minsForWeek += TimeEntry.adjustMinutes(projectMap.get(projectId));
+              }
+            }
+            if (minsForWeek > 0) {
+              time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";
+            }
             if (timeTracker.isRunningClock()) {
               result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
                   + time + "</a>");

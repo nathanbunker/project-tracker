@@ -52,6 +52,8 @@ public class TrackServlet extends ClientServlet {
   public static final float MONTHLY_HOURS = 150.0f;
   public static final float YEARLY_HOURS = 1800.0f;
 
+  private static final String PARAM_BILL_DATE = "billDate";
+
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
    * methods.
@@ -98,7 +100,7 @@ public class TrackServlet extends ClientServlet {
 
       String type = request.getParameter("type");
       if (type == null) {
-        type = TYPE_DAY;
+        type = TYPE_WEEK;
       }
 
       float targetHours = getTargetHours(request, type);
@@ -110,12 +112,15 @@ public class TrackServlet extends ClientServlet {
 
       WebUser webUserSelected = getWebUserSelected(webUser, dataSession, supervisedContactId);
 
-      String billDateString = request.getParameter("billDate");
+      String billDateString = request.getParameter(PARAM_BILL_DATE);
+      if (billDateString == null || billDateString.length() == 0) {
+        billDateString = sdf.format(new Date());
+      }
+
       {
-        Date billDate = null;
-        if ((billDateString != null && billDateString.length() > 0) || !type.equals(TYPE_DAY)) {
+        if (!type.equals(TYPE_DAY)) {
           try {
-            billDate = sdf.parse(billDateString);
+            Date billDate = sdf.parse(billDateString);
             if (type.equals(TYPE_WEEK)) {
               timeTracker = new TimeTracker(webUserSelected, billDate, Calendar.WEEK_OF_YEAR, dataSession);
             } else if (type.equals(TYPE_MONTH)) {
@@ -134,8 +139,6 @@ public class TrackServlet extends ClientServlet {
           } catch (ParseException pe) {
             appReq.setMessageProblem("Unable to parse date: " + pe.getMessage());
           }
-        } else {
-          billDateString = sdf.format(new Date());
         }
       }
 
@@ -232,7 +235,7 @@ public class TrackServlet extends ClientServlet {
       out.println("Date");
     }
     out.println(
-        "<input type=\"text\" name=\"billDate\" value=\"" + billDateString + "\" size=\"10\">");
+        "<input type=\"text\" name=\"" + PARAM_BILL_DATE + "\" value=\"" + billDateString + "\" size=\"10\">");
     out.println("Type ");
     out.println("<select name=\"type\">");
     out.println(
@@ -256,7 +259,7 @@ public class TrackServlet extends ClientServlet {
   }
 
   private float getTargetHours(HttpServletRequest request, String type) {
-    float targetHours = 7.5f;
+    float targetHours = WEEKLY_HOURS;
     String targetHoursString = request.getParameter(type + "targetHours");
     if (targetHoursString != null) {
       targetHours = Float.parseFloat(targetHoursString);
@@ -286,11 +289,10 @@ public class TrackServlet extends ClientServlet {
       boolean showLinks,
       float targetHours) {
 
-    String hours = TimeTracker.formatTime(timeTracker.getTotalMinsBillable());
-
-    printTotalWorkingTime(out, type, hours);
+    int billableMins = timeTracker.getTotalMinsBillable();
 
     if (type.equals(TYPE_MONTH) || type.equals(TYPE_YEAR)) {
+      printTotalWorkingTime(out, type, billableMins, targetHours);
       List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
       List<ProjectAction> projectActionListComplete = getProjectActionListComplete(webUser, dataSession, timeTracker,
           timeEntryList);
@@ -313,10 +315,26 @@ public class TrackServlet extends ClientServlet {
       }
     } else {
       List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
+      if (type.equals(TYPE_WEEK)) {
+        int totalTimeInMinutes = 0;
+        for (TimeEntry timeEntry : timeEntryList) {
+          totalTimeInMinutes += timeEntry.getMinutesAdjusted();
+        }
+        billableMins = totalTimeInMinutes;
+      }
+
+      printTotalWorkingTime(out, type, billableMins, targetHours);
       List<ProjectAction> projectActionListComplete = getProjectActionListComplete(webUser, dataSession, timeTracker,
           timeEntryList);
 
       if (timeEntryList.size() > 0 || projectActionListComplete.size() > 0) {
+        {
+          out.println("<h2>Notes for " + type + "</h2>");
+          for (TimeEntry timeEntry : timeEntryList) {
+            printProjectNarrative(webUser, out, dataSession, timeTracker, type,
+                projectActionListComplete, timeEntry);
+          }
+        }
         out.println("<table class=\"boxed\">");
         out.println("  <tr>");
         out.println("    <th class=\"title\" colspan=\"3\">Time Tracked by Project</th>");
@@ -326,18 +344,25 @@ public class TrackServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">Total Time</th>");
         out.println("    <th class=\"boxed\">Actions Taken</th>");
         out.println("  </tr>");
-        int totalTimeInMinutes = 0;
         for (TimeEntry timeEntry : timeEntryList) {
-          totalTimeInMinutes = printProjectLineWithTimeEntry(webUser, out, dataSession, timeTracker, type, showLinks,
-              projectActionListComplete, totalTimeInMinutes, timeEntry);
+          printProjectLineWithTimeEntry(webUser, out, dataSession, timeTracker, type, showLinks,
+              projectActionListComplete, timeEntry);
         }
         while (projectActionListComplete.size() > 0) {
           printProjectLineNoTimeEntered(out, dataSession, type, showLinks, projectActionListComplete);
         }
         out.println("</table> ");
         out.println("<br/> ");
-        printWeeklySummaryOfHours(out, targetHours, totalTimeInMinutes);
       }
+    }
+    {
+      List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
+      List<ProjectAction> projectActionListComplete = getProjectActionListComplete(webUser, dataSession, timeTracker,
+          timeEntryList);
+
+      if (timeEntryList.size() > 0 || projectActionListComplete.size() > 0) {
+      }
+      int totalTimeInMinutes = 0;
     }
 
     out.println("<h2>Additional Information</h2>");
@@ -473,31 +498,7 @@ public class TrackServlet extends ClientServlet {
       Collections.sort(timeEntryList);
     }
 
-    return hours;
-  }
-
-  private static void printWeeklySummaryOfHours(PrintWriter out, float targetHours, int totalTimeInMinutes) {
-    if (totalTimeInMinutes > 0) {
-      out.println("<h2>Weekly Summary</h2>");
-      // out.println("<pre>");
-      // out.println(projectNotesInText);
-      // out.println("</pre>");
-      out.println(
-          "<p>Total Hours: " + TimeTracker.formatTime(totalTimeInMinutes) + "</p>");
-      int targetMinutes = (int) (targetHours * 60);
-      if (totalTimeInMinutes > targetMinutes) {
-        out.println(
-            "<p>Hours Over Target: "
-                + TimeTracker.formatTime(totalTimeInMinutes - targetMinutes)
-                + "</p>");
-      } else {
-        out.println(
-            "<p>Hours Under Target: "
-                + TimeTracker.formatTime(targetMinutes - totalTimeInMinutes)
-                + "</p>");
-      }
-
-    }
+    return TimeTracker.formatTime(billableMins);
   }
 
   private static void printProjectLineNoTimeEntered(PrintWriter out, Session dataSession, String type,
@@ -548,22 +549,16 @@ public class TrackServlet extends ClientServlet {
     out.println("  </tr>");
   }
 
-  private static int printProjectLineWithTimeEntry(WebUser webUser, PrintWriter out, Session dataSession,
+  private static void printProjectLineWithTimeEntry(WebUser webUser, PrintWriter out, Session dataSession,
       TimeTracker timeTracker, String type, boolean showLinks, List<ProjectAction> projectActionListComplete,
-      int totalTimeInMinutes, TimeEntry timeEntry) {
+      TimeEntry timeEntry) {
     // if displaying for week then time needs to be rounded to 30 minutes.
     // The rounding rule is anything under 7 minutes is rounded down, and everything
     // 7 minutes
     // or over is rounded to the next 30 minutes
     int timeInMinutes = timeEntry.getMinutes();
     if (type.equals(TYPE_WEEK)) {
-      int minutes = timeInMinutes % 30;
-      if (minutes < 7) {
-        timeInMinutes -= minutes;
-      } else {
-        timeInMinutes += 30 - minutes;
-      }
-      totalTimeInMinutes += timeInMinutes;
+      timeInMinutes = timeEntry.getMinutesAdjusted();
     }
     out.println("  <tr class=\"boxed\">");
     String link = "<a href=\"ProjectServlet?projectId=" + timeEntry.getId() + "\" class=\"button\">";
@@ -574,18 +569,7 @@ public class TrackServlet extends ClientServlet {
     }
     out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeInMinutes) + "</td>");
 
-    List<ProjectAction> projectActionList;
-    {
-      Query query = dataSession.createQuery(
-          "from ProjectAction where contactId = ? and projectId = ?   and"
-              + " actionDescription <> '' and action_date >= ? and action_date < ? order"
-              + " by actionDate asc");
-      query.setParameter(0, webUser.getContactId());
-      query.setParameter(1, Integer.parseInt(timeEntry.getId()));
-      query.setParameter(2, timeTracker.getStartDate());
-      query.setParameter(3, timeTracker.getEndDate());
-      projectActionList = query.list();
-    }
+    List<ProjectAction> projectActionList = timeEntry.getProjectActionList();
     if (projectActionList.size() > 0) {
       out.println("    <td class=\"boxed\">");
       SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
@@ -622,7 +606,51 @@ public class TrackServlet extends ClientServlet {
       }
     }
     out.println("  </tr>");
-    return totalTimeInMinutes;
+  }
+
+  private static void printProjectNarrative(WebUser webUser, PrintWriter out, Session dataSession,
+      TimeTracker timeTracker, String type, List<ProjectAction> projectActionListComplete, TimeEntry timeEntry) {
+    // if displaying for week then time needs to be rounded to 30 minutes.
+    // The rounding rule is anything under 7 minutes is rounded down, and everything
+    // 7 minutes
+    // or over is rounded to the next 30 minutes
+    int timeInMinutes = timeEntry.getMinutes();
+    if (type.equals(TYPE_WEEK)) {
+      timeInMinutes = timeEntry.getMinutesAdjusted();
+    }
+    List<ProjectAction> projectActionList;
+    {
+      Query query = dataSession.createQuery(
+          "from ProjectAction where contactId = ? and projectId = ?   and"
+              + " actionDescription <> '' and action_date >= ? and action_date < ? order"
+              + " by actionDate asc");
+      query.setParameter(0, webUser.getContactId());
+      query.setParameter(1, Integer.parseInt(timeEntry.getId()));
+      query.setParameter(2, timeTracker.getStartDate());
+      query.setParameter(3, timeTracker.getEndDate());
+      projectActionList = query.list();
+      timeEntry.setProjectActionList(projectActionList);
+    }
+    if (timeInMinutes <= 0 && projectActionList.size() <= 0) {
+      return;
+    }
+    out.println("    <h3>Project: " + timeEntry.getLabel() + "</h3>");
+    Project project = (Project) dataSession.get(Project.class, Integer.parseInt(timeEntry.getId()));
+    if (project.getDescription() != null && project.getDescription().length() > 0) {
+      out.println("    <p>Project Description: " + project.getDescription() + "</p>");
+    }
+    out.println("    <p>Time spent: " + TimeTracker.formatTime(timeInMinutes) + "</p>");
+
+    if (projectActionList.size() > 0) {
+      out.println("<p>Actions Taken: ");
+      for (ProjectAction projectAction : projectActionList) {
+        out.println(" " + projectAction.getActionDescription());
+      }
+      out.println("    </p>");
+    } else {
+      out.println("    <p>No actions recorded.</p>");
+    }
+    return;
   }
 
   private static void printProjectLineWithTimeEntrySummaryOnly(WebUser webUser, PrintWriter out, Session dataSession,
@@ -646,8 +674,8 @@ public class TrackServlet extends ClientServlet {
     for (Integer projectId : projectMap.keySet()) {
       Project project = (Project) dataSession.get(Project.class, projectId);
       if (project != null) {
-        timeEntryList.add(
-            new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId));
+        TimeEntry timeEntry = new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId);
+        timeEntryList.add(timeEntry);
       }
     }
     return timeEntryList;
@@ -669,19 +697,22 @@ public class TrackServlet extends ClientServlet {
     return projectActionListComplete;
   }
 
-  private static void printTotalWorkingTime(PrintWriter out, String type, String hours) {
+  private static void printTotalWorkingTime(PrintWriter out, String type, int billableMins, float targetHours) {
+    String hours = TimeTracker.formatTime(billableMins);
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    if (type.equals(TYPE_WEEK)) {
-      out.println("    <th class=\"boxed\">Total Working Time for Week</th>");
-    } else if (type.equals(TYPE_MONTH)) {
-      out.println("    <th class=\"boxed\">Total Working Time for Month</th>");
-    } else if (type.equals(TYPE_YEAR)) {
-      out.println("    <th class=\"boxed\">Total Working Time for Last 12 Months</th>");
-    } else {
-      out.println("    <th class=\"boxed\">Total Working Time</th>");
-    }
+    out.println("    <th class=\"boxed\">Total Time</th>");
     out.println("    <td class=\"boxed\">" + hours + "</td>");
+    out.println("  </tr>");
+    out.println("  <tr class=\"boxed\">");
+    int targetMinutes = (int) (targetHours * 60);
+    if (billableMins > targetMinutes) {
+      out.println("    <th class=\"boxed\">Overage</th>");
+      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billableMins - targetMinutes) + "</td>");
+    } else {
+      out.println("    <th class=\"boxed\">Remaining</th>");
+      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(targetMinutes - billableMins) + "</td>");
+    }
     out.println("  </tr>");
     out.println("</table> ");
     out.println("<br/> ");

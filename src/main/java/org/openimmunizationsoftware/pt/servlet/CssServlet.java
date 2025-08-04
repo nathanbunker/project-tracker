@@ -314,6 +314,32 @@ public class CssServlet extends ClientServlet {
                 out.println(
                                 "a:active.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}");
 
+                out.println("#suggestions {");
+                out.println("  border: 1px solid #ccc;");
+                out.println("  max-height: 150px;");
+                out.println("  overflow-y: auto;");
+                out.println("  position: absolute;");
+                out.println("  background: white;");
+                out.println("  width: calc(100% - 20px);");
+                out.println("  display: none;");
+                out.println("}");
+                out.println("#suggestions div {");
+                out.println("  padding: 5px;");
+                out.println("  cursor: pointer;");
+                out.println("}");
+                out.println("#suggestions div:hover {");
+                out.println("  background: #f0f0f0;");
+                out.println("}");
+                out.println(".input-container {");
+                out.println("  position: relative;");
+                out.println("  width: 100%;");
+                out.println("  box-sizing: border-box;");
+                out.println("}");
+                out.println(".input-container input[type=\"text\"] {");
+                out.println("  width: 100%;");
+                out.println("  box-sizing: border-box;");
+                out.println("}");
+
                 out.close();
         }
 }

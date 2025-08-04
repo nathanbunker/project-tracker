@@ -1,10 +1,31 @@
 package org.openimmunizationsoftware.pt.manager;
 
+import java.util.List;
+
+import org.openimmunizationsoftware.pt.model.ProjectAction;
 
 public class TimeEntry implements Comparable<TimeEntry> {
   private String label;
   private int minutes;
   private String id;
+  private List<ProjectAction> projectActionList;
+  private int minutesAdjusted = 0;
+
+  public int getMinutesAdjusted() {
+    return minutesAdjusted;
+  }
+
+  public void setMinutesAdjusted(int minutesAdjusted) {
+    this.minutesAdjusted = minutesAdjusted;
+  }
+
+  public List<ProjectAction> getProjectActionList() {
+    return projectActionList;
+  }
+
+  public void setProjectActionList(List<ProjectAction> projectActionList) {
+    this.projectActionList = projectActionList;
+  }
 
   public String getId() {
     return id;
@@ -19,6 +40,25 @@ public class TimeEntry implements Comparable<TimeEntry> {
     this.label = label;
     this.minutes = minutes;
     this.id = String.valueOf(id);
+    this.minutesAdjusted = minutes;
+
+    if (this.minutes > 0) {
+      minutesAdjusted = adjustMinutes(minutes);
+    }
+
+  }
+
+  public static int adjustMinutes(int minutes) {
+    int minutesAdjusted = minutes;
+    if (minutes > 0) {
+      int m = minutesAdjusted % 30;
+      if (m < 7) {
+        minutesAdjusted -= m;
+      } else {
+        minutesAdjusted += 30 - m;
+      }
+    }
+    return minutesAdjusted;
   }
 
   public TimeEntry(String label, int minutes, String id) {
