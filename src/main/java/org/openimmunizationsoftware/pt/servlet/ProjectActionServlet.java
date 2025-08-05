@@ -194,6 +194,7 @@ public class ProjectActionServlet extends ClientServlet {
             String nextDescription = completingAction.getNextSummary();
             closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
             emailBody = sendEmail(request, appReq, webUser, dataSession, project, editProjectAction, emailBody);
+            completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             Project nextProject = project;
             Date originalNextDue = null;
@@ -436,6 +437,18 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
+  private static boolean isNumeric(String str) {
+    if (str == null || str.isEmpty()) {
+      return false;
+    }
+    for (char c : str.toCharArray()) {
+      if (!Character.isDigit(c)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private ProjectAction saveNewAction(WebUser webUser, Session dataSession, ProjectAction completingAction,
       List<Project> projectList, ProjectAction editProjectAction, ProjectAction nextAction, String sentenceInput) {
     String projectName = "";
@@ -462,6 +475,7 @@ public class ProjectActionServlet extends ClientServlet {
     String actionVerb = "I will";
     String actionToTake = actionPart;
     String whenToTakeAction = "";
+    int nextTimeEstimate = 20; // default to 20 minutes
     if (actionPart.startsWith("I will ")) {
       actionVerb = "I will";
       actionToTake = actionPart.substring("I will ".length()).trim();
@@ -474,13 +488,37 @@ public class ProjectActionServlet extends ClientServlet {
     } else if (actionPart.startsWith("I will meet ")) {
       actionVerb = "I will meet";
       actionToTake = actionPart.substring("I will meet ".length()).trim();
+      nextTimeEstimate = 60; // default to 60 minutes for meetings
+    } else if (actionPart.startsWith("I have set goal to")) {
+      actionVerb = "I have set goal to";
+      actionToTake = actionPart.substring("I have set goal to".length()).trim();
     }
-    // Now we need to find the when to take action part
+    // Parse the action description to extract time estimates and due dates (e.g.,
+    // "for 2 hours", "today", "next Monday")
     // Split actionToTake into tokens
     String[] tokens = actionToTake.trim().split("\\s+");
     if (tokens.length >= 1) {
       String lastToken = tokens[tokens.length - 1];
       String secondLastToken = tokens.length >= 2 ? tokens[tokens.length - 2] : "";
+      if (tokens.length > 3) {
+        String thirdLastToken = tokens.length >= 3 ? tokens[tokens.length - 3] : "";
+        if (thirdLastToken.equals("for") && isNumeric(secondLastToken)) {
+          try {
+            nextTimeEstimate = Integer.parseInt(secondLastToken);
+          } catch (NumberFormatException e) {
+            e.printStackTrace();
+          }
+          if (lastToken.equals("hours") || lastToken.equals("hour")) {
+            nextTimeEstimate *= 60; // convert hours to minutes
+          }
+          // now need to strip off these tokens from actionToTake
+          actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 3)).trim();
+          tokens = actionToTake.trim().split("\\s+");
+          lastToken = tokens.length >= 1 ? tokens[tokens.length - 1] : "";
+          secondLastToken = tokens.length >= 2 ? tokens[tokens.length - 2] : "";
+        }
+      }
+
       boolean foundDate = false;
 
       // Check if last token looks like a date (contains two slashes)
@@ -544,13 +582,14 @@ public class ProjectActionServlet extends ClientServlet {
       nextAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
     } else if (actionVerb.equals("I will meet")) {
       nextAction.setNextActionType(ProjectNextActionType.WILL_MEET);
+    } else if (actionVerb.equals("I have set goal to")) {
+      nextAction.setNextActionType(ProjectNextActionType.GOAL);
     } else {
       nextAction.setNextActionType(ProjectNextActionType.WILL);
     }
     nextAction.setNextDue(actionDate);
     nextAction.setNextDescription(actionToTake);
-    nextAction.setNextContactId(webUser.getContactId());
-    nextAction.setNextTimeEstimate(0);
+    nextAction.setNextTimeEstimate(nextTimeEstimate);
     nextAction.setNextActionId(0);
     nextAction.setActionDate(new Date());
     nextAction.setActionDescription(completingAction.getNextSummary());
@@ -2010,7 +2049,8 @@ public class ProjectActionServlet extends ClientServlet {
       }
     }
     out.println("];");
-    out.println("const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\"];");
+    out.println(
+        "const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\"];");
     out.println("const dateSuggestions = [\"today\", \"tomorrow\", \"Monday\", \"next Monday\", \"10/05/2025\"];");
     out.println("");
     out.println("const input = document.getElementById(\"sentenceInput\");");
