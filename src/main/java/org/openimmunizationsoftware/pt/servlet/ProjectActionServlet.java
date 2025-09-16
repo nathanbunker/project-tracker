@@ -92,6 +92,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_FEEDBACK = "Feedback";
   private static final String ACTION_COMPLETED = "Completed";
   private static final String ACTION_SCHEDULE = "Schedule";
+  private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
   private static final String ACTION_SAVE = "Save";
   private static final String ACTION_DELETE = "Delete";
   private static final String ACTION_START = "Start";
@@ -160,7 +161,9 @@ public class ProjectActionServlet extends ClientServlet {
             project = nextAction.getProject();
             setupProjectActionAndSaveToAppReq(appReq, dataSession, nextAction);
           }
-          completingAction = nextAction;
+          if (action.equals(ACTION_SCHEDULE_AND_START)) {
+            completingAction = nextAction;
+          }
         }
       }
 
@@ -476,7 +479,11 @@ public class ProjectActionServlet extends ClientServlet {
     String actionToTake = actionPart;
     String whenToTakeAction = "";
     int nextTimeEstimate = 20; // default to 20 minutes
-    if (actionPart.startsWith("I will ")) {
+    if (actionPart.startsWith("I will meet ")) {
+      actionVerb = "I will meet";
+      actionToTake = actionPart.substring("I will meet ".length()).trim();
+      nextTimeEstimate = 60; // default to 60 minutes for meetings
+    } else if (actionPart.startsWith("I will ")) {
       actionVerb = "I will";
       actionToTake = actionPart.substring("I will ".length()).trim();
     } else if (actionPart.startsWith("I might ")) {
@@ -485,10 +492,6 @@ public class ProjectActionServlet extends ClientServlet {
     } else if (actionPart.startsWith("I have committed ")) {
       actionVerb = "I have committed";
       actionToTake = actionPart.substring("I have committed ".length()).trim();
-    } else if (actionPart.startsWith("I will meet ")) {
-      actionVerb = "I will meet";
-      actionToTake = actionPart.substring("I will meet ".length()).trim();
-      nextTimeEstimate = 60; // default to 60 minutes for meetings
     } else if (actionPart.startsWith("I have set goal to")) {
       actionVerb = "I have set goal to";
       actionToTake = actionPart.substring("I have set goal to".length()).trim();
@@ -2035,6 +2038,7 @@ public class ProjectActionServlet extends ClientServlet {
     printScriptForSuggestions(out, projectList);
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE + "\"/>");
+    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_START + "\"/>");
     out.println("</span>");
   }
 
