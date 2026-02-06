@@ -19,7 +19,15 @@ public class TimeTracker {
   private int totalMins = 0;
   private WebUser webUser = null;
   private boolean runningClock = false;
-  private BillEntry billEntry = null;
+  private Integer billEntryId = null;
+  private int billEntryProjectId = 0;
+  private String billEntryCategoryCode = null;
+  private String billEntryBillable = null;
+  private String billEntryBillCode = null;
+  private Integer billEntryActionId = null;
+  private Date billEntryStartTime = null;
+  private Date billEntryEndTime = null;
+  private Integer billEntryBillMins = null;
   private HashMap<Integer, Integer> totalMinsForProjectMap;
   private HashMap<String, Integer> totalMinsForClientMap;
   private HashMap<String, Integer> totalMinsForBillCodeMap;
@@ -52,9 +60,10 @@ public class TimeTracker {
   public synchronized int getTotalMinsForAction(ProjectAction projectAction) {
     HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     int totalMins = 0;
-    if (billEntry != null) {
-      if (billEntry.getAction() != null && billEntry.getAction().equals(projectAction)) {
-        totalMins += billEntry.getBillMins();
+    if (hasRunningEntry()) {
+      if (billEntryActionId != null && projectAction != null
+          && billEntryActionId.intValue() == projectAction.getActionId()) {
+        totalMins += billEntryBillMins == null ? 0 : billEntryBillMins;
       }
     }
     return totalMins;
@@ -63,9 +72,9 @@ public class TimeTracker {
   public synchronized int getTotalMinsForProject(Project project) {
     HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     int totalMins = 0;
-    if (billEntry != null) {
-      if (billEntry.getProjectId() == project.getProjectId()) {
-        totalMins += billEntry.getBillMins();
+    if (hasRunningEntry()) {
+      if (billEntryProjectId == project.getProjectId()) {
+        totalMins += billEntryBillMins == null ? 0 : billEntryBillMins;
       }
     }
     return totalMins;
@@ -73,15 +82,15 @@ public class TimeTracker {
 
   public synchronized HashMap<Integer, Integer> getTotalMinsForProjectMap() {
     HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
-    if (billEntry != null) {
-      if (billEntry.getProjectId() > 0) {
-        Integer mins = totalMinsForProjectMapCopy.get(billEntry.getProjectId());
+    if (hasRunningEntry()) {
+      if (billEntryProjectId > 0) {
+        Integer mins = totalMinsForProjectMapCopy.get(billEntryProjectId);
         int m = 0;
         if (mins != null) {
           m = mins;
         }
-        m += billEntry.getBillMins();
-        totalMinsForProjectMapCopy.put(billEntry.getProjectId(), m);
+        m += billEntryBillMins == null ? 0 : billEntryBillMins;
+        totalMinsForProjectMapCopy.put(billEntryProjectId, m);
       }
     }
     return totalMinsForProjectMapCopy;
@@ -89,15 +98,15 @@ public class TimeTracker {
 
   public synchronized HashMap<String, Integer> getTotalMinsForClientMap() {
     HashMap<String, Integer> totalMinsForClientMapCopy = new HashMap<String, Integer>(totalMinsForClientMap);
-    if (billEntry != null) {
-      if (billEntry.getCategoryCode() != null) {
-        Integer mins = totalMinsForClientMapCopy.get(billEntry.getCategoryCode());
+    if (hasRunningEntry()) {
+      if (billEntryCategoryCode != null) {
+        Integer mins = totalMinsForClientMapCopy.get(billEntryCategoryCode);
         int m = 0;
         if (mins != null) {
           m = mins;
         }
-        m += billEntry.getBillMins();
-        totalMinsForClientMapCopy.put(billEntry.getCategoryCode(), m);
+        m += billEntryBillMins == null ? 0 : billEntryBillMins;
+        totalMinsForClientMapCopy.put(billEntryCategoryCode, m);
       }
     }
     return totalMinsForClientMapCopy;
@@ -112,9 +121,8 @@ public class TimeTracker {
   }
 
   public int getTotalMinsBillable() {
-    if (billEntry != null && billEntry.getBillable() != null
-        && billEntry.getBillable().equals("Y")) {
-      return totalMins + billEntry.getBillMins();
+    if (hasRunningEntry() && billEntryBillable != null && billEntryBillable.equals("Y")) {
+      return totalMins + (billEntryBillMins == null ? 0 : billEntryBillMins);
     }
     return totalMins;
   }
@@ -256,7 +264,7 @@ public class TimeTracker {
 
   public synchronized void update(Project project, ProjectAction action, Session dataSession) {
     if (runningClock) {
-      if (billEntry != null) {
+      if (hasRunningEntry()) {
         saveTime(dataSession);
         if (projectOrActionChanged(project, action)) {
           startTime(project, action, dataSession);
@@ -270,7 +278,7 @@ public class TimeTracker {
   public synchronized void update(ProjectAction projectAction, Session dataSession) {
     if (runningClock) {
       Project project = projectAction.getProject();
-      if (billEntry != null) {
+      if (hasRunningEntry()) {
         saveTime(dataSession);
         if (projectOrActionChanged(project, projectAction)) {
           startTime(project, projectAction, dataSession);
@@ -294,39 +302,39 @@ public class TimeTracker {
   }
 
   private boolean projectOrActionChanged(Project project, ProjectAction action) {
-    if (billEntry.getProjectId() != project.getProjectId()) {
+    if (billEntryProjectId != project.getProjectId()) {
       return true;
     }
-    if (action == null && billEntry.getAction() == null) {
+    if (action == null && billEntryActionId == null) {
       return false;
     }
-    if (action == null || billEntry.getAction() == null) {
+    if (action == null || billEntryActionId == null) {
       return true;
     }
-    return !billEntry.getAction().equals(action);
+    return billEntryActionId.intValue() != action.getActionId();
   }
 
   public synchronized void stopClock(Session dataSession) {
     if (runningClock) {
-      if (billEntry != null) {
+      if (hasRunningEntry()) {
         saveTime(dataSession);
-        addToTotals(billEntry);
-        billEntry = null;
+        addRunningEntryToTotals();
+        clearRunningEntry();
       }
       runningClock = false;
     }
   }
 
   private void startTime(Project project, ProjectAction action, Session dataSession) {
-    if (billEntry != null) {
-      addToTotals(billEntry);
+    if (hasRunningEntry()) {
+      addRunningEntryToTotals();
     }
-    billEntry = null;
+    clearRunningEntry();
 
     if (project.getBillCode() != null && !project.getBillCode().equals("")) {
       BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
       if (billCode != null) {
-        billEntry = new BillEntry();
+        BillEntry billEntry = new BillEntry();
         billEntry.setProjectId(project.getProjectId());
         billEntry.setCategoryCode(project.getCategoryCode());
         billEntry.setAction(action);
@@ -343,13 +351,35 @@ public class TimeTracker {
         } finally {
           trans.commit();
         }
+        billEntryId = billEntry.getBillId();
+        billEntryProjectId = billEntry.getProjectId();
+        billEntryCategoryCode = billEntry.getCategoryCode();
+        billEntryBillable = billEntry.getBillable();
+        billEntryBillCode = billEntry.getBillCode();
+        billEntryActionId = action == null ? null : action.getActionId();
+        billEntryStartTime = billEntry.getStartTime();
+        billEntryEndTime = billEntry.getEndTime();
+        billEntryBillMins = billEntry.getBillMins();
       }
     }
   }
 
   private void saveTime(Session dataSession) {
-    billEntry.setEndTime(new Date());
-    billEntry.setBillMins(calculateMins(billEntry));
+    if (!hasRunningEntry()) {
+      return;
+    }
+    if (billEntryStartTime == null) {
+      return;
+    }
+    billEntryEndTime = new Date();
+    billEntryBillMins = calculateMins(billEntryStartTime, billEntryEndTime);
+    BillEntry billEntry = (BillEntry) dataSession.get(BillEntry.class, billEntryId);
+    if (billEntry == null) {
+      clearRunningEntry();
+      return;
+    }
+    billEntry.setEndTime(billEntryEndTime);
+    billEntry.setBillMins(billEntryBillMins);
     Transaction trans = dataSession.beginTransaction();
     try {
       dataSession.saveOrUpdate(billEntry);
@@ -362,6 +392,11 @@ public class TimeTracker {
     long elapsedTime = billEntry.getEndTime().getTime() - billEntry.getStartTime().getTime();
     int mins = (int) (elapsedTime / 60000.0 + 0.5);
     return mins;
+  }
+
+  private static int calculateMins(Date startTime, Date endTime) {
+    long elapsedTime = endTime.getTime() - startTime.getTime();
+    return (int) (elapsedTime / 60000.0 + 0.5);
   }
 
   public static Calendar createToday(WebUser webUser) {
@@ -416,5 +451,58 @@ public class TimeTracker {
   public static int roundTime(int min, BillCode billCode) {
     return billCode.getBillRound()
         * (int) ((min + billCode.getBillRound() / 2) / billCode.getBillRound());
+  }
+
+  private boolean hasRunningEntry() {
+    return billEntryId != null;
+  }
+
+  private void clearRunningEntry() {
+    billEntryId = null;
+    billEntryProjectId = 0;
+    billEntryCategoryCode = null;
+    billEntryBillable = null;
+    billEntryBillCode = null;
+    billEntryActionId = null;
+    billEntryStartTime = null;
+    billEntryEndTime = null;
+    billEntryBillMins = null;
+  }
+
+  private void addRunningEntryToTotals() {
+    if (!hasRunningEntry()) {
+      return;
+    }
+    int runningMins = billEntryBillMins == null ? 0 : billEntryBillMins;
+    if (billEntryBillable != null && billEntryBillable.equals("Y")) {
+      totalMins += runningMins;
+    }
+    if (billEntryProjectId > 0) {
+      Integer mins = totalMinsForProjectMap.get(billEntryProjectId);
+      int m = 0;
+      if (mins != null) {
+        m = mins;
+      }
+      m += runningMins;
+      totalMinsForProjectMap.put(billEntryProjectId, m);
+    }
+    if (billEntryCategoryCode != null) {
+      Integer mins = totalMinsForClientMap.get(billEntryCategoryCode);
+      int m = 0;
+      if (mins != null) {
+        m = mins;
+      }
+      m += runningMins;
+      totalMinsForClientMap.put(billEntryCategoryCode, m);
+    }
+    if (billEntryBillCode != null && billEntryBillable != null && billEntryBillable.equals("Y")) {
+      Integer mins = totalMinsForBillCodeMap.get(billEntryBillCode);
+      int m = 0;
+      if (mins != null) {
+        m = mins;
+      }
+      m += runningMins;
+      totalMinsForBillCodeMap.put(billEntryBillCode, m);
+    }
   }
 }

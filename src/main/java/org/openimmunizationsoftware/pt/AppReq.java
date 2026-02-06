@@ -15,6 +15,7 @@ import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
+import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -94,7 +95,8 @@ public class AppReq {
     if (projectSelectedList == null) {
       webSession.removeAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
     } else {
-      webSession.setAttribute(SESSION_VAR_PROJECT_SELECTED_LIST, projectSelectedList);
+      webSession.setAttribute(SESSION_VAR_PROJECT_SELECTED_LIST,
+          createProjectIdList(projectSelectedList));
     }
   }
 
@@ -175,10 +177,10 @@ public class AppReq {
       ClientServlet.webUserLastUsedDate.put(webUser.getUsername(), new Date());
       timeTracker = (TimeTracker) webSession.getAttribute(SESSION_VAR_TIME_TRACKER);
       if (timeTracker != null) {
-        actionTrackTime = (ProjectAction) webSession
-            .getAttribute(webUser.getParentWebUser() == null ? SESSION_VAR_ACTION : SESSION_VAR_PARENT_ACTION);
+        actionTrackTime = loadProjectActionFromSession(
+            webUser.getParentWebUser() == null ? SESSION_VAR_ACTION : SESSION_VAR_PARENT_ACTION);
         if (actionTrackTime == null) {
-          projectTrackTime = (Project) webSession.getAttribute(
+          projectTrackTime = loadProjectFromSession(
               webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT : SESSION_VAR_PARENT_PROJECT);
         } else {
           projectTrackTime = actionTrackTime.getProject();
@@ -187,8 +189,8 @@ public class AppReq {
           timeTracker.update(projectTrackTime, actionTrackTime, dataSession);
         }
       }
-      projectSelected = (Project) webSession.getAttribute(SESSION_VAR_PROJECT);
-      projectActionSelected = (ProjectAction) webSession.getAttribute(SESSION_VAR_ACTION);
+      projectSelected = loadProjectFromSession(SESSION_VAR_PROJECT);
+      projectActionSelected = loadProjectActionFromSession(SESSION_VAR_ACTION);
     }
 
     appType = (AppType) webSession.getAttribute(SESSION_VAR_APP_TYPE);
@@ -210,15 +212,14 @@ public class AppReq {
       displayColor = request.getParameter("displayColor");
     }
 
-    project = (Project) webSession.getAttribute(SESSION_VAR_PROJECT);
-    completingAction = (ProjectAction) webSession.getAttribute(SESSION_VAR_ACTION);
-    parentProject = (Project) webSession.getAttribute(SESSION_VAR_PARENT_PROJECT);
+    project = loadProjectFromSession(SESSION_VAR_PROJECT);
+    completingAction = loadProjectActionFromSession(SESSION_VAR_ACTION);
+    parentProject = loadProjectFromSession(SESSION_VAR_PARENT_PROJECT);
     action = request.getParameter(PARAM_ACTION);
     childWebUserList = (List<WebUser>) webSession.getAttribute(SESSION_VAR_CHILD_WEB_USER_LIST);
     projectIdList = (List<Integer>) webSession.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
-    projectSelectedList = (List<Project>) webSession.getAttribute(SESSION_VAR_PROJECT_SELECTED_LIST);
-    projectContactAssignedList = (List<ProjectContactAssigned>) webSession
-        .getAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
+    projectSelectedList = loadProjectListFromSession(SESSION_VAR_PROJECT_SELECTED_LIST);
+    projectContactAssignedList = loadProjectContactAssignedListFromSession(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
   }
 
   public List<WebUser> getChildWebUserList() {
@@ -291,7 +292,7 @@ public class AppReq {
     if (project == null) {
       webSession.removeAttribute(SESSION_VAR_PROJECT);
     } else {
-      webSession.setAttribute(SESSION_VAR_PROJECT, project);
+      webSession.setAttribute(SESSION_VAR_PROJECT, project.getProjectId());
     }
   }
 
@@ -300,7 +301,7 @@ public class AppReq {
     if (projectAction == null) {
       webSession.removeAttribute(SESSION_VAR_ACTION);
     } else {
-      webSession.setAttribute(SESSION_VAR_ACTION, projectAction);
+      webSession.setAttribute(SESSION_VAR_ACTION, projectAction.getActionId());
     }
   }
 
@@ -313,7 +314,7 @@ public class AppReq {
     if (parentProject == null) {
       webSession.removeAttribute(SESSION_VAR_PARENT_PROJECT);
     } else {
-      webSession.setAttribute(SESSION_VAR_PARENT_PROJECT, parentProject);
+      webSession.setAttribute(SESSION_VAR_PARENT_PROJECT, parentProject.getProjectId());
     }
   }
 
@@ -326,7 +327,7 @@ public class AppReq {
     if (projectActionParent == null) {
       webSession.removeAttribute(SESSION_VAR_PARENT_ACTION);
     } else {
-      webSession.setAttribute(SESSION_VAR_PARENT_ACTION, projectActionParent);
+      webSession.setAttribute(SESSION_VAR_PARENT_ACTION, projectActionParent.getActionId());
     }
   }
 
@@ -360,7 +361,7 @@ public class AppReq {
       webSession.removeAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
     } else {
       webSession.setAttribute(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST,
-          projectContactAssignedList);
+          createProjectContactAssignedIdList(projectContactAssignedList));
     }
   }
 
@@ -383,6 +384,165 @@ public class AppReq {
 
   public void setProjectActionSelected(ProjectAction projectActionSelected) {
     this.projectActionSelected = projectActionSelected;
+  }
+
+  private Project loadProjectFromSession(String key) {
+    Integer projectId = readProjectIdFromSession(key);
+    if (projectId == null) {
+      return null;
+    }
+    return (Project) dataSession.get(Project.class, projectId);
+  }
+
+  private Integer readProjectIdFromSession(String key) {
+    Object value = webSession.getAttribute(key);
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof Integer) {
+      return (Integer) value;
+    }
+    if (value instanceof Project) {
+      Project project = (Project) value;
+      webSession.setAttribute(key, project.getProjectId());
+      return project.getProjectId();
+    }
+    return null;
+  }
+
+  private ProjectAction loadProjectActionFromSession(String key) {
+    Integer actionId = readProjectActionIdFromSession(key);
+    if (actionId == null) {
+      return null;
+    }
+    return (ProjectAction) dataSession.get(ProjectAction.class, actionId);
+  }
+
+  private Integer readProjectActionIdFromSession(String key) {
+    Object value = webSession.getAttribute(key);
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof Integer) {
+      return (Integer) value;
+    }
+    if (value instanceof ProjectAction) {
+      ProjectAction action = (ProjectAction) value;
+      webSession.setAttribute(key, action.getActionId());
+      return action.getActionId();
+    }
+    return null;
+  }
+
+  private List<Project> loadProjectListFromSession(String key) {
+    Object value = webSession.getAttribute(key);
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof List<?>) {
+      List<?> list = (List<?>) value;
+      if (list.isEmpty()) {
+        return new ArrayList<Project>();
+      }
+      if (list.get(0) instanceof Project) {
+        @SuppressWarnings("unchecked")
+        List<Project> projectList = (List<Project>) list;
+        webSession.setAttribute(key, createProjectIdList(projectList));
+        return loadProjectsById(createProjectIdList(projectList));
+      }
+      if (list.get(0) instanceof Integer) {
+        @SuppressWarnings("unchecked")
+        List<Integer> projectIdList = (List<Integer>) list;
+        return loadProjectsById(projectIdList);
+      }
+    }
+    return null;
+  }
+
+  private List<ProjectContactAssigned> loadProjectContactAssignedListFromSession(String key) {
+    Object value = webSession.getAttribute(key);
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof List<?>) {
+      List<?> list = (List<?>) value;
+      if (list.isEmpty()) {
+        return new ArrayList<ProjectContactAssigned>();
+      }
+      if (list.get(0) instanceof ProjectContactAssigned) {
+        @SuppressWarnings("unchecked")
+        List<ProjectContactAssigned> assignedList = (List<ProjectContactAssigned>) list;
+        List<ProjectContactAssignedId> idList = createProjectContactAssignedIdList(assignedList);
+        webSession.setAttribute(key, idList);
+        return loadProjectContactAssignedById(idList);
+      }
+      if (list.get(0) instanceof ProjectContactAssignedId) {
+        @SuppressWarnings("unchecked")
+        List<ProjectContactAssignedId> idList = (List<ProjectContactAssignedId>) list;
+        return loadProjectContactAssignedById(idList);
+      }
+    }
+    return null;
+  }
+
+  private List<Project> loadProjectsById(List<Integer> projectIdList) {
+    List<Project> projectList = new ArrayList<Project>();
+    if (projectIdList == null) {
+      return projectList;
+    }
+    for (Integer projectId : projectIdList) {
+      if (projectId != null) {
+        Project project = (Project) dataSession.get(Project.class, projectId);
+        if (project != null) {
+          projectList.add(project);
+        }
+      }
+    }
+    return projectList;
+  }
+
+  private List<Integer> createProjectIdList(List<Project> projectList) {
+    List<Integer> projectIdList = new ArrayList<Integer>();
+    if (projectList == null) {
+      return projectIdList;
+    }
+    for (Project project : projectList) {
+      if (project != null) {
+        projectIdList.add(project.getProjectId());
+      }
+    }
+    return projectIdList;
+  }
+
+  private List<ProjectContactAssignedId> createProjectContactAssignedIdList(
+      List<ProjectContactAssigned> projectContactAssignedList) {
+    List<ProjectContactAssignedId> idList = new ArrayList<ProjectContactAssignedId>();
+    if (projectContactAssignedList == null) {
+      return idList;
+    }
+    for (ProjectContactAssigned assigned : projectContactAssignedList) {
+      if (assigned != null) {
+        idList.add(assigned.getId());
+      }
+    }
+    return idList;
+  }
+
+  private List<ProjectContactAssigned> loadProjectContactAssignedById(
+      List<ProjectContactAssignedId> idList) {
+    List<ProjectContactAssigned> assignedList = new ArrayList<ProjectContactAssigned>();
+    if (idList == null) {
+      return assignedList;
+    }
+    for (ProjectContactAssignedId id : idList) {
+      if (id != null) {
+        ProjectContactAssigned assigned = (ProjectContactAssigned) dataSession.get(ProjectContactAssigned.class, id);
+        if (assigned != null) {
+          assignedList.add(assigned);
+        }
+      }
+    }
+    return assignedList;
   }
 
 }

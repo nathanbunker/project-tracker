@@ -676,7 +676,24 @@ public class ProjectActionServlet extends ClientServlet {
 
     String timeRunningString = "0:00";
     if (completingAction != null) {
-      timeRunningString = TimeTracker.formatTime(completingAction.getNextTimeActual());
+      TimeTracker timeTracker = appReq.getTimeTracker();
+      if (timeTracker != null && timeTracker.isRunningClock()) {
+        timeTracker.update(completingAction, dataSession);
+      }
+      Query query = dataSession.createQuery(
+          "select sum(billMins) from BillEntry where action.actionId = :actionId "
+              + "and startTime >= :today and startTime < :tomorrow");
+      query.setParameter("actionId", completingAction.getActionId());
+      Calendar calendar = getCalendarForTodayNoTime(webUser);
+      query.setParameter("today", calendar.getTime());
+      calendar.add(Calendar.DAY_OF_MONTH, 1);
+      query.setParameter("tomorrow", calendar.getTime());
+      List<Long> billMinsList = query.list();
+      int billMins = 0;
+      if (billMinsList.size() > 0 && billMinsList.get(0) != null) {
+        billMins = billMinsList.get(0).intValue();
+      }
+      timeRunningString = TimeTracker.formatTime(billMins);
     }
     List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
     TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
@@ -1245,18 +1262,17 @@ public class ProjectActionServlet extends ClientServlet {
     }
     TimeTracker timeTracker = appReq.getTimeTracker();
     if (timeTracker != null && timeTracker.isRunningClock()) {
-      int mins = timeTracker.getTotalMinsForAction(completingAction);
-      completingAction.setNextTimeActual(mins);
-      isChanged = true;
+      timeTracker.update(completingAction, dataSession);
     }
     {
       // query the Bill Entry table for the bill entry with the same actionId, sum up
       // the time spent
       // Here is the query: select sum(bill_mins) from bill_entry where action_id =
       // {action_id}
-      Query query = dataSession.createQuery("select sum(billMins) from BillEntry where action = :action "
-          + "and startTime >= :today and startTime < :tomorrow");
-      query.setParameter("action", completingAction);
+      Query query = dataSession.createQuery(
+          "select sum(billMins) from BillEntry where action.actionId = :actionId "
+              + "and startTime >= :today and startTime < :tomorrow");
+      query.setParameter("actionId", completingAction.getActionId());
       Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
       query.setParameter("today", calendar.getTime());
       calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -1269,6 +1285,10 @@ public class ProjectActionServlet extends ClientServlet {
             completingAction.setNextTimeActual(billMins);
             isChanged = true;
           }
+        } else if (completingAction.getNextTimeActual() == null
+            || completingAction.getNextTimeActual().intValue() != 0) {
+          completingAction.setNextTimeActual(0);
+          isChanged = true;
         }
       }
     }
