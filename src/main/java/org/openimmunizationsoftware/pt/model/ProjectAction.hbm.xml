@@ -11,9 +11,11 @@
         <property name="projectId" type="int">
             <column name="project_id" not-null="true" />
         </property>
+        <many-to-one name="project" column="project_id" class="Project" insert="false" update="false" lazy="proxy" fetch="select"/>
         <property name="contactId" type="int">
             <column name="contact_id" not-null="true" />
         </property>
+        <many-to-one name="contact" column="contact_id" class="ProjectContact" insert="false" update="false" lazy="proxy" fetch="select"/>
         <property name="actionDate" type="timestamp">
             <column name="action_date" length="19" not-null="true" />
         </property>
@@ -41,10 +43,11 @@
         <property name="nextContactId" type="java.lang.Integer">
             <column name="next_contact_id" />
         </property>
+        <many-to-one name="nextProjectContact" column="next_contact_id" class="ProjectContact" insert="false" update="false" lazy="proxy" fetch="select"/>
         <property name="nextActionId" type="java.lang.Integer">
             <column name="next_action_id" />
         </property>
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <many-to-one name="provider" column="provider_id" class="ProjectProvider" lazy="proxy" fetch="select"/>
         <property name="priorityLevel" type="integer">
             <column name="priority_level" not-null="true" />
         </property>

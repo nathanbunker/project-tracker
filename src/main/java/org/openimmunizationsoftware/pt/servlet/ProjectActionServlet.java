@@ -157,7 +157,7 @@ public class ProjectActionServlet extends ClientServlet {
         if (nextAction != null) {
           if (nextAction.getProjectId() != project.getProjectId()) {
             project = nextAction.getProject();
-            setupProjectActionAndSaveToAppReq(appReq, dataSession, nextAction);
+            appReq.setCompletingAction(nextAction);
           }
           if (action.equals(ACTION_SCHEDULE_AND_START)) {
             completingAction = nextAction;
@@ -211,7 +211,7 @@ public class ProjectActionServlet extends ClientServlet {
             Date nextDue = editProjectAction.getNextDue();
             if (action.equals(ACTION_START)) {
               completingAction = editProjectAction;
-              setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
+              appReq.setCompletingAction(completingAction);
               project = completingAction.getProject();
               projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
             } else if (nextDue != null && !webUser.isToday(nextDue)
@@ -266,7 +266,7 @@ public class ProjectActionServlet extends ClientServlet {
       }
       if (completingAction == null && projectActionDueTodayList.size() > 0) {
         completingAction = projectActionDueTodayList.get(0);
-        setupProjectActionAndSaveToAppReq(appReq, dataSession, completingAction);
+        appReq.setCompletingAction(completingAction);
         project = completingAction.getProject();
         projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
@@ -836,9 +836,6 @@ public class ProjectActionServlet extends ClientServlet {
     query.setParameter(0, project.getProjectId());
     @SuppressWarnings("unchecked")
     List<ProjectAction> allProjectActionsList = query.list();
-    for (ProjectAction pa : allProjectActionsList) {
-      setupProjectAction(dataSession, pa);
-    }
     return allProjectActionsList;
   }
 
@@ -1005,7 +1002,7 @@ public class ProjectActionServlet extends ClientServlet {
     if (completingActionIdString != null) {
       ProjectAction completingProjectAction = (ProjectAction) dataSession.get(ProjectAction.class,
           Integer.parseInt(completingActionIdString));
-      setupProjectActionAndSaveToAppReq(appReq, dataSession, completingProjectAction);
+      appReq.setCompletingAction(completingProjectAction);
     }
   }
 
@@ -1017,7 +1014,6 @@ public class ProjectActionServlet extends ClientServlet {
     if (actionIdString != null) {
       editProjectAction = (ProjectAction) dataSession.get(ProjectAction.class,
           Integer.parseInt(actionIdString));
-      setupProjectAction(dataSession, editProjectAction);
     }
     return editProjectAction;
   }
@@ -1089,8 +1085,6 @@ public class ProjectActionServlet extends ClientServlet {
     String nextContactIdString = request.getParameter(PARAM_NEXT_CONTACT_ID);
     if (nextContactIdString != null && nextContactIdString.length() > 0) {
       editProjectAction.setNextContactId(Integer.parseInt(nextContactIdString));
-      editProjectAction.setNextProjectContact(
-          (ProjectContact) dataSession.get(ProjectContact.class, editProjectAction.getNextContactId()));
     }
     editProjectAction.setProvider(webUser.getProvider());
     if (editProjectAction.getNextActionStatus() == null) {
@@ -2274,31 +2268,6 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private void setupProjectAction(Session dataSession, ProjectAction projectAction) {
-    projectAction
-        .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
-    projectAction.setContact(
-        (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
-    if (projectAction.getNextContactId() != null && projectAction.getNextContactId() > 0) {
-      projectAction.setNextProjectContact((ProjectContact) dataSession.get(ProjectContact.class,
-          projectAction.getNextContactId()));
-    }
-  }
-
-  private void setupProjectActionAndSaveToAppReq(AppReq appReq, Session dataSession,
-      ProjectAction completingProjectAction) {
-    completingProjectAction
-        .setProject((Project) dataSession.get(Project.class, completingProjectAction.getProjectId()));
-    completingProjectAction.setContact(
-        (ProjectContact) dataSession.get(ProjectContact.class, completingProjectAction.getContactId()));
-    if (completingProjectAction.getNextContactId() != null && completingProjectAction.getNextContactId() > 0) {
-      completingProjectAction.setNextProjectContact((ProjectContact) dataSession.get(ProjectContact.class,
-          completingProjectAction.getNextContactId()));
-    }
-    appReq.setCompletingAction(completingProjectAction);
-    appReq.setProject(completingProjectAction.getProject());
-  }
-
   private List<ProjectAction> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
     Date today = TimeTracker.createToday(webUser).getTime();
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
@@ -2314,10 +2283,6 @@ public class ProjectActionServlet extends ClientServlet {
     query.setParameter("tomorrow", tomorrow);
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
-    // setup the prjoect action
-    for (ProjectAction projectAction : projectActionList) {
-      setupProjectAction(dataSession, projectAction);
-    }
     return projectActionList;
   }
 
@@ -2619,5 +2584,4 @@ public class ProjectActionServlet extends ClientServlet {
     List<ProjectAction> projectActionList = query.list();
     return projectActionList;
   }
-
 }

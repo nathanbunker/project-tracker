@@ -216,6 +216,9 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setProject(Project project) {
     this.project = project;
+    if (project != null) {
+      this.projectId = project.getProjectId();
+    }
   }
 
   public ProjectContact getNextProjectContact() {
@@ -224,6 +227,11 @@ public class ProjectAction implements java.io.Serializable {
 
   public void setNextProjectContact(ProjectContact nextProjectContact) {
     this.nextProjectContact = nextProjectContact;
+    if (nextProjectContact != null) {
+      this.nextContactId = nextProjectContact.getContactId();
+    } else {
+      this.nextContactId = null;
+    }
   }
 
   public int getActionId() {

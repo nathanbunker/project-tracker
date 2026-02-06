@@ -301,6 +301,7 @@ public class AppReq {
       webSession.removeAttribute(SESSION_VAR_ACTION);
     } else {
       webSession.setAttribute(SESSION_VAR_ACTION, projectAction.getActionId());
+      setProject(projectAction.getProject());
     }
   }
 
@@ -543,5 +544,4 @@ public class AppReq {
     }
     return assignedList;
   }
-
 }
