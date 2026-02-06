@@ -15,9 +15,10 @@ import org.hibernate.Session;
 public class ReportGenerator {
   public static StringBuffer generateReport(PrintWriter out, StringBuffer sbuf,
       Map<String, String> parameterValues, String reportText, Session dataSession) {
-    Connection conn = dataSession.connection();
-
-    generateReport(out, sbuf, parameterValues, removeReportTag(reportText), 0, conn);
+    final String cleaned = removeReportTag(reportText);
+    dataSession.doWork(conn -> {
+      generateReport(out, sbuf, parameterValues, cleaned, 0, conn);
+    });
 
     return sbuf;
   }
