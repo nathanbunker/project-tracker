@@ -34,17 +34,6 @@
 		<scope>provided</scope>
 	</dependency>
 
-    <dependency>
-      <groupId>org.apache.axis2</groupId>
-      <artifactId>axis2-kernel</artifactId>
-      <version>1.6.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.axis2</groupId>
-      <artifactId>axis2-adb</artifactId>
-      <version>1.6.2</version>
-    </dependency>
 
     <dependency>
       <groupId>javax.mail</groupId>
@@ -52,11 +41,7 @@
       <version>1.4.5</version>
     </dependency>
 
-    <dependency>
-      <groupId>javassist</groupId>
-      <artifactId>javassist</artifactId>
-      <version>3.12.1.GA</version>
-    </dependency>
+
 
     <dependency>
       <groupId>org.hibernate</groupId>
