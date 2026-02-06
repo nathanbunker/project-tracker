@@ -18,12 +18,10 @@ public class ReportDefinitionPro implements ReportDefinition {
   }
 
   public String getReportText() {
-    // TODO Auto-generated method stub
     return null;
   }
 
   public String getSelectorText() {
-    // TODO Auto-generated method stub
     return null;
   }
 

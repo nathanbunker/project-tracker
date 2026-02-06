@@ -9,10 +9,11 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.TimeZone;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -25,20 +26,20 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class SettingsServlet extends ClientServlet {
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+   * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -49,7 +50,6 @@ public class SettingsServlet extends ClientServlet {
         forwardToHome(request, response);
         return;
       }
-      HttpSession session = request.getSession(true);
       PrintWriter out = appReq.getOut();
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
@@ -324,7 +324,7 @@ public class SettingsServlet extends ClientServlet {
         out.println(
             "      <input type=\"checkBox\" name=\"useSmtps\" value=\"Y\"" + (n(TrackerKeysManager
                 .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession))
-                    .equals("Y") ? " checked" : "")
+                .equals("Y") ? " checked" : "")
                 + ">");
         out.println("    </td>");
         out.println("  </tr>");
@@ -425,19 +425,20 @@ public class SettingsServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -449,13 +450,13 @@ public class SettingsServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

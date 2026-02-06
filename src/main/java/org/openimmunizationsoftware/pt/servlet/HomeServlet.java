@@ -31,7 +31,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class HomeServlet extends ClientServlet {
 
   /**
@@ -145,7 +144,6 @@ public class HomeServlet extends ClientServlet {
               appReq.setWebUser(webUser);
               switched = true;
             } else if (!webUser.getUsername().equals(username)) {
-              @SuppressWarnings("unchecked")
               List<WebUser> childWebUserList = appReq.getChildWebUserList();
               if (childWebUserList != null) {
                 for (WebUser childWebUser : childWebUserList) {
@@ -182,7 +180,6 @@ public class HomeServlet extends ClientServlet {
 
         printActionsDue(webUser, out, dataSession, nextActionType, nextDue, showLink, true);
 
-        @SuppressWarnings("unchecked")
         List<WebUser> childWebUserList = appReq.getChildWebUserList();
         if (childWebUserList != null) {
           out.println("<h2>Select Provider</h2>");

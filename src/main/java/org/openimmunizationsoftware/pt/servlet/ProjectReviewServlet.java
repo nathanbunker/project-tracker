@@ -26,16 +26,16 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class ProjectReviewServlet extends ClientServlet {
 
   public static enum Interval {
-                               WEEK("Week", 6),
-                               TWO_WEEKS("Two Weeks", 13),
-                               MONTH("Month", 26),
-                               TWO_MONTHS("Two Months", 60),
-                               FOUR_MONTHS("Four Months", 120),
-                               YEAR("Year", 360);
+    WEEK("Week", 6),
+    TWO_WEEKS("Two Weeks", 13),
+    MONTH("Month", 26),
+    TWO_MONTHS("Two Months", 60),
+    FOUR_MONTHS("Four Months", 120),
+    YEAR("Year", 360);
+
     private String description;
     private int days;
 
@@ -82,15 +82,14 @@ public class ProjectReviewServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
-  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
@@ -105,7 +104,6 @@ public class ProjectReviewServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
-
       Query query;
 
       if (action != null) {
@@ -116,6 +114,7 @@ public class ProjectReviewServlet extends ClientServlet {
               "from ProjectContactAssigned where id.contactId = ? and id.projectId = ?");
           query.setParameter(0, webUser.getContactId());
           query.setParameter(1, projectId);
+          @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> list = query.list();
           if (list.size() > 0) {
             Transaction trans = dataSession.beginTransaction();
@@ -127,9 +126,7 @@ public class ProjectReviewServlet extends ClientServlet {
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
 
-
-      List<ProjectContactAssigned> projectContactAssignedList =
-          appReq.getProjectContactAssignedList();
+      List<ProjectContactAssigned> projectContactAssignedList = appReq.getProjectContactAssignedList();
 
       if (projectContactAssignedList == null) {
         projectContactAssignedList = new ArrayList<ProjectContactAssigned>();
@@ -141,6 +138,7 @@ public class ProjectReviewServlet extends ClientServlet {
               "from ProjectContactAssigned where id.contactId = ? and id.projectId = ?");
           query.setParameter(0, webUser.getContactId());
           query.setParameter(1, projectId);
+          @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> list = query.list();
           if (list.size() > 0) {
             projectContactAssignedList.add(list.get(0));
@@ -151,6 +149,7 @@ public class ProjectReviewServlet extends ClientServlet {
               "from ProjectAction where projectId = ? and contactId = ? order by actionDate desc");
           query.setParameter(0, projectContactAssigned.getId().getProjectId());
           query.setParameter(1, projectContactAssigned.getId().getContactId());
+          @SuppressWarnings("unchecked")
           List<ProjectAction> projectActionList = query.list();
           if (projectActionList.size() > 0) {
             projectContactAssigned.setUpdateLast(projectActionList.get(0).getActionDate());
@@ -258,8 +257,7 @@ public class ProjectReviewServlet extends ClientServlet {
 
   private void printRow(PrintWriter out, Session dataSession,
       ProjectContactAssigned projectContactAssigned) {
-    Project project =
-        (Project) dataSession.get(Project.class, projectContactAssigned.getId().getProjectId());
+    Project project = (Project) dataSession.get(Project.class, projectContactAssigned.getId().getProjectId());
     ProjectsServlet.loadProjectsObject(dataSession, project);
     out.println("  <tr class=\"boxed\">");
     out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
@@ -282,13 +280,13 @@ public class ProjectReviewServlet extends ClientServlet {
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -300,13 +298,13 @@ public class ProjectReviewServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

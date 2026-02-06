@@ -37,16 +37,17 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class BillBudgetsServlet extends ClientServlet {
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+   * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -64,6 +65,7 @@ public class BillBudgetsServlet extends ClientServlet {
         if (action.equals("Update Time")) {
           Transaction transaction = dataSession.beginTransaction();
           SimpleDateFormat formatCompact = webUser.getDateFormat("yyyyMMdd");
+          @SuppressWarnings("unchecked")
           Enumeration<String> enumeration = request.getParameterNames();
           while (enumeration.hasMoreElements()) {
             String paramName = enumeration.nextElement();
@@ -80,6 +82,7 @@ public class BillBudgetsServlet extends ClientServlet {
                   .createQuery("from BillExpected where id.username = ? and id.billDate = ?");
               query.setParameter(0, webUser.getUsername());
               query.setParameter(1, date);
+              @SuppressWarnings("unchecked")
               List<BillExpected> billExpectedList = query.list();
               BillExpected billExpected = null;
               if (billExpectedList.size() > 0) {
@@ -127,6 +130,7 @@ public class BillBudgetsServlet extends ClientServlet {
       monthDateList.add(calendar.getTime());
     }
 
+    @SuppressWarnings("unchecked")
     List<WorkingDay>[] workingDayList = new ArrayList[monthDateList.size()];
     int[] workingDayCountsPerMonth = new int[monthDateList.size()];
     for (int i = 1; i < monthDateList.size(); i++) {
@@ -176,6 +180,7 @@ public class BillBudgetsServlet extends ClientServlet {
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("startDate", today);
     query.setParameter("endDate", today);
+    @SuppressWarnings("unchecked")
     List<BillBudget> billBudgetList = query.list();
 
     SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM");
@@ -242,6 +247,7 @@ public class BillBudgetsServlet extends ClientServlet {
         query.setParameter(0, billBudget);
         query.setParameter(1, startDate);
         query.setParameter(2, endDate);
+        @SuppressWarnings("unchecked")
         List<BillMonth> billMonthList = query.list();
         if (billMonthList.size() == 0) {
           out.println("    <td class=\"boxed\">&nbsp;</td>");
@@ -255,9 +261,8 @@ public class BillBudgetsServlet extends ClientServlet {
           out.println(
               "    <td class=\"boxed\">" + TimeTracker.formatTime(billMinsPending) + "</td>");
           totalMins[i] += billMinsPending;
-          totalBillings[i] +=
-              (int) (billMinsPending * billMonth.getBillBudget().getBillCode().getBillRate() / 100.0
-                  + 0.5);
+          totalBillings[i] += (int) (billMinsPending * billMonth.getBillBudget().getBillCode().getBillRate() / 100.0
+              + 0.5);
         }
         startDate = endDate;
       }
@@ -396,19 +401,18 @@ public class BillBudgetsServlet extends ClientServlet {
     int totalTime = 0;
     for (WorkingDay workingDay : workingDayList[1]) {
       if (!workingDay.date.before(today)) {
-        query =
-            dataSession.createQuery("from BillExpected where id.username = ? and id.billDate = ?");
+        query = dataSession.createQuery("from BillExpected where id.username = ? and id.billDate = ?");
         query.setParameter(0, webUser.getUsername());
         query.setParameter(1, workingDay.date);
+        @SuppressWarnings("unchecked")
         List<BillExpected> billExpectedList = query.list();
         BillExpected billExpected = null;
         if (billExpectedList.size() > 0) {
           billExpected = billExpectedList.get(0);
         } else {
           Transaction transaction = dataSession.beginTransaction();
-          billExpected =
-              new BillExpected(new BillExpectedId(webUser.getUsername(), workingDay.date),
-                  workingDay.isWeekDay ? 8 * 60 : 0, 0);
+          billExpected = new BillExpected(new BillExpectedId(webUser.getUsername(), workingDay.date),
+              workingDay.isWeekDay ? 8 * 60 : 0, 0);
           dataSession.save(billExpected);
           transaction.commit();
         }
@@ -503,19 +507,20 @@ public class BillBudgetsServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -527,13 +532,13 @@ public class BillBudgetsServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

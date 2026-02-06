@@ -24,7 +24,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class LoginServlet extends ClientServlet {
 
   private static final String ACTION_LOGIN = "Login";
@@ -35,13 +34,13 @@ public class LoginServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -96,6 +95,7 @@ public class LoginServlet extends ClientServlet {
       Query query = dataSession.createQuery("from WebUser where username = ? and password = ?");
       query.setParameter(0, username);
       query.setParameter(1, password);
+      @SuppressWarnings("unchecked")
       List<WebUser> webUserList = query.list();
 
       if (webUserList.size() > 0) {
@@ -103,8 +103,7 @@ public class LoginServlet extends ClientServlet {
         appReq.setWebUser(webUser);
         loginSuccess = true;
 
-        ProjectContact projectContact =
-            (ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId());
+        ProjectContact projectContact = (ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId());
         webUser.setProjectContact(projectContact);
 
         webUser.setTrackTime(TrackerKeysManager
@@ -116,11 +115,11 @@ public class LoginServlet extends ClientServlet {
 
         query = dataSession.createQuery("from WebUser where parentWebUser = ? order by username");
         query.setParameter(0, webUser);
+        @SuppressWarnings("unchecked")
         List<WebUser> childWebUserList = query.list();
         if (childWebUserList.size() > 0) {
           for (WebUser childWebUser : childWebUserList) {
-            projectContact =
-                (ProjectContact) dataSession.get(ProjectContact.class, childWebUser.getContactId());
+            projectContact = (ProjectContact) dataSession.get(ProjectContact.class, childWebUser.getContactId());
             childWebUser.setProjectContact(projectContact);
           }
           appReq.setChildWebUserList(childWebUserList);
@@ -169,19 +168,20 @@ public class LoginServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -193,13 +193,13 @@ public class LoginServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

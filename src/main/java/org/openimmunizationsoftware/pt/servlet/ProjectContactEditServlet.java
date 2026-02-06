@@ -4,7 +4,6 @@
  */
 package org.openimmunizationsoftware.pt.servlet;
 
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
@@ -26,7 +25,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class ProjectContactEditServlet extends ClientServlet {
 
   /**
@@ -34,15 +32,14 @@ public class ProjectContactEditServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
-  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
@@ -57,7 +54,6 @@ public class ProjectContactEditServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
-
       ProjectContact projectContact;
 
       if (request.getParameter("projectContactId") == null
@@ -71,7 +67,9 @@ public class ProjectContactEditServlet extends ClientServlet {
         int projectContactId = Integer.parseInt(request.getParameter("projectContactId"));
         Query query = dataSession.createQuery("from ProjectContact where contactId = ? ");
         query.setParameter(0, projectContactId);
-        projectContact = ((List<ProjectContact>) query.list()).get(0);
+        @SuppressWarnings("unchecked")
+        List<ProjectContact> projectContactList = query.list();
+        projectContact = projectContactList.get(0);
       }
 
       if (action != null) {
@@ -208,6 +206,7 @@ public class ProjectContactEditServlet extends ClientServlet {
 
       Query query = dataSession.createQuery("from ContactEvent where projectContact = ?");
       query.setParameter(0, projectContact);
+      @SuppressWarnings("unchecked")
       List<ContactEvent> contactEventList = query.list();
       for (ContactEvent contactEvent : contactEventList) {
         out.println("<form action=\"ProjectContactEditServlet\" method=\"POST\">");
@@ -298,19 +297,20 @@ public class ProjectContactEditServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -322,13 +322,13 @@ public class ProjectContactEditServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

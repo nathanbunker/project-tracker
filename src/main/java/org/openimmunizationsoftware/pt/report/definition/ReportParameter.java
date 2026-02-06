@@ -120,14 +120,12 @@ public class ReportParameter {
       int value = TrackerKeysManager.getReportKeyValueInt(name, defaultValue, profile, dataSession);
       return createTextInput("" + value);
     } else if (type.equals(TYPE_CHECKBOX)) {
-      boolean value =
-          TrackerKeysManager.getReportKeyValueBoolean(name, defaultValue, profile, dataSession);
+      boolean value = TrackerKeysManager.getReportKeyValueBoolean(name, defaultValue, profile, dataSession);
       return "<input type=\"checkbox\" name=\"" + name + "\" value=\"T\""
           + (value ? " checked" : "") + "/>";
     } else if (type.equals(TYPE_DATE)) {
       SimpleDateFormat sdf = webUser.getTimeFormat();
-      Date value =
-          TrackerKeysManager.getReportKeyValueDateTime(name, defaultValue, profile, dataSession);
+      Date value = TrackerKeysManager.getReportKeyValueDateTime(name, defaultValue, profile, dataSession);
       return createTextInput(sdf.format(value));
     } else if (type.equals(TYPE_DROPDOWN)) {
       String value = TrackerKeysManager.getReportKeyValue(name, defaultValue, profile, dataSession);
@@ -136,6 +134,7 @@ public class ReportParameter {
         Query query = dataSession.createQuery(
             "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
         query.setParameter("provider", webUser.getProvider());
+        @SuppressWarnings("unchecked")
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {
           if (billCode.getBillCode().equals(value)) {
@@ -152,6 +151,7 @@ public class ReportParameter {
         Query query = dataSession.createQuery(
             "from ProjectCategory where provider = provider order by sortOrder, clientName");
         query.setParameter("provider", webUser.getProvider());
+        @SuppressWarnings("unchecked")
         List<ProjectCategory> projectCategoryList = query.list();
         for (ProjectCategory projectCategory : projectCategoryList) {
           if (projectCategory.getCategoryCode().equals(value)) {
@@ -169,6 +169,7 @@ public class ReportParameter {
             "from BillBudget where billCode.provider = :provider and billCode.visible = 'Y' "
                 + "order by billCode.billLabel, billBudgetCode");
         query.setParameter("provider", webUser.getProvider());
+        @SuppressWarnings("unchecked")
         List<BillBudget> billBudgetList = query.list();
         for (BillBudget billBudget : billBudgetList) {
           if (String.valueOf(billBudget.getBillBudgetId()).equals(value)) {

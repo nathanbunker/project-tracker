@@ -48,7 +48,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class ProjectActionServlet extends ClientServlet {
 
   private static final String ID_TIME_RUNNING = "TimeRunning";
@@ -63,7 +62,6 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ID_ACT = "Act";
   private static final String SAVE_PROJECT_ACTION_FORM = "saveProjectActionForm";
   private static final String FORM_ACTION_NOW = "ActionNow";
-  private static final String FORM_ACTION_NEXT = "ActionNext";
   private static final String PARAM_SEND_EMAIL_TO = "sendEmailTo";
   private static final String PARAM_START_SENTANCE = "startSentance";
   private static final String PARAM_PRIORITY_SPECIAL = "prioritySpecial";
@@ -293,8 +291,6 @@ public class ProjectActionServlet extends ClientServlet {
       Set<String> formNameSet = new HashSet<String>();
 
       Date nextDue = webUser.getCalendar().getTime();
-      SimpleDateFormat sdf1 = webUser.getDateFormat();
-
       Calendar cIndicated = webUser.getCalendar();
       cIndicated.setTime(nextDue);
 
@@ -688,6 +684,7 @@ public class ProjectActionServlet extends ClientServlet {
       query.setParameter("today", calendar.getTime());
       calendar.add(Calendar.DAY_OF_MONTH, 1);
       query.setParameter("tomorrow", calendar.getTime());
+      @SuppressWarnings("unchecked")
       List<Long> billMinsList = query.list();
       int billMins = 0;
       if (billMinsList.size() > 0 && billMinsList.get(0) != null) {
@@ -747,16 +744,13 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private List<Project> getProjectList(WebUser webUser, Session dataSession) {
-    List<Project> projectList;
-    {
-
-      String queryString = "from Project where provider = ?";
-      queryString += " and phaseCode <> 'Clos'";
-      queryString += " order by projectName";
-      Query query = dataSession.createQuery(queryString);
-      query.setParameter(0, webUser.getProvider());
-      projectList = query.list();
-    }
+    String queryString = "from Project where provider = ?";
+    queryString += " and phaseCode <> 'Clos'";
+    queryString += " order by projectName";
+    Query query = dataSession.createQuery(queryString);
+    query.setParameter(0, webUser.getProvider());
+    @SuppressWarnings("unchecked")
+    List<Project> projectList = query.list();
     return projectList;
   }
 
@@ -837,15 +831,13 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private List<ProjectAction> getAllProjectActionsScheduledList(AppReq appReq, Project project, Session dataSession) {
-    List<ProjectAction> allProjectActionsList = null;
-    {
-      Query query = dataSession.createQuery(
-          "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
-      query.setParameter(0, project.getProjectId());
-      allProjectActionsList = query.list();
-      for (ProjectAction pa : allProjectActionsList) {
-        setupProjectAction(dataSession, pa);
-      }
+    Query query = dataSession.createQuery(
+        "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
+    query.setParameter(0, project.getProjectId());
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> allProjectActionsList = query.list();
+    for (ProjectAction pa : allProjectActionsList) {
+      setupProjectAction(dataSession, pa);
     }
     return allProjectActionsList;
   }
@@ -999,27 +991,6 @@ public class ProjectActionServlet extends ClientServlet {
     return dateFromDateList.equals(nextDue) || nextDue.before(dateFromDateList);
   }
 
-  private static boolean before(ProjectAction pa, Date dateFromDateList) {
-    Date nextDue = pa.getNextDue();
-    // need to chop off the time from the date
-    Calendar c = Calendar.getInstance();
-    c.setTime(dateFromDateList);
-    c.set(Calendar.HOUR_OF_DAY, 0);
-    c.set(Calendar.MINUTE, 0);
-    c.set(Calendar.SECOND, 0);
-    c.set(Calendar.MILLISECOND, 0);
-    dateFromDateList = c.getTime();
-    c = Calendar.getInstance();
-    c.setTime(nextDue);
-    c.set(Calendar.HOUR_OF_DAY, 0);
-    c.set(Calendar.MINUTE, 0);
-    c.set(Calendar.SECOND, 0);
-    c.set(Calendar.MILLISECOND, 0);
-    nextDue = c.getTime();
-
-    return nextDue.before(dateFromDateList);
-  }
-
   private void addToMap(Map<String, List<ProjectAction>> projectActionMap, ProjectAction pa, String key) {
     List<ProjectAction> paList = projectActionMap.get(key);
     if (paList == null) {
@@ -1163,6 +1134,7 @@ public class ProjectActionServlet extends ClientServlet {
     boolean userAssignedToProject = false;
     Query query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
     query.setParameter(0, project.getProjectId());
+    @SuppressWarnings("unchecked")
     List<ProjectContactAssigned> projectContactAssignedList = query.list();
     List<ProjectContact> sendEmailToList = new ArrayList<ProjectContact>();
     for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
@@ -1173,7 +1145,9 @@ public class ProjectActionServlet extends ClientServlet {
           .getParameter(PARAM_SEND_EMAIL_TO + projectContactAssigned.getId().getContactId()) != null) {
         query = dataSession.createQuery("from ProjectContact where contactId = ?");
         query.setParameter(0, projectContactAssigned.getId().getContactId());
-        ProjectContact projectContact = ((List<ProjectContact>) query.list()).get(0);
+        @SuppressWarnings("unchecked")
+        List<ProjectContact> projectContactList = query.list();
+        ProjectContact projectContact = projectContactList.get(0);
         sendEmailToList.add(projectContact);
       }
     }
@@ -1277,6 +1251,7 @@ public class ProjectActionServlet extends ClientServlet {
       query.setParameter("today", calendar.getTime());
       calendar.add(Calendar.DAY_OF_MONTH, 1);
       query.setParameter("tomorrow", calendar.getTime());
+      @SuppressWarnings("unchecked")
       List<Long> billMinsList = query.list();
       if (billMinsList.size() > 0) {
         if (billMinsList.get(0) != null) {
@@ -2337,6 +2312,7 @@ public class ProjectActionServlet extends ClientServlet {
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
     query.setParameter("today", today);
     query.setParameter("tomorrow", tomorrow);
+    @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
     // setup the prjoect action
     for (ProjectAction projectAction : projectActionList) {
@@ -2628,7 +2604,6 @@ public class ProjectActionServlet extends ClientServlet {
   };
 
   private static List<ProjectAction> getProjectActionsScheduledAndCompletedList(Session dataSession, int projectId) {
-    List<ProjectAction> projectActionList;
     Query query = dataSession.createQuery(
         "from ProjectAction pa \n" +
             "where pa.nextDescription <> '' \n" +
@@ -2640,7 +2615,8 @@ public class ProjectActionServlet extends ClientServlet {
             "      and nextPa.actionDescription <> '' \n" +
             "  )");
     query.setParameter(0, projectId);
-    projectActionList = query.list();
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionList = query.list();
     return projectActionList;
   }
 

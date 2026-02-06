@@ -35,13 +35,13 @@ public class ReportEditServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -57,29 +57,32 @@ public class ReportEditServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
-
-
       ReportProfile reportProfile = null;
       ReportProfile extendsReportProfile = null;
 
       if (request.getParameter("profileId") != null) {
 
-        Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
-        query.setParameter(0, Integer.parseInt(request.getParameter("profileId")));
-        List<ReportProfile> reportProfileList = query.list();
-        reportProfile = reportProfileList.get(0);
-        ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+        {
+          Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
+          query.setParameter(0, Integer.parseInt(request.getParameter("profileId")));
+          @SuppressWarnings("unchecked")
+          List<ReportProfile> reportProfileList = query.list();
+          reportProfile = reportProfileList.get(0);
+          ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+        }
 
         if (reportProfile.getExtendsProfileId() > 0) {
-          query = dataSession.createQuery("from ReportProfile where profileId = ?");
+          Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
           query.setParameter(0, reportProfile.getExtendsProfileId());
-          reportProfileList = query.list();
+          @SuppressWarnings("unchecked")
+          List<ReportProfile> reportProfileList = query.list();
           extendsReportProfile = reportProfileList.get(0);
           ReportsServlet.loadReportProfileObject(dataSession, extendsReportProfile);
         }
       } else {
         Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
         query.setParameter(0, Integer.parseInt(request.getParameter("extendsProfileId")));
+        @SuppressWarnings("unchecked")
         List<ReportProfile> reportProfileList = query.list();
         extendsReportProfile = reportProfileList.get(0);
         ReportsServlet.loadReportProfileObject(dataSession, extendsReportProfile);
@@ -314,13 +317,13 @@ public class ReportEditServlet extends ClientServlet {
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -332,13 +335,13 @@ public class ReportEditServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

@@ -6,17 +6,17 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.util.List;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
-import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
@@ -29,19 +29,18 @@ public class ReportDefinitionEditServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
     try {
-      WebUser webUser = appReq.getWebUser();
       if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
@@ -49,37 +48,30 @@ public class ReportDefinitionEditServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
-      SimpleDateFormat sdf = webUser.getDateFormat();
-
-
 
       ReportProfile reportProfile = null;
 
       Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
       query.setParameter(0, Integer.parseInt(request.getParameter("profileId")));
+      @SuppressWarnings("unchecked")
       List<ReportProfile> reportProfileList = query.list();
       reportProfile = reportProfileList.get(0);
       ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
 
       if (action != null) {
         if (action.equals("Save")) {
-          String message = null;
           reportProfile.setDefinition(request.getParameter("definition").getBytes());
           reportProfile.clearReportDefinition();
-          // TODO check report
 
-          if (message != null) {
-            appReq.setMessageProblem(message);
-          } else {
-            Transaction transaction = dataSession.beginTransaction();
-            try {
-              dataSession.saveOrUpdate(reportProfile);
-            } finally {
-              transaction.commit();
-            }
-            response.sendRedirect("ReportEditServlet?profileId=" + reportProfile.getProfileId());
-            return;
+          Transaction transaction = dataSession.beginTransaction();
+          try {
+            dataSession.saveOrUpdate(reportProfile);
+          } finally {
+            transaction.commit();
           }
+          response.sendRedirect("ReportEditServlet?profileId=" + reportProfile.getProfileId());
+          return;
+
         }
       }
 
@@ -118,13 +110,13 @@ public class ReportDefinitionEditServlet extends ClientServlet {
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -136,13 +128,13 @@ public class ReportDefinitionEditServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

@@ -41,10 +41,8 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class ProjectServlet extends ClientServlet {
 
-  private static final boolean ENABLE_TODO_SERVLET = false;
   public static final String PARAM_PROJECT_ID = "projectId";
   public static final String PARAM_ACTION_ID = "actionId";
 
@@ -61,7 +59,6 @@ public class ProjectServlet extends ClientServlet {
    * @throws IOException
    *                          if an I/O error occurs
    */
-  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
@@ -350,11 +347,11 @@ public class ProjectServlet extends ClientServlet {
   }
 
   private static List<ProjectAction> getProjectActionsTakenList(Session dataSession, int projectId) {
-    List<ProjectAction> projectActionList;
     Query query = dataSession.createQuery(
         "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
     query.setParameter(0, projectId);
-    projectActionList = query.list();
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionList = query.list();
     return projectActionList;
   }
 
@@ -363,7 +360,6 @@ public class ProjectServlet extends ClientServlet {
     HttpServletRequest request = appReq.getRequest();
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
-    SimpleDateFormat sdf = webUser.getDateFormat();
     ProjectAction projectAction;
     if (appReq.getRequest().getParameter(PARAM_ACTION_ID) != null) {
       int actionId = Integer.parseInt(appReq.getRequest().getParameter(PARAM_ACTION_ID));
@@ -463,6 +459,7 @@ public class ProjectServlet extends ClientServlet {
       boolean userAssignedToProject = false;
       Query query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
       query.setParameter(0, project.getProjectId());
+      @SuppressWarnings("unchecked")
       List<ProjectContactAssigned> projectContactAssignedList = query.list();
       List<ProjectContact> sendEmailToList = new ArrayList<ProjectContact>();
       for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
@@ -473,7 +470,9 @@ public class ProjectServlet extends ClientServlet {
             .getParameter("sendEmailTo" + projectContactAssigned.getId().getContactId()) != null) {
           query = dataSession.createQuery("from ProjectContact where contactId = ?");
           query.setParameter(0, projectContactAssigned.getId().getContactId());
-          ProjectContact projectContact = ((List<ProjectContact>) query.list()).get(0);
+          @SuppressWarnings("unchecked")
+          List<ProjectContact> projectContactList = query.list();
+          ProjectContact projectContact = projectContactList.get(0);
           sendEmailToList.add(projectContact);
         }
       }
@@ -549,6 +548,7 @@ public class ProjectServlet extends ClientServlet {
       int projectId) {
     Query query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
     query.setParameter(0, projectId);
+    @SuppressWarnings("unchecked")
     List<ProjectContactAssigned> projectContactAssignedList = query.list();
     return projectContactAssignedList;
   }
@@ -560,7 +560,9 @@ public class ProjectServlet extends ClientServlet {
     for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
       query = dataSession.createQuery("from ProjectContact where contactId = ?");
       query.setParameter(0, projectContactAssigned.getId().getContactId());
-      ProjectContact projectContact = ((List<ProjectContact>) query.list()).get(0);
+      @SuppressWarnings("unchecked")
+      List<ProjectContact> projectContactResultList = query.list();
+      ProjectContact projectContact = projectContactResultList.get(0);
       projectContactList.add(projectContact);
       projectContactAssigned.setProjectContact(projectContact);
       projectContactAssigned.setProject(project);
@@ -579,6 +581,7 @@ public class ProjectServlet extends ClientServlet {
     query = dataSession.createQuery(
         "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
     query.setParameter(0, projectId);
+    @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
     List<ProjectAction> projectActionTemplateList = new ArrayList<ProjectAction>();
     List<ProjectAction> projectActionGoalList = new ArrayList<ProjectAction>();
@@ -1137,13 +1140,14 @@ public class ProjectServlet extends ClientServlet {
     return projectSelectedList;
   }
 
-  @SuppressWarnings("unchecked")
   public static Project setupProject(Session dataSession, int projectId) {
     Project project;
     {
       Query query = dataSession.createQuery("from Project where projectId = ? ");
       query.setParameter(0, projectId);
-      project = ((List<Project>) query.list()).get(0);
+      @SuppressWarnings("unchecked")
+      List<Project> projectList = query.list();
+      project = projectList.get(0);
       ProjectsServlet.loadProjectsObject(dataSession, project);
     }
     return project;

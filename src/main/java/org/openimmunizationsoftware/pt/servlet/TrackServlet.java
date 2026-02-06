@@ -170,6 +170,7 @@ public class TrackServlet extends ClientServlet {
               + " contact.nameFirst, contact.nameLast");
       query.setParameter(0, webUser.getProjectContact());
       query.setParameter(1, projectContactSelected);
+      @SuppressWarnings("unchecked")
       List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
       if (projectContactSupervisorList.size() > 0) {
         query = dataSession.createQuery("from WebUser where contactId = ?");
@@ -356,13 +357,7 @@ public class TrackServlet extends ClientServlet {
       }
     }
     {
-      List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
-      List<ProjectAction> projectActionListComplete = getProjectActionListComplete(webUser, dataSession, timeTracker,
-          timeEntryList);
-
-      if (timeEntryList.size() > 0 || projectActionListComplete.size() > 0) {
-      }
-      int totalTimeInMinutes = 0;
+      setupTimeEntryList(dataSession, timeTracker);
     }
 
     out.println("<h2>Additional Information</h2>");
@@ -383,7 +378,6 @@ public class TrackServlet extends ClientServlet {
       out.println("  </tr>");
       int totalTime = 0;
       int totalBillable = 0;
-      int totalBillableMoney = 0;
       for (TimeEntry timeEntry : timeEntryList) {
         String billCodeString = timeEntry.getId();
         BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
@@ -402,10 +396,8 @@ public class TrackServlet extends ClientServlet {
             billable += billDay.getBillMins();
           }
         }
-        int billableMoney = (int) (billable * billCode.getBillRate() / 60.0 + 0.5);
         totalTime += billCodeMap.get(billCodeString);
         totalBillable += billable;
-        totalBillableMoney += billableMoney;
         out.println("  <tr class=\"boxed\">");
         if (showLinks) {
           out.println(
@@ -524,10 +516,10 @@ public class TrackServlet extends ClientServlet {
         SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
         it.remove();
         {
-          List<ProjectAction> projectActionCompletedList;
           Query query = dataSession.createQuery("from ProjectAction where nextActionId = ? ");
           query.setParameter(0, projectAction.getActionId());
-          projectActionCompletedList = query.list();
+          @SuppressWarnings("unchecked")
+          List<ProjectAction> projectActionCompletedList = query.list();
           for (ProjectAction pa : projectActionCompletedList) {
             if (!first) {
               out.println("    <br/>");
@@ -577,10 +569,10 @@ public class TrackServlet extends ClientServlet {
       for (ProjectAction projectAction : projectActionList) {
         projectActionListComplete.remove(projectAction);
         {
-          List<ProjectAction> projectActionCompletedList;
           Query query = dataSession.createQuery("from ProjectAction where nextActionId = ? ");
           query.setParameter(0, projectAction.getActionId());
-          projectActionCompletedList = query.list();
+          @SuppressWarnings("unchecked")
+          List<ProjectAction> projectActionCompletedList = query.list();
           for (ProjectAction pa : projectActionCompletedList) {
             if (!first) {
               out.println("    <br/>");
@@ -618,19 +610,17 @@ public class TrackServlet extends ClientServlet {
     if (type.equals(TYPE_WEEK)) {
       timeInMinutes = timeEntry.getMinutesAdjusted();
     }
-    List<ProjectAction> projectActionList;
-    {
-      Query query = dataSession.createQuery(
-          "from ProjectAction where contactId = ? and projectId = ?   and"
-              + " actionDescription <> '' and action_date >= ? and action_date < ? order"
-              + " by actionDate asc");
-      query.setParameter(0, webUser.getContactId());
-      query.setParameter(1, Integer.parseInt(timeEntry.getId()));
-      query.setParameter(2, timeTracker.getStartDate());
-      query.setParameter(3, timeTracker.getEndDate());
-      projectActionList = query.list();
-      timeEntry.setProjectActionList(projectActionList);
-    }
+    Query query = dataSession.createQuery(
+        "from ProjectAction where contactId = ? and projectId = ?   and"
+            + " actionDescription <> '' and action_date >= ? and action_date < ? order"
+            + " by actionDate asc");
+    query.setParameter(0, webUser.getContactId());
+    query.setParameter(1, Integer.parseInt(timeEntry.getId()));
+    query.setParameter(2, timeTracker.getStartDate());
+    query.setParameter(3, timeTracker.getEndDate());
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionList = query.list();
+    timeEntry.setProjectActionList(projectActionList);
     if (timeInMinutes <= 0 && projectActionList.size() <= 0) {
       return;
     }
@@ -683,17 +673,15 @@ public class TrackServlet extends ClientServlet {
 
   private static List<ProjectAction> getProjectActionListComplete(WebUser webUser, Session dataSession,
       TimeTracker timeTracker, List<TimeEntry> timeEntryList) {
-    List<ProjectAction> projectActionListComplete = null;
     Collections.sort(timeEntryList);
-    {
-      Query query = dataSession.createQuery(
-          "from ProjectAction where contactId = ? and actionDescription <> '' "
-              + "and action_date >= ? and action_date < ? order by actionDate asc");
-      query.setParameter(0, webUser.getContactId());
-      query.setParameter(1, timeTracker.getStartDate());
-      query.setParameter(2, timeTracker.getEndDate());
-      projectActionListComplete = query.list();
-    }
+    Query query = dataSession.createQuery(
+        "from ProjectAction where contactId = ? and actionDescription <> '' "
+            + "and action_date >= ? and action_date < ? order by actionDate asc");
+    query.setParameter(0, webUser.getContactId());
+    query.setParameter(1, timeTracker.getStartDate());
+    query.setParameter(2, timeTracker.getEndDate());
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionListComplete = query.list();
     return projectActionListComplete;
   }
 
@@ -730,6 +718,7 @@ public class TrackServlet extends ClientServlet {
       Query query = dataSession.createQuery("from BillDay where billCode = ? and billDate = ?");
       query.setParameter(0, billCode);
       query.setParameter(1, billDate);
+      @SuppressWarnings("unchecked")
       List<BillDay> billDayList = query.list();
       BillDay billDay;
       if (billDayList.size() > 0) {
@@ -745,6 +734,7 @@ public class TrackServlet extends ClientServlet {
       query.setParameter(0, billCode);
       query.setParameter(1, billDate);
       query.setParameter(2, billDate);
+      @SuppressWarnings("unchecked")
       List<BillBudget> billBudgetList = query.list();
       if (billBudgetList.size() > 0) {
         billDay.setBillBudget(billBudgetList.get(0));
@@ -767,6 +757,7 @@ public class TrackServlet extends ClientServlet {
         "from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
     query.setParameter("categoryCode", categoryCode);
     query.setParameter("provider", provider);
+    @SuppressWarnings("unchecked")
     List<ProjectCategory> projectCategoryList = query.list();
     ProjectCategory projectCategory = null;
     if (projectCategoryList.size() > 0) {
@@ -815,7 +806,7 @@ public class TrackServlet extends ClientServlet {
       return "" + i;
     }
     int thousand = i / 1000;
-    String s = "" + i;
+    String s = "" + thousand;
     return s.substring(0, s.length() - 3) + "," + s.substring(s.length() - 3);
   }
 }

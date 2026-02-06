@@ -163,7 +163,6 @@ public class TimeTracker {
     init(webUser, dataSession, t);
   }
 
-  @SuppressWarnings("unchecked")
   private synchronized void init(WebUser webUser, Session dataSession, Calendar t) {
     totalMinsForProjectMap = new HashMap<Integer, Integer>();
     totalMinsForClientMap = new HashMap<String, Integer>();
@@ -179,13 +178,13 @@ public class TimeTracker {
     query.setParameter(0, webUser.getUsername());
     query.setParameter(1, today);
     query.setParameter(2, tomorrow);
+    @SuppressWarnings("unchecked")
     List<BillEntry> billEntryList = query.list();
     for (BillEntry billEntry : billEntryList) {
       addToTotals(billEntry);
     }
   }
 
-  @SuppressWarnings("unchecked")
   private synchronized void init(WebUser webUser, Session dataSession, Calendar t,
       int calendarField) {
     totalMinsForProjectMap = new HashMap<Integer, Integer>();
@@ -220,6 +219,7 @@ public class TimeTracker {
     query.setParameter(0, webUser.getUsername());
     query.setParameter(1, today);
     query.setParameter(2, tomorrow);
+    @SuppressWarnings("unchecked")
     List<BillEntry> billEntryList = query.list();
     for (BillEntry billEntry : billEntryList) {
       addToTotals(billEntry);

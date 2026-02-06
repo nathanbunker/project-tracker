@@ -127,6 +127,7 @@ public class BillEntryEditServlet extends ClientServlet {
       out.println("    <td class=\"boxed\"><select name=\"categoryCode\">");
       Query query = dataSession.createQuery("from ProjectCategory where provider = :provider");
       query.setParameter("provider", webUser.getProvider());
+      @SuppressWarnings("unchecked")
       List<ProjectCategory> projectCategoryList = query.list();
       for (ProjectCategory projectCategory : projectCategoryList) {
         if (projectCategory.getCategoryCode().equals(billEntry.getCategoryCode())) {
@@ -146,6 +147,7 @@ public class BillEntryEditServlet extends ClientServlet {
       query = dataSession.createQuery(
           "from Project where provider = :provider order by categoryCode, projectName");
       query.setParameter("provider", webUser.getProvider());
+      @SuppressWarnings("unchecked")
       List<Project> projectList = query.list();
       for (Project project : projectList) {
         if (project.getProjectId() == billEntry.getProjectId()) {
@@ -165,6 +167,7 @@ public class BillEntryEditServlet extends ClientServlet {
       query = dataSession.createQuery(
           "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
       query.setParameter("provider", webUser.getProvider());
+      @SuppressWarnings("unchecked")
       List<BillCode> billCodeList = query.list();
       for (BillCode billCode : billCodeList) {
         if (billCode.getBillCode().equals(billEntry.getBillCode())) {

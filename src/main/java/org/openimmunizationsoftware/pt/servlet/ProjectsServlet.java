@@ -26,7 +26,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class ProjectsServlet extends ClientServlet {
 
   private static final String PARAM_SEARCH_TEXT = "searchText";
@@ -266,12 +265,10 @@ public class ProjectsServlet extends ClientServlet {
     out.println("</table>");
   }
 
-  @SuppressWarnings("unchecked")
   private List<Project> createProjectList(HttpServletRequest request, WebUser webUser,
       Session dataSession, String categoryCode, String phaseCode, String searchField,
       String searchText) {
     Query query;
-    List<Project> projectList;
     {
       String queryString = "from Project where provider = ?";
       if (!searchText.equals("")) {
@@ -315,7 +312,8 @@ public class ProjectsServlet extends ClientServlet {
       }
     }
 
-    projectList = query.list();
+    @SuppressWarnings("unchecked")
+    List<Project> projectList = query.list();
     return projectList;
   }
 

@@ -33,13 +33,13 @@ public class ReportServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -51,24 +51,27 @@ public class ReportServlet extends ClientServlet {
         return;
       }
       Session dataSession = appReq.getDataSession();
-      String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
-
       printHtmlHead(appReq);
 
-      Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
-      query.setParameter(0, Integer.parseInt(request.getParameter("profileId")));
-      List<ReportProfile> reportProfileList = query.list();
-      ReportProfile reportProfile = reportProfileList.get(0);
-      ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+      ReportProfile reportProfile = null;
+      {
+        Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
+        query.setParameter(0, Integer.parseInt(request.getParameter("profileId")));
+        @SuppressWarnings("unchecked")
+        List<ReportProfile> reportProfileList = query.list();
+        reportProfile = reportProfileList.get(0);
+        ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+      }
 
       ReportProfile extendsReportProfile = null;
       if (reportProfile.getExtendsProfileId() > 0) {
-        query = dataSession.createQuery("from ReportProfile where profileId = ?");
+        Query query = dataSession.createQuery("from ReportProfile where profileId = ?");
         query.setParameter(0, reportProfile.getExtendsProfileId());
-        reportProfileList = query.list();
+        @SuppressWarnings("unchecked")
+        List<ReportProfile> reportProfileList = query.list();
         extendsReportProfile = reportProfileList.get(0);
         ReportsServlet.loadReportProfileObject(dataSession, extendsReportProfile);
       }
@@ -186,10 +189,10 @@ public class ReportServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">");
       out.println("      <select name=\"period\">");
       List<String[]> optionList = new ArrayList<String[]>();
-      optionList.add(new String[] {ReportSchedule.REPORT_DAILY, "Daily Report"});
-      optionList.add(new String[] {ReportSchedule.REPORT_WEEKLY, "Weekly Report"});
-      optionList.add(new String[] {ReportSchedule.REPORT_MONTHLY, "Monthly Report"});
-      optionList.add(new String[] {ReportSchedule.REPORT_YEARLY, "Yearly Report"});
+      optionList.add(new String[] { ReportSchedule.REPORT_DAILY, "Daily Report" });
+      optionList.add(new String[] { ReportSchedule.REPORT_WEEKLY, "Weekly Report" });
+      optionList.add(new String[] { ReportSchedule.REPORT_MONTHLY, "Monthly Report" });
+      optionList.add(new String[] { ReportSchedule.REPORT_YEARLY, "Yearly Report" });
       for (String[] option : optionList) {
         out.println("        <option value=\"" + option[0] + "\">" + option[1] + "</option>");
       }
@@ -239,13 +242,13 @@ public class ReportServlet extends ClientServlet {
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -257,13 +260,13 @@ public class ReportServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

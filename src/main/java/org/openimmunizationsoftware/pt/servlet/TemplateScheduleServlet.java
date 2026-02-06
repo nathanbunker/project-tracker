@@ -15,9 +15,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -25,14 +27,12 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectAction;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class TemplateScheduleServlet extends ClientServlet {
 
   private static final String TEMPLATE_SELECTED = "s";
@@ -45,15 +45,14 @@ public class TemplateScheduleServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
-  @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
@@ -83,29 +82,26 @@ public class TemplateScheduleServlet extends ClientServlet {
         }
       }
       List<Project> projectList = appReq.createProjectList();
-      Map<ProjectAction, Map<Calendar, ProjectAction>> projectActionDayMap =
-          new HashMap<ProjectAction, Map<Calendar, ProjectAction>>();
-      Map<Project, List<ProjectAction>> templateMap =
-          new HashMap<Project, List<ProjectAction>>();
+      Map<ProjectAction, Map<Calendar, ProjectAction>> projectActionDayMap = new HashMap<ProjectAction, Map<Calendar, ProjectAction>>();
+      Map<Project, List<ProjectAction>> templateMap = new HashMap<Project, List<ProjectAction>>();
       {
         for (Project project : projectList) {
-          List<ProjectAction> projectActionTemplateList;
-          {
-            Query query = dataSession.createQuery(
-                "from ProjectAction where projectId = :projectId and nextDescription <> '' "
-                    + "and nextActionId = 0 and templateTypeString is NOT NULL and templateTypeString <> '' "
-                    + "order by nextDue asc, nextDescription");
-            query.setParameter(PROJECT_ID, project.getProjectId());
-            projectActionTemplateList = query.list();
-          }
+          Query query = dataSession.createQuery(
+              "from ProjectAction where projectId = :projectId and nextDescription <> '' "
+                  + "and nextActionId = 0 and templateTypeString is NOT NULL and templateTypeString <> '' "
+                  + "order by nextDue asc, nextDescription");
+          query.setParameter(PROJECT_ID, project.getProjectId());
+          @SuppressWarnings("unchecked")
+          List<ProjectAction> projectActionTemplateList = query.list();
           templateMap.put(project, projectActionTemplateList);
           for (ProjectAction projectActionTemplate : projectActionTemplateList) {
             Map<Calendar, ProjectAction> projectActionMap = new HashMap<Calendar, ProjectAction>();
             projectActionDayMap.put(projectActionTemplate, projectActionMap);
-            Query query = dataSession.createQuery("from ProjectAction where "
+            query = dataSession.createQuery("from ProjectAction where "
                 + "templateActionId = :templateActionId and nextDue >= :nextDue ");
             query.setParameter("templateActionId", projectActionTemplate.getActionId());
             query.setParameter("nextDue", dayList.get(0).getTime());
+            @SuppressWarnings("unchecked")
             List<ProjectAction> pal = query.list();
             for (ProjectAction pa : pal) {
 
@@ -132,13 +128,10 @@ public class TemplateScheduleServlet extends ClientServlet {
         for (Project project : projectList) {
           List<ProjectAction> templateList = templateMap.get(project);
           for (ProjectAction templateAction : templateList) {
-            Map<Calendar, ProjectAction> projectActionMap =
-                projectActionDayMap.get(templateAction);
+            Map<Calendar, ProjectAction> projectActionMap = projectActionDayMap.get(templateAction);
             templateActionPrevious = templateAction;
-            String nextDescription =
-                request.getParameter(NEXT_DESCRIPTION + templateAction.getActionId());
-            String timeEstimate =
-                request.getParameter(TIME_ESTIMATE + templateAction.getActionId());
+            String nextDescription = request.getParameter(NEXT_DESCRIPTION + templateAction.getActionId());
+            String timeEstimate = request.getParameter(TIME_ESTIMATE + templateAction.getActionId());
             if (!templateAction.getNextDescription().equals(nextDescription)
                 || !templateAction.getNextTimeEstimateForDisplay().equals(timeEstimate)) {
               templateAction.setNextDescription(trim(nextDescription, 12000));
@@ -172,8 +165,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                   projectAction.setNextDescription(templateAction.getNextDescription());
                   projectAction.setNextActionId(0);
                   projectAction.setNextDue(day.getTime());
-                  String nextActionType =
-                      request.getParameter("na" + templateAction.getActionId());
+                  String nextActionType = request.getParameter("na" + templateAction.getActionId());
                   projectAction.setNextActionType(nextActionType);
                   int priorityLevel = project.getPriorityLevel();
                   if (nextActionType != null) {
@@ -207,8 +199,7 @@ public class TemplateScheduleServlet extends ClientServlet {
           String nextDescription = request.getParameter(NEXT_DESCRIPTION);
           String timeEstimate = request.getParameter(TIME_ESTIMATE);
           if (!projectIdString.equals("") && !nextDescription.equals("")) {
-            Project project =
-                (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
+            Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
             ProjectAction templateAction = new ProjectAction();
             templateAction.setContactId(webUser.getContactId());
             templateAction.setContact(webUser.getProjectContact());
@@ -239,7 +230,6 @@ public class TemplateScheduleServlet extends ClientServlet {
         }
         transaction.commit();
       }
-
 
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
@@ -273,16 +263,16 @@ public class TemplateScheduleServlet extends ClientServlet {
 
         List<ProjectAction> templateScheduleList = templateMap.get(project);
         if (templateScheduleList.size() == 0) {
-          //          out.println("  <tr class=\"boxed\">");
-          //          out.println(
-          //              "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-          //                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-          //          out.println("    <td class=\"boxed\" colspan=\"9\"></td>");
-          //          out.println("  </tr>");
+          // out.println(" <tr class=\"boxed\">");
+          // out.println(
+          // " <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" +
+          // project.getProjectId()
+          // + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+          // out.println(" <td class=\"boxed\" colspan=\"9\"></td>");
+          // out.println(" </tr>");
         } else {
           for (ProjectAction projectActionTemplate : templateScheduleList) {
-            Map<Calendar, ProjectAction> projectActionMap =
-                projectActionDayMap.get(projectActionTemplate);
+            Map<Calendar, ProjectAction> projectActionMap = projectActionDayMap.get(projectActionTemplate);
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
                 + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
@@ -303,8 +293,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                 + projectActionTemplate.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
             out.println("    </td>");
             for (Calendar day : dayList) {
-              ProjectAction projectAction =
-                  projectActionMap == null ? null : projectActionMap.get(day);
+              ProjectAction projectAction = projectActionMap == null ? null : projectActionMap.get(day);
               boolean checked = projectAction != null;
               String style = "boxed";
               if (onWeekend.contains(day)) {
@@ -324,8 +313,8 @@ public class TemplateScheduleServlet extends ClientServlet {
             out.println("    <td class=\"boxed\">");
             String nextActionType = ProjectNextActionType.WILL;
             out.println("<select name=\"na" + projectActionTemplate.getActionId() + "\">");
-            for (String nat : new String[] {ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
-                ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO}) {
+            for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
+                ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO }) {
               String label = ProjectNextActionType.getLabel(nat);
               boolean selected = nat.equals(nextActionType);
               out.println("  <option value=\"" + nat + "\"" + (selected ? " selected" : "") + ">"
@@ -364,12 +353,9 @@ public class TemplateScheduleServlet extends ClientServlet {
 
       out.println("</table>");
 
-
       out.println("<br/>");
       out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"Update\" >");
       out.println("</form>");
-
-
 
       printHtmlFoot(appReq);
 
@@ -393,13 +379,13 @@ public class TemplateScheduleServlet extends ClientServlet {
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -411,13 +397,13 @@ public class TemplateScheduleServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

@@ -33,7 +33,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class GoalReviewServlet extends ClientServlet {
 
   public static String ACTION_UPDATE_PRIORITY = "Update Priority";
@@ -44,13 +43,13 @@ public class GoalReviewServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @SuppressWarnings("unchecked")
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -66,8 +65,6 @@ public class GoalReviewServlet extends ClientServlet {
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
-
-
 
       List<ProjectAction> projectActionGoalList = getProjectActionGoalList(dataSession);
       List<Project> projectNeedUpdateList = new ArrayList<Project>();
@@ -185,7 +182,6 @@ public class GoalReviewServlet extends ClientServlet {
         }
       }
 
-
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
 
@@ -222,8 +218,8 @@ public class GoalReviewServlet extends ClientServlet {
             goalStatus = "";
           }
           out.println("      <select name=\"" + id + "\">");
-          for (String ts : new String[] {ProjectGoalStatus.PROGRESSING, ProjectGoalStatus.DELAYED,
-              ProjectGoalStatus.BLOCKED}) {
+          for (String ts : new String[] { ProjectGoalStatus.PROGRESSING, ProjectGoalStatus.DELAYED,
+              ProjectGoalStatus.BLOCKED }) {
             out.println(
                 "    <option value=\"" + ts + "\"" + (goalStatus.equals(ts) ? " selected" : "")
                     + ">" + ProjectGoalStatus.getLabel(ts) + "</option>");
@@ -246,7 +242,6 @@ public class GoalReviewServlet extends ClientServlet {
         out.println("  </tr>");
       }
       out.println("</table>");
-
 
       out.println(
           "<input type=\"submit\" name=\"action\" value=\"" + ACTION_UPDATE_PRIORITY + "\" >");
@@ -280,8 +275,8 @@ public class GoalReviewServlet extends ClientServlet {
             if (goalStatus == null) {
               goalStatus = "";
             }
-            for (String ts : new String[] {ProjectGoalStatus.PROGRESSING,
-                ProjectGoalStatus.DELAYED, ProjectGoalStatus.BLOCKED}) {
+            for (String ts : new String[] { ProjectGoalStatus.PROGRESSING,
+                ProjectGoalStatus.DELAYED, ProjectGoalStatus.BLOCKED }) {
               out.println("      <input type=\"radio\" name=\"" + id + "\" id=\"" + id + ts
                   + "\" value=\"" + ts + "\"" + (goalStatus.equals(ts) ? " checked" : "")
                   + "></input> <label for=\"" + id + ts + "\">" + ProjectGoalStatus.getLabel(ts)
@@ -306,10 +301,10 @@ public class GoalReviewServlet extends ClientServlet {
         out.println("</table>");
         out.println("<br/>");
 
-        List<ProjectContactAssigned> projectContactAssignedList =
-            ProjectServlet.getProjectContactAssignedList(dataSession, project.getProjectId());
-        List<ProjectContact> projectContactList =
-            ProjectServlet.getProjectContactList(dataSession, project, projectContactAssignedList);
+        List<ProjectContactAssigned> projectContactAssignedList = ProjectServlet
+            .getProjectContactAssignedList(dataSession, project.getProjectId());
+        List<ProjectContact> projectContactList = ProjectServlet.getProjectContactList(dataSession, project,
+            projectContactAssignedList);
         Collections.sort(projectContactAssignedList, new Comparator<ProjectContactAssigned>() {
           public int compare(ProjectContactAssigned arg0, ProjectContactAssigned arg1) {
             if (arg0.getProjectContact().getNameFirst()
@@ -366,7 +361,6 @@ public class GoalReviewServlet extends ClientServlet {
         }
       }
 
-
       printHtmlFoot(appReq);
 
     } catch (Exception e) {
@@ -377,14 +371,11 @@ public class GoalReviewServlet extends ClientServlet {
   }
 
   private List<ProjectAction> getProjectActionGoalList(Session dataSession) {
-    List<ProjectAction> projectActionGoalList;
-    {
-      Query query = dataSession.createQuery("from ProjectAction where nextDescription <> '' "
-          + "and nextActionId = 0 and nextActionType = :nextActionType order by priorityLevel desc, projectId, nextDue asc");
-      query.setParameter("nextActionType", ProjectNextActionType.GOAL);
-      projectActionGoalList = query.list();
-
-    }
+    Query query = dataSession.createQuery("from ProjectAction where nextDescription <> '' "
+        + "and nextActionId = 0 and nextActionType = :nextActionType order by priorityLevel desc, projectId, nextDue asc");
+    query.setParameter("nextActionType", ProjectNextActionType.GOAL);
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionGoalList = query.list();
     return projectActionGoalList;
   }
 
@@ -392,13 +383,13 @@ public class GoalReviewServlet extends ClientServlet {
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -410,13 +401,13 @@ public class GoalReviewServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

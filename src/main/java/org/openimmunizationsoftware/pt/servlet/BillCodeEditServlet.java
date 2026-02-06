@@ -32,16 +32,17 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class BillCodeEditServlet extends ClientServlet {
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+   * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -55,7 +56,6 @@ public class BillCodeEditServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
-
 
       SimpleDateFormat sdf = webUser.getDateFormat();
       Query query;
@@ -71,7 +71,6 @@ public class BillCodeEditServlet extends ClientServlet {
           billCode.setBillCode(billCodeString);
         }
       }
-
 
       if (action != null) {
         if (action.equals("Save")) {
@@ -115,16 +114,16 @@ public class BillCodeEditServlet extends ClientServlet {
               query.setParameter(1, billBudget.getStartDate());
               query.setParameter(2, billBudget.getEndDate());
               Calendar today = webUser.getCalendar();
+              @SuppressWarnings("unchecked")
               List<BillMonth> billMonthList = query.list();
               if (billMonthList.size() > 0) {
                 for (BillMonth billMonth : billMonthList) {
                   Calendar billDateCalendar = webUser.getCalendar();
                   billDateCalendar.setTime(billMonth.getBillDate());
 
-                  boolean isChangable =
-                      (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
-                          && billDateCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR))
-                          || today.before(billDateCalendar);
+                  boolean isChangable = (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
+                      && billDateCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR))
+                      || today.before(billDateCalendar);
                   if (isChangable) {
                     billMonth.setBillMinsExpected(TimeTracker.readTime(
                         request.getParameter("billMinsExpected" + billMonth.getBillMonthId())));
@@ -201,6 +200,7 @@ public class BillCodeEditServlet extends ClientServlet {
 
         query = dataSession.createQuery("from BillBudget where billCode = ? order by startDate");
         query.setParameter(0, billCode);
+        @SuppressWarnings("unchecked")
         List<BillBudget> billBudgetList = query.list();
         billBudgetList.add(new BillBudget());
         for (BillBudget billBudget : billBudgetList) {
@@ -248,6 +248,7 @@ public class BillCodeEditServlet extends ClientServlet {
             query.setParameter(1, billBudget.getStartDate());
             query.setParameter(2, billBudget.getEndDate());
             Calendar today = webUser.getCalendar();
+            @SuppressWarnings("unchecked")
             List<BillMonth> billMonthList = query.list();
             if (billMonthList.size() > 0) {
               out.println("  <tr>");
@@ -259,10 +260,9 @@ public class BillCodeEditServlet extends ClientServlet {
                 Calendar billDateCalendar = webUser.getCalendar();
                 billDateCalendar.setTime(billMonth.getBillDate());
 
-                boolean isChangable =
-                    (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
-                        && billDateCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR))
-                        || today.before(billDateCalendar);
+                boolean isChangable = (billDateCalendar.get(Calendar.MONTH) == today.get(Calendar.MONTH)
+                    && billDateCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR))
+                    || today.before(billDateCalendar);
                 out.println("  <tr class=\"boxed\">");
                 out.println("    <th class=\"boxed\">" + sdfMonth.format(billMonth.getBillDate())
                     + "</th>");
@@ -316,6 +316,7 @@ public class BillCodeEditServlet extends ClientServlet {
         query.setParameter(0, billBudget);
         query.setParameter(1, startTime);
         BillMonth billMonth;
+        @SuppressWarnings("unchecked")
         List<BillMonth> billMonthList = query.list();
         if (billMonthList.size() == 0) {
           billMonth = new BillMonth();
@@ -342,6 +343,7 @@ public class BillCodeEditServlet extends ClientServlet {
         query.setParameter(0, billBudget);
         query.setParameter(1, startTime);
         query.setParameter(2, endTime);
+        @SuppressWarnings("unchecked")
         List<BillDay> billDayList = query.list();
         int billMinsActual = 0;
         for (BillDay billDay : billDayList) {
@@ -395,19 +397,20 @@ public class BillCodeEditServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -419,13 +422,13 @@ public class BillCodeEditServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

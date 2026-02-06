@@ -54,6 +54,7 @@ public class ReportsServlet extends ClientServlet {
       Query query = dataSession.createQuery(
           "from ReportProfile where provider = :provider and useStatus = 'E' order by profileLabel");
       query.setParameter("provider", webUser.getProvider());
+      @SuppressWarnings("unchecked")
       List<ReportProfile> reportProfileList = query.list();
 
       out.println("<table class=\"boxed\">");
@@ -89,6 +90,7 @@ public class ReportsServlet extends ClientServlet {
       out.println("<h2>Create a New Report</h2>");
       query = dataSession.createQuery(
           "from ReportProfile where provider is null and extendStatus = 'E' order by profileLabel");
+      @SuppressWarnings("unchecked")
       List<ReportProfile> extendReportProfileList = query.list();
       out.println("<p>Choose a template to create a new report:</p>");
       out.println("<ul>");
@@ -114,6 +116,7 @@ public class ReportsServlet extends ClientServlet {
   protected static void loadReportProfileObject(Session dataSession, ReportProfile reportProfile) {
     Query query = dataSession.createQuery("from ReportSchedule where profileId = ?");
     query.setParameter(0, reportProfile.getProfileId());
+    @SuppressWarnings("unchecked")
     List<ReportSchedule> reportScheduleList = query.list();
     reportProfile
         .setReportSchedule(reportScheduleList.size() > 0 ? reportScheduleList.get(0) : null);

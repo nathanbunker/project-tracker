@@ -7,10 +7,11 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -52,7 +53,6 @@ public class ProjectEditServlet extends ClientServlet {
         forwardToHome(request, response);
         return;
       }
-      HttpSession session = request.getSession(true);
       PrintWriter out = appReq.getOut();
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
@@ -137,6 +137,7 @@ public class ProjectEditServlet extends ClientServlet {
         Query query = dataSession.createQuery(
             "from ProjectCategory where provider = :provider order by sortOrder, clientName");
         query.setParameter("provider", webUser.getProvider());
+        @SuppressWarnings("unchecked")
         List<ProjectCategory> projectCategoryList = query.list();
         for (ProjectCategory projectCategory : projectCategoryList) {
           if (projectCategory.getCategoryCode().startsWith("PER-")) {
@@ -172,6 +173,7 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("    <td class=\"boxed\"><select name=\"phaseCode\">");
       {
         Query query = dataSession.createQuery("from ProjectPhase");
+        @SuppressWarnings("unchecked")
         List<ProjectPhase> projectPhaseList = query.list();
         for (ProjectPhase projectPhase : projectPhaseList) {
           if (projectPhase.getPhaseCode().equals(project.getPhaseCode())) {
@@ -193,6 +195,7 @@ public class ProjectEditServlet extends ClientServlet {
         Query query = dataSession.createQuery(
             "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
         query.setParameter("provider", webUser.getProvider());
+        @SuppressWarnings("unchecked")
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {
           if (billCode.getBillCode().equals(project.getBillCode())) {

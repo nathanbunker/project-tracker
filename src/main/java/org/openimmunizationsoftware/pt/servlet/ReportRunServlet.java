@@ -49,11 +49,9 @@ import org.openimmunizationsoftware.pt.report.definition.ReportParameter;
  * 
  * @author nathan
  */
-@SuppressWarnings("serial")
 public class ReportRunServlet extends ClientServlet {
 
-  private static Map<Integer, DailyReportDetails> dailyReportDetailsMap =
-      new HashMap<Integer, ReportRunServlet.DailyReportDetails>();
+  private static Map<Integer, DailyReportDetails> dailyReportDetailsMap = new HashMap<Integer, ReportRunServlet.DailyReportDetails>();
 
   private DailyReportRunner dailyReportRunner = null;
 
@@ -61,7 +59,6 @@ public class ReportRunServlet extends ClientServlet {
     private Date sentAttempted;
     private String reportText = "";
     private String statusMessage = "";
-    private boolean sendingNow = false;
 
     public Date getSentAttempted() {
       return sentAttempted;
@@ -87,19 +84,11 @@ public class ReportRunServlet extends ClientServlet {
       this.statusMessage = statusMessage;
     }
 
-    public boolean isSendingNow() {
-      return sendingNow;
-    }
-
-    public void setSendingNow(boolean sendingNow) {
-      this.sendingNow = sendingNow;
-    }
   }
 
   @Override
   public void init() throws ServletException {
 
-    // TODO Auto-generated method stub
     super.init();
     dailyReportRunner = new DailyReportRunner();
     dailyReportRunner.start();
@@ -197,16 +186,17 @@ public class ReportRunServlet extends ClientServlet {
   }
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+   * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -221,8 +211,6 @@ public class ReportRunServlet extends ClientServlet {
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
-
-
 
       if (action == null) {
         action = "Show All";
@@ -313,11 +301,9 @@ public class ReportRunServlet extends ClientServlet {
           dailyReportDetails.setSentAttempted(new Date());
           if (action.equals("Email")) {
             dailyReportDetailsMap.put(reportProfile.getProfileId(), dailyReportDetails);
-            dailyReportDetails.setSendingNow(true);
           }
           try {
-            report =
-                runReport(dataSession, action, reportProfile, runDate, parameterValues, webUser);
+            report = runReport(dataSession, action, reportProfile, runDate, parameterValues, webUser);
             dailyReportDetails.setReportText(report);
           } catch (Exception e) {
             dailyReportDetails.setReportText("Unable to run report: " + e.getMessage());
@@ -325,8 +311,6 @@ public class ReportRunServlet extends ClientServlet {
             out.println("<pre>");
             e.printStackTrace(out);
             out.println("</pre>");
-          } finally {
-            dailyReportDetails.setSendingNow(false);
           }
         }
         out.print(report);
@@ -367,8 +351,7 @@ public class ReportRunServlet extends ClientServlet {
 
           ReportSchedule reportSchedule = reportProfile.getReportSchedule();
 
-          DailyReportDetails dailyReportDetails =
-              dailyReportDetailsMap.get(reportProfile.getProfileId());
+          DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(reportProfile.getProfileId());
 
           out.println("    <td class=\"boxed\">" + sdf.format(dailyReportDetails.getSentAttempted())
               + "</td>");
@@ -403,8 +386,8 @@ public class ReportRunServlet extends ClientServlet {
 
         printHtmlFoot(appReq);
       } else if (action.equals("Show")) {
-        DailyReportDetails dailyReportDetails =
-            dailyReportDetailsMap.get(Integer.parseInt(request.getParameter("profileId")));
+        DailyReportDetails dailyReportDetails = dailyReportDetailsMap
+            .get(Integer.parseInt(request.getParameter("profileId")));
         printHtmlHead(appReq);
         out.print(dailyReportDetails.getReportText());
         printHtmlFoot(appReq);
@@ -417,7 +400,6 @@ public class ReportRunServlet extends ClientServlet {
     }
   }
 
-  @SuppressWarnings("unchecked")
   private static void runReportsForToday(Date runDate) {
 
     SessionFactory factory = CentralControl.getSessionFactory();
@@ -430,10 +412,12 @@ public class ReportRunServlet extends ClientServlet {
           "from TrackerKeys where id.keyType = ? and id.keyName = ? and keyValue = 'Y'");
       query.setParameter(0, TrackerKeysManager.KEY_TYPE_USER);
       query.setParameter(1, TrackerKeysManager.KEY_TRACK_TIME);
+      @SuppressWarnings("unchecked")
       List<TrackerKeys> trackerKeysList = query.list();
       for (TrackerKeys trackerKeys : trackerKeysList) {
         query = dataSession.createQuery("from WebUser where username = :username ");
         query.setParameter("username", trackerKeys.getId().getKeyId());
+        @SuppressWarnings("unchecked")
         List<WebUser> webUserList = query.list();
         if (webUserList.size() > 0) {
           WebUser webUser = webUserList.get(0);
@@ -480,6 +464,7 @@ public class ReportRunServlet extends ClientServlet {
               query = dataSession.createQuery(
                   "from ProjectContactSupervisor where contact = ? and emailAlert = 'Y'");
               query.setParameter(0, webUser.getProjectContact());
+              @SuppressWarnings("unchecked")
               List<ProjectContactSupervisor> projectContactSupervisorList = query.list();
               String cc = null;
               if (projectContactSupervisorList.size() > 0) {
@@ -512,10 +497,12 @@ public class ReportRunServlet extends ClientServlet {
       }
 
       query = dataSession.createQuery("from ReportProfile where use_status = 'E'");
+      @SuppressWarnings("unchecked")
       List<ReportProfile> reportProfileList = query.list();
       for (ReportProfile reportProfile : reportProfileList) {
         query = dataSession.createQuery("from WebUser where username = :username");
         query.setParameter("username", reportProfile.getUsername());
+        @SuppressWarnings("unchecked")
         List<WebUser> webUserList = query.list();
         WebUser webUser;
         if (webUserList.size() > 0) {
@@ -534,7 +521,6 @@ public class ReportRunServlet extends ClientServlet {
           DailyReportDetails dailyReportDetails = new DailyReportDetails();
           dailyReportDetails.setSentAttempted(new Date());
           dailyReportDetailsMap.put(reportProfile.getProfileId(), dailyReportDetails);
-          dailyReportDetails.setSendingNow(true);
           StringBuilder sb = new StringBuilder();
           try {
             ReportBatch reportBatch = new ReportBatch(webUser);
@@ -582,7 +568,6 @@ public class ReportRunServlet extends ClientServlet {
               }
             }
           } finally {
-            dailyReportDetails.setSendingNow(false);
             dailyReportDetails.setStatusMessage(sb.toString());
           }
         }
@@ -635,8 +620,7 @@ public class ReportRunServlet extends ClientServlet {
       printWriter.println("  <body>");
 
       printWriter.println("    <h1>For Week</h1>");
-      TimeTracker timeTracker =
-          new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
+      TimeTracker timeTracker = new TimeTracker(webUser, billDate, Calendar.WEEK_OF_YEAR, dataSession);
       hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker,
           "Week", false, TrackServlet.YEARLY_HOURS);
 
@@ -713,25 +697,25 @@ public class ReportRunServlet extends ClientServlet {
     bufferedReader.close();
   }
 
-  private static String[][] CSS_SUBSITUTIONS = {{"<table class=\"boxed\"",
-      "border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;"},
-      {"<th class=\"boxed\"",
-          "background-color: #DDDDDD; text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;"},
-      {"<th class=\"title\"", "background-color: #990000; color: #DDDDDD; padding-left: 5px;"},
-      {"<td class=\"boxed\"",
-          "text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;"}};
+  private static String[][] CSS_SUBSITUTIONS = { { "<table class=\"boxed\"",
+      "border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" },
+      { "<th class=\"boxed\"",
+          "background-color: #DDDDDD; text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" },
+      { "<th class=\"title\"", "background-color: #990000; color: #DDDDDD; padding-left: 5px;" },
+      { "<td class=\"boxed\"",
+          "text-align: left; vertical-align:top; border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42;" } };
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -743,13 +727,13 @@ public class ReportRunServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

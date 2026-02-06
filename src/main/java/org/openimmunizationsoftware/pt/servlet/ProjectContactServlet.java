@@ -33,13 +33,13 @@ public class ProjectContactServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -54,7 +54,6 @@ public class ProjectContactServlet extends ClientServlet {
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
-
 
       int projectContactId = Integer.parseInt(request.getParameter("projectContactId"));
 
@@ -124,9 +123,8 @@ public class ProjectContactServlet extends ClientServlet {
       out.println("</table>");
       out.println("<h2>Assigned Projects</h2>");
 
-
-      List<ProjectContactAssigned> projectContactAssignedList =
-          getProjectContactAssigned(dataSession, projectContactId);
+      List<ProjectContactAssigned> projectContactAssignedList = getProjectContactAssigned(dataSession,
+          projectContactId);
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
@@ -135,8 +133,7 @@ public class ProjectContactServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Action</th>");
       out.println("  </tr>");
       for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
-        Project project =
-            (Project) dataSession.get(Project.class, projectContactAssigned.getId().getProjectId());
+        Project project = (Project) dataSession.get(Project.class, projectContactAssigned.getId().getProjectId());
         if (project != null) {
           ProjectsServlet.loadProjectsObject(dataSession, project);
           out.println("  <tr class=\"boxed\">");
@@ -182,6 +179,7 @@ public class ProjectContactServlet extends ClientServlet {
         for (Project project : projectSelectedList) {
           query.setParameter(0, project.getProjectId());
           query.setParameter(1, projectContact.getContactId());
+          @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> assigned = query.list();
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">"
@@ -226,6 +224,7 @@ public class ProjectContactServlet extends ClientServlet {
           ProjectsServlet.loadProjectsObject(dataSession, project);
           query.setParameter(0, project.getProjectId());
           query.setParameter(1, projectContact.getContactId());
+          @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> assigned = query.list();
           out.println("  <tr class=\"boxed\">");
           out.println("    <td class=\"boxed\">"
@@ -263,18 +262,18 @@ public class ProjectContactServlet extends ClientServlet {
 
   private List<ProjectContactAssigned> getProjectContactAssigned(Session dataSession,
       int projectContactId) {
-    Query query =
-        dataSession.createQuery("from ProjectContactAssigned where id.contactId = :contactId");
+    Query query = dataSession.createQuery("from ProjectContactAssigned where id.contactId = :contactId");
     query.setParameter("contactId", projectContactId);
+    @SuppressWarnings("unchecked")
     List<ProjectContactAssigned> projectContactAssignedList = query.list();
     return projectContactAssignedList;
   }
 
   private List<ContactEvent> getProjectContactList(Session dataSession,
       ProjectContact projectContact) {
-    Query query =
-        dataSession.createQuery("from ContactEvent where projectContact = :projectContact");
+    Query query = dataSession.createQuery("from ContactEvent where projectContact = :projectContact");
     query.setParameter("projectContact", projectContact);
+    @SuppressWarnings("unchecked")
     List<ContactEvent> contactEventList = query.list();
     return contactEventList;
   }
@@ -282,24 +281,27 @@ public class ProjectContactServlet extends ClientServlet {
   private ProjectContact getProjectContact(Session dataSession, int projectContactId) {
     Query query = dataSession.createQuery("from ProjectContact where contactId = :contactId ");
     query.setParameter("contactId", projectContactId);
-    ProjectContact projectContact = ((List<ProjectContact>) query.list()).get(0);
+    @SuppressWarnings("unchecked")
+    List<ProjectContact> projectContactList = query.list();
+    ProjectContact projectContact = projectContactList.get(0);
     return projectContact;
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -311,13 +313,13 @@ public class ProjectContactServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
