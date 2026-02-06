@@ -17,12 +17,6 @@
         <property name="providerName" type="string">
             <column name="provider_name" length="45" />
         </property>
-        <property name="vendorName" type="string">
-            <column name="vendor_name" length="45" />
-        </property>
-        <property name="systemName" type="string">
-            <column name="system_name" length="30" />
-        </property>
         <property name="description" type="string">
             <column name="description" length="1200" />
         </property>
@@ -35,24 +29,9 @@
         <property name="billCode" type="string">
             <column name="bill_code" length="15" />
         </property>
-        <property name="fileLocation" type="string">
-            <column name="file_location" length="60" />
-        </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
         <property name="username" type="string">
             <column name="username" length="30" not-null="true" />
-        </property>
-        <property name="iisSubmissionCode" type="string">
-            <column name="iis_submission_code" length="30" />
-        </property>
-        <property name="iisFacilityId" type="string">
-            <column name="iis_facility_id" length="60" />
-        </property>
-        <property name="iisRegionCode" type="string">
-            <column name="iis_region_code" length="30" />
-        </property>
-        <property name="medicalOrganization" type="string">
-            <column name="medical_organization" length="60" />
         </property>
         <property name="priorityLevel" type="integer">
             <column name="priority_level" not-null="true" />

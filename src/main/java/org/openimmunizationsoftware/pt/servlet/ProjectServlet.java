@@ -207,47 +207,10 @@ public class ProjectServlet extends ClientServlet {
               : "")
           + "</td>");
       out.println("  </tr>");
-      if (project.getVendorName() != null && !project.getVendorName().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Vendor</th>");
-        out.println("    <td class=\"boxed\">" + project.getVendorName() + "</td>");
-        out.println("  </tr>");
-      }
-      if (project.getSystemName() != null && !project.getSystemName().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">System</th>");
-        out.println("    <td class=\"boxed\">" + n(project.getSystemName()) + "</td>");
-        out.println("  </tr>");
-      }
       if (project.getDescription() != null && !project.getDescription().equals("")) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Description</th>");
         out.println("    <td class=\"boxed\">" + addBreaks(project.getDescription()) + "</td>");
-        out.println("  </tr>");
-      }
-      if (project.getIisSubmissionCode() != null && !project.getIisSubmissionCode().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">IIS Sub Code</th>");
-        out.println("    <td class=\"boxed\">" + n(project.getIisSubmissionCode()) + "</td>");
-        out.println("  </tr>");
-      }
-      if (project.getIisFacilityId() != null && !project.getIisFacilityId().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">IIS Facility Id</th>");
-        out.println("    <td class=\"boxed\">" + n(project.getIisFacilityId()) + "</td>");
-        out.println("  </tr>");
-      }
-      if (project.getMedicalOrganization() != null
-          && !project.getMedicalOrganization().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Medical Org</th>");
-        out.println("    <td class=\"boxed\">" + n(project.getMedicalOrganization()) + "</td>");
-        out.println("  </tr>");
-      }
-      if (project.getIisRegionCode() != null && !project.getIisRegionCode().equals("")) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">IIS Region Code</th>");
-        out.println("    <td class=\"boxed\">" + n(project.getIisRegionCode()) + "</td>");
         out.println("  </tr>");
       }
       out.println("  <tr class=\"boxed\">");

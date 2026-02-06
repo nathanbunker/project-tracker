@@ -33,13 +33,7 @@ public class ProjectsServlet extends ClientServlet {
   private static final String PARAM_CATEGORY_CODE = "categoryCode";
   private static final String PARAM_PHASE_CODE = "phaseCode";
   private static final String PARAM_SEARCH_FIELD = "searchField";
-  private static final String MEDICAL_ORGANIZATION = "Medical Organization";
-  private static final String IIS_FACILITY_ID = "IIS Facility Id";
-  private static final String IIS_SUBMISSION_CODE = "IIS Submission Code";
-  private static final String IIS_REGION_CODE = "IIS Region Code";
   private static final String DESCRIPTION = "Description";
-  private static final String SYSTEM_NAME = "System Name";
-  private static final String VENDOR_NAME = "Vendor Name";
   private static final String PROVIDER_NAME = "Provider Name";
   private static final String PROJECT_NAME = "Project Name";
   private static final String NOT_CLOSED = "NOT_CLOSED";
@@ -54,13 +48,13 @@ public class ProjectsServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -73,7 +67,6 @@ public class ProjectsServlet extends ClientServlet {
       }
       Session dataSession = appReq.getDataSession();
       PrintWriter out = appReq.getOut();
-
 
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
@@ -135,20 +128,8 @@ public class ProjectsServlet extends ClientServlet {
           + (searchField.equals(PROJECT_NAME) ? " selected" : "") + ">Project Name</option>");
       out.println("  <option value=\"" + PROVIDER_NAME + "\""
           + (searchField.equals(PROVIDER_NAME) ? " selected" : "") + ">Provider Name</option>");
-      out.println("  <option value=\"" + VENDOR_NAME + "\""
-          + (searchField.equals(VENDOR_NAME) ? " selected" : "") + ">Vendor Name</option>");
-      out.println("  <option value=\"" + SYSTEM_NAME + "\""
-          + (searchField.equals(SYSTEM_NAME) ? " selected" : "") + ">System Name</option>");
       out.println("  <option value=\"" + DESCRIPTION + "\""
           + (searchField.equals(DESCRIPTION) ? " selected" : "") + ">Description</option>");
-      out.println("  <option value=\"" + IIS_SUBMISSION_CODE + "\""
-          + (searchField.equals(IIS_SUBMISSION_CODE) ? " selected" : "")
-          + ">IIS Submission Code</option>");
-      out.println("  <option value=\"" + IIS_FACILITY_ID + "\""
-          + (searchField.equals(IIS_FACILITY_ID) ? " selected" : "") + ">IIS Facility Id</option>");
-      out.println("  <option value=\"" + MEDICAL_ORGANIZATION + "\""
-          + (searchField.equals(MEDICAL_ORGANIZATION) ? " selected" : "")
-          + ">Medical Organization</option>");
       out.println("</select>");
       out.println("for <input type=\"text\" name=\"searchText\" value=\"" + searchText
           + "\" size=\"15\" >");
@@ -210,8 +191,7 @@ public class ProjectsServlet extends ClientServlet {
       appReq.setProjectIdList(projectIdList);
       appReq.setProjectContactAssignedList(null);
 
-      boolean showPriorityColumn =
-          searchText.equals("") && categoryCode.equals("") && phaseCode.equals(NOT_CLOSED);
+      boolean showPriorityColumn = searchText.equals("") && categoryCode.equals("") && phaseCode.equals(NOT_CLOSED);
 
       printProjectSearchResults(out, dataSession, phaseCode, searchField, showPriorityColumn,
           categoryCode, projectList, projectIdList);
@@ -299,18 +279,8 @@ public class ProjectsServlet extends ClientServlet {
           queryString += " and projectName like ?";
         } else if (searchField.equals(PROVIDER_NAME)) {
           queryString += " and providerName like ?";
-        } else if (searchField.equals(VENDOR_NAME)) {
-          queryString += " and vendorName like ?";
-        } else if (searchField.equals(SYSTEM_NAME)) {
-          queryString += " and systemName like ?";
         } else if (searchField.equals(DESCRIPTION)) {
           queryString += " and description like ?";
-        } else if (searchField.equals(IIS_SUBMISSION_CODE)) {
-          queryString += " and iisSubmissionCode like ?";
-        } else if (searchField.equals(IIS_FACILITY_ID)) {
-          queryString += " and iisFacilityId like ?";
-        } else if (searchField.equals(MEDICAL_ORGANIZATION)) {
-          queryString += " and medicalOrganization like ?";
         } else {
           queryString += " and projectName like ?";
         }
@@ -357,25 +327,25 @@ public class ProjectsServlet extends ClientServlet {
     @SuppressWarnings("unchecked")
     List<ProjectCategory> projectCategoryList = query1.list();
     project.setProjectCategory(projectCategoryList.size() > 0 ? projectCategoryList.get(0) : null);
-    ProjectPhase projectPhase =
-        (ProjectPhase) dataSession.get(ProjectPhase.class, project.getPhaseCode());
+    ProjectPhase projectPhase = (ProjectPhase) dataSession.get(ProjectPhase.class, project.getPhaseCode());
     project.setProjectPhase(projectPhase);
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -387,13 +357,13 @@ public class ProjectsServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

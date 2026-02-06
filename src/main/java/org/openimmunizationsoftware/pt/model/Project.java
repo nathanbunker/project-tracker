@@ -14,21 +14,14 @@ public class Project implements java.io.Serializable {
   private String categoryCode;
   private String projectName;
   private String providerName;
-  private String vendorName;
-  private String systemName;
   private String description;
   private String phaseCode;
   private Integer profileId;
   private String billCode;
-  private String fileLocation;
   private ProjectProvider provider;
   private String username;
-  private String iisSubmissionCode;
-  private String iisFacilityId;
-  private String medicalOrganization;
   private ProjectCategory projectCategory = null;
   private ProjectPhase projectPhase = null;
-  private String iisRegionCode;
   private int priorityLevel = 0;
 
   public int getPriorityLevel() {
@@ -37,30 +30,6 @@ public class Project implements java.io.Serializable {
 
   public void setPriorityLevel(int priorityLevel) {
     this.priorityLevel = priorityLevel;
-  }
-
-  public String getIisRegionCode() {
-    return iisRegionCode;
-  }
-
-  public void setIisRegionCode(String iisRegionCode) {
-    this.iisRegionCode = iisRegionCode;
-  }
-
-  public String getIisFacilityId() {
-    return iisFacilityId;
-  }
-
-  public void setIisFacilityId(String iisFacilityId) {
-    this.iisFacilityId = iisFacilityId;
-  }
-
-  public String getMedicalOrganization() {
-    return medicalOrganization;
-  }
-
-  public void setMedicalOrganization(String medicalOrganization) {
-    this.medicalOrganization = medicalOrganization;
   }
 
   public ProjectCategory getProjectCategory() {
@@ -77,14 +46,6 @@ public class Project implements java.io.Serializable {
 
   public void setProjectPhase(ProjectPhase projectPhase) {
     this.projectPhase = projectPhase;
-  }
-
-  public String getIisSubmissionCode() {
-    return iisSubmissionCode;
-  }
-
-  public void setIisSubmissionCode(String iisSubmissionCode) {
-    this.iisSubmissionCode = iisSubmissionCode;
   }
 
   private List<ProjectContactAssigned> projectContactAssignedList = null;
@@ -140,22 +101,6 @@ public class Project implements java.io.Serializable {
     this.providerName = providerName;
   }
 
-  public String getVendorName() {
-    return this.vendorName;
-  }
-
-  public void setVendorName(String vendorName) {
-    this.vendorName = vendorName;
-  }
-
-  public String getSystemName() {
-    return this.systemName;
-  }
-
-  public void setSystemName(String systemName) {
-    this.systemName = systemName;
-  }
-
   public String getDescription() {
     return this.description;
   }
@@ -186,14 +131,6 @@ public class Project implements java.io.Serializable {
 
   public void setBillCode(String billCode) {
     this.billCode = billCode;
-  }
-
-  public String getFileLocation() {
-    return this.fileLocation;
-  }
-
-  public void setFileLocation(String fileLocation) {
-    this.fileLocation = fileLocation;
   }
 
   public String getUsername() {

@@ -31,16 +31,17 @@ import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
 public class ProjectEditServlet extends ClientServlet {
 
   /**
-   * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
+   * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
+   * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -65,8 +66,7 @@ public class ProjectEditServlet extends ClientServlet {
           && !request.getParameter("projectId").equals("0")) {
         int projectId = Integer.parseInt(request.getParameter("projectId"));
         project = (Project) dataSession.get(Project.class, projectId);
-        projectContactAssignedForThisUser =
-            ProjectServlet.getProjectContactAssigned(webUser, dataSession, project);
+        projectContactAssignedForThisUser = ProjectServlet.getProjectContactAssigned(webUser, dataSession, project);
       } else {
         project = new Project();
         project.setProvider(webUser.getProvider());
@@ -80,12 +80,6 @@ public class ProjectEditServlet extends ClientServlet {
           project.setPhaseCode(request.getParameter("phaseCode"));
           project.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           project.setPriorityLevel(Integer.parseInt(request.getParameter("priorityLevel")));
-          project.setSystemName(trim(request.getParameter("systemName"), 30));
-          project.setVendorName(trim(request.getParameter("vendorName"), 45));
-          project.setIisSubmissionCode(trim(request.getParameter("iisSubmissionCode"), 30));
-          project.setIisFacilityId(trim(request.getParameter("iisFacilityId"), 30));
-          project.setMedicalOrganization(trim(request.getParameter("medicalOrganization"), 60));
-          project.setIisRegionCode(trim(request.getParameter("iisRegionCode"), 30));
           project.setUsername(webUser.getUsername());
           project.setProjectName(trim(request.getParameter("projectName"), 100));
           if (webUser.isTrackTime()) {
@@ -166,37 +160,6 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Priority Level</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"priorityLevel\" value=\""
           + project.getPriorityLevel() + "\" size=\"3\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Vendor</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"vendorName\" value=\""
-          + n(project.getVendorName()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">System</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"systemName\" value=\""
-          + n(project.getSystemName()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">IIS Submission Code</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"iisSubmissionCode\" value=\""
-          + n(project.getIisSubmissionCode()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">IIS Facility Id</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"iisFacilityId\" value=\""
-          + n(project.getIisFacilityId()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Medical Organization</th>");
-      out.println(
-          "    <td class=\"boxed\"><input type=\"text\" name=\"medicalOrganization\" value=\""
-              + n(project.getMedicalOrganization()) + "\" size=\"30\"></td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">IIS Region Code</th>");
-      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"iisRegionCode\" value=\""
-          + n(project.getIisRegionCode()) + "\" size=\"30\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Description</th>");
@@ -287,19 +250,20 @@ public class ProjectEditServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -311,13 +275,13 @@ public class ProjectEditServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
