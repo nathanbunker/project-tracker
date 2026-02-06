@@ -31,7 +31,6 @@ public class TrackerKeysManager {
   public static final String KEY_SYSTEM_EXTERNAL_URL = "system.external.url";
   public static final String KEY_SYSTEM_SMTP_ADDRESS = "system.smtp.address";
   public static final String KEY_TRACK_TIME = "track.time";
-  public static final String KEY_MANAGE_BUDGET = "manage.budget";
   public static final String KEY_DISPLAY_SIZE = "display.size";
   public static final String KEY_DISPLAY_COLOR = "display.color";
   public static final String KEY_TIME_ZONE = "time.zone";

@@ -121,26 +121,6 @@
     <servlet-name>BillCodesServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillCodesServlet</servlet-class>
   </servlet>
-  <servlet>
-    <servlet-name>BudgetServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BudgetServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>BudgetTransRecordServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BudgetTransRecordServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>BudgetBalanceServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BudgetBalanceServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>BudgetAccountEditServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BudgetAccountEditServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>BudgetItemEditServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BudgetItemEditServlet</servlet-class>
-  </servlet>
   <servlet-mapping>
     <servlet-name>LoginServlet</servlet-name>
     <url-pattern>/LoginServlet</url-pattern>
@@ -256,26 +236,6 @@
   <servlet-mapping>
     <servlet-name>BillCodesServlet</servlet-name>
     <url-pattern>/BillCodesServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BudgetServlet</servlet-name>
-    <url-pattern>/BudgetServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BudgetTransRecordServlet</servlet-name>
-    <url-pattern>/BudgetTransRecordServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BudgetBalanceServlet</servlet-name>
-    <url-pattern>/BudgetBalanceServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BudgetAccountEditServlet</servlet-name>
-    <url-pattern>/BudgetAccountEditServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BudgetItemEditServlet</servlet-name>
-    <url-pattern>/BudgetItemEditServlet</url-pattern>
   </servlet-mapping>
   
   <session-config>

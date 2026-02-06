@@ -229,9 +229,6 @@ public class ClientServlet extends HttpServlet {
         if (timeTracker != null) {
           menuList.add(new String[] { "TrackServlet", "Track" });
         }
-        if (webUser.isManageBudget()) {
-          menuList.add(new String[] { "BudgetServlet", "Budget" });
-        }
       }
       menuList.add(new String[] { "SettingsServlet", "Settings" });
     } else {

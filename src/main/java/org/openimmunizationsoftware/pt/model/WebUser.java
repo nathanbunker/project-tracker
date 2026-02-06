@@ -23,7 +23,6 @@ public class WebUser implements java.io.Serializable {
   private String password;
   private ProjectProvider provider = null;
   private boolean trackTime = false;
-  private boolean manageBudget = false;
   private String userType;
   private WebUser parentWebUser = null;
   private TimeZone timeZone = TimeZone.getTimeZone(WebUser.AMERICA_DENVER);
@@ -63,14 +62,6 @@ public class WebUser implements java.io.Serializable {
 
   public void setParentWebUser(WebUser parentWebUser) {
     this.parentWebUser = parentWebUser;
-  }
-
-  public boolean isManageBudget() {
-    return manageBudget;
-  }
-
-  public void setManageBudget(boolean manageBudget) {
-    this.manageBudget = manageBudget;
   }
 
   public boolean isUserTypeAdmin() {

@@ -20,11 +20,6 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/BillExpected.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillMonth.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillWorkStatus.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/BudgetAccount.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/BudgetMonth.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/BudgetItem.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/BudgetTrans.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/BudgetTransRecord.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ContactEvent.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Project.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAction.hbm.xml"/>

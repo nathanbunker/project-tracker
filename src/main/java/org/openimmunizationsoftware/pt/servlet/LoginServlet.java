@@ -111,10 +111,6 @@ public class LoginServlet extends ClientServlet {
             .getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", webUser, dataSession)
             .equalsIgnoreCase("Y"));
 
-        webUser.setManageBudget(TrackerKeysManager
-            .getKeyValue(TrackerKeysManager.KEY_MANAGE_BUDGET, "N", webUser, dataSession)
-            .equalsIgnoreCase("Y"));
-
         webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
             TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
 
