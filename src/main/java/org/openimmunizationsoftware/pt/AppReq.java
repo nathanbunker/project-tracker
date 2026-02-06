@@ -22,7 +22,6 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 public class AppReq {
 
   private static final String SESSION_VAR_TIME_TRACKER = "timeTracker";
-  private static final String SESSION_VAR_DATA_SESSION = "dataSession";
   private static final String SESSION_VAR_WEB_USER = "webUser";
   private static final String SESSION_VAR_PROJECT_ID_LIST = "projectIdList";
   private static final String SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST = "projectContactAssignedList";

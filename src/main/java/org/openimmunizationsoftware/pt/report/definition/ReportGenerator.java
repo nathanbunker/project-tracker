@@ -13,8 +13,8 @@ import java.util.Map;
 import org.hibernate.Session;
 
 public class ReportGenerator {
-  public static StringBuffer generateReport(PrintWriter out, StringBuffer sbuf, Map parameterValues,
-      String reportText, Session dataSession) {
+  public static StringBuffer generateReport(PrintWriter out, StringBuffer sbuf,
+      Map<String, String> parameterValues, String reportText, Session dataSession) {
     Connection conn = dataSession.connection();
 
     generateReport(out, sbuf, parameterValues, removeReportTag(reportText), 0, conn);
@@ -22,8 +22,8 @@ public class ReportGenerator {
     return sbuf;
   }
 
-  private static int generateReport(PrintWriter out, StringBuffer sbuf, Map parameterValues,
-      String reportText, int curPos, Connection conn) {
+  private static int generateReport(PrintWriter out, StringBuffer sbuf,
+      Map<String, String> parameterValues, String reportText, int curPos, Connection conn) {
     int nextStartBracket = 0;
     while (curPos < reportText.length()) {
       nextStartBracket = reportText.indexOf("<%", curPos);
@@ -54,8 +54,8 @@ public class ReportGenerator {
   public static final String COMMAND_TABLE = "TABLE";
   public static final String COMMAND_GET = "GET";
 
-  private static int query(PrintWriter out, StringBuffer sbuf, Map parameterValues, Connection conn,
-      String reportText, String sqlSource, int curPos) {
+  private static int query(PrintWriter out, StringBuffer sbuf, Map<String, String> parameterValues,
+      Connection conn, String reportText, String sqlSource, int curPos) {
     String command = "";
     int pos = sqlSource.indexOf(" ");
     if (pos != -1) {
@@ -160,7 +160,6 @@ public class ReportGenerator {
       }
     } catch (Exception e) {
       e.printStackTrace();
-      // TODO handle exception
     }
     return curPos;
   }
@@ -175,15 +174,16 @@ public class ReportGenerator {
     }
   }
 
-  private static PreparedStatement prepareStatement(Map parameterValues, Connection conn,
+  private static PreparedStatement prepareStatement(Map<String, String> parameterValues,
+      Connection conn,
       int sqlListPos, String[] sqlList) throws SQLException {
-    List queryParams = new ArrayList();
+    List<String> queryParams = new ArrayList<>();
     PreparedStatement pstmt;
     sqlList[sqlListPos] = substitute(sqlList[sqlListPos], null, queryParams);
     pstmt = conn.prepareStatement(sqlList[sqlListPos]);
     int i = 0;
-    for (Iterator it = queryParams.iterator(); it.hasNext();) {
-      String parameter = (String) it.next();
+    for (Iterator<String> it = queryParams.iterator(); it.hasNext();) {
+      String parameter = it.next();
       String value = (String) parameterValues.get(parameter.toUpperCase());
       pstmt.setString(++i, value);
     }
@@ -209,8 +209,8 @@ public class ReportGenerator {
     }
   }
 
-  private static int print(PrintWriter out, StringBuffer sbuf, Map parameterValues,
-      String reportText, int curPos, int endPos) {
+  private static int print(PrintWriter out, StringBuffer sbuf,
+      Map<String, String> parameterValues, String reportText, int curPos, int endPos) {
     if (parameterValues != null) {
       String text = reportText.substring(curPos, endPos);
       text = substitute(text, parameterValues);
@@ -225,11 +225,12 @@ public class ReportGenerator {
     return curPos;
   }
 
-  public static String substitute(String string, Map parameterValues) {
+  public static String substitute(String string, Map<String, String> parameterValues) {
     return substitute(string, parameterValues, null);
   }
 
-  public static String substitute(String string, Map parameterValues, List queryParams) {
+  public static String substitute(String string, Map<String, String> parameterValues,
+      List<String> queryParams) {
     StringBuffer sbuf = new StringBuffer(string.length());
     int curPos = 0;
     int nextStartBracket = 0;

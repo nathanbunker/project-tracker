@@ -58,7 +58,6 @@ public class TimeTracker {
   }
 
   public synchronized int getTotalMinsForAction(ProjectAction projectAction) {
-    HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     int totalMins = 0;
     if (hasRunningEntry()) {
       if (billEntryActionId != null && projectAction != null
@@ -70,7 +69,6 @@ public class TimeTracker {
   }
 
   public synchronized int getTotalMinsForProject(Project project) {
-    HashMap<Integer, Integer> totalMinsForProjectMapCopy = new HashMap<Integer, Integer>(totalMinsForProjectMap);
     int totalMins = 0;
     if (hasRunningEntry()) {
       if (billEntryProjectId == project.getProjectId()) {
