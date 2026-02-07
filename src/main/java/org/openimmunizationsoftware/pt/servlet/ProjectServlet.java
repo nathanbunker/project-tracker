@@ -330,7 +330,10 @@ public class ProjectServlet extends ClientServlet {
     out.println("  </tr>");
     List<ProjectAction> projectActionList = getProjectActionsTakenList(dataSession, projectId);
     for (ProjectAction pa : projectActionList) {
-      ProjectContact projectContact = (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+      ProjectContact projectContact = pa.getContact();
+      if (projectContact == null) {
+        projectContact = (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+      }
       out.println("  <tr class=\"boxed\">");
       out.println("    <td class=\"boxed\">" + sdf.format(pa.getActionDate()) + "</td>");
       out.println("    <td class=\"boxed\">" + projectContact.getNameFirst() + " "
@@ -348,7 +351,10 @@ public class ProjectServlet extends ClientServlet {
 
   private static List<ProjectAction> getProjectActionsTakenList(Session dataSession, int projectId) {
     Query query = dataSession.createQuery(
-        "from ProjectAction where projectId = ? and actionDescription <> '' order by actionDate desc");
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "where pa.projectId = ? and pa.actionDescription <> '' order by pa.actionDate desc");
     query.setParameter(0, projectId);
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
@@ -579,7 +585,12 @@ public class ProjectServlet extends ClientServlet {
     Query query;
 
     query = dataSession.createQuery(
-        "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "left join fetch pa.nextProjectContact "
+            + "where pa.projectId = ? and pa.nextDescription <> '' and pa.nextActionId = 0 "
+            + "order by pa.nextDue asc");
     query.setParameter(0, projectId);
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();

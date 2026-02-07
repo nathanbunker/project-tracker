@@ -234,9 +234,13 @@ public class HomeServlet extends ClientServlet {
       String nextActionType, Date nextDue, boolean showLink, boolean showMenu) {
     SimpleDateFormat sdf1 = webUser.getDateFormat();
     Query query = dataSession.createQuery(
-        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
-            + "and nextActionId = 0 and nextDescription <> '' "
-            + "order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "left join fetch pa.nextProjectContact "
+            + "where pa.provider = :provider and (pa.contactId = :contactId or pa.nextContactId = :nextContactId) "
+            + "and pa.nextActionId = 0 and pa.nextDescription <> '' "
+            + "order by pa.nextDue, pa.priorityLevel DESC, pa.nextTimeEstimate, pa.actionDate");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter("nextContactId", webUser.getContactId());
@@ -453,17 +457,24 @@ public class HomeServlet extends ClientServlet {
     {
       Date today = TimeTracker.createToday(webUser).getTime();
       for (ProjectAction projectAction : projectActionList) {
-        projectAction
-            .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
+        Project project = projectAction.getProject();
+        if (project == null) {
+          project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
+          projectAction.setProject(project);
+        }
         if (projectAction.getProject() == null) {
           continue;
         }
         if (projectAction.getNextDue() != null && projectAction.getNextDue().before(today)) {
           projectActionListOverdue.add(projectAction);
         }
-        projectAction.setContact(
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
-        if (projectAction.getNextContactId() != null && projectAction.getNextContactId() > 0) {
+        ProjectContact contact = projectAction.getContact();
+        if (contact == null) {
+          projectAction.setContact(
+              (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+        }
+        if (projectAction.getNextProjectContact() == null
+            && projectAction.getNextContactId() != null && projectAction.getNextContactId() > 0) {
           projectAction.setNextProjectContact((ProjectContact) dataSession.get(ProjectContact.class,
               projectAction.getNextContactId()));
         }

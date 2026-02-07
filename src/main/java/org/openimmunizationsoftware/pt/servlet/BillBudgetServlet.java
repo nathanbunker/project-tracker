@@ -43,13 +43,13 @@ public class BillBudgetServlet extends ClientServlet {
    * methods.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -75,8 +75,6 @@ public class BillBudgetServlet extends ClientServlet {
       appReq.close();
     }
   }
-
-
 
   public static void generateReport(PrintWriter out, Session dataSession, BillBudget billBudget,
       Date today, WebUser webUser) {
@@ -167,7 +165,7 @@ public class BillBudgetServlet extends ClientServlet {
           out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(totalMins) + "</td>");
           out.println("  </tr>");
           mins = 0;
-          actionMonthDates.add(new Date[] {prevStartDate, billDay.getBillDate()});
+          actionMonthDates.add(new Date[] { prevStartDate, billDay.getBillDate() });
           prevStartDate = billDay.getBillDate();
         }
       }
@@ -183,7 +181,7 @@ public class BillBudgetServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(mins) + "</td>");
       out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(totalMins) + "</td>");
       out.println("  </tr>");
-      actionMonthDates.add(new Date[] {prevStartDate, billBudget.getEndDate()});
+      actionMonthDates.add(new Date[] { prevStartDate, billBudget.getEndDate() });
     }
     out.println("</table> ");
     out.println("<br/>");
@@ -256,7 +254,10 @@ public class BillBudgetServlet extends ClientServlet {
       for (Project project : projectList) {
 
         query = dataSession.createQuery(
-            "from ProjectAction where projectId = ? and actionDescription <> '' and actionDate >= ? and actionDate < ? order by actionDate asc");
+            "select distinct pa from ProjectAction pa "
+                + "left join fetch pa.contact "
+                + "where pa.projectId = ? and pa.actionDescription <> '' and pa.actionDate >= ? and pa.actionDate < ? "
+                + "order by pa.actionDate asc");
         query.setParameter(0, project.getProjectId());
         query.setParameter(1, start);
         query.setParameter(2, end);
@@ -264,8 +265,10 @@ public class BillBudgetServlet extends ClientServlet {
         List<ProjectAction> projectActionList = query.list();
 
         for (ProjectAction projectAction : projectActionList) {
-          ProjectContact projectContact =
-              (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId());
+          ProjectContact projectContact = projectAction.getContact();
+          if (projectContact == null) {
+            projectContact = (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId());
+          }
           out.println("  <tr class=\"boxed\">");
           if (projectList.size() > 1) {
             out.println("    <td class=\"boxed\">" + project.getProjectName() + "</td>");
@@ -366,19 +369,20 @@ public class BillBudgetServlet extends ClientServlet {
   }
 
   // <editor-fold defaultstate="collapsed"
-  // desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+  // desc="HttpServlet methods. Click on the + sign on the left to edit the
+  // code.">
 
   /**
    * Handles the HTTP <code>GET</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -390,13 +394,13 @@ public class BillBudgetServlet extends ClientServlet {
    * Handles the HTTP <code>POST</code> method.
    * 
    * @param request
-   *          servlet request
+   *                 servlet request
    * @param response
-   *          servlet response
+   *                 servlet response
    * @throws ServletException
-   *           if a servlet-specific error occurs
+   *                          if a servlet-specific error occurs
    * @throws IOException
-   *           if an I/O error occurs
+   *                          if an I/O error occurs
    */
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)

@@ -238,28 +238,38 @@ public class ProjectActionServlet extends ClientServlet {
       boolean planningEnabled = request.getParameter(PARAM_PLANNING_ENABLED) != null;
 
       List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
-      prepareProjectActionList(dataSession, projectActionDueTodayList, webUser);
       List<ProjectAction> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
-      prepareProjectActionList(dataSession, projectActionOverdueList, webUser);
       List<List<ProjectAction>> projectActionDueNextWorkingDayListList = new ArrayList<>();
       if (planningEnabled) {
+        Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
+        planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
+        Date planningStartDate = planningCalendar.getTime();
+        planningCalendar.add(Calendar.DAY_OF_MONTH, 13);
+        Date planningEndDate = planningCalendar.getTime();
+        List<ProjectAction> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
+            planningStartDate, planningEndDate);
+        Map<Date, List<ProjectAction>> planningBuckets = new HashMap<>();
+        for (ProjectAction projectAction : planningRangeList) {
+          Date bucketDate = normalizeDate(projectAction.getNextDue());
+          List<ProjectAction> bucketList = planningBuckets.get(bucketDate);
+          if (bucketList == null) {
+            bucketList = new ArrayList<>();
+            planningBuckets.put(bucketDate, bucketList);
+          }
+          bucketList.add(projectAction);
+        }
+
         int daysFound = 0;
-        int dayOffset = 1;
-        while (daysFound < 5 && dayOffset < 14) {
-          List<ProjectAction> projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession,
-              dayOffset);
-          while (projectActionDueNextWorkingDayList.size() == 0 && dayOffset < 14) {
-            // if there are no actions scheduled for tomorrow, then we should look at the
-            // next day
-            dayOffset++;
-            projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession, dayOffset);
+        for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
+          Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
+          dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
+          Date dayKey = normalizeDate(dayCalendar.getTime());
+          List<ProjectAction> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
+          if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
+            continue;
           }
-          if (projectActionDueNextWorkingDayList.size() == 0) {
-            break;
-          }
-          prepareProjectActionList(dataSession, projectActionDueNextWorkingDayList, webUser);
+          sortProjectActionList(projectActionDueNextWorkingDayList);
           projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
-          dayOffset++;
           daysFound++;
         }
 
@@ -832,7 +842,12 @@ public class ProjectActionServlet extends ClientServlet {
 
   private List<ProjectAction> getAllProjectActionsScheduledList(AppReq appReq, Project project, Session dataSession) {
     Query query = dataSession.createQuery(
-        "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "left join fetch pa.nextProjectContact "
+            + "where pa.projectId = ? and pa.nextDescription <> '' and pa.nextActionId = 0 "
+            + "order by pa.nextDue asc");
     query.setParameter(0, project.getProjectId());
     @SuppressWarnings("unchecked")
     List<ProjectAction> allProjectActionsList = query.list();
@@ -2272,10 +2287,14 @@ public class ProjectActionServlet extends ClientServlet {
     Date today = TimeTracker.createToday(webUser).getTime();
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
     Query query = dataSession.createQuery(
-        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
-            + "and nextActionId <> 0 and nextDescription <> '' "
-            + "and nextDue >= :today and nextDue < :tomorrow "
-            + "order by nextTimeActual DESC, nextTimeEstimate DESC");
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "left join fetch pa.nextProjectContact "
+            + "where pa.provider = :provider and (pa.contactId = :contactId or pa.nextContactId = :nextContactId) "
+            + "and pa.nextActionId <> 0 and pa.nextDescription <> '' "
+            + "and pa.nextDue >= :today and pa.nextDue < :tomorrow "
+            + "order by pa.nextTimeActual DESC, pa.nextTimeEstimate DESC");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
@@ -2309,10 +2328,14 @@ public class ProjectActionServlet extends ClientServlet {
       tomorrow = calendar.getTime();
     }
     Query query = dataSession.createQuery(
-        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
-            + "and nextActionId = 0 and nextDescription <> '' "
-            + "and nextDue >= :today and nextDue < :tomorrow "
-            + "order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "left join fetch pa.nextProjectContact "
+            + "where pa.provider = :provider and (pa.contactId = :contactId or pa.nextContactId = :nextContactId) "
+            + "and pa.nextActionId = 0 and pa.nextDescription <> '' "
+            + "and pa.nextDue >= :today and pa.nextDue < :tomorrow "
+            + "order by pa.nextDue, pa.priorityLevel DESC, pa.nextTimeEstimate, pa.actionDate");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
@@ -2320,7 +2343,43 @@ public class ProjectActionServlet extends ClientServlet {
     query.setParameter("tomorrow", tomorrow);
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionList = query.list();
-    // sorth the projectActionList first by the defaultPriority from the
+    sortProjectActionList(projectActionList);
+    return projectActionList;
+  }
+
+  private static List<ProjectAction> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
+      Date startDate, Date endDate) {
+    Query query = dataSession.createQuery(
+        "select distinct pa from ProjectAction pa "
+            + "left join fetch pa.project "
+            + "left join fetch pa.contact "
+            + "left join fetch pa.nextProjectContact "
+            + "where pa.provider = :provider and (pa.contactId = :contactId or pa.nextContactId = :nextContactId) "
+            + "and pa.nextActionId = 0 and pa.nextDescription <> '' "
+            + "and pa.nextDue >= :startDate and pa.nextDue < :endDate "
+            + "order by pa.nextDue, pa.priorityLevel DESC, pa.nextTimeEstimate, pa.actionDate");
+    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("contactId", webUser.getContactId());
+    query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
+    query.setParameter("startDate", startDate);
+    query.setParameter("endDate", endDate);
+    @SuppressWarnings("unchecked")
+    List<ProjectAction> projectActionList = query.list();
+    return projectActionList;
+  }
+
+  private static Date normalizeDate(Date date) {
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(date);
+    calendar.set(Calendar.HOUR_OF_DAY, 0);
+    calendar.set(Calendar.MINUTE, 0);
+    calendar.set(Calendar.SECOND, 0);
+    calendar.set(Calendar.MILLISECOND, 0);
+    return calendar.getTime();
+  }
+
+  private static void sortProjectActionList(List<ProjectAction> projectActionList) {
+    // sort the projectActionList first by the defaultPriority from the
     // ProjectNextActionType and then by the priority_level
     projectActionList.sort((pa1, pa2) -> {
       PrioritySpecial ps1 = pa1.getPrioritySpecial();
@@ -2365,7 +2424,6 @@ public class ProjectActionServlet extends ClientServlet {
       }
       return pa2.getPriorityLevel() - pa1.getPriorityLevel();
     });
-    return projectActionList;
   }
 
   private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {
