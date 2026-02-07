@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="ProjectActionChangeLog" table="project_action_change_log">
+    <id name="changeId" type="int">
+      <column name="change_id" />
+      <generator class="native" />
+    </id>
+    <property name="actionId" type="int">
+      <column name="action_id" not-null="true" />
+    </property>
+    <many-to-one name="action" column="action_id" class="ProjectAction" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="projectId" type="int">
+      <column name="project_id" not-null="true" />
+    </property>
+    <many-to-one name="project" column="project_id" class="Project" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="proposalId" type="java.lang.Integer">
+      <column name="proposal_id" />
+    </property>
+    <many-to-one name="proposal" column="proposal_id" class="ProjectActionProposal" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="changeDate" type="timestamp">
+      <column name="change_date" length="19" not-null="true" />
+    </property>
+    <property name="actorTypeString" type="string">
+      <column name="actor_type" length="16" not-null="true" />
+    </property>
+    <property name="actorId" type="string">
+      <column name="actor_id" length="60" />
+    </property>
+    <property name="sourceType" type="string">
+      <column name="source_type" length="24" />
+    </property>
+    <property name="changeSummary" type="text">
+      <column name="change_summary" />
+    </property>
+    <property name="changePatch" type="text">
+      <column name="change_patch" />
+    </property>
+    <property name="changeReason" type="text">
+      <column name="change_reason" />
+    </property>
+  </class>
+</hibernate-mapping>

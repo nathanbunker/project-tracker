@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="ProjectActionProposal" table="project_action_proposal">
+    <id name="proposalId" type="int">
+      <column name="proposal_id" />
+      <generator class="native" />
+    </id>
+    <property name="projectId" type="int">
+      <column name="project_id" not-null="true" />
+    </property>
+    <many-to-one name="project" column="project_id" class="Project" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="actionId" type="java.lang.Integer">
+      <column name="action_id" />
+    </property>
+    <many-to-one name="action" column="action_id" class="ProjectAction" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="contactId" type="java.lang.Integer">
+      <column name="contact_id" />
+    </property>
+    <many-to-one name="contact" column="contact_id" class="ProjectContact" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="proposalStatusString" type="string">
+      <column name="proposal_status" length="16" not-null="true" />
+    </property>
+    <property name="proposalCreateDate" type="timestamp">
+      <column name="proposal_create_date" length="19" not-null="true" />
+    </property>
+    <property name="proposalDecideDate" type="timestamp">
+      <column name="proposal_decide_date" length="19" />
+    </property>
+    <property name="modelName" type="string">
+      <column name="model_name" length="80" />
+    </property>
+    <property name="requestId" type="string">
+      <column name="request_id" length="120" />
+    </property>
+    <property name="proposedSummary" type="text">
+      <column name="proposed_summary" />
+    </property>
+    <property name="proposedRationale" type="text">
+      <column name="proposed_rationale" />
+    </property>
+    <property name="proposedPatch" type="text">
+      <column name="proposed_patch" />
+    </property>
+    <property name="inputSnapshot" type="text">
+      <column name="input_snapshot" />
+    </property>
+  </class>
+</hibernate-mapping>
