@@ -3,6 +3,7 @@
 -- ---------------------------------------------------------------------
 CREATE TABLE project_action_proposal (
   proposal_id           INT           NOT NULL AUTO_INCREMENT,
+  client_id             INT           NOT NULL,
   project_id            INT           NOT NULL,
   action_id             INT           NULL,   -- target project_action.action_id (nullable)
   contact_id            INT           NULL,
@@ -22,6 +23,8 @@ CREATE TABLE project_action_proposal (
 
   PRIMARY KEY (proposal_id),
 
+  KEY idx_proposal_client_project (client_id, project_id),
+  KEY idx_proposal_client_action (client_id, action_id),
   KEY idx_proposal_project_date (project_id, proposal_create_date),
   KEY idx_proposal_project_status (project_id, proposal_status),
   KEY idx_proposal_action_status (action_id, proposal_status)
@@ -53,4 +56,24 @@ CREATE TABLE project_action_change_log (
   KEY idx_change_project_date (project_id, change_date),
   KEY idx_change_proposal_date (proposal_id, change_date),
   KEY idx_change_actor_date (actor_type, change_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- ---------------------------------------------------------------------
+-- API clients for /api/* authentication
+-- ---------------------------------------------------------------------
+CREATE TABLE web_api_client (
+  client_id            INT           NOT NULL AUTO_INCREMENT,
+  api_key              VARCHAR(80)   NOT NULL,
+  username             VARCHAR(30)   NOT NULL,
+  provider_id          VARCHAR(30)   NULL,
+  agent_name           VARCHAR(80)   NULL,
+  enabled              CHAR(1)       NOT NULL DEFAULT 'Y',
+  create_date          DATETIME      NOT NULL,
+  last_used_date       DATETIME      NULL,
+
+  PRIMARY KEY (client_id),
+  UNIQUE KEY uk_web_api_client_key (api_key),
+  KEY idx_web_api_client_user (username),
+  KEY idx_web_api_client_provider (provider_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

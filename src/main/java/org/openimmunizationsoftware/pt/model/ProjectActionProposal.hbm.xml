@@ -7,6 +7,9 @@
       <column name="proposal_id" />
       <generator class="native" />
     </id>
+    <property name="clientId" type="int">
+      <column name="client_id" not-null="true" />
+    </property>
     <property name="projectId" type="int">
       <column name="project_id" not-null="true" />
     </property>

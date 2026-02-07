@@ -1,17 +1,19 @@
-package org.openimmunizationsoftware.pt.model;
+package com.myapp.api.v1.resource.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
+import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
 
-public class ProjectActionProposal implements java.io.Serializable {
+@Schema(name = "ProjectActionProposal")
+public class ProposalDto {
 
-    private static final long serialVersionUID = -2523512022399490700L;
-
+    @Schema(example = "789")
     private int proposalId;
-    private int clientId;
+    @Schema(example = "123")
     private int projectId;
     private Integer actionId;
     private Integer contactId;
-    private ProposalStatus proposalStatus;
+    private String proposalStatus;
     private Date proposalCreateDate;
     private Date proposalDecideDate;
     private String modelName;
@@ -19,10 +21,23 @@ public class ProjectActionProposal implements java.io.Serializable {
     private String proposedSummary;
     private String proposedRationale;
     private String proposedPatch;
-    private String inputSnapshot;
-    private Project project;
-    private ProjectAction action;
-    private ProjectContact contact;
+
+    public static ProposalDto from(ProjectActionProposal proposal) {
+        ProposalDto dto = new ProposalDto();
+        dto.setProposalId(proposal.getProposalId());
+        dto.setProjectId(proposal.getProjectId());
+        dto.setActionId(proposal.getActionId());
+        dto.setContactId(proposal.getContactId());
+        dto.setProposalStatus(proposal.getProposalStatusString());
+        dto.setProposalCreateDate(proposal.getProposalCreateDate());
+        dto.setProposalDecideDate(proposal.getProposalDecideDate());
+        dto.setModelName(proposal.getModelName());
+        dto.setRequestId(proposal.getRequestId());
+        dto.setProposedSummary(proposal.getProposedSummary());
+        dto.setProposedRationale(proposal.getProposedRationale());
+        dto.setProposedPatch(proposal.getProposedPatch());
+        return dto;
+    }
 
     public int getProposalId() {
         return proposalId;
@@ -30,14 +45,6 @@ public class ProjectActionProposal implements java.io.Serializable {
 
     public void setProposalId(int proposalId) {
         this.proposalId = proposalId;
-    }
-
-    public int getClientId() {
-        return clientId;
-    }
-
-    public void setClientId(int clientId) {
-        this.clientId = clientId;
     }
 
     public int getProjectId() {
@@ -64,23 +71,12 @@ public class ProjectActionProposal implements java.io.Serializable {
         this.contactId = contactId;
     }
 
-    public ProposalStatus getProposalStatus() {
+    public String getProposalStatus() {
         return proposalStatus;
     }
 
-    public void setProposalStatus(ProposalStatus proposalStatus) {
+    public void setProposalStatus(String proposalStatus) {
         this.proposalStatus = proposalStatus;
-    }
-
-    public String getProposalStatusString() {
-        if (proposalStatus == null) {
-            return "";
-        }
-        return proposalStatus.getId();
-    }
-
-    public void setProposalStatusString(String proposalStatusString) {
-        this.proposalStatus = ProposalStatus.getProposalStatus(proposalStatusString);
     }
 
     public Date getProposalCreateDate() {
@@ -137,50 +133,5 @@ public class ProjectActionProposal implements java.io.Serializable {
 
     public void setProposedPatch(String proposedPatch) {
         this.proposedPatch = proposedPatch;
-    }
-
-    public String getInputSnapshot() {
-        return inputSnapshot;
-    }
-
-    public void setInputSnapshot(String inputSnapshot) {
-        this.inputSnapshot = inputSnapshot;
-    }
-
-    public Project getProject() {
-        return project;
-    }
-
-    public void setProject(Project project) {
-        this.project = project;
-        if (project != null) {
-            this.projectId = project.getProjectId();
-        }
-    }
-
-    public ProjectAction getAction() {
-        return action;
-    }
-
-    public void setAction(ProjectAction action) {
-        this.action = action;
-        if (action != null) {
-            this.actionId = action.getActionId();
-        } else {
-            this.actionId = null;
-        }
-    }
-
-    public ProjectContact getContact() {
-        return contact;
-    }
-
-    public void setContact(ProjectContact contact) {
-        this.contact = contact;
-        if (contact != null) {
-            this.contactId = contact.getContactId();
-        } else {
-            this.contactId = null;
-        }
     }
 }

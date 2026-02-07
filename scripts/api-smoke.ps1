@@ -1,0 +1,72 @@
+param(
+    [string]$BaseUrl = "http://localhost:8080/tracker/api",
+    [string]$ApiKey = "",
+    [string]$ProviderId = "",
+    [int]$ProjectId = 0,
+    [int]$ActionId = 0
+)
+
+$ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+    throw "ApiKey is required. Set -ApiKey or $env:API_KEY."
+}
+if ([string]::IsNullOrWhiteSpace($ProviderId)) {
+    throw "ProviderId is required. Set -ProviderId or $env:PROVIDER_ID."
+}
+if ($ProjectId -le 0) {
+    throw "ProjectId must be provided and > 0."
+}
+if ($ActionId -le 0) {
+    throw "ActionId must be provided and > 0."
+}
+
+$headers = @{
+    "X-Api-Key" = $ApiKey
+}
+
+function Assert-True([bool]$condition, [string]$message) {
+    if (-not $condition) {
+        throw $message
+    }
+}
+
+Write-Host "1) Unauthorized request blocked..."
+try {
+    Invoke-WebRequest -Uri "$BaseUrl/v1/projects" -Method Get -UseBasicParsing | Out-Null
+    throw "Expected 401 but request succeeded."
+} catch {
+    $status = $_.Exception.Response.StatusCode.value__
+    Assert-True ($status -eq 401) "Expected 401, got $status"
+}
+
+Write-Host "2) OpenAPI endpoint returns spec..."
+$openApi = Invoke-WebRequest -Uri "$BaseUrl/openapi.json" -Method Get -Headers $headers -UseBasicParsing
+Assert-True ($openApi.StatusCode -eq 200) "OpenAPI status $($openApi.StatusCode)"
+Assert-True ($openApi.Content -match "openapi") "OpenAPI content missing 'openapi' field"
+
+Write-Host "3) List projects (provider-scoped) and verify providerId in results..."
+$projects = Invoke-RestMethod -Uri "$BaseUrl/v1/projects" -Method Get -Headers $headers
+Assert-True ($projects.Count -gt 0) "No projects returned."
+$foreign = @($projects | Where-Object { $_.providerId -and $_.providerId -ne $ProviderId })
+Assert-True ($foreign.Count -eq 0) "Found projects outside provider scope."
+
+Write-Host "4) Create project-level proposal (supersede prior) and verify list..."
+$proposalPayload = @{
+    summary = "Smoke test proposal"
+    rationale = "Validate supersede logic"
+    proposedPatchJson = "{}`"
+    contactId = $null
+}
+$createResponse = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/proposals" -Method Post -Headers $headers -ContentType "application/json" -Body ($proposalPayload | ConvertTo-Json)
+Assert-True ($createResponse.proposalId -gt 0) "Proposal creation failed."
+
+$createResponse2 = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/proposals" -Method Post -Headers $headers -ContentType "application/json" -Body ($proposalPayload | ConvertTo-Json)
+Assert-True ($createResponse2.proposalId -ne $createResponse.proposalId) "Expected new proposal id."
+
+Write-Host "5) List proposals for action and verify new proposal exists..."
+$proposals = Invoke-RestMethod -Uri "$BaseUrl/v1/actions/$ActionId/proposals" -Method Get -Headers $headers
+$match = @($proposals | Where-Object { $_.proposalId -eq $createResponse2.proposalId })
+Assert-True ($match.Count -eq 1) "New proposal not found in action proposals list."
+
+Write-Host "All smoke checks passed."
