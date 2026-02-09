@@ -16,11 +16,24 @@ public class OpenApiJsonResource {
 
     @GET
     public Response getOpenApi() {
+        System.err.println("OpenApiJsonResource.getOpenApi: start");
         OpenApiContext context = OpenApiContextLocator.getInstance().getOpenApiContext(null);
         if (context == null) {
+            System.err.println("OpenApiJsonResource.getOpenApi: OpenApiContext is null");
             return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
         }
-        OpenAPI openApi = context.read();
-        return Response.ok(Json.pretty(openApi)).build();
+        try {
+            OpenAPI openApi = context.read();
+            String payload = Json.pretty(openApi);
+            System.err.println("OpenApiJsonResource.getOpenApi: generated payload length=" + payload.length());
+            return Response.ok(payload).build();
+        } catch (Exception ex) {
+            System.err.println("OpenApiJsonResource.getOpenApi: exception while generating OpenAPI");
+            ex.printStackTrace(System.err);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity("{\"errorCode\":\"internal_error\",\"message\":\"OpenAPI generation failed.\",\"details\":null}")
+                    .build();
+        }
     }
 }

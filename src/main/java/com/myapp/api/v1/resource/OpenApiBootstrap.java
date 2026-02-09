@@ -13,36 +13,38 @@ import javax.servlet.ServletContextListener;
 
 public class OpenApiBootstrap implements ServletContextListener {
 
-    @Override
-    public void contextInitialized(ServletContextEvent sce) {
-        OpenAPI openApi = new OpenAPI()
-                .info(new Info()
-                        .title("Project Tracker API")
-                        .version("v1")
-                        .description("API endpoints for project tracking and proposal workflows."))
-                .components(new Components()
-                        .addSecuritySchemes("ApiKeyAuth",
-                                new SecurityScheme()
-                                        .type(SecurityScheme.Type.APIKEY)
-                                        .name("X-Api-Key")
-                                        .in(SecurityScheme.In.HEADER)))
-                .addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"));
+        @Override
+        public void contextInitialized(ServletContextEvent sce) {
+                OpenAPI openApi = new OpenAPI()
+                                .info(new Info()
+                                                .title("Project Tracker API")
+                                                .version("v1")
+                                                .description("API endpoints for project tracking and proposal workflows."))
+                                .components(new Components()
+                                                .addSecuritySchemes("ApiKeyAuth",
+                                                                new SecurityScheme()
+                                                                                .type(SecurityScheme.Type.APIKEY)
+                                                                                .name("X-Api-Key")
+                                                                                .in(SecurityScheme.In.HEADER)))
+                                .addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"));
 
-        SwaggerConfiguration config = new SwaggerConfiguration()
-                .openAPI(openApi)
-                .resourcePackages(Collections.singleton("com.myapp.api.v1.resource"))
-                .prettyPrint(true);
+                SwaggerConfiguration config = new SwaggerConfiguration()
+                                .openAPI(openApi)
+                                .resourcePackages(Collections.singleton("com.myapp.api.v1.resource"))
+                                .prettyPrint(true);
 
-        try {
-            new JaxrsOpenApiContextBuilder<>()
-                    .openApiConfiguration(config)
-                    .buildContext(true);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Unable to initialize OpenAPI context.", ex);
+                try {
+                        new JaxrsOpenApiContextBuilder<>()
+                                        .openApiConfiguration(config)
+                                        .buildContext(true);
+                } catch (Exception ex) {
+                        System.err.println("OpenApiBootstrap: failed to initialize OpenAPI context");
+                        ex.printStackTrace(System.err);
+                        throw new IllegalStateException("Unable to initialize OpenAPI context.", ex);
+                }
         }
-    }
 
-    @Override
-    public void contextDestroyed(ServletContextEvent sce) {
-    }
+        @Override
+        public void contextDestroyed(ServletContextEvent sce) {
+        }
 }

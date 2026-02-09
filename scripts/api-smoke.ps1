@@ -1,9 +1,9 @@
 param(
     [string]$BaseUrl = "http://localhost:8080/tracker/api",
-    [string]$ApiKey = "",
-    [string]$ProviderId = "",
-    [int]$ProjectId = 0,
-    [int]$ActionId = 0
+    [string]$ApiKey = "7efd2d2af3ec43abb7ce428392c644b7",
+    [string]$ProviderId = "12",
+    [int]$ProjectId = 48689,
+    [int]$ActionId = 786577
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,7 +55,7 @@ Write-Host "4) Create project-level proposal (supersede prior) and verify list..
 $proposalPayload = @{
     summary = "Smoke test proposal"
     rationale = "Validate supersede logic"
-    proposedPatchJson = "{}`"
+    proposedPatchJson = "{}"
     contactId = $null
 }
 $createResponse = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/proposals" -Method Post -Headers $headers -ContentType "application/json" -Body ($proposalPayload | ConvertTo-Json)
