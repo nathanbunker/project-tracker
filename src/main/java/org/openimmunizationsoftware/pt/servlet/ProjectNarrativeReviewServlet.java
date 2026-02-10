@@ -9,11 +9,13 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -82,20 +84,13 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             long selectedProjectId = readLong(request.getParameter(PARAM_PROJECT_ID));
             ReviewItem selectedItem = selectReviewItem(reviewItems, selectedProjectId);
 
+            printReviewList(out, narrativeDao, reviewItems, selectedItem == null ? 0 : selectedItem.getProjectId(),
+                    reviewDate);
+
             out.println("<form action=\"ProjectNarrativeReviewServlet\" method=\"POST\">");
             out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + reviewDate
                     + "\">");
-
-            out.println("<table class=\"boxed-full\" width=\"100%\">");
-            out.println("  <tr>");
-            out.println("    <td class=\"outside\" width=\"70%\">");
             printEditor(out, dataSession, webUser, narrativeDao, reviewDate, selectedItem);
-            out.println("    </td>");
-            out.println("    <td class=\"outside\" width=\"30%\">");
-            printReviewList(out, reviewItems, selectedItem == null ? 0 : selectedItem.getProjectId(), reviewDate);
-            out.println("    </td>");
-            out.println("  </tr>");
-            out.println("</table>");
             out.println("</form>");
 
             printHtmlFoot(appReq);
@@ -153,23 +148,23 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             if (noteText.length() == 0) {
                 noteText = DEFAULT_NOTE_TEXT;
             }
-            offsetSeconds = insertNarrative(narrativeDao, appReq, project, reviewDate,
+            offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
                     ProjectNarrativeVerb.NOTE, noteText, offsetSeconds);
 
             if (decisionText.length() > 0) {
-                offsetSeconds = insertNarrative(narrativeDao, appReq, project, reviewDate,
+                offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
                         ProjectNarrativeVerb.DECISION, decisionText, offsetSeconds);
             }
             if (insightText.length() > 0) {
-                offsetSeconds = insertNarrative(narrativeDao, appReq, project, reviewDate,
+                offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
                         ProjectNarrativeVerb.INSIGHT, insightText, offsetSeconds);
             }
             if (riskText.length() > 0) {
-                offsetSeconds = insertNarrative(narrativeDao, appReq, project, reviewDate,
+                offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
                         ProjectNarrativeVerb.RISK, riskText, offsetSeconds);
             }
             if (opportunityText.length() > 0) {
-                insertNarrative(narrativeDao, appReq, project, reviewDate,
+                upsertNarrative(narrativeDao, appReq, project, reviewDate,
                         ProjectNarrativeVerb.OPPORTUNITY, opportunityText, offsetSeconds);
             }
 
@@ -182,16 +177,24 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         }
     }
 
-    private int insertNarrative(ProjectNarrativeDao narrativeDao, AppReq appReq, Project project,
+    private int upsertNarrative(ProjectNarrativeDao narrativeDao, AppReq appReq, Project project,
             LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
-        ProjectNarrative narrative = new ProjectNarrative();
-        narrative.setProject(project);
-        narrative.setContact(appReq.getWebUser().getProjectContact());
-        narrative.setProvider(appReq.getWebUser().getProvider());
-        narrative.setNarrativeDate(buildNarrativeDate(reviewDate, offsetSeconds));
-        narrative.setNarrativeVerb(verb);
-        narrative.setNarrativeText(text);
-        narrativeDao.insert(narrative);
+        ProjectNarrative narrative = narrativeDao.findNarrativeForProjectVerbOnDate(project.getProjectId(), verb,
+                reviewDate);
+        if (narrative == null) {
+            narrative = new ProjectNarrative();
+            narrative.setProject(project);
+            narrative.setContact(appReq.getWebUser().getProjectContact());
+            narrative.setProvider(appReq.getWebUser().getProvider());
+            narrative.setNarrativeVerb(verb);
+            narrative.setNarrativeText(text);
+            narrative.setNarrativeDate(buildNarrativeDate(reviewDate, offsetSeconds));
+            narrativeDao.insert(narrative);
+        } else {
+            narrative.setNarrativeText(text);
+            narrative.setNarrativeDate(buildNarrativeDate(reviewDate, offsetSeconds));
+            narrativeDao.update(narrative);
+        }
         return offsetSeconds + 1;
     }
 
@@ -233,9 +236,20 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("  </tr>\n");
         out.println("  <tr class=\"boxed\">\n");
         out.println("    <th class=\"boxed\">Date</th>\n");
-        out.println("    <td class=\"boxed\">" + reviewDate + "</td>\n");
+        out.println("    <td class=\"boxed\">" + formatReviewDate(reviewDate) + "</td>\n");
         out.println("  </tr>\n");
         out.println("</table><br/>\n");
+
+        List<ProjectNarrative> narratives = narrativeDao.findByProjectAndDateRange(project.getProjectId(), reviewDate);
+        Map<ProjectNarrativeVerb, String> narrativeTextMap = new EnumMap<ProjectNarrativeVerb, String>(
+                ProjectNarrativeVerb.class);
+        for (ProjectNarrative narrative : narratives) {
+            ProjectNarrativeVerb verb = narrative.getNarrativeVerb();
+            if (verb == null) {
+                continue;
+            }
+            narrativeTextMap.put(verb, narrative.getNarrativeText());
+        }
 
         printCompletedActions(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
         printDeletedActionsWithTime(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
@@ -243,11 +257,14 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
 
         out.println("<table class=\"boxed-full\">\n");
         out.println("  <tr><th class=\"title\" colspan=\"2\">Narrative</th></tr>\n");
-        printNarrativeInput(out, "Notes", PARAM_NOTE, 6);
-        printNarrativeInput(out, "Decisions made", PARAM_DECISION, 6);
-        printNarrativeInput(out, "Insights gained", PARAM_INSIGHT, 6);
-        printNarrativeInput(out, "Risks seen", PARAM_RISK, 6);
-        printNarrativeInput(out, "Opportunities noticed", PARAM_OPPORTUNITY, 6);
+        printNarrativeInput(out, "Notes", PARAM_NOTE, 6, narrativeTextMap.get(ProjectNarrativeVerb.NOTE));
+        printNarrativeInput(out, "Decisions made", PARAM_DECISION, 6,
+                narrativeTextMap.get(ProjectNarrativeVerb.DECISION));
+        printNarrativeInput(out, "Insights gained", PARAM_INSIGHT, 6,
+                narrativeTextMap.get(ProjectNarrativeVerb.INSIGHT));
+        printNarrativeInput(out, "Risks seen", PARAM_RISK, 6, narrativeTextMap.get(ProjectNarrativeVerb.RISK));
+        printNarrativeInput(out, "Opportunities noticed", PARAM_OPPORTUNITY, 6,
+                narrativeTextMap.get(ProjectNarrativeVerb.OPPORTUNITY));
         out.println("  <tr><td class=\"boxed-submit\" colspan=\"2\">\n");
         out.println("    <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE
                 + "\">\n");
@@ -255,12 +272,14 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("</table>\n");
     }
 
-    private void printNarrativeInput(PrintWriter out, String label, String name, int rows) {
+    private void printNarrativeInput(PrintWriter out, String label, String name, int rows, String value) {
+        String displayValue = value == null ? "" : value;
         out.println("  <tr>\n");
         out.println("    <th class=\"inside\">" + label + "</th>\n");
         out.println("    <td class=\"inside\">\n");
         out.println("      <textarea name=\"" + name + "\" rows=\"" + rows
-                + "\" cols=\"90\" onkeydown=\"resetRefresh()\"></textarea>\n");
+                + "\" cols=\"90\" onkeydown=\"resetRefresh()\">" + escapeHtml(displayValue)
+                + "</textarea>\n");
         out.println("    </td>\n");
         out.println("  </tr>\n");
     }
@@ -365,23 +384,26 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("</table><br/>\n");
     }
 
-    private void printReviewList(PrintWriter out, List<ReviewItem> reviewItems, long selectedProjectId,
-            LocalDate reviewDate) {
+    private void printReviewList(PrintWriter out, ProjectNarrativeDao narrativeDao, List<ReviewItem> reviewItems,
+            long selectedProjectId, LocalDate reviewDate) {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        LocalDate previousDate = reviewDate.minusDays(1);
+        LocalDate previousDate = getPreviousReviewDate(narrativeDao, reviewDate);
         LocalDate nextDate = reviewDate.plusDays(1);
 
-        out.println("<table class=\"boxed\">\n");
+        out.println("<table class=\"boxed float-right\">\n");
         out.println("  <tr class=\"boxed\">\n");
         out.println("    <th class=\"title\" colspan=\"3\">Review List</th>\n");
         out.println("  </tr>\n");
         out.println("  <tr class=\"boxed\">\n");
-        out.println("    <td class=\"boxed\" colspan=\"3\">Review Date: " + reviewDate + "</td>\n");
+        out.println("    <td class=\"boxed\" colspan=\"3\">Review Date: " + formatReviewDate(reviewDate)
+                + "</td>\n");
         out.println("  </tr>\n");
         out.println("  <tr class=\"boxed\">\n");
         out.println("    <td class=\"boxed\" colspan=\"3\">\n");
-        out.println("      <a class=\"button\" href=\"ProjectNarrativeReviewServlet?" + PARAM_DATE
-                + "=" + previousDate + "\">Previous Day</a>\n");
+        if (previousDate != null) {
+            out.println("      <a class=\"button\" href=\"ProjectNarrativeReviewServlet?" + PARAM_DATE
+                    + "=" + previousDate + "\">Previous Day</a>\n");
+        }
         if (reviewDate.isBefore(today)) {
             out.println("      <a class=\"button\" href=\"ProjectNarrativeReviewServlet?" + PARAM_DATE
                     + "=" + nextDate + "\">Next Day</a>\n");
@@ -402,9 +424,9 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
                 String rowClass = selected ? "inside-highlight" : "inside";
                 out.println("  <tr>\n");
                 out.println("    <td class=\"" + rowClass + "\">\n");
-                out.println("      <button type=\"submit\" name=\"" + PARAM_SELECT_PROJECT_ID
-                        + "\" value=\"" + item.getProjectId() + "\" class=\"button\">"
-                        + escapeHtml(n(item.getProjectName())) + "</button>\n");
+                out.println("      <a class=\"button\" href=\"ProjectNarrativeReviewServlet?" + PARAM_DATE
+                        + "=" + reviewDate + "&" + PARAM_PROJECT_ID + "=" + item.getProjectId() + "\">"
+                        + escapeHtml(n(item.getProjectName())) + "</a>\n");
                 out.println("    </td>\n");
                 out.println("    <td class=\"" + rowClass + "\">" + TimeTracker.formatTime(item.getMinutesSpent())
                         + "</td>\n");
@@ -413,6 +435,22 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             }
         }
         out.println("</table>\n");
+    }
+
+    private String formatReviewDate(LocalDate reviewDate) {
+        String dayName = reviewDate.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.US);
+        return dayName + " " + reviewDate;
+    }
+
+    private LocalDate getPreviousReviewDate(ProjectNarrativeDao narrativeDao, LocalDate reviewDate) {
+        LocalDate previousDate = reviewDate.minusDays(1);
+        while (previousDate.isAfter(LocalDate.of(2000, 1, 1))) {
+            if (!narrativeDao.listReviewItemsForDate(previousDate).isEmpty()) {
+                return previousDate;
+            }
+            previousDate = previousDate.minusDays(1);
+        }
+        return null;
     }
 
     private LocalDate resolveReviewDate(HttpServletRequest request, AppReq appReq) {

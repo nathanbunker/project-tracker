@@ -16,6 +16,7 @@ import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 
 public class ProjectNarrativeDao {
 
@@ -57,6 +58,30 @@ public class ProjectNarrativeDao {
 
     public void insert(ProjectNarrative narrative) {
         session.save(narrative);
+    }
+
+    public void update(ProjectNarrative narrative) {
+        session.update(narrative);
+    }
+
+    public ProjectNarrative findNarrativeForProjectVerbOnDate(long projectId, ProjectNarrativeVerb verb,
+            LocalDate date) {
+        Date start = startOfDay(date);
+        Date end = startOfNextDay(date);
+        Query query = session.createQuery(
+                "from ProjectNarrative where projectId = :projectId and narrativeVerb = :verb "
+                        + "and narrativeDate >= :start and narrativeDate < :end order by narrativeDate asc");
+        query.setLong("projectId", projectId);
+        query.setParameter("verb", verb);
+        query.setTimestamp("start", start);
+        query.setTimestamp("end", end);
+        query.setMaxResults(1);
+        @SuppressWarnings("unchecked")
+        List<ProjectNarrative> results = query.list();
+        if (results == null || results.isEmpty()) {
+            return null;
+        }
+        return results.get(0);
     }
 
     public Map<Long, Integer> getMinutesSpentByProjectOnDate(LocalDate date) {
