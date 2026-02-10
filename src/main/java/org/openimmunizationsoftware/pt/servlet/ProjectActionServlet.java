@@ -1659,20 +1659,34 @@ public class ProjectActionServlet extends ClientServlet {
     if (deletedActions == null || deletedActions.isEmpty()) {
       return;
     }
+    Project project = appReq.getProjectSelected();
+    if (project == null) {
+      project = appReq.getProject();
+    }
     PrintWriter out = appReq.getOut();
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"2\">Deleted actions with time today</th>");
+    out.println("    <th class=\"title\" colspan=\"4\">Deleted actions with time today</th>");
     out.println("  </tr>");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"boxed\">Action</th>");
+    out.println("    <th class=\"boxed\">Project</th>");
+    out.println("    <th class=\"boxed\">Deleted</th>");
+    out.println("    <th class=\"boxed\">Est</th>");
     out.println("    <th class=\"boxed\">Act</th>");
     out.println("  </tr>");
     for (ProjectNarrativeDao.ActionWithMinutes action : deletedActions) {
       String description = action.getDescription() == null ? "" : action.getDescription();
       String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + action.getActionId();
       out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed\"><a href=\"" + link + "\">" + escapeHtml(description) + "</a></td>");
+      if (project == null) {
+        out.println("    <td class=\"boxed\">&nbsp;</td>");
+      } else {
+        out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
+            + escapeHtml(project.getProjectName()) + "</a></td>");
+      }
+      out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
+          + escapeHtml(description) + "</a></td>");
+      out.println("    <td class=\"boxed\">&nbsp;</td>");
       out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(action.getMinutes()) + "</td>");
       out.println("  </tr>");
     }
@@ -1693,7 +1707,7 @@ public class ProjectActionServlet extends ClientServlet {
       if (i > 0) {
         out.print(", ");
       }
-      out.print("<a href=\"" + link + "\">" + escapeHtml(description) + "</a>");
+      out.print("<a href=\"" + link + "\" class=\"button\">" + escapeHtml(description) + "</a>");
     }
     out.println("</p>");
   }
