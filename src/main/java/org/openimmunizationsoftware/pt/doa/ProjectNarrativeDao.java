@@ -14,6 +14,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
@@ -132,23 +133,21 @@ public class ProjectNarrativeDao {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
         Query query = session.createQuery(
-                "from ProjectActionNext where projectId = :projectId and nextActionStatusString = :status "
-                        + "and nextChangeDate >= :start and nextChangeDate < :end "
-                        + "and ((nextSummary is not null and nextSummary <> '') or (nextNotes is not null and nextNotes <> '')) "
-                        + "order by nextChangeDate asc");
+                "from ProjectActionTaken where projectId = :projectId and actionDate >= :start and actionDate < :end "
+                        + "and actionDescription is not null and actionDescription <> '' "
+                        + "order by actionDate asc");
         query.setLong("projectId", projectId);
-        query.setString("status", ProjectNextActionStatus.COMPLETED.getId());
         query.setTimestamp("start", start);
         query.setTimestamp("end", end);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> actions = query.list();
+        List<ProjectActionTaken> actions = query.list();
         List<Action> results = new ArrayList<Action>();
-        for (ProjectActionNext action : actions) {
+        for (ProjectActionTaken action : actions) {
             results.add(new Action(
-                    action.getActionNextId(),
-                    action.getNextDescription(),
-                    action.getNextChangeDate(),
-                    firstNonEmpty(action.getNextSummary(), action.getNextNotes())));
+                    action.getActionTakenId(),
+                    action.getActionDescription(),
+                    action.getActionDate(),
+                    null));
         }
         return results;
     }

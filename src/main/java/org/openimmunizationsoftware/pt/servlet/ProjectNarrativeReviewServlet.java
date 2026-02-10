@@ -286,25 +286,16 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
     private void printCompletedActions(PrintWriter out, ProjectNarrativeDao narrativeDao, long projectId,
             LocalDate reviewDate) {
         List<Action> actions = narrativeDao.getCompletedActionsForProjectOnDate(projectId, reviewDate);
-        out.println("<table class=\"boxed\">\n");
-        out.println("  <tr class=\"boxed\">\n");
-        out.println("    <th class=\"title\" colspan=\"2\">Completed actions today</th>\n");
-        out.println("  </tr>\n");
-        out.println("  <tr class=\"boxed\">\n");
-        out.println("    <th class=\"boxed\">Action</th>\n");
-        out.println("    <th class=\"boxed\">Completion note</th>\n");
-        out.println("  </tr>\n");
         if (actions.isEmpty()) {
-            out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\">No actions completed.</td></tr>\n");
-        } else {
-            for (Action action : actions) {
-                out.println("  <tr class=\"boxed\">\n");
-                out.println("    <td class=\"boxed\">" + escapeHtml(action.getDescription()) + "</td>\n");
-                out.println("    <td class=\"boxed\">" + escapeHtml(n(action.getCompletionNote())) + "</td>\n");
-                out.println("  </tr>\n");
-            }
+            out.println("<p>Completed actions - none.</p>\n");
+            return;
         }
-        out.println("</table><br/>\n");
+        out.println("<p>Completed actions:</p>\n");
+        out.println("<ul>\n");
+        for (Action action : actions) {
+            out.println("  <li>" + escapeHtml(action.getDescription()) + "</li>\n");
+        }
+        out.println("</ul><br/>\n");
     }
 
     private void printDeletedActionsWithTime(PrintWriter out, ProjectNarrativeDao narrativeDao, long projectId,
