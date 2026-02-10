@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -40,6 +42,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
 
 import com.fasterxml.jackson.core.exc.StreamWriteException;
 import com.fasterxml.jackson.databind.DatabindException;
@@ -283,6 +286,17 @@ public class ProjectActionServlet extends ClientServlet {
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
       List<ProjectActionNext> projectActionClosedTodayList = getProjectActionListClosedToday(webUser, dataSession);
+      List<ProjectNarrativeDao.ActionWithMinutes> deletedActionsWithTimeToday = new ArrayList<>();
+      List<ProjectNarrativeDao.Action> deletedActionsWithoutTimeToday = new ArrayList<>();
+      if (project != null) {
+        ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        deletedActionsWithTimeToday = narrativeDao.getDeletedActionsWithTimeForProjectOnDate(project.getProjectId(),
+            today);
+        deletedActionsWithoutTimeToday = narrativeDao.getDeletedActionsWithoutTimeForProjectOnDate(
+            project.getProjectId(),
+            today);
+      }
       if (completingAction != null) {
         TimeTracker timeTracker = appReq.getTimeTracker();
         if (timeTracker != null) {
@@ -351,6 +365,8 @@ public class ProjectActionServlet extends ClientServlet {
         printTimeManagementBox(appReq, projectActionDueTodayList);
         printActionsScheduledForToday(appReq, projectActionDueTodayList, projectActionOverdueList);
         printActionsCompletedForToday(appReq, projectActionClosedTodayList);
+        printActionsDeletedWithTimeForToday(appReq, deletedActionsWithTimeToday);
+        printDeletedActionsWithoutTimeForToday(appReq, deletedActionsWithoutTimeToday);
 
         {
           List<TimeAdder> timeAdderList = new ArrayList<>();
@@ -1636,6 +1652,50 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  </tr>");
     printActionItems(projectActionList, appReq);
     out.println("</table><br/>");
+  }
+
+  private void printActionsDeletedWithTimeForToday(AppReq appReq,
+      List<ProjectNarrativeDao.ActionWithMinutes> deletedActions) {
+    if (deletedActions == null || deletedActions.isEmpty()) {
+      return;
+    }
+    PrintWriter out = appReq.getOut();
+    out.println("<table class=\"boxed\">");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"title\" colspan=\"2\">Deleted actions with time today</th>");
+    out.println("  </tr>");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Action</th>");
+    out.println("    <th class=\"boxed\">Act</th>");
+    out.println("  </tr>");
+    for (ProjectNarrativeDao.ActionWithMinutes action : deletedActions) {
+      String description = action.getDescription() == null ? "" : action.getDescription();
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + action.getActionId();
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <td class=\"boxed\"><a href=\"" + link + "\">" + escapeHtml(description) + "</a></td>");
+      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(action.getMinutes()) + "</td>");
+      out.println("  </tr>");
+    }
+    out.println("</table><br/>");
+  }
+
+  private void printDeletedActionsWithoutTimeForToday(AppReq appReq,
+      List<ProjectNarrativeDao.Action> deletedActions) {
+    if (deletedActions == null || deletedActions.isEmpty()) {
+      return;
+    }
+    PrintWriter out = appReq.getOut();
+    out.print("<p>Deleted actions with no time: ");
+    for (int i = 0; i < deletedActions.size(); i++) {
+      ProjectNarrativeDao.Action action = deletedActions.get(i);
+      String description = action.getDescription() == null ? "" : action.getDescription();
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + action.getActionId();
+      if (i > 0) {
+        out.print(", ");
+      }
+      out.print("<a href=\"" + link + "\">" + escapeHtml(description) + "</a>");
+    }
+    out.println("</p>");
   }
 
   private void printTimeManagementBox(AppReq appReq, List<ProjectActionNext> projectActionList) {

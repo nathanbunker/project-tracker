@@ -106,6 +106,60 @@ public class ProjectNarrativeDao {
         return results;
     }
 
+    public List<ActionWithMinutes> getDeletedActionsWithTimeForProjectOnDate(long projectId, LocalDate date) {
+        Date start = startOfDay(date);
+        Date end = startOfNextDay(date);
+        Query query = session.createQuery(
+                "from ProjectActionNext where projectId = :projectId and nextActionStatusString = :status "
+                        + "and nextChangeDate >= :start and nextChangeDate < :end "
+                        + "and nextTimeActual > 0 "
+                        + "order by nextChangeDate asc");
+        query.setLong("projectId", projectId);
+        query.setString("status", ProjectNextActionStatus.CANCELLED.getId());
+        query.setTimestamp("start", start);
+        query.setTimestamp("end", end);
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> rows = query.list();
+        List<ActionWithMinutes> results = new ArrayList<ActionWithMinutes>();
+        for (ProjectActionNext action : rows) {
+            if (action == null || action.getNextTimeActual() == null || action.getNextTimeActual() <= 0) {
+                continue;
+            }
+            results.add(new ActionWithMinutes(
+                    action.getActionNextId(),
+                    action.getNextDescription(),
+                    action.getNextChangeDate(),
+                    action.getNextTimeActual()));
+        }
+        return results;
+    }
+
+    public List<Action> getDeletedActionsWithoutTimeForProjectOnDate(long projectId, LocalDate date) {
+        Date start = startOfDay(date);
+        Date end = startOfNextDay(date);
+        Query actionsQuery = session.createQuery(
+                "from ProjectActionNext where projectId = :projectId and nextActionStatusString = :status "
+                        + "and nextChangeDate >= :start and nextChangeDate < :end "
+                        + "and (nextTimeActual is null or nextTimeActual = 0) "
+                        + "order by nextChangeDate asc");
+        actionsQuery.setLong("projectId", projectId);
+        actionsQuery.setString("status", ProjectNextActionStatus.CANCELLED.getId());
+        actionsQuery.setTimestamp("start", start);
+        actionsQuery.setTimestamp("end", end);
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> actions = actionsQuery.list();
+
+        List<Action> results = new ArrayList<Action>();
+        for (ProjectActionNext action : actions) {
+            results.add(new Action(
+                    action.getActionNextId(),
+                    action.getNextDescription(),
+                    action.getNextChangeDate(),
+                    null));
+        }
+        return results;
+    }
+
     public List<ReviewItem> listReviewItemsForDate(LocalDate date) {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
@@ -197,6 +251,36 @@ public class ProjectNarrativeDao {
 
         public String getCompletionNote() {
             return completionNote;
+        }
+    }
+
+    public static class ActionWithMinutes {
+        private final int actionId;
+        private final String description;
+        private final Date changeDate;
+        private final int minutes;
+
+        public ActionWithMinutes(int actionId, String description, Date changeDate, int minutes) {
+            this.actionId = actionId;
+            this.description = description;
+            this.changeDate = changeDate;
+            this.minutes = minutes;
+        }
+
+        public int getActionId() {
+            return actionId;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public Date getChangeDate() {
+            return changeDate;
+        }
+
+        public int getMinutes() {
+            return minutes;
         }
     }
 

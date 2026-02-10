@@ -238,6 +238,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("</table><br/>\n");
 
         printCompletedActions(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
+        printDeletedActionsWithTime(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
         printExistingNarratives(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
 
         out.println("<table class=\"boxed-full\">\n");
@@ -284,6 +285,31 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
                 out.println("    <td class=\"boxed\">" + escapeHtml(n(action.getCompletionNote())) + "</td>\n");
                 out.println("  </tr>\n");
             }
+        }
+        out.println("</table><br/>\n");
+    }
+
+    private void printDeletedActionsWithTime(PrintWriter out, ProjectNarrativeDao narrativeDao, long projectId,
+            LocalDate reviewDate) {
+        List<ProjectNarrativeDao.ActionWithMinutes> actions = narrativeDao
+                .getDeletedActionsWithTimeForProjectOnDate(projectId, reviewDate);
+        if (actions.isEmpty()) {
+            return;
+        }
+        out.println("<table class=\"boxed\">\n");
+        out.println("  <tr class=\"boxed\">\n");
+        out.println("    <th class=\"title\" colspan=\"2\">Deleted actions today</th>\n");
+        out.println("  </tr>\n");
+        out.println("  <tr class=\"boxed\">\n");
+        out.println("    <th class=\"boxed\">Action</th>\n");
+        out.println("    <th class=\"boxed\">Minutes</th>\n");
+        out.println("  </tr>\n");
+        for (ProjectNarrativeDao.ActionWithMinutes action : actions) {
+            String description = action.getDescription() == null ? "" : action.getDescription();
+            out.println("  <tr class=\"boxed\">\n");
+            out.println("    <td class=\"boxed\">" + escapeHtml(description) + "</td>\n");
+            out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(action.getMinutes()) + "</td>\n");
+            out.println("  </tr>\n");
         }
         out.println("</table><br/>\n");
     }

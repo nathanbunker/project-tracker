@@ -93,6 +93,10 @@ ALTER TABLE project_action_proposal
 
 DROP TABLE project_action;
 
+UPDATE project_action_next
+SET next_action_status = 'R'
+WHERE next_action_status = '';
+
 -- Validation queries
 SELECT
   SUM(action_description IS NOT NULL AND LENGTH(TRIM(action_description)) > 0) AS taken_rows,
@@ -110,7 +114,5 @@ JOIN project_action_next pan
   ON be.action_next_id = pan.action_next_id
 WHERE be.action_next_id IS NOT NULL;
 
-UPDATE project_action_next
-SET next_action_status = 'R'
-WHERE next_action_status = '';
+
 
