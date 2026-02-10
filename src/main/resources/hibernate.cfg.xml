@@ -23,8 +23,6 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ContactEvent.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Project.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAction.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionProposal.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionChangeLog.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAddress.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectArea.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAreaAssigned.hbm.xml"/>
@@ -40,7 +38,6 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportProfile.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportSchedule.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerKeys.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/WebApiClient.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/WebUser.hbm.xml"/>
   </session-factory>
 </hibernate-configuration>

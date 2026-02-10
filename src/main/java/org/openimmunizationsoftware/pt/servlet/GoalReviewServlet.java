@@ -163,11 +163,7 @@ public class GoalReviewServlet extends ClientServlet {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR, -48);
         for (ProjectAction projectAction : projectActionGoalList) {
-          Project project = projectAction.getProject();
-          if (project == null) {
-            project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
-            projectAction.setProject(project);
-          }
+          Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
           if (projectNeedUpdateList.contains(project)) {
             continue;
           }
@@ -199,11 +195,9 @@ public class GoalReviewServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Due</th>");
       out.println("  </tr>");
       for (ProjectAction projectAction : projectActionGoalList) {
+        projectAction
+            .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         Project project = projectAction.getProject();
-        if (project == null) {
-          project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
-          projectAction.setProject(project);
-        }
         out.println("  <tr class=\"boxed\">");
         out.println(
             "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
@@ -377,11 +371,8 @@ public class GoalReviewServlet extends ClientServlet {
   }
 
   private List<ProjectAction> getProjectActionGoalList(Session dataSession) {
-    Query query = dataSession.createQuery("select distinct pa from ProjectAction pa "
-        + "left join fetch pa.project "
-        + "where pa.nextDescription <> '' "
-        + "and pa.nextActionId = 0 and pa.nextActionType = :nextActionType "
-        + "order by pa.priorityLevel desc, pa.projectId, pa.nextDue asc");
+    Query query = dataSession.createQuery("from ProjectAction where nextDescription <> '' "
+        + "and nextActionId = 0 and nextActionType = :nextActionType order by priorityLevel desc, projectId, nextDue asc");
     query.setParameter("nextActionType", ProjectNextActionType.GOAL);
     @SuppressWarnings("unchecked")
     List<ProjectAction> projectActionGoalList = query.list();
