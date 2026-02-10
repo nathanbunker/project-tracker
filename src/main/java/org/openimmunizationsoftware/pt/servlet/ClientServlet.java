@@ -219,6 +219,7 @@ public class ClientServlet extends HttpServlet {
       }
       menuList.add(new String[] { "ProjectsServlet", "Projects" });
       menuList.add(new String[] { "ProjectActionServlet", "Actions" });
+      menuList.add(new String[] { "ProjectNarrativeReviewServlet", "Review" });
       menuList.add(new String[] { "ProjectContactsServlet", "Contacts" });
 
       if (webUser.isUserTypeAdmin()) {

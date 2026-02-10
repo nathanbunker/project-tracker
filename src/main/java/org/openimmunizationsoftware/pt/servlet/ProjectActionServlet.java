@@ -416,7 +416,6 @@ public class ProjectActionServlet extends ClientServlet {
           printActionsScheduledForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
           printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
         }
-        out.println("<p><a href=\"ProjectNarrativeReviewServlet\" class=\"button\">Daily Narrative Review</a></p>");
         out.println("</div>");
 
         out.println("</div>");
