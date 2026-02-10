@@ -69,10 +69,10 @@ public class ProjectNarrativeDao {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
         Query query = session.createQuery(
-                "from ProjectNarrative where projectId = :projectId and narrativeVerb = :verb "
+            "from ProjectNarrative where projectId = :projectId and narrativeVerbString = :verb "
                         + "and narrativeDate >= :start and narrativeDate < :end order by narrativeDate asc");
         query.setLong("projectId", projectId);
-        query.setParameter("verb", verb);
+        query.setParameter("verb", verb == null ? null : verb.getId());
         query.setTimestamp("start", start);
         query.setTimestamp("end", end);
         query.setMaxResults(1);

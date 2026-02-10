@@ -253,35 +253,35 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
 
         printCompletedActions(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
         printDeletedActionsWithTime(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
-        printExistingNarratives(out, narrativeDao, selectedItem.getProjectId(), reviewDate);
 
-        out.println("<table class=\"boxed-full\">\n");
-        out.println("  <tr><th class=\"title\" colspan=\"2\">Narrative</th></tr>\n");
-        printNarrativeInput(out, "Notes", PARAM_NOTE, 6, narrativeTextMap.get(ProjectNarrativeVerb.NOTE));
-        printNarrativeInput(out, "Decisions made", PARAM_DECISION, 6,
-                narrativeTextMap.get(ProjectNarrativeVerb.DECISION));
-        printNarrativeInput(out, "Insights gained", PARAM_INSIGHT, 6,
-                narrativeTextMap.get(ProjectNarrativeVerb.INSIGHT));
-        printNarrativeInput(out, "Risks seen", PARAM_RISK, 6, narrativeTextMap.get(ProjectNarrativeVerb.RISK));
-        printNarrativeInput(out, "Opportunities noticed", PARAM_OPPORTUNITY, 6,
-                narrativeTextMap.get(ProjectNarrativeVerb.OPPORTUNITY));
-        out.println("  <tr><td class=\"boxed-submit\" colspan=\"2\">\n");
-        out.println("    <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE
-                + "\">\n");
-        out.println("  </td></tr>\n");
-        out.println("</table>\n");
+        out.println("<h2>Narrative</h2>\n");
+        printNarrativeInput(out, "Notes",
+                "Capture anything important to remember about today's work on this project.",
+                PARAM_NOTE, 6, narrativeTextMap.get(ProjectNarrativeVerb.NOTE));
+        printNarrativeInput(out, "Decisions",
+                "What decision was made, and what changed because of it?",
+                PARAM_DECISION, 6, narrativeTextMap.get(ProjectNarrativeVerb.DECISION));
+        printNarrativeInput(out, "Insights",
+                "What new understanding or clarity emerged while working on this project?",
+                PARAM_INSIGHT, 6, narrativeTextMap.get(ProjectNarrativeVerb.INSIGHT));
+        printNarrativeInput(out, "Risks",
+                "What could negatively affect progress, timing, or outcomes?",
+                PARAM_RISK, 6, narrativeTextMap.get(ProjectNarrativeVerb.RISK));
+        printNarrativeInput(out, "Opportunities",
+                "What new possibility or advantage appeared that could move this forward?",
+                PARAM_OPPORTUNITY, 6, narrativeTextMap.get(ProjectNarrativeVerb.OPPORTUNITY));
+        out.println("<p><input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE
+                + "\"></p>\n");
     }
 
-    private void printNarrativeInput(PrintWriter out, String label, String name, int rows, String value) {
+    private void printNarrativeInput(PrintWriter out, String label, String description, String name, int rows,
+            String value) {
         String displayValue = value == null ? "" : value;
-        out.println("  <tr>\n");
-        out.println("    <th class=\"inside\">" + label + "</th>\n");
-        out.println("    <td class=\"inside\">\n");
-        out.println("      <textarea name=\"" + name + "\" rows=\"" + rows
+        out.println("<h3>" + label + "</h3>\n");
+        out.println("<p>" + description + "</p>\n");
+        out.println("<textarea name=\"" + name + "\" rows=\"" + rows
                 + "\" cols=\"90\" onkeydown=\"resetRefresh()\">" + escapeHtml(displayValue)
                 + "</textarea>\n");
-        out.println("    </td>\n");
-        out.println("  </tr>\n");
     }
 
     private void printCompletedActions(PrintWriter out, ProjectNarrativeDao narrativeDao, long projectId,
@@ -328,57 +328,6 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             out.println("  <tr class=\"boxed\">\n");
             out.println("    <td class=\"boxed\">" + escapeHtml(description) + "</td>\n");
             out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(action.getMinutes()) + "</td>\n");
-            out.println("  </tr>\n");
-        }
-        out.println("</table><br/>\n");
-    }
-
-    private void printExistingNarratives(PrintWriter out, ProjectNarrativeDao narrativeDao, long projectId,
-            LocalDate reviewDate) {
-        List<ProjectNarrative> narratives = narrativeDao.findByProjectAndDateRange(projectId, reviewDate);
-        if (narratives.isEmpty()) {
-            out.println("<table class=\"boxed\">\n");
-            out.println("  <tr class=\"boxed\">\n");
-            out.println("    <th class=\"title\" colspan=\"2\">Existing narratives</th>\n");
-            out.println("  </tr>\n");
-            out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\">None recorded.</td></tr>\n");
-            out.println("</table><br/>\n");
-            return;
-        }
-
-        Map<ProjectNarrativeVerb, List<String>> grouped = new EnumMap<ProjectNarrativeVerb, List<String>>(
-                ProjectNarrativeVerb.class);
-        for (ProjectNarrative narrative : narratives) {
-            ProjectNarrativeVerb verb = narrative.getNarrativeVerb();
-            if (verb == null) {
-                continue;
-            }
-            List<String> list = grouped.get(verb);
-            if (list == null) {
-                list = new ArrayList<String>();
-                grouped.put(verb, list);
-            }
-            list.add(narrative.getNarrativeText());
-        }
-
-        out.println("<table class=\"boxed\">\n");
-        out.println("  <tr class=\"boxed\">\n");
-        out.println("    <th class=\"title\" colspan=\"2\">Existing narratives</th>\n");
-        out.println("  </tr>\n");
-        for (ProjectNarrativeVerb verb : ProjectNarrativeVerb.values()) {
-            List<String> list = grouped.get(verb);
-            if (list == null || list.isEmpty()) {
-                continue;
-            }
-            out.println("  <tr class=\"boxed\">\n");
-            out.println("    <th class=\"boxed\">" + escapeHtml(verb.getLabel()) + "</th>\n");
-            out.println("    <td class=\"boxed\">\n");
-            out.println("      <ul>\n");
-            for (String item : list) {
-                out.println("        <li>" + escapeHtml(n(item)) + "</li>\n");
-            }
-            out.println("      </ul>\n");
-            out.println("    </td>\n");
             out.println("  </tr>\n");
         }
         out.println("</table><br/>\n");
