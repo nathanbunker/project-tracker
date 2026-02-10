@@ -419,6 +419,7 @@ public class ProjectActionServlet extends ClientServlet {
           String enablePlanningLink = "<a href=\"ProjectActionServlet?" + PARAM_PLANNING_ENABLED
               + "=true\">Turn On Planning</a>";
           out.println("<p>Planning is currently disabled. " + enablePlanningLink + "</p>");
+          out.println("<p><a href=\"ProjectNarrativeReviewServlet\" class=\"button\">Daily Narrative Review</a></p>");
         }
         out.println("</div>");
 

@@ -7,6 +7,8 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -16,6 +18,8 @@ import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 
 public class ProjectNarrativeDao {
+
+    private static final int MINUTES_REVIEW_THRESHOLD = 5;
 
     private final Session session;
 
@@ -102,6 +106,55 @@ public class ProjectNarrativeDao {
         return results;
     }
 
+    public List<ReviewItem> listReviewItemsForDate(LocalDate date) {
+        Date start = startOfDay(date);
+        Date end = startOfNextDay(date);
+
+        Query minutesQuery = session.createQuery(
+                "select be.projectId, p.projectName, sum(be.billMins) "
+                        + "from BillEntry be, Project p "
+                        + "where be.projectId = p.projectId and be.startTime >= :start and be.startTime < :end "
+                        + "group by be.projectId, p.projectName "
+                        + "having sum(be.billMins) >= :minMinutes "
+                        + "order by sum(be.billMins) desc");
+        minutesQuery.setTimestamp("start", start);
+        minutesQuery.setTimestamp("end", end);
+        minutesQuery.setInteger("minMinutes", MINUTES_REVIEW_THRESHOLD);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = minutesQuery.list();
+
+        Query reviewedQuery = session.createQuery(
+                "select distinct pn.projectId from ProjectNarrative pn "
+                        + "where pn.narrativeDate >= :start and pn.narrativeDate < :end");
+        reviewedQuery.setTimestamp("start", start);
+        reviewedQuery.setTimestamp("end", end);
+        @SuppressWarnings("unchecked")
+        List<Number> reviewedProjectIds = reviewedQuery.list();
+        Set<Long> reviewedLookup = new HashSet<Long>();
+        for (Number projectId : reviewedProjectIds) {
+            if (projectId != null) {
+                reviewedLookup.add(projectId.longValue());
+            }
+        }
+
+        List<ReviewItem> results = new ArrayList<ReviewItem>();
+        for (Object[] row : rows) {
+            if (row == null || row.length < 3) {
+                continue;
+            }
+            Number projectId = (Number) row[0];
+            String projectName = (String) row[1];
+            Number minutes = (Number) row[2];
+            if (projectId == null) {
+                continue;
+            }
+            int minuteValue = minutes == null ? 0 : minutes.intValue();
+            boolean reviewed = reviewedLookup.contains(projectId.longValue());
+            results.add(new ReviewItem(projectId.longValue(), projectName, minuteValue, reviewed));
+        }
+        return results;
+    }
+
     private static Date startOfDay(LocalDate date) {
         return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
@@ -144,6 +197,36 @@ public class ProjectNarrativeDao {
 
         public String getCompletionNote() {
             return completionNote;
+        }
+    }
+
+    public static class ReviewItem {
+        private final long projectId;
+        private final String projectName;
+        private final int minutesSpent;
+        private final boolean reviewed;
+
+        public ReviewItem(long projectId, String projectName, int minutesSpent, boolean reviewed) {
+            this.projectId = projectId;
+            this.projectName = projectName;
+            this.minutesSpent = minutesSpent;
+            this.reviewed = reviewed;
+        }
+
+        public long getProjectId() {
+            return projectId;
+        }
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public int getMinutesSpent() {
+            return minutesSpent;
+        }
+
+        public boolean isReviewed() {
+            return reviewed;
         }
     }
 }
