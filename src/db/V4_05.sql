@@ -50,7 +50,7 @@ CREATE TABLE project_narrative (
     narrative_id        INT AUTO_INCREMENT PRIMARY KEY,
     project_id          INT NOT NULL,
     contact_id          INT NOT NULL,
-    provider_id         INT NOT NULL,
+    provider_id         VARCHAR(30) NOT NULL,
     narrative_date      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     narrative_verb      VARCHAR(20) NOT NULL,
     narrative_text      TEXT NOT NULL,
