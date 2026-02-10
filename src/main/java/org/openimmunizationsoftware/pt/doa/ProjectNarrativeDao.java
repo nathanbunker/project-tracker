@@ -57,11 +57,33 @@ public class ProjectNarrativeDao {
     }
 
     public void insert(ProjectNarrative narrative) {
+        if (narrative.getLastUpdated() == null) {
+            narrative.setLastUpdated(new Date());
+        }
         session.save(narrative);
     }
 
     public void update(ProjectNarrative narrative) {
+        narrative.setLastUpdated(new Date());
         session.update(narrative);
+    }
+
+    public boolean updateNarrativeTextIfChanged(ProjectNarrative narrative, String newText, Date narrativeDate) {
+        if (narrative == null) {
+            return false;
+        }
+        String currentText = normalizeText(narrative.getNarrativeText());
+        String incomingText = normalizeText(newText);
+        if (currentText.equals(incomingText)) {
+            return false;
+        }
+        narrative.setNarrativeText(newText);
+        if (narrativeDate != null) {
+            narrative.setNarrativeDate(narrativeDate);
+        }
+        narrative.setLastUpdated(new Date());
+        session.update(narrative);
+        return true;
     }
 
     public ProjectNarrative findNarrativeForProjectVerbOnDate(long projectId, ProjectNarrativeVerb verb,
@@ -69,7 +91,7 @@ public class ProjectNarrativeDao {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
         Query query = session.createQuery(
-            "from ProjectNarrative where projectId = :projectId and narrativeVerbString = :verb "
+                "from ProjectNarrative where projectId = :projectId and narrativeVerbString = :verb "
                         + "and narrativeDate >= :start and narrativeDate < :end order by narrativeDate asc");
         query.setLong("projectId", projectId);
         query.setParameter("verb", verb == null ? null : verb.getId());
@@ -247,6 +269,10 @@ public class ProjectNarrativeDao {
             return primary;
         }
         return fallback;
+    }
+
+    private static String normalizeText(String value) {
+        return value == null ? "" : value.trim();
     }
 
     public static class Action {

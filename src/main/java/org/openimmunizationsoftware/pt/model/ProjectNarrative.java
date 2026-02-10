@@ -11,6 +11,7 @@ public class ProjectNarrative implements java.io.Serializable {
     private int contactId;
     private String providerId;
     private Date narrativeDate;
+    private Date lastUpdated;
     private ProjectNarrativeVerb narrativeVerb;
     private String narrativeText;
     private Project project;
@@ -55,6 +56,14 @@ public class ProjectNarrative implements java.io.Serializable {
 
     public void setNarrativeDate(Date narrativeDate) {
         this.narrativeDate = narrativeDate;
+    }
+
+    public Date getLastUpdated() {
+        return lastUpdated;
+    }
+
+    public void setLastUpdated(Date lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
 
     public ProjectNarrativeVerb getNarrativeVerb() {

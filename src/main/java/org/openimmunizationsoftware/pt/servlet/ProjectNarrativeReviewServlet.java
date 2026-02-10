@@ -181,6 +181,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
         ProjectNarrative narrative = narrativeDao.findNarrativeForProjectVerbOnDate(project.getProjectId(), verb,
                 reviewDate);
+        Date narrativeDate = buildNarrativeDate(reviewDate, offsetSeconds);
         if (narrative == null) {
             narrative = new ProjectNarrative();
             narrative.setProject(project);
@@ -188,12 +189,10 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             narrative.setProvider(appReq.getWebUser().getProvider());
             narrative.setNarrativeVerb(verb);
             narrative.setNarrativeText(text);
-            narrative.setNarrativeDate(buildNarrativeDate(reviewDate, offsetSeconds));
+            narrative.setNarrativeDate(narrativeDate);
             narrativeDao.insert(narrative);
         } else {
-            narrative.setNarrativeText(text);
-            narrative.setNarrativeDate(buildNarrativeDate(reviewDate, offsetSeconds));
-            narrativeDao.update(narrative);
+            narrativeDao.updateNarrativeTextIfChanged(narrative, text, narrativeDate);
         }
         return offsetSeconds + 1;
     }

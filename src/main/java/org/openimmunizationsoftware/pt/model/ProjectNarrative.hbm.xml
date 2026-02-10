@@ -22,6 +22,9 @@
     <property name="narrativeDate" type="timestamp">
       <column name="narrative_date" length="19" not-null="true" />
     </property>
+    <property name="lastUpdated" type="timestamp">
+      <column name="last_updated" length="19" not-null="true" />
+    </property>
     <property name="narrativeVerbString" type="string">
       <column name="narrative_verb" length="20" not-null="true" />
     </property>
