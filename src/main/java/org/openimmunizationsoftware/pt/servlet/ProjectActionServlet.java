@@ -85,7 +85,6 @@ public class ProjectActionServlet extends ClientServlet {
   protected static final String PARAM_COMPLETING_ACTION_ID = "completingActionId";
   private static final String PARAM_EDIT_ACTION_ID = "editActionId";
   protected static final String PARAM_ACTION = "action";
-  protected static final String PARAM_PLANNING_ENABLED = "planningEnabled";
   protected static final String ACTION_START_TIMER = "StartTimer";
   private static final String ACTION_STOP_TIMER = "StopTimer";
   private static final String ACTION_NOTE = "Note";
@@ -162,11 +161,13 @@ public class ProjectActionServlet extends ClientServlet {
         if (nextAction != null) {
           if (nextAction.getProjectId() != project.getProjectId()) {
             project = nextAction.getProject();
-            appReq.setCompletingAction(nextAction);
           }
           if (action.equals(ACTION_SCHEDULE_AND_START)) {
             completingAction = nextAction;
           }
+        }
+        if (completingAction != null) {
+          project = completingAction.getProject();
         }
       }
 
@@ -240,44 +241,39 @@ public class ProjectActionServlet extends ClientServlet {
           projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
         }
       }
-      boolean planningEnabled = request.getParameter(PARAM_PLANNING_ENABLED) != null;
-
       List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
       List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
       List<List<ProjectActionNext>> projectActionDueNextWorkingDayListList = new ArrayList<>();
-      if (planningEnabled) {
-        Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
-        planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
-        Date planningStartDate = planningCalendar.getTime();
-        planningCalendar.add(Calendar.DAY_OF_MONTH, 13);
-        Date planningEndDate = planningCalendar.getTime();
-        List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
-            planningStartDate, planningEndDate);
-        Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
-        for (ProjectActionNext projectAction : planningRangeList) {
-          Date bucketDate = normalizeDate(projectAction.getNextDue());
-          List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
-          if (bucketList == null) {
-            bucketList = new ArrayList<>();
-            planningBuckets.put(bucketDate, bucketList);
-          }
-          bucketList.add(projectAction);
+      Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
+      planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
+      Date planningStartDate = planningCalendar.getTime();
+      planningCalendar.add(Calendar.DAY_OF_MONTH, 13);
+      Date planningEndDate = planningCalendar.getTime();
+      List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
+          planningStartDate, planningEndDate);
+      Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
+      for (ProjectActionNext projectAction : planningRangeList) {
+        Date bucketDate = normalizeDate(projectAction.getNextDue());
+        List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
+        if (bucketList == null) {
+          bucketList = new ArrayList<>();
+          planningBuckets.put(bucketDate, bucketList);
         }
+        bucketList.add(projectAction);
+      }
 
-        int daysFound = 0;
-        for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
-          Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
-          dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-          Date dayKey = normalizeDate(dayCalendar.getTime());
-          List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
-          if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
-            continue;
-          }
-          sortProjectActionList(projectActionDueNextWorkingDayList);
-          projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
-          daysFound++;
+      int daysFound = 0;
+      for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
+        Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
+        dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
+        Date dayKey = normalizeDate(dayCalendar.getTime());
+        List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
+        if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
+          continue;
         }
-
+        sortProjectActionList(projectActionDueNextWorkingDayList);
+        projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
+        daysFound++;
       }
       if (completingAction == null && projectActionDueTodayList.size() > 0) {
         completingAction = projectActionDueTodayList.get(0);
@@ -293,6 +289,14 @@ public class ProjectActionServlet extends ClientServlet {
           timeTracker.update(completingAction, dataSession);
         }
       }
+
+      if (completingAction != null) {
+        project = completingAction.getProject();
+      }
+      appReq.setProject(project);
+      appReq.setProjectSelected(project);
+      appReq.setCompletingAction(completingAction);
+      appReq.setProjectActionSelected(completingAction);
 
       // register project so it shows up in list of projects recently referred to
       if (project != null) {
@@ -348,79 +352,71 @@ public class ProjectActionServlet extends ClientServlet {
         printActionsScheduledForToday(appReq, projectActionDueTodayList, projectActionOverdueList);
         printActionsCompletedForToday(appReq, projectActionClosedTodayList);
 
-        if (planningEnabled) {
-          {
-            List<TimeAdder> timeAdderList = new ArrayList<>();
-            for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-              Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
-              TimeAdder timeAdder = new TimeAdder(projectActionDueNextWorkingDayList, appReq, workingDayDate);
-              timeAdderList.add(timeAdder);
-            }
-
-            out.println("<table class=\"boxed\">");
-            out.println("  <tr class=\"boxed\">");
-            out.println("    <th class=\"title\">Planning</th>");
-            for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-              Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
-              SimpleDateFormat sdf = new SimpleDateFormat("EEE MM/dd");
-              out.println("    <th class=\"boxed\">" + sdf.format(workingDayDate) + "</th>");
-            }
-            out.println("  </tr>");
-            out.println("  <tr class=\"boxed\">");
-            out.println("    <th class=\"boxed\">Will Meet</th>");
-            for (TimeAdder timeAdder : timeAdderList) {
-              out.println(
-                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst())
-                      + "</td>");
-            }
-            out.println("  </tr>");
-            out.println("  <tr class=\"boxed\">");
-            out.println("    <th class=\"boxed\">Committed</th>");
-            for (TimeAdder timeAdder : timeAdderList) {
-              out.println(
-                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedEst())
-                      + "</td>");
-            }
-            out.println("  </tr>");
-            out.println("  <tr class=\"boxed\">");
-            out.println("    <th class=\"boxed\">Will</th>");
-            for (TimeAdder timeAdder : timeAdderList) {
-              out.println(
-                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillEst())
-                      + "</td>");
-            }
-            out.println("  </tr>");
-            out.println("  <tr class=\"boxed\">");
-            out.println("    <th class=\"boxed\">Might</th>");
-            for (TimeAdder timeAdder : timeAdderList) {
-              out.println(
-                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getMightEst())
-                      + "</td>");
-            }
-            out.println("  </tr>");
-            out.println("  <tr class=\"boxed\">");
-            out.println("    <th class=\"boxed\">Planned</th>");
-            for (TimeAdder timeAdder : timeAdderList) {
-              out.println(
-                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillAct())
-                      + "</td>");
-            }
-            out.println("  </tr>");
-            out.println("</table><br/>");
-          }
+        {
+          List<TimeAdder> timeAdderList = new ArrayList<>();
           for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
             Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
-            printActionsScheduledForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
-            printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
+            TimeAdder timeAdder = new TimeAdder(projectActionDueNextWorkingDayList, appReq, workingDayDate);
+            timeAdderList.add(timeAdder);
           }
-          String disablePlanningLink = "<a href=\"ProjectActionServlet\">Turn Off Planning</a>";
-          out.println("<p>Planning is currently enabled. " + disablePlanningLink + "</p>");
-        } else {
-          String enablePlanningLink = "<a href=\"ProjectActionServlet?" + PARAM_PLANNING_ENABLED
-              + "=true\">Turn On Planning</a>";
-          out.println("<p>Planning is currently disabled. " + enablePlanningLink + "</p>");
-          out.println("<p><a href=\"ProjectNarrativeReviewServlet\" class=\"button\">Daily Narrative Review</a></p>");
+
+          out.println("<table class=\"boxed\">");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"title\">Planning</th>");
+          for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+            SimpleDateFormat sdf = new SimpleDateFormat("EEE MM/dd");
+            out.println("    <th class=\"boxed\">" + sdf.format(workingDayDate) + "</th>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Will Meet</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst())
+                    + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Committed</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedEst())
+                    + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Will</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillEst())
+                    + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Might</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getMightEst())
+                    + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Planned</th>");
+          for (TimeAdder timeAdder : timeAdderList) {
+            out.println(
+                "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillAct())
+                    + "</td>");
+          }
+          out.println("  </tr>");
+          out.println("</table><br/>");
         }
+        for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+          Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+          printActionsScheduledForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
+          printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
+        }
+        out.println("<p><a href=\"ProjectNarrativeReviewServlet\" class=\"button\">Daily Narrative Review</a></p>");
         out.println("</div>");
 
         out.println("</div>");
@@ -765,10 +761,6 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID + "\" value=\""
           + completingAction.getActionNextId() + "\">");
     }
-    boolean planningEnabled = appReq.getRequest().getParameter(PARAM_PLANNING_ENABLED) != null;
-    if (planningEnabled) {
-      out.println("<input type=\"hidden\" name=\"" + PARAM_PLANNING_ENABLED + "\" value=\"true\">");
-    }
 
     printActionNow(appReq, webUser, out, completingAction, projectContactList,
         FORM_ACTION_NOW, projectList);
@@ -809,11 +801,10 @@ public class ProjectActionServlet extends ClientServlet {
         out.println("<p>" + project.getDescription() + " <a href=\"" + link + "\" class=\"edit-link\">Edit</a></p>");
       }
     }
-    String planningEnabled = getPlanningEnabledParam(appReq);
     out.println("<button id=\"editButton0\" type=\"button\">Add Action</button>");
     {
       String link = "ProjectActionServlet?" + PARAM_PROJECT_ID + "=" + project.getProjectId() + "&" + PARAM_ACTION
-          + "=" + ACTION_SUGGEST + planningEnabled;
+          + "=" + ACTION_SUGGEST;
       // print out button that will use link
       out.println("<button id=\"suggestButton0\" type=\"button\" onclick=\"window.location.href='" + link
           + "'\">Suggest</button>");
@@ -833,7 +824,7 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("<li>");
           out.println(
               "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + pa.getActionNextId() + "\">"
-                  + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + planningEnabled + "</a>");
+                  + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>");
           out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
               + pa.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
           out.println("</li>");
@@ -1509,10 +1500,6 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<form name=\"projectAction" + formName
         + "\" method=\"post\" action=\"ProjectActionServlet\" id=\"" + SAVE_PROJECT_ACTION_FORM + formName
         + "\" class=\"editForm\">");
-    boolean planningEnabled = appReq.getRequest().getParameter(PARAM_PLANNING_ENABLED) != null;
-    if (planningEnabled) {
-      out.println("<input type=\"hidden\" name=\"" + PARAM_PLANNING_ENABLED + "\" value=\"true\">");
-    }
     SimpleDateFormat sdf = webUser.getDateFormat();
     out.println(" <script>");
     out.println("  document.addEventListener('DOMContentLoaded', function() {");
@@ -2225,15 +2212,14 @@ public class ProjectActionServlet extends ClientServlet {
     {
       TimeTracker timeTracker = appReq.getTimeTracker();
       if (timeTracker != null) {
-        String planningEnabled = getPlanningEnabledParam(appReq);
         String t = TimeTracker.formatTime(completingAction.getNextTimeActual());
         if (timeTracker.isRunningClock()) {
-          timeString += "<a href=\"ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_STOP_TIMER + planningEnabled
+          timeString += "<a href=\"ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_STOP_TIMER
               + "\" class=\"timerRunning\" id=\"" + ID_TIME_RUNNING + "\">" + t + "</a>";
         } else {
           timeString += "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
               + completingAction.getActionNextId()
-              + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + planningEnabled + "\" class=\"timerStopped\" id=\""
+              + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + "\" class=\"timerStopped\" id=\""
               + ID_TIME_RUNNING
               + "\">" + t
               + "</a>";
@@ -2246,17 +2232,6 @@ public class ProjectActionServlet extends ClientServlet {
       }
     }
     return timeString;
-  }
-
-  private static String getPlanningEnabledParam(AppReq appReq) {
-    String planningEnabled = "";
-    {
-      boolean planningIsEnabled = appReq.getRequest().getParameter(PARAM_PLANNING_ENABLED) != null;
-      if (planningIsEnabled) {
-        planningEnabled = "&" + PARAM_PLANNING_ENABLED + "=true";
-      }
-    }
-    return planningEnabled;
   }
 
   private String getNextActionTitle(ProjectActionNext completingAction) {
@@ -2526,9 +2501,7 @@ public class ProjectActionServlet extends ClientServlet {
     PrintWriter out = appReq.getOut();
     WebUser webUser = appReq.getWebUser();
     for (ProjectActionNext projectAction : paList) {
-      String planningEnabled = getPlanningEnabledParam(appReq);
-      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionNextId()
-          + planningEnabled;
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionNextId();
       out.println("  <tr class=\"boxed\">");
       if (projectAction.getProject() == null) {
         out.println("    <td class=\"boxed\">&nbsp;</td>");
