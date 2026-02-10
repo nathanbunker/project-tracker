@@ -1,6 +1,6 @@
 package org.openimmunizationsoftware.pt.api.common;
 
-import com.myapp.api.v1.resource.dto.ApiErrorResponse;
+import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;

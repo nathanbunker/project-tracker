@@ -80,6 +80,8 @@ public class LoginServlet extends ClientServlet {
         dispatcher.forward(request, response);
         return;
       }
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       appReq.close();
     }

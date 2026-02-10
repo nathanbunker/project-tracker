@@ -17,7 +17,7 @@ public class ProjectActionChangeLog implements java.io.Serializable {
     private String changeSummary;
     private String changePatch;
     private String changeReason;
-    private ProjectAction action;
+    private ProjectActionNext action;
     private Project project;
     private ProjectActionProposal proposal;
 
@@ -120,14 +120,14 @@ public class ProjectActionChangeLog implements java.io.Serializable {
         this.changeReason = changeReason;
     }
 
-    public ProjectAction getAction() {
+    public ProjectActionNext getAction() {
         return action;
     }
 
-    public void setAction(ProjectAction action) {
+    public void setAction(ProjectActionNext action) {
         this.action = action;
         if (action != null) {
-            this.actionId = action.getActionId();
+            this.actionId = action.getActionNextId();
         }
     }
 

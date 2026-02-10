@@ -21,7 +21,7 @@ public class ProjectActionProposal implements java.io.Serializable {
     private String proposedPatch;
     private String inputSnapshot;
     private Project project;
-    private ProjectAction action;
+    private ProjectActionNext action;
     private ProjectContact contact;
 
     public int getProposalId() {
@@ -158,14 +158,14 @@ public class ProjectActionProposal implements java.io.Serializable {
         }
     }
 
-    public ProjectAction getAction() {
+    public ProjectActionNext getAction() {
         return action;
     }
 
-    public void setAction(ProjectAction action) {
+    public void setAction(ProjectActionNext action) {
         this.action = action;
         if (action != null) {
-            this.actionId = action.getActionId();
+            this.actionId = action.getActionNextId();
         } else {
             this.actionId = null;
         }

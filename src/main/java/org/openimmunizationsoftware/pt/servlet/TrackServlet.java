@@ -31,10 +31,12 @@ import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillDay;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -295,10 +297,11 @@ public class TrackServlet extends ClientServlet {
     if (type.equals(TYPE_MONTH) || type.equals(TYPE_YEAR)) {
       printTotalWorkingTime(out, type, billableMins, targetHours);
       List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
-      List<ProjectAction> projectActionListComplete = getProjectActionListComplete(webUser, dataSession, timeTracker,
-          timeEntryList);
+      List<ProjectActionTaken> projectActionTakenList = getProjectActionTakenList(webUser, dataSession, timeTracker);
+      List<ProjectActionNext> projectActionCompletedList = getProjectActionNextCompletedList(webUser, dataSession,
+          timeTracker);
 
-      if (timeEntryList.size() > 0 || projectActionListComplete.size() > 0) {
+      if (timeEntryList.size() > 0 || projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
         out.println("<table class=\"boxed\">");
         out.println("  <tr>");
         out.println("    <th class=\"title\" colspan=\"3\">Time Tracked by Project</th>");
@@ -309,7 +312,7 @@ public class TrackServlet extends ClientServlet {
         out.println("  </tr>");
         for (TimeEntry timeEntry : timeEntryList) {
           printProjectLineWithTimeEntrySummaryOnly(webUser, out, dataSession, timeTracker, type, showLinks,
-              projectActionListComplete, timeEntry);
+              projectActionTakenList, projectActionCompletedList, timeEntry);
         }
         out.println("</table> ");
         out.println("<br/> ");
@@ -325,15 +328,16 @@ public class TrackServlet extends ClientServlet {
       }
 
       printTotalWorkingTime(out, type, billableMins, targetHours);
-      List<ProjectAction> projectActionListComplete = getProjectActionListComplete(webUser, dataSession, timeTracker,
-          timeEntryList);
+      List<ProjectActionTaken> projectActionTakenList = getProjectActionTakenList(webUser, dataSession, timeTracker);
+      List<ProjectActionNext> projectActionCompletedList = getProjectActionNextCompletedList(webUser, dataSession,
+          timeTracker);
 
-      if (timeEntryList.size() > 0 || projectActionListComplete.size() > 0) {
+      if (timeEntryList.size() > 0 || projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
         {
           out.println("<h2>Notes for " + type + "</h2>");
           for (TimeEntry timeEntry : timeEntryList) {
             printProjectNarrative(webUser, out, dataSession, timeTracker, type,
-                projectActionListComplete, timeEntry);
+                projectActionTakenList, timeEntry);
           }
         }
         out.println("<table class=\"boxed\">");
@@ -347,10 +351,11 @@ public class TrackServlet extends ClientServlet {
         out.println("  </tr>");
         for (TimeEntry timeEntry : timeEntryList) {
           printProjectLineWithTimeEntry(webUser, out, dataSession, timeTracker, type, showLinks,
-              projectActionListComplete, timeEntry);
+              projectActionTakenList, projectActionCompletedList, timeEntry);
         }
-        while (projectActionListComplete.size() > 0) {
-          printProjectLineNoTimeEntered(out, dataSession, type, showLinks, projectActionListComplete);
+        while (projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
+          printProjectLineNoTimeEntered(out, dataSession, type, showLinks, projectActionTakenList,
+              projectActionCompletedList);
         }
         out.println("</table> ");
         out.println("<br/> ");
@@ -494,9 +499,18 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectLineNoTimeEntered(PrintWriter out, Session dataSession, String type,
-      boolean showLinks,
-      List<ProjectAction> projectActionListComplete) {
-    Project project = (Project) dataSession.get(Project.class, projectActionListComplete.get(0).getProjectId());
+      boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
+      List<ProjectActionNext> projectActionCompletedList) {
+    Integer projectId = null;
+    if (!projectActionTakenList.isEmpty()) {
+      projectId = projectActionTakenList.get(0).getProjectId();
+    } else if (!projectActionCompletedList.isEmpty()) {
+      projectId = projectActionCompletedList.get(0).getProjectId();
+    }
+    if (projectId == null) {
+      return;
+    }
+    Project project = (Project) dataSession.get(Project.class, projectId);
     out.println("  <tr class=\"boxed\">");
     String link = "<a href=\"ProjectServlet?projectId="
         + project.getProjectId()
@@ -510,31 +524,30 @@ public class TrackServlet extends ClientServlet {
 
     out.println("    <td class=\"boxed\">");
     boolean first = true;
-    for (Iterator<ProjectAction> it = projectActionListComplete.iterator(); it.hasNext();) {
-      ProjectAction projectAction = it.next();
-      if (projectAction.getProjectId() == project.getProjectId()) {
-        SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
+    SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
+    for (Iterator<ProjectActionTaken> it = projectActionTakenList.iterator(); it.hasNext();) {
+      ProjectActionTaken actionTaken = it.next();
+      if (actionTaken.getProjectId() == project.getProjectId()) {
         it.remove();
-        {
-          Query query = dataSession.createQuery("from ProjectAction where nextActionId = ? ");
-          query.setParameter(0, projectAction.getActionId());
-          @SuppressWarnings("unchecked")
-          List<ProjectAction> projectActionCompletedList = query.list();
-          for (ProjectAction pa : projectActionCompletedList) {
-            if (!first) {
-              out.println("    <br/>");
-            }
-            first = false;
-            out.println("    " + sdf.format(projectAction.getActionDate()) + ": Completed ");
-            out.println("    " + pa.getNextDescription());
-          }
-        }
         if (!first) {
           out.println("    <br/>");
         }
         first = false;
-        out.println("    " + sdf.format(projectAction.getActionDate()) + ": ");
-        out.println("    " + projectAction.getActionDescription());
+        String dateLabel = actionTaken.getActionDate() == null ? "" : sdf.format(actionTaken.getActionDate());
+        out.println("    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + actionTaken.getActionDescription());
+      }
+    }
+    for (Iterator<ProjectActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+      ProjectActionNext actionNext = it.next();
+      if (actionNext.getProjectId() == project.getProjectId()) {
+        it.remove();
+        if (!first) {
+          out.println("    <br/>");
+        }
+        first = false;
+        String dateLabel = actionNext.getNextChangeDate() == null ? "" : sdf.format(actionNext.getNextChangeDate());
+        out.println(
+            "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + "Completed " + actionNext.getNextDescription());
       }
     }
     out.println("    </td>");
@@ -542,8 +555,8 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectLineWithTimeEntry(WebUser webUser, PrintWriter out, Session dataSession,
-      TimeTracker timeTracker, String type, boolean showLinks, List<ProjectAction> projectActionListComplete,
-      TimeEntry timeEntry) {
+      TimeTracker timeTracker, String type, boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
+      List<ProjectActionNext> projectActionCompletedList, TimeEntry timeEntry) {
     // if displaying for week then time needs to be rounded to 30 minutes.
     // The rounding rule is anything under 7 minutes is rounded down, and everything
     // 7 minutes
@@ -561,33 +574,43 @@ public class TrackServlet extends ClientServlet {
     }
     out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeInMinutes) + "</td>");
 
-    List<ProjectAction> projectActionList = timeEntry.getProjectActionList();
-    if (projectActionList.size() > 0) {
+    List<ProjectActionTaken> projectActionList = timeEntry.getProjectActionList();
+    int projectId = Integer.parseInt(timeEntry.getId());
+    boolean hasCompletedNext = false;
+    for (ProjectActionNext actionNext : projectActionCompletedList) {
+      if (actionNext.getProjectId() == projectId) {
+        hasCompletedNext = true;
+        break;
+      }
+    }
+    if ((projectActionList != null && projectActionList.size() > 0) || hasCompletedNext) {
       out.println("    <td class=\"boxed\">");
       SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
       boolean first = true;
-      for (ProjectAction projectAction : projectActionList) {
-        projectActionListComplete.remove(projectAction);
-        {
-          Query query = dataSession.createQuery("from ProjectAction where nextActionId = ? ");
-          query.setParameter(0, projectAction.getActionId());
-          @SuppressWarnings("unchecked")
-          List<ProjectAction> projectActionCompletedList = query.list();
-          for (ProjectAction pa : projectActionCompletedList) {
-            if (!first) {
-              out.println("    <br/>");
-            }
-            first = false;
-            out.println("    " + sdf.format(projectAction.getActionDate()) + ": Completed ");
-            out.println("    " + pa.getNextDescription());
+      if (projectActionList != null) {
+        for (ProjectActionTaken projectAction : projectActionList) {
+          projectActionTakenList.remove(projectAction);
+          if (!first) {
+            out.println("    <br/>");
           }
+          first = false;
+          String dateLabel = projectAction.getActionDate() == null ? "" : sdf.format(projectAction.getActionDate());
+          out.println(
+              "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + projectAction.getActionDescription());
         }
-        if (!first) {
-          out.println("    <br/>");
+      }
+      for (Iterator<ProjectActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+        ProjectActionNext actionNext = it.next();
+        if (actionNext.getProjectId() == projectId) {
+          it.remove();
+          if (!first) {
+            out.println("    <br/>");
+          }
+          first = false;
+          String dateLabel = actionNext.getNextChangeDate() == null ? "" : sdf.format(actionNext.getNextChangeDate());
+          out.println(
+              "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + "Completed " + actionNext.getNextDescription());
         }
-        first = false;
-        out.println("    " + sdf.format(projectAction.getActionDate()) + ": ");
-        out.println("    " + projectAction.getActionDescription());
       }
       out.println("    </td>");
     } else {
@@ -601,7 +624,7 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectNarrative(WebUser webUser, PrintWriter out, Session dataSession,
-      TimeTracker timeTracker, String type, List<ProjectAction> projectActionListComplete, TimeEntry timeEntry) {
+      TimeTracker timeTracker, String type, List<ProjectActionTaken> projectActionTakenList, TimeEntry timeEntry) {
     // if displaying for week then time needs to be rounded to 30 minutes.
     // The rounding rule is anything under 7 minutes is rounded down, and everything
     // 7 minutes
@@ -611,15 +634,15 @@ public class TrackServlet extends ClientServlet {
       timeInMinutes = timeEntry.getMinutesAdjusted();
     }
     Query query = dataSession.createQuery(
-        "from ProjectAction where contactId = ? and projectId = ?   and"
-            + " actionDescription <> '' and action_date >= ? and action_date < ? order"
+        "from ProjectActionTaken where contactId = ? and projectId = ? and"
+            + " actionDescription <> '' and actionDate >= ? and actionDate < ? order"
             + " by actionDate asc");
     query.setParameter(0, webUser.getContactId());
     query.setParameter(1, Integer.parseInt(timeEntry.getId()));
     query.setParameter(2, timeTracker.getStartDate());
     query.setParameter(3, timeTracker.getEndDate());
     @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionList = query.list();
+    List<ProjectActionTaken> projectActionList = query.list();
     timeEntry.setProjectActionList(projectActionList);
     if (timeInMinutes <= 0 && projectActionList.size() <= 0) {
       return;
@@ -633,7 +656,7 @@ public class TrackServlet extends ClientServlet {
 
     if (projectActionList.size() > 0) {
       out.println("<p>Actions Taken: ");
-      for (ProjectAction projectAction : projectActionList) {
+      for (ProjectActionTaken projectAction : projectActionList) {
         out.println(" " + projectAction.getActionDescription());
       }
       out.println("    </p>");
@@ -644,8 +667,8 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectLineWithTimeEntrySummaryOnly(WebUser webUser, PrintWriter out, Session dataSession,
-      TimeTracker timeTracker, String type, boolean showLinks, List<ProjectAction> projectActionListComplete,
-      TimeEntry timeEntry) {
+      TimeTracker timeTracker, String type, boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
+      List<ProjectActionNext> projectActionCompletedList, TimeEntry timeEntry) {
     out.println("  <tr class=\"boxed\">");
     String link = "<a href=\"ProjectServlet?projectId=" + timeEntry.getId() + "\" class=\"button\">";
     if (showLinks) {
@@ -671,18 +694,32 @@ public class TrackServlet extends ClientServlet {
     return timeEntryList;
   }
 
-  private static List<ProjectAction> getProjectActionListComplete(WebUser webUser, Session dataSession,
-      TimeTracker timeTracker, List<TimeEntry> timeEntryList) {
-    Collections.sort(timeEntryList);
+  private static List<ProjectActionTaken> getProjectActionTakenList(WebUser webUser, Session dataSession,
+      TimeTracker timeTracker) {
     Query query = dataSession.createQuery(
-        "from ProjectAction where contactId = ? and actionDescription <> '' "
-            + "and action_date >= ? and action_date < ? order by actionDate asc");
+        "from ProjectActionTaken where contactId = ? and actionDescription <> '' "
+            + "and actionDate >= ? and actionDate < ? order by actionDate asc");
     query.setParameter(0, webUser.getContactId());
     query.setParameter(1, timeTracker.getStartDate());
     query.setParameter(2, timeTracker.getEndDate());
     @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionListComplete = query.list();
+    List<ProjectActionTaken> projectActionListComplete = query.list();
     return projectActionListComplete;
+  }
+
+  private static List<ProjectActionNext> getProjectActionNextCompletedList(WebUser webUser, Session dataSession,
+      TimeTracker timeTracker) {
+    Query query = dataSession.createQuery(
+        "from ProjectActionNext where contactId = ? and nextDescription <> '' "
+            + "and nextActionStatusString = ? and nextChangeDate >= ? and nextChangeDate < ? "
+            + "order by nextChangeDate asc");
+    query.setParameter(0, webUser.getContactId());
+    query.setParameter(1, ProjectNextActionStatus.COMPLETED.getId());
+    query.setParameter(2, timeTracker.getStartDate());
+    query.setParameter(3, timeTracker.getEndDate());
+    @SuppressWarnings("unchecked")
+    List<ProjectActionNext> projectActionCompletedList = query.list();
+    return projectActionCompletedList;
   }
 
   private static void printTotalWorkingTime(PrintWriter out, String type, int billableMins, float targetHours) {

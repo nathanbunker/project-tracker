@@ -10,7 +10,7 @@ import java.util.StringJoiner;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionChangeLog;
 import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
 
@@ -21,7 +21,7 @@ public class ActionChangeLogService {
     public void logChange(String providerId, int actionId, int projectId, String actorType,
             String actorId, String sourceType, Integer proposalId, Map<String, FromTo> patch,
             String reason) {
-        ProjectAction action = requireAction(providerId, actionId, projectId);
+        ProjectActionNext action = requireAction(providerId, actionId, projectId);
         Session session = HibernateRequestContext.getCurrentSession();
 
         ProjectActionChangeLog changeLog = new ProjectActionChangeLog();
@@ -45,15 +45,15 @@ public class ActionChangeLogService {
         session.save(changeLog);
     }
 
-    private ProjectAction requireAction(String providerId, int actionId, int projectId) {
+    private ProjectActionNext requireAction(String providerId, int actionId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectAction pa where pa.actionId = :actionId and pa.projectId = :projectId "
-                        + "and pa.provider.providerId = :providerId");
+                "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.projectId = :projectId "
+                        + "and pan.provider.providerId = :providerId");
         query.setInteger("actionId", actionId);
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
-        ProjectAction action = (ProjectAction) query.uniqueResult();
+        ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
         if (action == null) {
             throw new IllegalStateException("Action not found for provider.");
         }

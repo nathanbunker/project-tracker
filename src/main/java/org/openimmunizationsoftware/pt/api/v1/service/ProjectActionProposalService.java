@@ -7,7 +7,7 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
 
 public class ProjectActionProposalService {
@@ -30,14 +30,14 @@ public class ProjectActionProposalService {
         return results;
     }
 
-    public List<ProjectAction> listActionsForProject(String providerId, int projectId) {
+    public List<ProjectActionNext> listActionsForProject(String providerId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectAction pa where pa.projectId = :projectId and pa.provider.providerId = :providerId");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId");
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
         @SuppressWarnings("unchecked")
-        List<ProjectAction> results = query.list();
+        List<ProjectActionNext> results = query.list();
         return results;
     }
 
@@ -59,7 +59,7 @@ public class ProjectActionProposalService {
             Integer contactId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Project project = requireProject(providerId, projectId);
-        ProjectAction action = null;
+        ProjectActionNext action = null;
         if (actionId != null) {
             action = requireAction(providerId, projectId, actionId.intValue());
         }
@@ -121,15 +121,15 @@ public class ProjectActionProposalService {
         return project;
     }
 
-    private ProjectAction requireAction(String providerId, int projectId, int actionId) {
+    private ProjectActionNext requireAction(String providerId, int projectId, int actionId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectAction pa where pa.actionId = :actionId and pa.projectId = :projectId "
-                        + "and pa.provider.providerId = :providerId");
+                "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.projectId = :projectId "
+                        + "and pan.provider.providerId = :providerId");
         query.setInteger("actionId", actionId);
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
-        ProjectAction action = (ProjectAction) query.uniqueResult();
+        ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
         if (action == null) {
             throw new IllegalStateException("Action not found for provider.");
         }

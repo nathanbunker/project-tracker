@@ -12,6 +12,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -31,7 +32,8 @@ import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.PrioritySpecial;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -78,6 +80,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_TIME_ESTIMATE = "nextTimeEstimate";
   private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
   private static final String PARAM_PROJECT_ID = "projectId";
+  public static final String PARAM_ACTION_ID = "actionId";
   private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
   protected static final String PARAM_COMPLETING_ACTION_ID = "completingActionId";
   private static final String PARAM_EDIT_ACTION_ID = "editActionId";
@@ -115,8 +118,10 @@ public class ProjectActionServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
+    System.err.println("ProjectActionServlet: processRequest");
     AppReq appReq = new AppReq(request, response);
 
+    System.err.println("ProjectActionServlet: processRequest - AppReq initialized");
     try {
       WebUser webUser = appReq.getWebUser();
       if (appReq.isLoggedOut()) {
@@ -130,7 +135,7 @@ public class ProjectActionServlet extends ClientServlet {
       readCompletingAction(request, appReq, dataSession);
 
       Project project = appReq.getProject();
-      ProjectAction completingAction = appReq.getCompletingAction();
+      ProjectActionNext completingAction = appReq.getCompletingAction();
       if (completingAction != null) {
         project = completingAction.getProject();
       }
@@ -148,8 +153,8 @@ public class ProjectActionServlet extends ClientServlet {
 
       String emailBody = null;
       String sentenceInput = request.getParameter(PARAM_SENTENCE_INPUT);
-      ProjectAction nextAction = null;
-      ProjectAction editProjectAction = readEditProjectAction(appReq);
+      ProjectActionNext nextAction = null;
+      ProjectActionNext editProjectAction = readEditProjectAction(appReq);
       if (sentenceInput != null && !sentenceInput.trim().isEmpty()) {
         nextAction = saveNewAction(webUser, dataSession, completingAction, projectList, editProjectAction,
             nextAction,
@@ -165,10 +170,10 @@ public class ProjectActionServlet extends ClientServlet {
         }
       }
 
-      List<ProjectAction> projectActionTakenList = null;
-      List<ProjectAction> projectActionScheduledList = null;
+      List<ProjectActionTaken> projectActionTakenList = null;
+      List<ProjectActionNext> projectActionScheduledList = null;
       if (project != null) {
-        projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+        projectActionTakenList = getProjectActionsTakenList(dataSession, project);
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
 
@@ -213,7 +218,7 @@ public class ProjectActionServlet extends ClientServlet {
               completingAction = editProjectAction;
               appReq.setCompletingAction(completingAction);
               project = completingAction.getProject();
-              projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+              projectActionTakenList = getProjectActionsTakenList(dataSession, project);
             } else if (nextDue != null && !webUser.isToday(nextDue)
                 && (completingAction != null && completingAction.equals(editProjectAction))
                 && (originalNextDue == null || !nextDue.equals(originalNextDue))) {
@@ -231,35 +236,45 @@ public class ProjectActionServlet extends ClientServlet {
             }
           }
           // refresh the project actions taken and scheduled lists
-          projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+          projectActionTakenList = getProjectActionsTakenList(dataSession, project);
           projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
         }
       }
       boolean planningEnabled = request.getParameter(PARAM_PLANNING_ENABLED) != null;
 
-      List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
-      prepareProjectActionList(dataSession, projectActionDueTodayList, webUser);
-      List<ProjectAction> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
-      prepareProjectActionList(dataSession, projectActionOverdueList, webUser);
-      List<List<ProjectAction>> projectActionDueNextWorkingDayListList = new ArrayList<>();
+      List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+      List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
+      List<List<ProjectActionNext>> projectActionDueNextWorkingDayListList = new ArrayList<>();
       if (planningEnabled) {
+        Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
+        planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
+        Date planningStartDate = planningCalendar.getTime();
+        planningCalendar.add(Calendar.DAY_OF_MONTH, 13);
+        Date planningEndDate = planningCalendar.getTime();
+        List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
+            planningStartDate, planningEndDate);
+        Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
+        for (ProjectActionNext projectAction : planningRangeList) {
+          Date bucketDate = normalizeDate(projectAction.getNextDue());
+          List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
+          if (bucketList == null) {
+            bucketList = new ArrayList<>();
+            planningBuckets.put(bucketDate, bucketList);
+          }
+          bucketList.add(projectAction);
+        }
+
         int daysFound = 0;
-        int dayOffset = 1;
-        while (daysFound < 5 && dayOffset < 14) {
-          List<ProjectAction> projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession,
-              dayOffset);
-          while (projectActionDueNextWorkingDayList.size() == 0 && dayOffset < 14) {
-            // if there are no actions scheduled for tomorrow, then we should look at the
-            // next day
-            dayOffset++;
-            projectActionDueNextWorkingDayList = getProjectActionListForToday(webUser, dataSession, dayOffset);
+        for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
+          Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
+          dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
+          Date dayKey = normalizeDate(dayCalendar.getTime());
+          List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
+          if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
+            continue;
           }
-          if (projectActionDueNextWorkingDayList.size() == 0) {
-            break;
-          }
-          prepareProjectActionList(dataSession, projectActionDueNextWorkingDayList, webUser);
+          sortProjectActionList(projectActionDueNextWorkingDayList);
           projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
-          dayOffset++;
           daysFound++;
         }
 
@@ -268,11 +283,10 @@ public class ProjectActionServlet extends ClientServlet {
         completingAction = projectActionDueTodayList.get(0);
         appReq.setCompletingAction(completingAction);
         project = completingAction.getProject();
-        projectActionTakenList = ProjectServlet.getProjectActionsTakenList(dataSession, project);
+        projectActionTakenList = getProjectActionsTakenList(dataSession, project);
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
-      List<ProjectAction> projectActionClosedTodayList = getProjectActionListClosedToday(webUser, dataSession);
-
+      List<ProjectActionNext> projectActionClosedTodayList = getProjectActionListClosedToday(webUser, dataSession);
       if (completingAction != null) {
         TimeTracker timeTracker = appReq.getTimeTracker();
         if (timeTracker != null) {
@@ -286,7 +300,6 @@ public class ProjectActionServlet extends ClientServlet {
       }
       appReq.setTitle("Actions");
       printHtmlHead(appReq);
-      ProjectServlet.printOutEmailSent(out, emailBody);
 
       Set<String> formNameSet = new HashSet<String>();
 
@@ -308,9 +321,9 @@ public class ProjectActionServlet extends ClientServlet {
 
         out.println("<div id=\"three-column-container\">");
 
-        // ---------------------------------------------------------------------------------------------------
+        // ------------------------------------------------------------------------------
         // ACTION NEXT
-        // ---------------------------------------------------------------------------------------------------
+        // ------------------------------------------------------------------------------
         out.println("<div id=\"actionNext\">");
         printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList,
             projectActionScheduledList, formNameSet);
@@ -320,16 +333,16 @@ public class ProjectActionServlet extends ClientServlet {
         }
         out.println("</div>");
 
-        // ---------------------------------------------------------------------------------------------------
+        // ------------------------------------------------------------------------------
         // ACTION NOW
-        // ---------------------------------------------------------------------------------------------------
+        // ------------------------------------------------------------------------------
         out.println("<div id=\"actionNow\">");
         printActionNow(appReq, webUser, out, project, completingAction, projectList, projectContactList, formNameSet);
         out.println("</div>");
 
-        // ---------------------------------------------------------------------------------------------------
+        // ------------------------------------------------------------------------------
         // ACTION LATER
-        // ---------------------------------------------------------------------------------------------------
+        // ------------------------------------------------------------------------------
         out.println("<div id=\"actionLater\">");
         printTimeManagementBox(appReq, projectActionDueTodayList);
         printActionsScheduledForToday(appReq, projectActionDueTodayList, projectActionOverdueList);
@@ -338,7 +351,7 @@ public class ProjectActionServlet extends ClientServlet {
         if (planningEnabled) {
           {
             List<TimeAdder> timeAdderList = new ArrayList<>();
-            for (List<ProjectAction> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+            for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
               Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
               TimeAdder timeAdder = new TimeAdder(projectActionDueNextWorkingDayList, appReq, workingDayDate);
               timeAdderList.add(timeAdder);
@@ -347,7 +360,7 @@ public class ProjectActionServlet extends ClientServlet {
             out.println("<table class=\"boxed\">");
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"title\">Planning</th>");
-            for (List<ProjectAction> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+            for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
               Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
               SimpleDateFormat sdf = new SimpleDateFormat("EEE MM/dd");
               out.println("    <th class=\"boxed\">" + sdf.format(workingDayDate) + "</th>");
@@ -357,40 +370,45 @@ public class ProjectActionServlet extends ClientServlet {
             out.println("    <th class=\"boxed\">Will Meet</th>");
             for (TimeAdder timeAdder : timeAdderList) {
               out.println(
-                  "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getWillMeetEst()) + "</td>");
+                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst())
+                      + "</td>");
             }
             out.println("  </tr>");
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">Committed</th>");
             for (TimeAdder timeAdder : timeAdderList) {
               out.println(
-                  "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getCommittedEst()) + "</td>");
+                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedEst())
+                      + "</td>");
             }
             out.println("  </tr>");
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">Will</th>");
             for (TimeAdder timeAdder : timeAdderList) {
               out.println(
-                  "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getWillEst()) + "</td>");
+                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillEst())
+                      + "</td>");
             }
             out.println("  </tr>");
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">Might</th>");
             for (TimeAdder timeAdder : timeAdderList) {
               out.println(
-                  "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getMightEst()) + "</td>");
+                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getMightEst())
+                      + "</td>");
             }
             out.println("  </tr>");
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">Planned</th>");
             for (TimeAdder timeAdder : timeAdderList) {
               out.println(
-                  "    <td class=\"boxed\">" + ProjectAction.getTimeForDisplay(timeAdder.getWillAct()) + "</td>");
+                  "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(timeAdder.getWillAct())
+                      + "</td>");
             }
             out.println("  </tr>");
             out.println("</table><br/>");
           }
-          for (List<ProjectAction> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
+          for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
             Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
             printActionsScheduledForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
             printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
@@ -427,9 +445,7 @@ public class ProjectActionServlet extends ClientServlet {
       }
       printHtmlFoot(appReq);
 
-    } catch (
-
-    Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
     } finally {
       appReq.close();
@@ -448,8 +464,9 @@ public class ProjectActionServlet extends ClientServlet {
     return true;
   }
 
-  private ProjectAction saveNewAction(WebUser webUser, Session dataSession, ProjectAction completingAction,
-      List<Project> projectList, ProjectAction editProjectAction, ProjectAction nextAction, String sentenceInput) {
+  private ProjectActionNext saveNewAction(WebUser webUser, Session dataSession,
+      ProjectActionNext completingAction, List<Project> projectList, ProjectActionNext editProjectAction,
+      ProjectActionNext nextAction, String sentenceInput) {
     String projectName = "";
     String actionPart = sentenceInput;
     String[] parts = sentenceInput.split(":", 2);
@@ -466,8 +483,12 @@ public class ProjectActionServlet extends ClientServlet {
       }
     }
     if (foundProject == null) {
+      ProjectActionNext sourceAction = editProjectAction != null ? editProjectAction : completingAction;
+      if (sourceAction == null || sourceAction.getProject() == null) {
+        return null;
+      }
       // deafulting to current project
-      foundProject = editProjectAction.getProject();
+      foundProject = sourceAction.getProject();
       actionPart = projectName + " " + actionPart;
     }
 
@@ -532,20 +553,17 @@ public class ProjectActionServlet extends ClientServlet {
           foundDate = true;
         } else {
           // Check for day of week
-          String[] days = { "sunday", "monday", "tuesday", "wednesday", "thursday", "friday",
-              "saturday" };
+          String[] days = { "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday" };
           for (String day : days) {
             if (lower.equals(day)) {
               if (secondLastToken.equalsIgnoreCase("next")) {
                 whenToTakeAction = "next " + lastToken;
                 // Remove both tokens from actionToTake
-                actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 2))
-                    .trim();
+                actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 2)).trim();
               } else {
                 whenToTakeAction = lastToken;
                 // Remove last token from actionToTake
-                actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 1))
-                    .trim();
+                actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 1)).trim();
               }
               foundDate = true;
               break;
@@ -556,8 +574,7 @@ public class ProjectActionServlet extends ClientServlet {
       if (foundDate) {
         // Remove the date token(s) from actionToTake if not already done
         if (whenToTakeAction != null && actionToTake.endsWith(whenToTakeAction)) {
-          actionToTake = actionToTake.substring(0, actionToTake.length() - whenToTakeAction.length())
-              .trim();
+          actionToTake = actionToTake.substring(0, actionToTake.length() - whenToTakeAction.length()).trim();
         } else if (!whenToTakeAction.isEmpty() && !actionToTake.isEmpty()
             && !actionToTake.endsWith(whenToTakeAction)) {
           // Already handled above for "next <day>"
@@ -568,7 +585,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     // Now we have the project, the action verb, the action to take, and when to
     // take action
-    nextAction = new ProjectAction();
+    nextAction = new ProjectActionNext();
     nextAction.setProject(foundProject);
     nextAction.setProjectId(foundProject.getProjectId());
     nextAction.setContactId(webUser.getContactId());
@@ -589,18 +606,38 @@ public class ProjectActionServlet extends ClientServlet {
     nextAction.setNextDue(actionDate);
     nextAction.setNextDescription(actionToTake);
     nextAction.setNextTimeEstimate(nextTimeEstimate);
-    nextAction.setNextActionId(0);
-    nextAction.setActionDate(new Date());
-    nextAction.setActionDescription(completingAction.getNextSummary());
-    nextAction.setNextDescription(actionToTake);
+    nextAction.setNextChangeDate(new Date());
     nextAction.setProvider(webUser.getProvider());
     nextAction.setContact(webUser.getProjectContact());
+    if (nextAction.getNextActionStatus() == null) {
+      if (nextAction.hasNextDescription()) {
+        if (nextAction.hasNextDue()) {
+          nextAction.setNextActionStatus(ProjectNextActionStatus.READY);
+        } else {
+          nextAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
+        }
+      }
+    }
     Transaction trans = dataSession.beginTransaction();
     dataSession.saveOrUpdate(nextAction);
-    if (nextAction.hasActionDescription()) {
-      editProjectAction.setNextActionId(nextAction.getActionId());
-      editProjectAction.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
-      dataSession.update(editProjectAction);
+    if (completingAction != null && completingAction.getNextSummary() != null
+        && !completingAction.getNextSummary().trim().isEmpty()) {
+      ProjectActionTaken actionTaken = new ProjectActionTaken();
+      ProjectActionNext actionToClose = editProjectAction != null ? editProjectAction : completingAction;
+      if (actionToClose != null) {
+        actionTaken.setProject(actionToClose.getProject());
+        actionTaken.setProjectId(actionToClose.getProjectId());
+        actionTaken.setActionDate(new Date());
+        actionTaken.setActionDescription(completingAction.getNextSummary());
+        actionTaken.setProvider(webUser.getProvider());
+        actionTaken.setContact(webUser.getProjectContact());
+        actionTaken.setContactId(webUser.getContactId());
+        dataSession.saveOrUpdate(actionTaken);
+
+        actionToClose.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
+        actionToClose.setNextChangeDate(new Date());
+        dataSession.update(actionToClose);
+      }
     }
     trans.commit();
 
@@ -665,7 +702,7 @@ public class ProjectActionServlet extends ClientServlet {
 
   private void printOutRefreshedTimeJson(HttpServletResponse response, AppReq appReq, WebUser webUser,
       Session dataSession,
-      PrintWriter out, ProjectAction completingAction) throws IOException, StreamWriteException, DatabindException {
+      PrintWriter out, ProjectActionNext completingAction) throws IOException, StreamWriteException, DatabindException {
     // This is a JSON call
     response.setContentType("application/json");
     response.setCharacterEncoding("UTF-8");
@@ -677,9 +714,9 @@ public class ProjectActionServlet extends ClientServlet {
         timeTracker.update(completingAction, dataSession);
       }
       Query query = dataSession.createQuery(
-          "select sum(billMins) from BillEntry where action.actionId = :actionId "
+          "select sum(billMins) from BillEntry where action.actionNextId = :actionNextId "
               + "and startTime >= :today and startTime < :tomorrow");
-      query.setParameter("actionId", completingAction.getActionId());
+      query.setParameter("actionNextId", completingAction.getActionNextId());
       Calendar calendar = getCalendarForTodayNoTime(webUser);
       query.setParameter("today", calendar.getTime());
       calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -692,23 +729,23 @@ public class ProjectActionServlet extends ClientServlet {
       }
       timeRunningString = TimeTracker.formatTime(billMins);
     }
-    List<ProjectAction> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+    List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
     TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
     Map<String, String> timeData = new HashMap<>();
     timeData.put(ID_TIME_RUNNING, timeRunningString);
     timeData.put(ID_TIME_TODAY, getFullDayAndTime());
-    timeData.put(ID_TIME_OTHER + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getOtherEst()));
-    timeData.put(ID_TIME_OTHER + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getOtherAct()));
-    timeData.put(ID_TIME_MIGHT + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getMightEst()));
-    timeData.put(ID_TIME_MIGHT + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getMightAct()));
-    timeData.put(ID_TIME_WILL + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillEst()));
-    timeData.put(ID_TIME_WILL + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillAct()));
-    timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCommittedEst()));
-    timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCommittedAct()));
-    timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
-    timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getCompletedAct()));
-    timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetEst()));
-    timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectAction.getTimeForDisplay(timeAdder.getWillMeetAct()));
+    timeData.put(ID_TIME_OTHER + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getOtherEst()));
+    timeData.put(ID_TIME_OTHER + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getOtherAct()));
+    timeData.put(ID_TIME_MIGHT + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getMightEst()));
+    timeData.put(ID_TIME_MIGHT + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getMightAct()));
+    timeData.put(ID_TIME_WILL + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getWillEst()));
+    timeData.put(ID_TIME_WILL + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getWillAct()));
+    timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedEst()));
+    timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedAct()));
+    timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getCompletedAct()));
+    timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getCompletedAct()));
+    timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst()));
+    timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetAct()));
 
     // Use Jackson to convert the map to JSON and write it to the response
     ObjectMapper mapper = new ObjectMapper();
@@ -716,16 +753,16 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printActionNow(AppReq appReq, WebUser webUser, PrintWriter out, Project project,
-      ProjectAction completingAction, List<Project> projectList, List<ProjectContact> projectContactList,
+      ProjectActionNext completingAction, List<Project> projectList, List<ProjectContact> projectContactList,
       Set<String> formNameSet) {
-    String formName = "" + completingAction.getActionId();
+    String formName = "" + completingAction.getActionNextId();
     out.println(
         "<form name=\"actionNowForm\" id=\"actionNowForm\" method=\"post\" action=\"ProjectActionServlet\">");
     out.println(
         "<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + project.getProjectId() + "\">");
     if (completingAction != null) {
       out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID + "\" value=\""
-          + completingAction.getActionId() + "\">");
+          + completingAction.getActionNextId() + "\">");
     }
     boolean planningEnabled = appReq.getRequest().getParameter(PARAM_PLANNING_ENABLED) != null;
     if (planningEnabled) {
@@ -755,8 +792,8 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printActionsNext(AppReq appReq, Project project, List<ProjectContact> projectContactList,
-      List<Project> projectList, List<ProjectAction> projectActionTakenList,
-      List<ProjectAction> projectActionScheduledList, Set<String> formNameSet) {
+      List<Project> projectList, List<ProjectActionTaken> projectActionTakenList,
+      List<ProjectActionNext> projectActionScheduledList, Set<String> formNameSet) {
 
     WebUser webUser = appReq.getWebUser();
     PrintWriter out = appReq.getOut();
@@ -782,22 +819,22 @@ public class ProjectActionServlet extends ClientServlet {
     }
 
     List<String> dateLabelList = new ArrayList<String>();
-    Map<String, List<ProjectAction>> projectActionMap = new HashMap<String, List<ProjectAction>>();
+    Map<String, List<ProjectActionNext>> projectActionMap = new HashMap<String, List<ProjectActionNext>>();
     setupListAndMap(webUser, projectActionScheduledList, dateLabelList, projectActionMap);
 
     // Go through dateLabelList and print out actions for each entry, as a list
     for (String label : dateLabelList) {
-      List<ProjectAction> paList = projectActionMap.get(label);
+      List<ProjectActionNext> paList = projectActionMap.get(label);
       if (paList != null && paList.size() > 0) {
         out.println("<h4>" + label + "</h4>");
         out.println("<ul>");
-        for (ProjectAction pa : paList) {
+        for (ProjectActionNext pa : paList) {
           out.println("<li>");
           out.println(
-              "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + pa.getActionId() + "\">"
+              "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + pa.getActionNextId() + "\">"
                   + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + planningEnabled + "</a>");
           out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
-              + pa.getActionId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
+              + pa.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
           out.println("</li>");
         }
         out.println("</ul>");
@@ -805,9 +842,9 @@ public class ProjectActionServlet extends ClientServlet {
     }
     printEditProjectActionForm(appReq, null, projectContactList, "" +
         0, formNameSet, project, projectList);
-    for (ProjectAction pa : projectActionScheduledList) {
+    for (ProjectActionNext pa : projectActionScheduledList) {
       printEditProjectActionForm(appReq, pa, projectContactList, "" +
-          pa.getActionId(), formNameSet, project, projectList);
+          pa.getActionNextId(), formNameSet, project, projectList);
     }
 
     if (projectActionTakenList.size() > 0) {
@@ -815,7 +852,7 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("<ul>");
       int maxCount = 12;
       SimpleDateFormat sdf = new SimpleDateFormat("EEE dd MMM yyyy");
-      for (ProjectAction pa : projectActionTakenList) {
+      for (ProjectActionTaken pa : projectActionTakenList) {
         out.println("<li>");
         out.println(pa.getActionDescription());
         out.println(" (" + sdf.format(pa.getActionDate()) + ")");
@@ -830,12 +867,20 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private List<ProjectAction> getAllProjectActionsScheduledList(AppReq appReq, Project project, Session dataSession) {
+  private List<ProjectActionNext> getAllProjectActionsScheduledList(AppReq appReq, Project project,
+      Session dataSession) {
     Query query = dataSession.createQuery(
-        "from ProjectAction where projectId = ? and nextDescription <> '' and nextActionId = 0 order by nextDue asc");
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.projectId = ? and pan.nextDescription <> '' "
+            + "and pan.nextActionStatusString = :nextActionStatus "
+            + "order by pan.nextDue asc");
     query.setParameter(0, project.getProjectId());
+    query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
     @SuppressWarnings("unchecked")
-    List<ProjectAction> allProjectActionsList = query.list();
+    List<ProjectActionNext> allProjectActionsList = query.list();
     return allProjectActionsList;
   }
 
@@ -863,9 +908,9 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</script>");
   }
 
-  private void printFetchAndUpdateTimesScript(PrintWriter out, ProjectAction completingAction) {
+  private void printFetchAndUpdateTimesScript(PrintWriter out, ProjectActionNext completingAction) {
     String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&" + PARAM_COMPLETING_ACTION_ID
-        + "=" + completingAction.getActionId();
+        + "=" + completingAction.getActionNextId();
     out.println("<script>");
     out.println("async function fetchAndUpdateTimes() { ");
     out.println("    try { ");
@@ -898,8 +943,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("        document.getElementById(\"" + fieldAct + "\").innerText = data." + fieldAct + ";\n");
   }
 
-  private void setupListAndMap(WebUser webUser, List<ProjectAction> allProjectActionsList,
-      List<String> dateLabelList, Map<String, List<ProjectAction>> projectActionMap) {
+  private void setupListAndMap(WebUser webUser, List<ProjectActionNext> allProjectActionsList,
+      List<String> dateLabelList, Map<String, List<ProjectActionNext>> projectActionMap) {
     // create a list of Date objects, starting with today and going out at least 7
     // days until the following Friday
     Map<Date, String> dateToLabelMap = new HashMap<Date, String>();
@@ -933,7 +978,7 @@ public class ProjectActionServlet extends ClientServlet {
     dateLabelList.add("Proposed");
     dateLabelList.add("Templates");
 
-    for (ProjectAction pa : allProjectActionsList) {
+    for (ProjectActionNext pa : allProjectActionsList) {
       if (pa.getNextActionType().equals(ProjectNextActionType.GOAL)) {
         addToMap(projectActionMap, pa, "Goals");
       } else if (pa.isTemplate()) {
@@ -967,7 +1012,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private static boolean sameDayOrBefore(ProjectAction pa, Date dateFromDateList) {
+  private static boolean sameDayOrBefore(ProjectActionNext pa, Date dateFromDateList) {
     Date nextDue = pa.getNextDue();
     // need to chop off the time from the date
     Calendar c = Calendar.getInstance();
@@ -988,10 +1033,10 @@ public class ProjectActionServlet extends ClientServlet {
     return dateFromDateList.equals(nextDue) || nextDue.before(dateFromDateList);
   }
 
-  private void addToMap(Map<String, List<ProjectAction>> projectActionMap, ProjectAction pa, String key) {
-    List<ProjectAction> paList = projectActionMap.get(key);
+  private void addToMap(Map<String, List<ProjectActionNext>> projectActionMap, ProjectActionNext pa, String key) {
+    List<ProjectActionNext> paList = projectActionMap.get(key);
     if (paList == null) {
-      paList = new ArrayList<ProjectAction>();
+      paList = new ArrayList<ProjectActionNext>();
       projectActionMap.put(key, paList);
     }
     paList.add(pa);
@@ -1000,34 +1045,33 @@ public class ProjectActionServlet extends ClientServlet {
   private void readCompletingAction(HttpServletRequest request, AppReq appReq, Session dataSession) {
     String completingActionIdString = request.getParameter(PARAM_COMPLETING_ACTION_ID);
     if (completingActionIdString != null) {
-      ProjectAction completingProjectAction = (ProjectAction) dataSession.get(ProjectAction.class,
+      ProjectActionNext completingProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
           Integer.parseInt(completingActionIdString));
       appReq.setCompletingAction(completingProjectAction);
     }
   }
 
-  private ProjectAction readEditProjectAction(AppReq appReq) {
+  private ProjectActionNext readEditProjectAction(AppReq appReq) {
     Session dataSession = appReq.getDataSession();
     HttpServletRequest request = appReq.getRequest();
     String actionIdString = request.getParameter(PARAM_EDIT_ACTION_ID);
-    ProjectAction editProjectAction = null;
+    ProjectActionNext editProjectAction = null;
     if (actionIdString != null) {
-      editProjectAction = (ProjectAction) dataSession.get(ProjectAction.class,
+      editProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
           Integer.parseInt(actionIdString));
     }
     return editProjectAction;
   }
 
-  private ProjectAction saveProjectAction(AppReq appReq,
-      ProjectAction editProjectAction, Project nextProject) {
+  private ProjectActionNext saveProjectAction(AppReq appReq,
+      ProjectActionNext editProjectAction, Project nextProject) {
     HttpServletRequest request = appReq.getRequest();
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
     if (editProjectAction == null) {
-      editProjectAction = new ProjectAction();
+      editProjectAction = new ProjectActionNext();
       editProjectAction.setProject(nextProject);
       editProjectAction.setProjectId(nextProject.getProjectId());
-      editProjectAction.setActionDescription("");
     }
     editProjectAction.setContactId(webUser.getContactId());
     editProjectAction.setContact(webUser.getProjectContact());
@@ -1039,14 +1083,11 @@ public class ProjectActionServlet extends ClientServlet {
         nextTimeEstimate = 0;
       }
     }
-    editProjectAction.setActionDate(new Date());
-    editProjectAction.setActionDescription("");
     editProjectAction.setNextDescription(trim(request.getParameter(PARAM_NEXT_DESCRIPTION), 1200));
     if (nextTimeEstimate > 0) {
       editProjectAction.setNextTimeEstimate(nextTimeEstimate);
     }
-    editProjectAction.setNextActionId(0);
-
+    editProjectAction.setNextChangeDate(new Date());
     String nextNote = request.getParameter(PARAM_NEXT_NOTE);
     if (nextNote != null && nextNote.length() > 0) {
       if (editProjectAction.getNextNotes() != null && editProjectAction.getNextNotes().trim().length() > 0) {
@@ -1057,8 +1098,8 @@ public class ProjectActionServlet extends ClientServlet {
       editProjectAction.setNextNotes(nextNote);
     }
 
-    editProjectAction.setNextDue(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DUE)));
-    editProjectAction.setNextDeadline(ProjectServlet.parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
+    editProjectAction.setNextDue(parseDate(appReq, request.getParameter(PARAM_NEXT_DUE)));
+    editProjectAction.setNextDeadline(parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
     String linkUrl = request.getParameter(PARAM_LINK_URL);
     if (linkUrl == null || linkUrl.equals("")) {
       editProjectAction.setLinkUrl(null);
@@ -1103,28 +1144,30 @@ public class ProjectActionServlet extends ClientServlet {
     return editProjectAction;
   }
 
-  private void closeAction(AppReq appReq, ProjectAction projectAction, Project project,
+  private void closeAction(AppReq appReq, ProjectActionNext projectAction, Project project,
       String nextDescription, ProjectNextActionStatus nextActionStatus) {
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
-    ProjectAction nextAction = new ProjectAction();
-    nextAction.setProject(project);
-    nextAction.setProjectId(project.getProjectId());
-    nextAction.setActionDate(new Date());
-    nextAction.setActionDescription(nextDescription);
-    nextAction.setNextDescription("");
-    nextAction.setProvider(webUser.getProvider());
-    nextAction.setContact(webUser.getProjectContact());
     Transaction trans = dataSession.beginTransaction();
-    dataSession.saveOrUpdate(nextAction);
-    projectAction.setNextActionId(nextAction.getActionId());
+    if (nextDescription != null && !nextDescription.trim().isEmpty()) {
+      ProjectActionTaken actionTaken = new ProjectActionTaken();
+      actionTaken.setProject(project);
+      actionTaken.setProjectId(project.getProjectId());
+      actionTaken.setActionDate(new Date());
+      actionTaken.setActionDescription(nextDescription);
+      actionTaken.setProvider(webUser.getProvider());
+      actionTaken.setContact(webUser.getProjectContact());
+      actionTaken.setContactId(webUser.getContactId());
+      dataSession.saveOrUpdate(actionTaken);
+    }
     projectAction.setNextActionStatus(nextActionStatus);
+    projectAction.setNextChangeDate(new Date());
     dataSession.update(projectAction);
     trans.commit();
   }
 
   private String sendEmail(HttpServletRequest request, AppReq appReq, WebUser webUser, Session dataSession,
-      Project project, ProjectAction completingAction, String emailBody) {
+      Project project, ProjectActionNext completingAction, String emailBody) {
     boolean userAssignedToProject = false;
     Query query = dataSession.createQuery("from ProjectContactAssigned where id.projectId = ?");
     query.setParameter(0, project.getProjectId());
@@ -1155,7 +1198,7 @@ public class ProjectActionServlet extends ClientServlet {
       msg.append("<p><i>");
       msg.append(webUser.getProjectContact().getName());
       msg.append(" writes: </i>");
-      msg.append(completingAction.getActionDescription());
+      msg.append(completingAction.getNextSummary());
       msg.append("</p>");
       if (completingAction.getNextDescription() != null
           && !completingAction.getNextDescription().equals("")) {
@@ -1203,7 +1246,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private void startTimer(AppReq appReq, Session dataSession, ProjectAction completingAction) {
+  private void startTimer(AppReq appReq, Session dataSession, ProjectActionNext completingAction) {
     TimeTracker timeTracker = appReq.getTimeTracker();
     if (timeTracker != null && completingAction != null) {
       timeTracker.startClock(completingAction.getProject(), completingAction, dataSession);
@@ -1211,7 +1254,7 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void readNotesSummaryUpdateTimeTracker(HttpServletRequest request, AppReq appReq, Session dataSession,
-      ProjectAction completingAction) {
+      ProjectActionNext completingAction) {
     String nextSummary = request.getParameter(PARAM_NEXT_SUMMARY);
     String nextNotes = request.getParameter(PARAM_NEXT_NOTES);
     boolean isChanged = false;
@@ -1238,9 +1281,9 @@ public class ProjectActionServlet extends ClientServlet {
       // Here is the query: select sum(bill_mins) from bill_entry where action_id =
       // {action_id}
       Query query = dataSession.createQuery(
-          "select sum(billMins) from BillEntry where action.actionId = :actionId "
+          "select sum(billMins) from BillEntry where action.actionNextId = :actionNextId "
               + "and startTime >= :today and startTime < :tomorrow");
-      query.setParameter("actionId", completingAction.getActionId());
+      query.setParameter("actionNextId", completingAction.getActionNextId());
       Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
       query.setParameter("today", calendar.getTime());
       calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -1278,8 +1321,8 @@ public class ProjectActionServlet extends ClientServlet {
     return calendar;
   }
 
-  private void chatPropose(AppReq appReq, ProjectAction completingAction, List<ChatAgent> chatAgentList,
-      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+  private void chatPropose(AppReq appReq, ProjectActionNext completingAction, List<ChatAgent> chatAgentList,
+      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
 
     String proposePrompt = getProposePrompt(completingAction, appReq, projectActionTakenList,
         projectActionScheduledList);
@@ -1306,9 +1349,9 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private void chatFeedback(AppReq appReq, ProjectAction completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList,
-      List<ProjectAction> projectActionScheduledList) {
+  private void chatFeedback(AppReq appReq, ProjectActionNext completingAction,
+      List<ChatAgent> chatAgentList, List<ProjectActionTaken> projectActionTakenList,
+      List<ProjectActionNext> projectActionScheduledList) {
 
     String feedbackPrompt = getFeedbackPrompt(completingAction, appReq, projectActionTakenList,
         projectActionScheduledList);
@@ -1338,9 +1381,9 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private String chatNext(AppReq appReq, ProjectAction completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectAction> projectActionTakenList,
-      List<ProjectAction> projectActionScheduledList) {
+  private String chatNext(AppReq appReq, ProjectActionNext completingAction,
+      List<ChatAgent> chatAgentList, List<ProjectActionTaken> projectActionTakenList,
+      List<ProjectActionNext> projectActionScheduledList) {
 
     String nextPrompt = getNextPrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
 
@@ -1364,8 +1407,8 @@ public class ProjectActionServlet extends ClientServlet {
     return nextSuggest;
   }
 
-  private String getProposePrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+  private String getProposePrompt(ProjectActionNext completingAction, AppReq appReq,
+      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
     String proposePrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
@@ -1381,8 +1424,8 @@ public class ProjectActionServlet extends ClientServlet {
     return proposePrompt;
   }
 
-  private String getFeedbackPrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+  private String getFeedbackPrompt(ProjectActionNext completingAction, AppReq appReq,
+      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
     String feedbackPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     feedbackPrompt += "Please review my current summary and give me three to five questions my superisor or others might have that could help me clarify and add more detail to this update. "
         + " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
@@ -1391,17 +1434,17 @@ public class ProjectActionServlet extends ClientServlet {
     return feedbackPrompt;
   }
 
-  private String getNextPrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+  private String getNextPrompt(ProjectActionNext completingAction, AppReq appReq,
+      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
     String nextPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     nextPrompt += "Please review my current summary of what I accomplished and what I have accomplished in the past with this project and suggest a list "
         + "of two or three next steps I should indicate in my project tracker. These statements should be short and should start with one of these phrases:  "
         + "I will ..., I might ..., I have committed ..., I will meet ..., I will review ..., I will document ..., I will follow up ..., or I am waiting for ... \n\n";
-    List<ProjectAction> projectActionsScheduledAndCompletedList = getProjectActionsScheduledAndCompletedList(
+    List<ProjectActionNext> projectActionsScheduledAndCompletedList = getProjectActionsScheduledAndCompletedList(
         appReq.getDataSession(), completingAction.getProject().getProjectId());
     if (projectActionsScheduledAndCompletedList.size() > 0) {
       nextPrompt += "Here are examples of steps previously taken on this project: \n";
-      for (ProjectAction projectAction : projectActionsScheduledAndCompletedList) {
+      for (ProjectActionNext projectAction : projectActionsScheduledAndCompletedList) {
         nextPrompt += LIST_START + projectAction.getNextDescription() + " \n";
       }
     }
@@ -1410,8 +1453,8 @@ public class ProjectActionServlet extends ClientServlet {
     return nextPrompt;
   }
 
-  private String getBasePrompt(ProjectAction completingAction, AppReq appReq,
-      List<ProjectAction> projectActionTakenList, List<ProjectAction> projectActionScheduledList) {
+  private String getBasePrompt(ProjectActionNext completingAction, AppReq appReq,
+      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
     Project project = completingAction.getProject();
     WebUser webUser = appReq.getWebUser();
     String basePrompt = "";
@@ -1423,7 +1466,7 @@ public class ProjectActionServlet extends ClientServlet {
         + "Project description: " + project.getDescription() + " \n"
         + "Recent actions taken: \n";
     int limit = 12;
-    for (ProjectAction pa : projectActionTakenList) {
+    for (ProjectActionTaken pa : projectActionTakenList) {
       basePrompt += LIST_START + sdf.format(pa.getActionDate()) + " " + pa.getActionDescription() + " \n";
       limit--;
       if (limit == 0) {
@@ -1432,7 +1475,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     if (projectActionScheduledList.size() > 1) {
       basePrompt += "Actions scheduled in the future: \n";
-      for (ProjectAction projectAction : projectActionScheduledList) {
+      for (ProjectActionNext projectAction : projectActionScheduledList) {
         if (projectAction.equals(completingAction)) {
           continue;
         }
@@ -1452,7 +1495,7 @@ public class ProjectActionServlet extends ClientServlet {
     return basePrompt;
   }
 
-  private void printEditProjectActionForm(AppReq appReq, ProjectAction editProjectAction,
+  private void printEditProjectActionForm(AppReq appReq, ProjectActionNext editProjectAction,
       List<ProjectContact> projectContactList, String formName, Set<String> formNameSet, Project project,
       List<Project> projectList) {
     if (formNameSet.contains(formName)) {
@@ -1522,11 +1565,11 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    function setNextDeadline" + formName + "(nextDeadline) {");
     out.println("      document.projectAction" + formName + "." + PARAM_NEXT_DEADLINE + ".value = nextDeadline;");
     out.println("    }");
-    ProjectServlet.printGenerateSelectNextTimeEstimateFunction(out, formName);
+    printGenerateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
     if (editProjectAction != null) {
       out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
-          + editProjectAction.getActionId() + "\">");
+          + editProjectAction.getActionNextId() + "\">");
     }
     printCurrentActionEdit(appReq, webUser, out, editProjectAction, project, projectContactList, formName, projectList);
 
@@ -1534,8 +1577,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</div>");
   }
 
-  private void printActionsScheduledForToday(AppReq appReq, List<ProjectAction> projectActionList,
-      List<ProjectAction> projectActionOverdueList) {
+  private void printActionsScheduledForToday(AppReq appReq, List<ProjectActionNext> projectActionList,
+      List<ProjectActionNext> projectActionOverdueList) {
     PrintWriter out = appReq.getOut();
     out.println("<table class=\"boxed\">");
     if (projectActionOverdueList.size() > 0) {
@@ -1565,7 +1608,7 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printActionsScheduledForNextWorkingDay(AppReq appReq,
-      List<ProjectAction> projectActionList, Date workingDay) {
+      List<ProjectActionNext> projectActionList, Date workingDay) {
     PrintWriter out = appReq.getOut();
     String title = "All actions scheduled for ";
     // print name of next working day, either "Monday" or "Next Monday". that format
@@ -1592,7 +1635,7 @@ public class ProjectActionServlet extends ClientServlet {
     // print out size of list
   }
 
-  private void printActionsCompletedForToday(AppReq appReq, List<ProjectAction> projectActionList) {
+  private void printActionsCompletedForToday(AppReq appReq, List<ProjectActionNext> projectActionList) {
     PrintWriter out = appReq.getOut();
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
@@ -1608,7 +1651,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</table><br/>");
   }
 
-  private void printTimeManagementBox(AppReq appReq, List<ProjectAction> projectActionList) {
+  private void printTimeManagementBox(AppReq appReq, List<ProjectActionNext> projectActionList) {
     PrintWriter out = appReq.getOut();
     TimeAdder timeAdder = new TimeAdder(projectActionList, appReq);
     out.println("<table class=\"boxed float-right\">");
@@ -1638,7 +1681,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<q>" + quote + "</q>");
   }
 
-  private void printTimeManagementBoxForNextWorkingDay(AppReq appReq, List<ProjectAction> projectActionList,
+  private void printTimeManagementBoxForNextWorkingDay(AppReq appReq, List<ProjectActionNext> projectActionList,
       Date date) {
     PrintWriter out = appReq.getOut();
     TimeAdder timeAdder = new TimeAdder(projectActionList, appReq, date);
@@ -1678,7 +1721,7 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printEditNextAction(HttpServletRequest request, WebUser webUser, PrintWriter out,
-      ProjectAction projectAction, Project project, String formName, String disabled,
+      ProjectActionNext projectAction, Project project, String formName, String disabled,
       List<ProjectContact> projectContactList,
       List<Project> projectList) {
     SimpleDateFormat sdf1;
@@ -1965,14 +2008,14 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  </tr>");
   }
 
-  private void printActionNow(AppReq appReq, WebUser webUser, PrintWriter out, ProjectAction completingAction,
+  private void printActionNow(AppReq appReq, WebUser webUser, PrintWriter out, ProjectActionNext completingAction,
       List<ProjectContact> projectContactList,
       String formName, List<Project> projectList) {
     SimpleDateFormat sdf11 = webUser.getDateFormat();
     out.println("<h3>" + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</h3>");
     out.println("<p>" + getNextActionTitle(completingAction));
     out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
-        + completingAction.getActionId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
+        + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
     if (completingAction.getLinkUrl() != null && completingAction.getLinkUrl().length() > 0) {
       out.println("<br/>Link: <a href=\"" + completingAction.getLinkUrl() + "\" target=\"_blank\">"
           + trim(completingAction.getLinkUrl(), 40) + "</a>");
@@ -2011,9 +2054,9 @@ public class ProjectActionServlet extends ClientServlet {
     printSendEmailSelection(out, formName, projectContactList);
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID + "\" value=\""
-        + completingAction.getActionId() + "\"/>");
+        + completingAction.getActionNextId() + "\"/>");
     out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
-        + completingAction.getActionId() + "\"/>");
+        + completingAction.getActionNextId() + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\"/>");
     out.println("</span>");
@@ -2176,7 +2219,7 @@ public class ProjectActionServlet extends ClientServlet {
         .replace("'", "&#39;");
   }
 
-  private String getTimeString(AppReq appReq, ProjectAction completingAction) {
+  private String getTimeString(AppReq appReq, ProjectActionNext completingAction) {
     String timeString = TimeTracker.formatTime(completingAction.getNextTimeEstimate()) + " ";
     {
       TimeTracker timeTracker = appReq.getTimeTracker();
@@ -2188,7 +2231,7 @@ public class ProjectActionServlet extends ClientServlet {
               + "\" class=\"timerRunning\" id=\"" + ID_TIME_RUNNING + "\">" + t + "</a>";
         } else {
           timeString += "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
-              + completingAction.getActionId()
+              + completingAction.getActionNextId()
               + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + planningEnabled + "\" class=\"timerStopped\" id=\""
               + ID_TIME_RUNNING
               + "\">" + t
@@ -2215,7 +2258,7 @@ public class ProjectActionServlet extends ClientServlet {
     return planningEnabled;
   }
 
-  private String getNextActionTitle(ProjectAction completingAction) {
+  private String getNextActionTitle(ProjectActionNext completingAction) {
     String title = "Action to take";
     ProjectNextActionStatus nextActionStatus = completingAction.getNextActionStatus();
     if (nextActionStatus == null) {
@@ -2238,7 +2281,7 @@ public class ProjectActionServlet extends ClientServlet {
     return title;
   }
 
-  private void printCurrentActionEdit(AppReq appReq, WebUser webUser, PrintWriter out, ProjectAction projectAction,
+  private void printCurrentActionEdit(AppReq appReq, WebUser webUser, PrintWriter out, ProjectActionNext projectAction,
       Project project,
       List<ProjectContact> projectContactList,
       String formName, List<Project> projectList) {
@@ -2268,25 +2311,31 @@ public class ProjectActionServlet extends ClientServlet {
 
   }
 
-  private List<ProjectAction> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
+  private List<ProjectActionNext> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
     Date today = TimeTracker.createToday(webUser).getTime();
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
     Query query = dataSession.createQuery(
-        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
-            + "and nextActionId <> 0 and nextDescription <> '' "
-            + "and nextDue >= :today and nextDue < :tomorrow "
-            + "order by nextTimeActual DESC, nextTimeEstimate DESC");
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+            + "and pan.nextActionStatusString = :nextActionStatus and pan.nextDescription <> '' "
+            + "and pan.nextChangeDate >= :today and pan.nextChangeDate < :tomorrow "
+            + "order by pan.nextTimeActual DESC, pan.nextTimeEstimate DESC");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
+    query.setParameter("nextActionStatus", ProjectNextActionStatus.COMPLETED.getId());
     query.setParameter("today", today);
     query.setParameter("tomorrow", tomorrow);
     @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionList = query.list();
+    List<ProjectActionNext> projectActionList = query.list();
     return projectActionList;
   }
 
-  private static List<ProjectAction> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
+  private static List<ProjectActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession,
+      int dayOffset) {
     Date today = TimeTracker.createToday(webUser).getTime();
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
     if (dayOffset > 0) {
@@ -2309,18 +2358,60 @@ public class ProjectActionServlet extends ClientServlet {
       tomorrow = calendar.getTime();
     }
     Query query = dataSession.createQuery(
-        "from ProjectAction where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
-            + "and nextActionId = 0 and nextDescription <> '' "
-            + "and nextDue >= :today and nextDue < :tomorrow "
-            + "order by nextDue, priority_level DESC, nextTimeEstimate, actionDate");
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+            + "and pan.nextDescription <> '' "
+            + "and pan.nextActionStatusString = :nextActionStatus "
+            + "and pan.nextDue >= :today and pan.nextDue < :tomorrow "
+            + "order by pan.nextDue, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
+    query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
     query.setParameter("today", today);
     query.setParameter("tomorrow", tomorrow);
     @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionList = query.list();
-    // sorth the projectActionList first by the defaultPriority from the
+    List<ProjectActionNext> projectActionList = query.list();
+    sortProjectActionList(projectActionList);
+    return projectActionList;
+  }
+
+  private static List<ProjectActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
+      Date startDate, Date endDate) {
+    Query query = dataSession.createQuery(
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+            + "and pan.nextDescription <> '' "
+            + "and pan.nextDue >= :startDate and pan.nextDue < :endDate "
+            + "order by pan.nextDue, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("contactId", webUser.getContactId());
+    query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
+    query.setParameter("startDate", startDate);
+    query.setParameter("endDate", endDate);
+    @SuppressWarnings("unchecked")
+    List<ProjectActionNext> projectActionList = query.list();
+    return projectActionList;
+  }
+
+  private static Date normalizeDate(Date date) {
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(date);
+    calendar.set(Calendar.HOUR_OF_DAY, 0);
+    calendar.set(Calendar.MINUTE, 0);
+    calendar.set(Calendar.SECOND, 0);
+    calendar.set(Calendar.MILLISECOND, 0);
+    return calendar.getTime();
+  }
+
+  private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {
+    // sort the projectActionList first by the defaultPriority from the
     // ProjectNextActionType and then by the priority_level
     projectActionList.sort((pa1, pa2) -> {
       PrioritySpecial ps1 = pa1.getPrioritySpecial();
@@ -2365,7 +2456,6 @@ public class ProjectActionServlet extends ClientServlet {
       }
       return pa2.getPriorityLevel() - pa1.getPriorityLevel();
     });
-    return projectActionList;
   }
 
   private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {
@@ -2377,17 +2467,17 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    <th class=\"boxed\">" + title + "</th>");
     String idBaseEst = idBase + ID_EST;
     String idBaseAct = idBase + ID_ACT;
-    String timeEstString = ProjectAction.getTimeForDisplay(timeEst);
-    String timeActString = ProjectAction.getTimeForDisplay(timeAct);
+    String timeEstString = ProjectActionNext.getTimeForDisplay(timeEst);
+    String timeActString = ProjectActionNext.getTimeForDisplay(timeAct);
     out.println("    <td class=\"boxed\" id=\"" + idBaseEst + "\">" + timeEstString + "</th>");
     out.println("    <td class=\"boxed\" id=\"" + idBaseAct + "\">" + timeActString + "</th>");
     out.println("  </tr>");
   }
 
-  protected static void prepareProjectActionList(Session dataSession, List<ProjectAction> projectActionList,
+  protected static void prepareProjectActionList(Session dataSession, List<ProjectActionNext> projectActionList,
       WebUser webUser) {
     {
-      for (ProjectAction projectAction : projectActionList) {
+      for (ProjectActionNext projectAction : projectActionList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         if (projectAction.getProject() == null) {
@@ -2403,14 +2493,14 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private static void printDueTable(AppReq appReq, String nextActionType, List<ProjectAction> projectActionList) {
+  private static void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList) {
     PrintWriter out = appReq.getOut();
 
-    List<ProjectAction> paList = new ArrayList<ProjectAction>();
+    List<ProjectActionNext> paList = new ArrayList<ProjectActionNext>();
     if (nextActionType == null) {
       paList.addAll(projectActionList);
     } else {
-      for (ProjectAction projectAction : projectActionList) {
+      for (ProjectActionNext projectAction : projectActionList) {
         if (projectAction.getNextActionType() != null
             && projectAction.getNextActionType().equals(nextActionType)) {
           paList.add(projectAction);
@@ -2431,12 +2521,12 @@ public class ProjectActionServlet extends ClientServlet {
     printActionItems(paList, appReq);
   }
 
-  private static void printActionItems(List<ProjectAction> paList, AppReq appReq) {
+  private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq) {
     PrintWriter out = appReq.getOut();
     WebUser webUser = appReq.getWebUser();
-    for (ProjectAction projectAction : paList) {
+    for (ProjectActionNext projectAction : paList) {
       String planningEnabled = getPlanningEnabledParam(appReq);
-      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionId()
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionNextId()
           + planningEnabled;
       out.println("  <tr class=\"boxed\">");
       if (projectAction.getProject() == null) {
@@ -2461,6 +2551,25 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("  </tr>");
     }
+  }
+
+  protected static Date parseDate(AppReq appReq, String dateString) {
+    Date date = null;
+    if (dateString != null && dateString.length() > 0) {
+      SimpleDateFormat sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy hh:mm aaa");
+      try {
+        date = sdf1.parse(dateString);
+      } catch (Exception e) {
+        // try again
+        sdf1 = appReq.getWebUser().getDateFormat();
+        try {
+          date = sdf1.parse(dateString);
+        } catch (Exception e2) {
+          appReq.setMessageProblem("Unable to read date: " + e2);
+        }
+      }
+    }
+    return date;
   }
 
   // <editor-fold defaultstate="collapsed"
@@ -2501,6 +2610,714 @@ public class ProjectActionServlet extends ClientServlet {
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     processRequest(request, response);
+  }
+
+  protected static List<ProjectActionTaken> getProjectActionsTakenList(Session dataSession, Project project) {
+    return getProjectActionsTakenList(dataSession, project.getProjectId());
+  }
+
+  private static List<ProjectActionTaken> getProjectActionsTakenList(Session dataSession, int projectId) {
+    Query query = dataSession.createQuery(
+        "select distinct pat from ProjectActionTaken pat "
+            + "left join fetch pat.project "
+            + "left join fetch pat.contact "
+            + "where pat.projectId = ? and pat.actionDescription <> '' order by pat.actionDate desc");
+    query.setParameter(0, projectId);
+    @SuppressWarnings("unchecked")
+    List<ProjectActionTaken> projectActionList = query.list();
+    return projectActionList;
+  }
+
+  protected static int autoSetPriority(Project project, String nextActionType) {
+    int priorityLevel = project.getPriorityLevel();
+    if (nextActionType != null) {
+      if (nextActionType.equals("T")) {
+        priorityLevel += 1;
+      } else if (nextActionType.equals("N") || nextActionType.equals("W")
+          || nextActionType.equals("E") || nextActionType.equals("A")) {
+        priorityLevel -= 1;
+      }
+    }
+    return priorityLevel;
+  }
+
+  public static void printProjectUpdateForm(AppReq appReq, int projectId,
+      List<ProjectContact> projectContactList, ProjectActionNext projectAction,
+      ProjectActionNext completingProjectAction) {
+    HttpServletRequest request = appReq.getRequest();
+    WebUser webUser = appReq.getWebUser();
+    Session dataSession = appReq.getDataSession();
+    PrintWriter out = appReq.getOut();
+    Query query;
+
+    query = dataSession.createQuery(
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.projectId = ? and pan.nextDescription <> '' "
+            + "and (pan.nextActionStatusString = :readyStatus "
+            + "or pan.nextActionStatusString = :proposedStatus) "
+            + "order by pan.nextDue asc");
+    query.setParameter(0, projectId);
+    query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
+    query.setParameter("proposedStatus", ProjectNextActionStatus.PROPOSED.getId());
+    @SuppressWarnings("unchecked")
+    List<ProjectActionNext> projectActionList = query.list();
+    List<ProjectActionNext> projectActionTemplateList = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> projectActionGoalList = new ArrayList<ProjectActionNext>();
+    {
+      Date today = new Date();
+      for (Iterator<ProjectActionNext> it = projectActionList.iterator(); it.hasNext();) {
+        ProjectActionNext pa = it.next();
+        if (pa.getNextDue() == null || pa.getNextDue().after(today)) {
+          if (pa.isTemplate()) {
+            projectActionTemplateList.add(pa);
+            it.remove();
+          } else if (pa.isGoal()) {
+            projectActionGoalList.add(pa);
+            it.remove();
+          }
+        }
+      }
+    }
+
+    String disabled = (projectAction == null ? " disabled" : "");
+    String formName = "" + projectId;
+    printOutScript(out, formName, webUser);
+    out.println("<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + projectId + "\">");
+    if (projectAction != null) {
+      out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
+          + projectAction.getActionNextId() + "\">");
+    }
+    out.println("  <table class=\"boxed\">");
+    out.println("    <tr>");
+    out.println("      <th class=\"title\">To Do List</th>");
+    out.println("    </tr>");
+    out.println("    <td class=\"outside\">");
+    printTodoList(projectId, webUser, dataSession, out, projectActionList, completingProjectAction);
+
+    out.println("    </td>");
+    out.println("  </tr>");
+    out.println("    <td class=\"outside\">");
+
+    out.println("      <table class=\"inside\" width=\"100%\">");
+    out.println("        <tr>");
+    out.println("          <th class=\"inside\">Action</th>");
+    String actionDescription = n(request.getParameter("actionDescription"));
+    if (actionDescription.equals("")) {
+      if (projectAction != null) {
+        actionDescription = n(projectAction.getNextSummary());
+      } else if (completingProjectAction != null) {
+        actionDescription = n(completingProjectAction.getNextSummary());
+      }
+    }
+    out.println(
+        "          <td class=\"inside\"><textarea name=\"actionDescription\" rows=\"7\" onkeydown=\"resetRefresh()\">"
+            + actionDescription
+            + "</textarea></td>");
+    out.println("        </tr>");
+    out.println("        <script>");
+    out.println("          function setNextAction" + projectId + "(nextActionDate)");
+    out.println("          {");
+    out.println(
+        "            document.projectAction" + projectId + ".nextDue.value = nextActionDate;");
+    out.println("            enableForm" + projectId + "(); ");
+    out.println("          }");
+    out.println("          function setNextDeadline" + projectId + "(nextDeadline)");
+    out.println("          {");
+    out.println(
+        "            document.projectAction" + projectId + ".nextDeadline.value = nextDeadline;");
+    out.println("          }");
+    out.println("        </script>");
+    out.println("      </table>");
+    out.println("   </td>");
+    out.println("  </tr>");
+    out.println("  </table>");
+    out.println("  </br>");
+    out.println("  <table class=\"boxed\">");
+    out.println("  <tr>");
+    out.println("    <th class=\"title\">What is next?</th>");
+    out.println("  </tr>");
+    out.println("  <tr>");
+    out.println("    <td class=\"outside\">");
+    out.println("      <table class=\"inside\">");
+    SimpleDateFormat sdf1 = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
+    {
+      sdf1 = webUser.getDateFormat();
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">When</th>");
+      {
+        String nextDue = projectAction == null || projectAction.getNextDue() == null
+            ? request.getParameter(PARAM_NEXT_DUE)
+            : sdf1.format(projectAction.getNextDue());
+        out.println(
+            "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDue\" size=\"10\" value=\""
+                + n(nextDue) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      }
+      out.println("            <font size=\"-1\">");
+      Calendar calendar = webUser.getCalendar();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
+      out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
+      calendar.add(Calendar.DAY_OF_MONTH, 1);
+      out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+          + day.format(calendar.getTime()) + "</a>");
+      boolean nextWeek = false;
+      for (int i = 0; i < 6; i++) {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        if (nextWeek) {
+          out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
+              + day.format(calendar.getTime()) + "</a>");
+        } else {
+          out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+              + day.format(calendar.getTime()) + "</a>");
+
+        }
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+          nextWeek = true;
+        }
+      }
+      calendar.set(Calendar.MONTH, 11);
+      calendar.set(Calendar.DAY_OF_MONTH, 31);
+      out.println("              <a href=\"javascript: void setNextAction" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
+      out.println("</font>");
+
+      out.println("          </td>");
+      out.println("        </tr>");
+    }
+    out.println("        <tr>");
+    out.println("          <th class=\"inside\">Action</th>");
+    out.println("          <td class=\"inside\" colspan=\"3\">");
+    out.println(
+        "            I: <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
+            + projectId + "('" + ProjectNextActionType.WILL + "');\" class=\"button\"> will</a>,");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.MIGHT + "');\" class=\"button\">might</a>, ");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a>,");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.WILL_REVIEW + "');\" class=\"button\">will review</a>,");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.WILL_DOCUMENT + "');\" class=\"button\">will document</a>,");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.WILL_FOLLOW_UP + "');\" class=\"button\">will follow up</a>");
+    out.println("            </font><br/>");
+    out.println("            I have: ");
+    out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
+        + projectId + "('" + ProjectNextActionType.COMMITTED_TO
+        + "');\" class=\"button\">committed</a>,");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + projectId + "('"
+        + ProjectNextActionType.GOAL + "');\" class=\"button\">set goal</a></font>");
+    out.println("            I am:");
+    out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
+        + projectId + "('" + ProjectNextActionType.WAITING + "');\" class=\"button\">waiting</a>");
+    out.println("            <br>");
+    {
+      String nextActionType = projectAction == null ? ProjectNextActionType.WILL : projectAction.getNextActionType();
+      out.println("            <input type=\"hidden\" name=\"nextActionType\" value=\""
+          + nextActionType + "\">");
+      out.println("<script>");
+      out.println("  window.addEventListener('load', function() { selectProjectActionType"
+          + projectId + "('" + nextActionType + "'); }); ");
+      out.println("</script>");
+    }
+    out.println("            </font>");
+    out.println("          </td>");
+    out.println("        </tr>");
+    out.println("        <tr>");
+    out.println("          <th class=\"inside\">What</th>");
+    out.println("          <td class=\"inside\"> ");
+
+    out.println(
+        "            <input name=\"" + PARAM_START_SENTANCE + "\" size=\"40\" value=\"I will:\"" + disabled + ">");
+    out.println("          </td>");
+    out.println("          <th class=\"inside\">Who</th>");
+    out.println("          <td class=\"inside\"> ");
+    out.println("              <select name=\"nextContactId\" onchange=\"selectProjectActionType"
+        + projectId + "(form.nextActionType.value);\"" + disabled
+        + "><option value=\"\">none</option>");
+    String nextContactId = n(request.getParameter(PARAM_NEXT_CONTACT_ID));
+    for (ProjectContact projectContact1 : projectContactList) {
+      if (projectContact1.getContactId() != webUser.getProjectContact().getContactId()) {
+        boolean selected = nextContactId.equals(Integer.toString(
+            projectAction == null ? projectContact1.getContactId() : projectAction.getContactId()));
+        out.println("                  <option value=\"" + projectContact1.getContactId() + "\""
+            + (selected ? " selected" : "") + ">" + projectContact1.getName() + "</option>");
+      }
+    }
+    out.println("            </select>");
+    out.println("          </td>");
+    out.println("        </tr>");
+    out.println("        <tr>");
+    out.println("          <th class=\"inside\"></th>");
+    out.println("          <td class=\"inside\" colspan=\"3\"> ");
+    out.println(
+        "            <textarea name=\"nextDescription\" rows=\"2\" onkeydown=\"resetRefresh()\""
+            + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
+            + "</textarea>");
+    out.println("          </td>");
+    out.println("        </tr>");
+    out.println("        <tr>");
+    out.println("          <th class=\"inside\">Time</th>");
+    out.println("          <td class=\"inside\" colspan=\"3\">");
+    out.println("            <input type=\"text\" name=\"nextTimeEstimate\" size=\"3\" value=\""
+        + (projectAction == null ? "" : projectAction.getNextTimeEstimateMinsForDisplay())
+        + "\" onkeydown=\"resetRefresh()\"" + disabled + "> mins ");
+    out.println("            <font size=\"-1\">");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('5');\" class=\"button\"> 5m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('10');\" class=\"button\"> 10m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('20');\" class=\"button\"> 20m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('30');\" class=\"button\"> 30m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('40');\" class=\"button\"> 40m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('60');\" class=\"button\"> 60m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('70');\" class=\"button\"> 70m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('90');\" class=\"button\"> 90m</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('120');\" class=\"button\"> 2h</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('240');\" class=\"button\"> 4h</a>");
+    out.println("              <a href=\"javascript: void selectNextTimeEstimate" + projectId
+        + "('360');\" class=\"button\"> 6h</a>");
+    out.println("            </font> ");
+    out.println("          </td>");
+    out.println("        </tr>");
+    {
+      Calendar calendar = webUser.getCalendar();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Deadline</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDeadline\" size=\"10\" value=\""
+              + n(projectAction == null || projectAction.getNextDeadline() == null
+                  ? request.getParameter(PARAM_NEXT_DEADLINE)
+                  : sdf1.format(projectAction.getNextDeadline()))
+              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      out.println("            <font size=\"-1\">");
+      sdf1 = webUser.getDateFormat();
+      calendar.add(Calendar.DAY_OF_MONTH, 2);
+      out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+          + day.format(calendar.getTime()) + "</a>");
+      boolean nextWeek = false;
+      for (int i = 0; i < 7; i++) {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        if (nextWeek) {
+          out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
+              + day.format(calendar.getTime()) + "</a>");
+        } else {
+          out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+              + day.format(calendar.getTime()) + "</a>");
+        }
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+          nextWeek = true;
+        }
+      }
+      out.println("</font>");
+      out.println("          </td>");
+      out.println("        </tr>");
+    }
+    {
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Link</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"linkUrl\" size=\"30\" value=\""
+              + n(projectAction == null || projectAction.getLinkUrl() == null
+                  ? ""
+                  : projectAction.getLinkUrl())
+              + "\" onkeydown=\"resetRefresh()\"" + disabled + "></td>");
+      out.println("        </tr>");
+    }
+    {
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Special</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\">");
+      out.println("            Template: ");
+      out.println("            <select name=\"templateType\" value=\""
+          + n((projectAction == null || projectAction.getTemplateType() == null)
+              ? request.getParameter(PARAM_TEMPLATE_TYPE)
+              : projectAction.getTemplateType().getId())
+          + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      out.println("             <option value=\"\">none</option>");
+      for (TemplateType templateType : TemplateType.values()) {
+        out.println("             <option value=\"" + templateType.getId() + "\""
+            + (projectAction != null && projectAction.getTemplateType() == templateType ? " selected" : "")
+            + ">" + templateType.getLabel() + "</option>");
+      }
+      out.println("            </select>");
+      out.println("            Priority: ");
+      out.println("           <select name=\"prioritySpecial\" value=\""
+          + n((projectAction == null || projectAction.getPrioritySpecial() == null)
+              ? request.getParameter(PARAM_PRIORITY_SPECIAL)
+              : projectAction.getPrioritySpecial().getId())
+          + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      out.println("             <option value=\"\">none</option>");
+      for (PrioritySpecial prioritySpecial : PrioritySpecial.values()) {
+        out.println("             <option value=\"" + prioritySpecial.getId() + "\""
+            + (projectAction != null && projectAction.getPrioritySpecial() == prioritySpecial ? " selected" : "")
+            + ">" + prioritySpecial.getLabel() + "</option>");
+      }
+      out.println("            </select>");
+      out.println("          </td>");
+      out.println("        </tr>");
+    }
+    out.println("      </table>");
+    out.println("    </td>");
+    out.println("  </tr>");
+    out.println("  <tr>");
+    out.println("    <th class=\"title\">Send Email Alert</th>");
+    out.println("  </tr>");
+    out.println("  <tr>");
+    out.println("    <td class=\"outside\">");
+    out.println("      <table class=\"inside\">");
+    out.println("        <tr>");
+    out.println("          <th class=\"inside\">Who</th>");
+    out.println("          <td class=\"inside\">");
+    for (ProjectContact projectContact1 : projectContactList) {
+      out.println("          <span class=\"together\"><input type=\"checkbox\" name=\""
+          + PARAM_SEND_EMAIL_TO + projectContact1.getContactId() + "\" value=\"Y\"/>");
+      out.println("<font size=\"-1\"><a href=\"javascript: void clickForEmail" + projectId + "('"
+          + projectContact1.getContactId() + "');\" class=\"button\">" + projectContact1.getName()
+          + "</a></font></span>");
+    }
+
+    out.println("          </td>");
+    out.println("        </tr>");
+    out.println("      </table>");
+    out.println("    </td>");
+    out.println("  <tr>");
+    out.println("    <th class=\"title\">Save Action</th>");
+    out.println("  </tr>");
+    out.println("  <tr>");
+    out.println("    <td class=\"boxed-submit\">");
+    out.println("      <input type=\"submit\" name=\"action\" value=\"Save\">");
+    out.println("    </td>");
+    out.println("  </tr>");
+    out.println("</table>");
+    out.println("<br/>");
+
+    out.println("  <table class=\"boxed\">");
+    if (projectActionTemplateList.size() > 0) {
+      out.println("    <tr>");
+      out.println("      <th class=\"title\">Templates</th>");
+      out.println("    </tr>");
+      out.println("    <td class=\"outside\">");
+      printTemplatesOrGoals(webUser, projectId, dataSession, out, projectActionTemplateList);
+      out.println("    </td>");
+      out.println("  </tr>");
+    }
+    if (projectActionGoalList.size() > 0) {
+      out.println("    <tr>");
+      out.println("      <th class=\"title\">Goals for project</th>");
+      out.println("    </tr>");
+      out.println("    <td class=\"outside\">");
+      printTemplatesOrGoals(webUser, projectId, dataSession, out, projectActionGoalList);
+      out.println("    </td>");
+      out.println("  </tr>");
+    }
+    out.println("</table>");
+
+  }
+
+  protected static void printTemplatesOrGoals(WebUser webUser, int projectId, Session dataSession,
+      PrintWriter out, List<ProjectActionNext> projectActionGoalList) {
+    out.println("<table class=\"inside\" width=\"100%\">");
+    out.println("  <tr>");
+    out.println("    <th class=\"inside\">Date</th>");
+    out.println("    <th class=\"inside\">Time</th>");
+    out.println("    <th class=\"inside\">To Do</th>");
+    out.println("    <th class=\"inside\">Status</th>");
+    out.println("    <th class=\"inside\">Comp</th>");
+    out.println("  </tr>");
+    SimpleDateFormat sdf11 = webUser.getDateFormat();
+    for (ProjectActionNext pa : projectActionGoalList) {
+      Date today = new Date();
+      Calendar calendar1 = webUser.getCalendar();
+      calendar1.add(Calendar.DAY_OF_MONTH, -1);
+      Date yesterday = calendar1.getTime();
+      String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId + "&"
+          + PARAM_ACTION_ID + "=" + pa.getActionNextId() + "\" class=\"button\">";
+      ProjectContact projectContact1 = (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+      pa.setContact(projectContact1);
+      ProjectContact nextProjectContact = null;
+      if (pa.getNextContactId() != null && pa.getNextContactId() > 0) {
+        nextProjectContact = (ProjectContact) dataSession.get(ProjectContact.class, pa.getNextContactId());
+        pa.setNextProjectContact(nextProjectContact);
+      }
+      out.println("  <tr>");
+      if (pa.getNextDue() != null) {
+        out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextDue())
+            + "</a></td>");
+      } else {
+        out.println("    <td class=\"inside\">&nbsp;</td>");
+      }
+      if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+        out.println("    <td class=\"inside\">" + pa.getNextTimeEstimateForDisplay() + "</td>");
+      } else {
+        out.println("    <td class=\"inside\">&nbsp;</td>");
+      }
+      out.println("    <td class=\"inside\">" + editActionLink
+          + pa.getNextDescriptionForDisplay(webUser.getProjectContact()));
+      if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+        out.println(" (time estimate: " + pa.getNextTimeEstimateForDisplay() + ")");
+      }
+      out.println("</a></td>");
+      if (pa.getNextDue() != null) {
+        if (pa.getNextDue().after(today)) {
+          out.println("    <td class=\"inside\"></td>");
+        } else if (pa.getNextDue().after(yesterday)) {
+          out.println("    <td class=\"inside-highlight\">Due Today</td>");
+        } else {
+          out.println("    <td class=\"inside-highlight\">Overdue</td>");
+        }
+      } else {
+        out.println("    <td class=\"inside\">&nbsp;</td>");
+      }
+      out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
+          + pa.getActionNextId() + "\"></td>");
+      out.println("  </tr>");
+    }
+    out.println("</table>");
+  }
+
+  protected static void printTodoList(int projectId, WebUser webUser, Session dataSession,
+      PrintWriter out, List<ProjectActionNext> projectActionList, ProjectActionNext completingProjectAction) {
+    if (projectActionList.size() > 0) {
+      out.println("<table class=\"inside\" width=\"100%\">");
+      out.println("  <tr>");
+      out.println("    <th class=\"inside\">Date</th>");
+      out.println("    <th class=\"inside\">Time</th>");
+      out.println("    <th class=\"inside\">To Do</th>");
+      out.println("    <th class=\"inside\">Status</th>");
+      out.println("    <th class=\"inside\">Comp</th>");
+      out.println("  </tr>");
+      SimpleDateFormat sdf11 = webUser.getDateFormat();
+      for (ProjectActionNext pa : projectActionList) {
+        String workActionLink = "<a href=\"ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID
+            + "=" + pa.getActionNextId()
+            + "\" class=\"button\">";
+        String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId
+            + "&" + PARAM_ACTION_ID + "=" + pa.getActionNextId() + "\" class=\"button\">";
+        Date today = new Date();
+        Calendar calendar1 = webUser.getCalendar();
+        calendar1.add(Calendar.DAY_OF_MONTH, -1);
+        Date yesterday = calendar1.getTime();
+
+        ProjectContact projectContact1 = (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
+        pa.setContact(projectContact1);
+        ProjectContact nextProjectContact = null;
+        if (pa.getNextContactId() != null && pa.getNextContactId() > 0) {
+          nextProjectContact = (ProjectContact) dataSession.get(ProjectContact.class, pa.getNextContactId());
+          pa.setNextProjectContact(nextProjectContact);
+        }
+        out.println("  <tr>");
+        if (pa.getNextDue() != null) {
+          out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextDue())
+              + "</a></td>");
+        } else {
+          out.println("    <td class=\"inside\">&nbsp;</td>");
+        }
+
+        if (pa.getNextTimeEstimate() != null && pa.getNextTimeEstimate() > 0) {
+          out.println("    <td class=\"inside\">" + workActionLink + pa.getNextTimeEstimateForDisplay() + "</a></td>");
+        } else {
+          out.println("    <td class=\"inside\">&nbsp;</td>");
+        }
+
+        printActionDescription(webUser, out, sdf11, pa, editActionLink, today);
+        if (pa.getNextDue() != null) {
+          if (pa.getNextDue().after(today)) {
+            out.println("    <td class=\"inside\"></td>");
+          } else if (pa.getNextDue().after(yesterday)) {
+            out.println("    <td class=\"inside-highlight\">Due Today</td>");
+          } else {
+            out.println("    <td class=\"inside-highlight\">Overdue</td>");
+          }
+        } else {
+          out.println("    <td class=\"inside\">&nbsp;</td>");
+        }
+        String checked = "";
+        if (completingProjectAction != null
+            && completingProjectAction.getActionNextId() == pa.getActionNextId()) {
+          checked = " checked";
+        }
+        out.println("    <td class=\"inside\"><input type=\"checkbox\" name=\"completed\" value=\""
+            + pa.getActionNextId() + "\"" + checked + "></td>");
+        out.println("  </tr>");
+      }
+      out.println("</table>");
+    } else {
+      out.println("<i>no items</i>");
+    }
+  }
+
+  protected static void printActionDescription(WebUser webUser, PrintWriter out, SimpleDateFormat sdf11,
+      ProjectActionNext pa, String editActionLink, Date today) {
+    String additionalContent = "";
+    if (pa.getLinkUrl() != null && pa.getLinkUrl().length() > 0) {
+      additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
+    }
+    if (pa.getNextDeadline() != null) {
+      if (pa.getNextDeadline().after(today)) {
+        additionalContent += "    <br/>Deadline: " + sdf11.format(pa.getNextDeadline());
+      } else {
+        additionalContent += "    <br/>Deadline: <span class=\"fail\">"
+            + sdf11.format(pa.getNextDeadline()) + "</span>";
+      }
+    }
+    if (editActionLink == null) {
+      out.println("    <td class=\"inside\">"
+          + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + additionalContent + "</td>");
+    } else {
+      out.println("    <td class=\"inside\">" + editActionLink
+          + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>" + additionalContent + "</td>");
+    }
+  }
+
+  protected static void printOutScript(PrintWriter out, String formName, WebUser webUser) {
+    SimpleDateFormat sdf = webUser.getDateFormat();
+    out.println(" <script>");
+    out.println("    function clickForEmail" + formName + "(projectContactId) { ");
+    out.println("      var form = document.forms['" + SAVE_PROJECT_ACTION_FORM + formName + "']; ");
+    out.println("      var checkBox = form['" + PARAM_SEND_EMAIL_TO + "' + projectContactId];");
+    out.println("      checkBox.checked = !checkBox.checked; ");
+    out.println("    }");
+    out.println("    function selectProjectActionType" + formName + "(actionType)");
+    out.println("    {");
+    out.println("      var form = document.forms['" + SAVE_PROJECT_ACTION_FORM + formName + "'];");
+    out.println("      var label = makeIStatement" + formName
+        + "(actionType, form." + PARAM_NEXT_CONTACT_ID + ".options[form." + PARAM_NEXT_CONTACT_ID
+        + ".selectedIndex].text);");
+    out.println("      form." + PARAM_START_SENTANCE + ".value = label;");
+    out.println("      form." + PARAM_NEXT_ACTION_TYPE + ".value = actionType;");
+    out.println("      enableForm" + formName + "(); ");
+    out.println("    }");
+    out.println("    ");
+    out.println("    function enableForm" + formName + "()");
+    out.println("    {");
+    out.println("      var form = document.forms['" + SAVE_PROJECT_ACTION_FORM + formName + "'];");
+    out.println("      form." + PARAM_NEXT_DUE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_DESCRIPTION + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_CONTACT_ID + ".disabled = false;");
+    out.println("      form." + PARAM_START_SENTANCE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_TIME_ESTIMATE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_DEADLINE + ".disabled = false;");
+    out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
+    out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
+    out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
+    out.println("      if (form." + PARAM_NEXT_DUE + ".value == \"\")");
+    out.println("      {");
+    out.println("       document.projectAction" + formName + "." + PARAM_NEXT_DUE + ".value = '"
+        + sdf.format(new Date()) + "';");
+    out.println("      }");
+    out.println("    }");
+    out.println("    ");
+    printGenerateSelectNextTimeEstimateFunction(out, formName);
+    out.println("  </script>");
+  }
+
+  protected static void printGenerateSelectNextTimeEstimateFunction(PrintWriter out, String formName) {
+    out.println("    function selectNextTimeEstimate" + formName + "(timeInMinutes)");
+    out.println("    {");
+    out.println("      var form = document.forms['" + SAVE_PROJECT_ACTION_FORM + formName + "'];");
+    out.println("      form." + PARAM_NEXT_TIME_ESTIMATE + ".value = timeInMinutes;");
+    out.println("    }");
+    out.println("    ");
+    out.println("    function makeIStatement" + formName + "(actionType, nextContactName)");
+    out.println("    {");
+    out.println("      if (nextContactName == 'none')");
+    out.println("      {");
+    out.println("        nextContactName = '';");
+    out.println("      }");
+    out.println("      if (actionType == '" + ProjectNextActionType.WILL_CONTACT + "')");
+    out.println("      {");
+    out.println("        if (nextContactName == '')");
+    out.println("        {");
+    out.println("          return \"I will make contact about:\";");
+    out.println("        } else");
+    out.println("        {");
+    out.println("          return \"I will contact \" + nextContactName + \" about:\";");
+    out.println("        }");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.COMMITTED_TO + "')");
+    out.println("      {");
+    out.println("        if (nextContactName == '')");
+    out.println("        {");
+    out.println("          return \"I have committed to:\";");
+    out.println("        } else");
+    out.println("        {");
+    out.println("          return \"I have committed to \" + nextContactName + \" to:\";");
+    out.println("        }");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.GOAL + "')");
+    out.println("      {");
+    out.println("          if (nextContactName == '')");
+    out.println("          {");
+    out.println("            return \"I have set goal to:\";");
+    out.println("          } else");
+    out.println("          {");
+    out.println("            return \"I have set goal with \" + nextContactName + \" to:\";");
+    out.println("          }");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WAITING + "')");
+    out.println("      {");
+    out.println("        if (nextContactName == '')");
+    out.println("        {");
+    out.println("          return \"I am waiting for:\";");
+    out.println("        } else");
+    out.println("        {");
+    out.println("          return \"I am waiting for \" + nextContactName + \" to:\";");
+    out.println("        }");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_FOLLOW_UP + "')");
+    out.println("      {");
+    out.println("        if (nextContactName == '')");
+    out.println("        {");
+    out.println("          return \"I will follow up:\";");
+    out.println("        } else");
+    out.println("        {");
+    out.println("          return \"I will follow up with \" + nextContactName + \" to:\";");
+    out.println("        }");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.MIGHT + "')");
+    out.println("      {");
+    out.println("          return \"I might:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.GOAL + "')");
+    out.println("      {");
+    out.println("          return \"I have a goal to:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_REVIEW + "')");
+    out.println("      {");
+    out.println("          return \"I will review:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_DOCUMENT + "')");
+    out.println("      {");
+    out.println("          return \"I will document:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WILL_MEET + "')");
+    out.println("      {");
+    out.println("        if (nextContactName == '')");
+    out.println("        {");
+    out.println("          return \"I will meet:\";");
+    out.println("        } else");
+    out.println("        {");
+    out.println("          return \"I will meet with \" + nextContactName + \" to:\";");
+    out.println("        }");
+    out.println("      } else");
+    out.println("      {");
+    out.println("        return \"I will:\";");
+    out.println("      }");
+    out.println("    }");
+    out.println("    ");
   }
 
   /**
@@ -2568,20 +3385,17 @@ public class ProjectActionServlet extends ClientServlet {
       "If you want to fly, give up everything that weighs you down"
   };
 
-  private static List<ProjectAction> getProjectActionsScheduledAndCompletedList(Session dataSession, int projectId) {
+  private static List<ProjectActionNext> getProjectActionsScheduledAndCompletedList(Session dataSession,
+      int projectId) {
     Query query = dataSession.createQuery(
-        "from ProjectAction pa \n" +
-            "where pa.nextDescription <> '' \n" +
-            "  and pa.nextActionId <> 0> \n" +
-            "  and exists ( \n" +
-            "    select 1 \n" +
-            "    from ProjectAction nextPa \n" +
-            "    where nextPa.actionId = pa.nextActionId \n" +
-            "      and nextPa.actionDescription <> '' \n" +
-            "  )");
-    query.setParameter(0, projectId);
+        "from ProjectActionNext pan "
+            + "where pan.projectId = :projectId "
+            + "and pan.nextDescription <> '' "
+            + "and pan.nextActionStatusString = :nextActionStatus");
+    query.setParameter("projectId", projectId);
+    query.setParameter("nextActionStatus", ProjectNextActionStatus.COMPLETED.getId());
     @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionList = query.list();
+    List<ProjectActionNext> projectActionList = query.list();
     return projectActionList;
   }
 }

@@ -1,7 +1,7 @@
 package org.openimmunizationsoftware.pt.api.common;
 
-import com.myapp.api.v1.resource.dto.ApiErrorResponse;
-import com.myapp.api.v1.resource.dto.ErrorResponse;
+import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
+import org.openimmunizationsoftware.pt.api.v1.resource.dto.ErrorResponse;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;

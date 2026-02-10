@@ -21,7 +21,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -116,7 +116,7 @@ public class BillEntriesServlet extends ClientServlet {
         String categoryCode = billEntry.getCategoryCode();
         ProjectCategory projectCategory = TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
         Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
-        ProjectAction projectAction = billEntry.getAction();
+        ProjectActionNext projectAction = billEntry.getAction();
         if (projectAction != null) {
           projectAction
               .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
@@ -141,7 +141,7 @@ public class BillEntriesServlet extends ClientServlet {
         }
         if (projectAction != null) {
           out.println(
-              "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId=" + projectAction.getActionId()
+              "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId=" + projectAction.getActionNextId()
                   + "\" class=\"button\">" + projectAction.getNextDescriptionForDisplay(null) + "</a></td>");
         } else {
           out.println("    <td class=\"boxed\"></td>");

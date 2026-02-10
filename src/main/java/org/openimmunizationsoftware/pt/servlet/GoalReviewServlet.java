@@ -10,8 +10,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import javax.servlet.ServletException;
@@ -22,9 +20,8 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
-import org.openimmunizationsoftware.pt.model.ProjectContact;
-import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectGoalStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -66,7 +63,7 @@ public class GoalReviewServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
 
-      List<ProjectAction> projectActionGoalList = getProjectActionGoalList(dataSession);
+      List<ProjectActionNext> projectActionGoalList = getProjectActionGoalList(dataSession);
       List<Project> projectNeedUpdateList = new ArrayList<Project>();
 
       if (action == null) {
@@ -84,7 +81,7 @@ public class GoalReviewServlet extends ClientServlet {
         calendar.add(Calendar.HOUR, -72);
         Date priorityLow = calendar.getTime();
         int count = 0;
-        for (ProjectAction projectAction : projectActionGoalList) {
+        for (ProjectActionNext projectAction : projectActionGoalList) {
           count++;
           Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
           if (projectNeedUpdateList.contains(project)) {
@@ -101,10 +98,10 @@ public class GoalReviewServlet extends ClientServlet {
               }
             }
             Query query = dataSession.createQuery(
-                "from ProjectAction where projectId = :projectId and actionDate >= :actionDate");
+                "from ProjectActionTaken where projectId = :projectId and actionDate >= :actionDate");
             query.setParameter("projectId", projectAction.getProjectId());
             query.setParameter("actionDate", priority);
-            List<ProjectAction> projectActionList = query.list();
+            List<ProjectActionTaken> projectActionList = query.list();
             if (projectActionList.size() == 0) {
               projectNeedUpdateList.add(project);
               projectAction.setGoalStatus(null);
@@ -116,13 +113,13 @@ public class GoalReviewServlet extends ClientServlet {
       } else {
         if (action.equals(ACTION_UPDATE_PRIORITY)) {
           Transaction transaction = dataSession.beginTransaction();
-          for (ProjectAction projectAction : projectActionGoalList) {
+          for (ProjectActionNext projectAction : projectActionGoalList) {
             projectAction.setPriorityLevel(Integer
-                .parseInt(request.getParameter("priorityLevel" + projectAction.getActionId())));
+                .parseInt(request.getParameter("priorityLevel" + projectAction.getActionNextId())));
             projectAction
-                .setGoalStatus(request.getParameter("goalStatus" + projectAction.getActionId()));
+                .setGoalStatus(request.getParameter("goalStatus" + projectAction.getActionNextId()));
             Date nextDue = null;
-            String s = request.getParameter("nextDue" + projectAction.getActionId());
+            String s = request.getParameter("nextDue" + projectAction.getActionNextId());
             if (!s.equals("")) {
               try {
                 nextDue = sdf.parse(s);
@@ -137,15 +134,13 @@ public class GoalReviewServlet extends ClientServlet {
           projectActionGoalList = getProjectActionGoalList(dataSession);
         } else if (action.equals(ACTION_SAVE)) {
           int projectId = Integer.parseInt(request.getParameter(ProjectServlet.PARAM_PROJECT_ID));
-          Project project = ProjectServlet.setupProject(dataSession, projectId);
-          ProjectServlet.saveProjectAction(appReq, project, "");
           Transaction transaction = dataSession.beginTransaction();
-          for (ProjectAction projectAction : projectActionGoalList) {
+          for (ProjectActionNext projectAction : projectActionGoalList) {
             if (projectAction.getProjectId() == projectId) {
               projectAction
-                  .setGoalStatus(request.getParameter("goalStatus" + projectAction.getActionId()));
+                  .setGoalStatus(request.getParameter("goalStatus" + projectAction.getActionNextId()));
               Date nextDue = null;
-              String s = request.getParameter("nextDue" + projectAction.getActionId());
+              String s = request.getParameter("nextDue" + projectAction.getActionNextId());
               if (!s.equals("")) {
                 try {
                   nextDue = sdf.parse(s);
@@ -162,7 +157,7 @@ public class GoalReviewServlet extends ClientServlet {
         }
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR, -48);
-        for (ProjectAction projectAction : projectActionGoalList) {
+        for (ProjectActionNext projectAction : projectActionGoalList) {
           Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
           if (projectNeedUpdateList.contains(project)) {
             continue;
@@ -171,10 +166,10 @@ public class GoalReviewServlet extends ClientServlet {
             projectNeedUpdateList.add(project);
           } else {
             Query query = dataSession.createQuery(
-                "from ProjectAction where projectId = :projectId and actionDate >= :actionDate");
+                "from ProjectActionTaken where projectId = :projectId and actionDate >= :actionDate");
             query.setParameter("projectId", projectAction.getProjectId());
             query.setParameter("actionDate", calendar.getTime());
-            List<ProjectAction> projectActionList = query.list();
+            List<ProjectActionTaken> projectActionList = query.list();
             if (projectActionList.size() == 0) {
               projectNeedUpdateList.add(project);
             }
@@ -194,7 +189,7 @@ public class GoalReviewServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Status</th>");
       out.println("    <th class=\"boxed\">Due</th>");
       out.println("  </tr>");
-      for (ProjectAction projectAction : projectActionGoalList) {
+      for (ProjectActionNext projectAction : projectActionGoalList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         Project project = projectAction.getProject();
@@ -203,7 +198,7 @@ public class GoalReviewServlet extends ClientServlet {
             "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
                 + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
         out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"priorityLevel" + projectAction.getActionId()
+        out.println("      <input type=\"text\" name=\"priorityLevel" + projectAction.getActionNextId()
             + "\" size=\"2\" value=\"" + projectAction.getPriorityLevel() + "\"></input>");
         out.println("    </td>");
         out.println("    <td class=\"boxed\">");
@@ -212,7 +207,7 @@ public class GoalReviewServlet extends ClientServlet {
         out.println("    <td class=\"boxed\" style=\"background-color: "
             + ProjectGoalStatus.getColor(projectAction.getGoalStatus()) + "\">");
         {
-          String id = "goalStatus" + projectAction.getActionId();
+          String id = "goalStatus" + projectAction.getActionNextId();
           String goalStatus = projectAction.getGoalStatus();
           if (goalStatus == null) {
             goalStatus = "";
@@ -229,7 +224,7 @@ public class GoalReviewServlet extends ClientServlet {
         out.println("    </td>");
         out.println("    <td class=\"boxed\">");
         {
-          String id = "nextDue" + projectAction.getActionId();
+          String id = "nextDue" + projectAction.getActionNextId();
           if (projectAction.getNextDue() == null) {
             out.println(
                 "      <input type=\"text\" name=\"" + id + "\" size=\"10\" value=\"\"></input>");
@@ -259,7 +254,7 @@ public class GoalReviewServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">Status</th>");
         out.println("    <th class=\"boxed\">Due</th>");
         out.println("  </tr>");
-        for (ProjectAction projectAction : projectActionGoalList) {
+        for (ProjectActionNext projectAction : projectActionGoalList) {
           if (!project.equals(projectAction.getProject())) {
             continue;
           }
@@ -270,7 +265,7 @@ public class GoalReviewServlet extends ClientServlet {
           out.println("    <td class=\"boxed\" style=\"background-color: "
               + ProjectGoalStatus.getColor(projectAction.getGoalStatus()) + "\">");
           {
-            String id = "goalStatus" + projectAction.getActionId();
+            String id = "goalStatus" + projectAction.getActionNextId();
             String goalStatus = projectAction.getGoalStatus();
             if (goalStatus == null) {
               goalStatus = "";
@@ -286,7 +281,7 @@ public class GoalReviewServlet extends ClientServlet {
           out.println("    </td>");
           out.println("    <td class=\"boxed\">");
           {
-            String id = "nextDue" + projectAction.getActionId();
+            String id = "nextDue" + projectAction.getActionNextId();
             if (projectAction.getNextDue() == null) {
               out.println(
                   "      <input type=\"text\" name=\"" + id + "\" size=\"10\" value=\"\"></input>");
@@ -301,26 +296,6 @@ public class GoalReviewServlet extends ClientServlet {
         out.println("</table>");
         out.println("<br/>");
 
-        List<ProjectContactAssigned> projectContactAssignedList = ProjectServlet
-            .getProjectContactAssignedList(dataSession, project.getProjectId());
-        List<ProjectContact> projectContactList = ProjectServlet.getProjectContactList(dataSession, project,
-            projectContactAssignedList);
-        Collections.sort(projectContactAssignedList, new Comparator<ProjectContactAssigned>() {
-          public int compare(ProjectContactAssigned arg0, ProjectContactAssigned arg1) {
-            if (arg0.getProjectContact().getNameFirst()
-                .equals(arg1.getProjectContact().getNameFirst())) {
-              return arg0.getProjectContact().getNameLast()
-                  .compareTo(arg1.getProjectContact().getNameLast());
-            }
-            return arg0.getProjectContact().getNameFirst()
-                .compareTo(arg1.getProjectContact().getNameFirst());
-          }
-        });
-        project.setProjectContactAssignedList(projectContactAssignedList);
-
-        ProjectServlet.printProjectUpdateForm(appReq, project.getProjectId(), projectContactList,
-            null, null);
-
         out.println("</form>");
       }
 
@@ -332,7 +307,7 @@ public class GoalReviewServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Goal</th>");
       out.println("    <th class=\"boxed\">Status</th>");
       out.println("  </tr>");
-      for (ProjectAction projectAction : projectActionGoalList) {
+      for (ProjectActionNext projectAction : projectActionGoalList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         Project project = projectAction.getProject();
@@ -350,7 +325,7 @@ public class GoalReviewServlet extends ClientServlet {
 
       out.println("<h3>Easy Copy Text</h3>");
 
-      for (ProjectAction projectAction : projectActionGoalList) {
+      for (ProjectActionNext projectAction : projectActionGoalList) {
         if (projectAction.getGoalStatus() == null) {
           out.println("    <p>" + projectAction.getNextDescription() + " &mdash; ?????</p>");
         } else if (projectAction.getGoalStatus().equals(ProjectGoalStatus.PROGRESSING)) {
@@ -370,12 +345,12 @@ public class GoalReviewServlet extends ClientServlet {
     }
   }
 
-  private List<ProjectAction> getProjectActionGoalList(Session dataSession) {
-    Query query = dataSession.createQuery("from ProjectAction where nextDescription <> '' "
-        + "and nextActionId = 0 and nextActionType = :nextActionType order by priorityLevel desc, projectId, nextDue asc");
+  private List<ProjectActionNext> getProjectActionGoalList(Session dataSession) {
+    Query query = dataSession.createQuery("from ProjectActionNext where nextDescription <> '' "
+        + "and nextActionType = :nextActionType order by priorityLevel desc, projectId, nextDue asc");
     query.setParameter("nextActionType", ProjectNextActionType.GOAL);
     @SuppressWarnings("unchecked")
-    List<ProjectAction> projectActionGoalList = query.list();
+    List<ProjectActionNext> projectActionGoalList = query.list();
     return projectActionGoalList;
   }
 

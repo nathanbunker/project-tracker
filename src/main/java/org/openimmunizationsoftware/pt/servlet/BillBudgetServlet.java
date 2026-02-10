@@ -23,7 +23,7 @@ import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillDay;
 import org.openimmunizationsoftware.pt.model.BillMonth;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -254,7 +254,7 @@ public class BillBudgetServlet extends ClientServlet {
       for (Project project : projectList) {
 
         query = dataSession.createQuery(
-            "select distinct pa from ProjectAction pa "
+            "select distinct pa from ProjectActionTaken pa "
                 + "left join fetch pa.contact "
                 + "where pa.projectId = ? and pa.actionDescription <> '' and pa.actionDate >= ? and pa.actionDate < ? "
                 + "order by pa.actionDate asc");
@@ -262,9 +262,9 @@ public class BillBudgetServlet extends ClientServlet {
         query.setParameter(1, start);
         query.setParameter(2, end);
         @SuppressWarnings("unchecked")
-        List<ProjectAction> projectActionList = query.list();
+        List<ProjectActionTaken> projectActionList = query.list();
 
-        for (ProjectAction projectAction : projectActionList) {
+        for (ProjectActionTaken projectAction : projectActionList) {
           ProjectContact projectContact = projectAction.getContact();
           if (projectContact == null) {
             projectContact = (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId());

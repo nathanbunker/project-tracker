@@ -20,7 +20,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -63,7 +63,7 @@ public class BillEntryEditServlet extends ClientServlet {
       TimeTracker timeTracker = appReq.getTimeTracker();
       String billDate = request.getParameter("billDate");
 
-      ProjectAction projectAction = billEntry.getAction();
+      ProjectActionNext projectAction = billEntry.getAction();
       if (projectAction != null) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));

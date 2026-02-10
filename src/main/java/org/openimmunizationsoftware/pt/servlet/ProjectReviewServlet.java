@@ -18,7 +18,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -146,11 +146,11 @@ public class ProjectReviewServlet extends ClientServlet {
         }
         for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
           query = dataSession.createQuery(
-              "from ProjectAction where projectId = ? and contactId = ? order by actionDate desc");
+              "from ProjectActionTaken where projectId = ? and contactId = ? order by actionDate desc");
           query.setParameter(0, projectContactAssigned.getId().getProjectId());
           query.setParameter(1, projectContactAssigned.getId().getContactId());
           @SuppressWarnings("unchecked")
-          List<ProjectAction> projectActionList = query.list();
+          List<ProjectActionTaken> projectActionList = query.list();
           if (projectActionList.size() > 0) {
             projectContactAssigned.setUpdateLast(projectActionList.get(0).getActionDate());
           }

@@ -13,7 +13,7 @@ import org.hibernate.SessionFactory;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -46,9 +46,9 @@ public class AppReq {
   private AppType appType = AppType.TRACKER;
   private TimeTracker timeTracker = null;
   private Project projectTrackTime = null;
-  private ProjectAction actionTrackTime = null;
+  private ProjectActionNext actionTrackTime = null;
   private Project projectSelected = null;
-  private ProjectAction projectActionSelected = null;
+  private ProjectActionNext projectActionSelected = null;
   private WebUser webUser = null;
 
   private String title = "";
@@ -56,19 +56,19 @@ public class AppReq {
   private String displayColor = "";
   private Project project = null;
   private Project parentProject = null;
-  private ProjectAction completingAction = null;
-  private ProjectAction projectActionParent = null;
+  private ProjectActionNext completingAction = null;
+  private ProjectActionNext projectActionParent = null;
   private String action = null;
   private List<WebUser> childWebUserList = null;
   private List<Integer> projectIdList = null;
   private List<Project> projectSelectedList = null;
   private List<ProjectContactAssigned> projectContactAssignedList = null;
 
-  public ProjectAction getProjectActionSelected() {
+  public ProjectActionNext getProjectActionSelected() {
     return projectActionSelected;
   }
 
-  public ProjectAction getCompletingAction() {
+  public ProjectActionNext getCompletingAction() {
     return completingAction;
   }
 
@@ -295,12 +295,12 @@ public class AppReq {
     }
   }
 
-  public void setCompletingAction(ProjectAction projectAction) {
+  public void setCompletingAction(ProjectActionNext projectAction) {
     this.completingAction = projectAction;
     if (projectAction == null) {
       webSession.removeAttribute(SESSION_VAR_ACTION);
     } else {
-      webSession.setAttribute(SESSION_VAR_ACTION, projectAction.getActionId());
+      webSession.setAttribute(SESSION_VAR_ACTION, projectAction.getActionNextId());
       setProject(projectAction.getProject());
     }
   }
@@ -318,16 +318,16 @@ public class AppReq {
     }
   }
 
-  public ProjectAction getProjectActionParent() {
+  public ProjectActionNext getProjectActionParent() {
     return projectActionParent;
   }
 
-  public void setProjectActionParent(ProjectAction projectActionParent) {
+  public void setProjectActionParent(ProjectActionNext projectActionParent) {
     this.projectActionParent = projectActionParent;
     if (projectActionParent == null) {
       webSession.removeAttribute(SESSION_VAR_PARENT_ACTION);
     } else {
-      webSession.setAttribute(SESSION_VAR_PARENT_ACTION, projectActionParent.getActionId());
+      webSession.setAttribute(SESSION_VAR_PARENT_ACTION, projectActionParent.getActionNextId());
     }
   }
 
@@ -382,7 +382,7 @@ public class AppReq {
     this.projectSelected = projectSelected;
   }
 
-  public void setProjectActionSelected(ProjectAction projectActionSelected) {
+  public void setProjectActionSelected(ProjectActionNext projectActionSelected) {
     this.projectActionSelected = projectActionSelected;
   }
 
@@ -410,12 +410,12 @@ public class AppReq {
     return null;
   }
 
-  private ProjectAction loadProjectActionFromSession(String key) {
+  private ProjectActionNext loadProjectActionFromSession(String key) {
     Integer actionId = readProjectActionIdFromSession(key);
     if (actionId == null) {
       return null;
     }
-    return (ProjectAction) dataSession.get(ProjectAction.class, actionId);
+    return (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
   }
 
   private Integer readProjectActionIdFromSession(String key) {
@@ -426,10 +426,10 @@ public class AppReq {
     if (value instanceof Integer) {
       return (Integer) value;
     }
-    if (value instanceof ProjectAction) {
-      ProjectAction action = (ProjectAction) value;
-      webSession.setAttribute(key, action.getActionId());
-      return action.getActionId();
+    if (value instanceof ProjectActionNext) {
+      ProjectActionNext action = (ProjectActionNext) value;
+      webSession.setAttribute(key, action.getActionNextId());
+      return action.getActionNextId();
     }
     return null;
   }

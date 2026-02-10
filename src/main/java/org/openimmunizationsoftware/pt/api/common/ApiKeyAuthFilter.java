@@ -7,7 +7,7 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
-import com.myapp.api.v1.resource.dto.ApiErrorResponse;
+import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
 import org.openimmunizationsoftware.pt.model.WebApiClient;
 
 @Provider

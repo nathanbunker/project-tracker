@@ -27,7 +27,7 @@ import org.openimmunizationsoftware.pt.SoftwareVersion;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -59,7 +59,7 @@ public class ClientServlet extends HttpServlet {
     String title = appReq.getTitle();
     TimeTracker timeTracker = appReq.getTimeTracker();
     Project projectSelected = appReq.getProjectSelected();
-    ProjectAction completingAction = appReq.getCompletingAction();
+    ProjectActionNext completingAction = appReq.getCompletingAction();
 
     out.println("<html>");
     out.println("  <head>");
@@ -97,7 +97,7 @@ public class ClientServlet extends HttpServlet {
       link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
     } else if (title.equals("Actions") && completingAction != null) {
       link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "="
-          + completingAction.getActionId();
+          + completingAction.getActionNextId();
     }
     out.println("        window.location.href=\"" + link + "\"");
     out.println("      }");
@@ -260,7 +260,7 @@ public class ClientServlet extends HttpServlet {
     result.append("</td><td class=\"right\">");
     if (loggedIn) {
       Project project = appReq.getProject();
-      ProjectAction completingAction = appReq.getCompletingAction();
+      ProjectActionNext completingAction = appReq.getCompletingAction();
       if (appReq.isParentWebUser()) {
         if (project != null) {
           result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
@@ -289,7 +289,7 @@ public class ClientServlet extends HttpServlet {
                   + "&action=StartTimer";
               if (completingAction != null) {
                 link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "="
-                    + completingAction.getActionId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
+                    + completingAction.getActionNextId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
                     + ProjectActionServlet.ACTION_START_TIMER;
               }
               result.append("<a href=\"" + link + "\" class=\"timerStopped\">" + time + "</a>");

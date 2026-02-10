@@ -8,9 +8,9 @@
       <generator class="native" />
     </id>
     <property name="actionId" type="int">
-      <column name="action_id" not-null="true" />
+      <column name="action_next_id" not-null="true" />
     </property>
-    <many-to-one name="action" column="action_id" class="ProjectAction" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <many-to-one name="action" column="action_next_id" class="ProjectActionNext" insert="false" update="false" lazy="proxy" fetch="select"/>
     <property name="projectId" type="int">
       <column name="project_id" not-null="true" />
     </property>

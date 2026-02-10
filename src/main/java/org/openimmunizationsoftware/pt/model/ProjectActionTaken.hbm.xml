@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="ProjectActionTaken" table="project_action_taken">
+    <id name="actionTakenId" type="int">
+      <column name="action_taken_id" />
+      <generator class="native" />
+    </id>
+    <property name="projectId" type="int">
+      <column name="project_id" not-null="true" />
+    </property>
+    <many-to-one name="project" column="project_id" class="Project" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="contactId" type="int">
+      <column name="contact_id" not-null="true" />
+    </property>
+    <many-to-one name="contact" column="contact_id" class="ProjectContact" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="actionDate" type="timestamp">
+      <column name="action_date" length="19" not-null="true" />
+    </property>
+    <property name="actionDescription" type="string">
+      <column name="action_description" length="12000" not-null="true" />
+    </property>
+    <many-to-one name="provider" column="provider_id" class="ProjectProvider" lazy="proxy" fetch="select"/>
+  </class>
+</hibernate-mapping>

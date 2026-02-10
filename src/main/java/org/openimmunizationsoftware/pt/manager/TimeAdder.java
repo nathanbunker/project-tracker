@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -67,11 +67,11 @@ public class TimeAdder {
         return otherEst;
     }
 
-    public TimeAdder(List<ProjectAction> projectActionList, AppReq appReq) {
+    public TimeAdder(List<ProjectActionNext> projectActionList, AppReq appReq) {
         this(projectActionList, appReq, null);
     }
 
-    public TimeAdder(List<ProjectAction> projectActionList, AppReq appReq, Date evaluationDate) {
+    public TimeAdder(List<ProjectActionNext> projectActionList, AppReq appReq, Date evaluationDate) {
         boolean isToday = true;
         if (evaluationDate == null) {
             evaluationDate = new Date();
@@ -94,7 +94,7 @@ public class TimeAdder {
         willMeetEst = 0;
         mightEst = 0;
         otherEst = 0;
-        for (ProjectAction pa : projectActionList) {
+        for (ProjectActionNext pa : projectActionList) {
             if (isToday && !webUser.sameDay(cIndicated, pa.getNextDue())) {
                 continue;
             }

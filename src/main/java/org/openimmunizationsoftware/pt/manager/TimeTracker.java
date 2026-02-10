@@ -12,7 +12,7 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectAction;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class TimeTracker {
@@ -57,11 +57,11 @@ public class TimeTracker {
     return timeEntryList;
   }
 
-  public synchronized int getTotalMinsForAction(ProjectAction projectAction) {
+  public synchronized int getTotalMinsForAction(ProjectActionNext projectAction) {
     int totalMins = 0;
     if (hasRunningEntry()) {
       if (billEntryActionId != null && projectAction != null
-          && billEntryActionId.intValue() == projectAction.getActionId()) {
+          && billEntryActionId.intValue() == projectAction.getActionNextId()) {
         totalMins += billEntryBillMins == null ? 0 : billEntryBillMins;
       }
     }
@@ -260,7 +260,7 @@ public class TimeTracker {
 
   }
 
-  public synchronized void update(Project project, ProjectAction action, Session dataSession) {
+  public synchronized void update(Project project, ProjectActionNext action, Session dataSession) {
     if (runningClock) {
       if (hasRunningEntry()) {
         saveTime(dataSession);
@@ -273,7 +273,7 @@ public class TimeTracker {
     }
   }
 
-  public synchronized void update(ProjectAction projectAction, Session dataSession) {
+  public synchronized void update(ProjectActionNext projectAction, Session dataSession) {
     if (runningClock) {
       Project project = projectAction.getProject();
       if (hasRunningEntry()) {
@@ -287,7 +287,7 @@ public class TimeTracker {
     }
   }
 
-  public synchronized void startClock(Project project, ProjectAction action, Session dataSession) {
+  public synchronized void startClock(Project project, ProjectActionNext action, Session dataSession) {
     if (runningClock) {
       saveTime(dataSession);
       if (projectOrActionChanged(project, action)) {
@@ -299,7 +299,7 @@ public class TimeTracker {
     }
   }
 
-  private boolean projectOrActionChanged(Project project, ProjectAction action) {
+  private boolean projectOrActionChanged(Project project, ProjectActionNext action) {
     if (billEntryProjectId != project.getProjectId()) {
       return true;
     }
@@ -309,7 +309,7 @@ public class TimeTracker {
     if (action == null || billEntryActionId == null) {
       return true;
     }
-    return billEntryActionId.intValue() != action.getActionId();
+    return billEntryActionId.intValue() != action.getActionNextId();
   }
 
   public synchronized void stopClock(Session dataSession) {
@@ -323,7 +323,7 @@ public class TimeTracker {
     }
   }
 
-  private void startTime(Project project, ProjectAction action, Session dataSession) {
+  private void startTime(Project project, ProjectActionNext action, Session dataSession) {
     if (hasRunningEntry()) {
       addRunningEntryToTotals();
     }
@@ -354,7 +354,7 @@ public class TimeTracker {
         billEntryCategoryCode = billEntry.getCategoryCode();
         billEntryBillable = billEntry.getBillable();
         billEntryBillCode = billEntry.getBillCode();
-        billEntryActionId = action == null ? null : action.getActionId();
+        billEntryActionId = action == null ? null : action.getActionNextId();
         billEntryStartTime = billEntry.getStartTime();
         billEntryEndTime = billEntry.getEndTime();
         billEntryBillMins = billEntry.getBillMins();
