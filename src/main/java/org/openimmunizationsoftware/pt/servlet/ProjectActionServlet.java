@@ -120,10 +120,8 @@ public class ProjectActionServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    System.err.println("ProjectActionServlet: processRequest");
     AppReq appReq = new AppReq(request, response);
 
-    System.err.println("ProjectActionServlet: processRequest - AppReq initialized");
     try {
       WebUser webUser = appReq.getWebUser();
       if (appReq.isLoggedOut()) {

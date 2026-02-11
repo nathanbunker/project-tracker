@@ -5,7 +5,7 @@
   <class name="ProjectActionNext" table="project_action_next">
     <id name="actionNextId" type="int">
       <column name="action_next_id" />
-      <generator class="assigned" />
+      <generator class="native" />
     </id>
     <property name="projectId" type="int">
       <column name="project_id" not-null="true" />

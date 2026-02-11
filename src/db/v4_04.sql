@@ -11,7 +11,7 @@ CREATE TABLE project_action_taken (
 );
 
 CREATE TABLE project_action_next (
-  action_next_id         INT NOT NULL,
+  action_next_id         INT NOT NULL AUTO_INCREMENT,
   project_id             INT NOT NULL,
   contact_id             INT NOT NULL,
   provider_id            VARCHAR(30) NOT NULL DEFAULT '1',
