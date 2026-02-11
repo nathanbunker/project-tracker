@@ -103,68 +103,94 @@ public class BillEntriesServlet extends ClientServlet {
       @SuppressWarnings("unchecked")
       List<BillEntry> billEntryList = query.list();
 
-      out.println("<table class=\"boxed\">");
-      out.println("  <tr>");
-      out.println("    <th class=\"title\" colspan=\"8\">Bill Entries</th>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Category</th>");
-      out.println("    <th class=\"boxed\">Project</th>");
-      out.println("    <th class=\"boxed\">Action</th>");
-      out.println("    <th class=\"boxed\">Bill Code</th>");
-      out.println("    <th class=\"boxed\">Start</th>");
-      out.println("    <th class=\"boxed\">End</th>");
-      out.println("    <th class=\"boxed\">Time</th>");
-      out.println("    <th class=\"boxed\">Bill</th>");
-      out.println("  </tr>");
       SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
-      for (BillEntry billEntry : billEntryList) {
-        String categoryCode = billEntry.getCategoryCode();
-        ProjectCategory projectCategory = TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
-        Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
-        ProjectActionNext projectAction = billEntry.getAction();
-        if (projectAction != null) {
-          projectAction
-              .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
-          projectAction.setContact(
-              (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+      if (billEntryList.isEmpty()) {
+        out.println("<p>No bill entries.</p>");
+      } else {
+        BillEntry previousEntry = null;
+        Date lastEndTime = null;
+        int segmentIndex = 0;
+        int segmentMinutes = 0;
+        boolean tableOpen = false;
+
+        for (BillEntry billEntry : billEntryList) {
+          if (previousEntry != null && !isSameMinute(previousEntry.getEndTime(), billEntry.getStartTime())) {
+            out.println("</table>");
+            out.println("<p>Time worked: " + TimeTracker.formatTime(segmentMinutes) + "</p>");
+            out.println("<br/>");
+            tableOpen = false;
+          }
+
+          if (!tableOpen) {
+            segmentIndex++;
+            String headerLabel = segmentIndex == 1 ? "Start Working" : "Continue Working";
+            out.println("<h3>" + timeFormat.format(billEntry.getStartTime()) + " " + headerLabel
+                + "</h3>");
+            printBillEntriesTableStart(out);
+            segmentMinutes = 0;
+            tableOpen = true;
+          }
+
+          String categoryCode = billEntry.getCategoryCode();
+          ProjectCategory projectCategory = TrackServlet.getClient(dataSession, categoryCode, billEntry.getProvider());
+          Project project = (Project) dataSession.get(Project.class, billEntry.getProjectId());
+          ProjectActionNext projectAction = billEntry.getAction();
+          if (projectAction != null) {
+            projectAction
+                .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
+            projectAction.setContact(
+                (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+          }
+
+          BillCode billCode = null;
+          if (billEntry.getBillCode() != null) {
+            billCode = (BillCode) dataSession.get(BillCode.class, billEntry.getBillCode());
+          }
+
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <td class=\"boxed\">"
+              + (projectCategory != null ? projectCategory.getClientName() : "") + "</td>");
+          if (project != null) {
+            out.println(
+                "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
+                    + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+          } else {
+            out.println("    <td class=\"boxed\"></td>");
+          }
+          if (projectAction != null) {
+            out.println(
+                "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId=" + projectAction.getActionNextId()
+                    + "\" class=\"button\">" + projectAction.getNextDescriptionForDisplay(null) + "</a></td>");
+          } else {
+            out.println("    <td class=\"boxed\"></td>");
+          }
+          out.println("    <td class=\"boxed\">" + (billCode != null ? billCode.getBillLabel() : "")
+              + "</td>");
+          out.println(
+              "    <td class=\"boxed\">" + timeFormat.format(billEntry.getStartTime()) + "</td>");
+          out.println(
+              "    <td class=\"boxed\">" + timeFormat.format(billEntry.getEndTime()) + "</td>");
+          out.println("    <td class=\"boxed\"><a href=\"BillEntryEditServlet?billId="
+              + billEntry.getBillId() + "&billDate=" + billDateString + "\" class=\"button\">"
+              + TimeTracker.formatTime(billEntry.getBillMins()) + "</a></td>");
+          out.println("    <td class=\"boxed\">" + billEntry.getBillable() + "</td>");
+          out.println("  </tr>");
+
+          segmentMinutes += billEntry.getBillMins();
+          lastEndTime = billEntry.getEndTime();
+          previousEntry = billEntry;
         }
 
-        BillCode billCode = null;
-        if (billEntry.getBillCode() != null) {
-          billCode = (BillCode) dataSession.get(BillCode.class, billEntry.getBillCode());
+        if (tableOpen) {
+          out.println("</table>");
+          out.println("<p>Time worked: " + TimeTracker.formatTime(segmentMinutes) + "</p>");
+          out.println("<br/>");
         }
 
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed\">"
-            + (projectCategory != null ? projectCategory.getClientName() : "") + "</td>");
-        if (project != null) {
-          out.println(
-              "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-        } else {
-          out.println("    <td class=\"boxed\"></td>");
+        if (lastEndTime != null) {
+          out.println("<h3>" + timeFormat.format(lastEndTime) + " Stop Working</h3>");
         }
-        if (projectAction != null) {
-          out.println(
-              "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId=" + projectAction.getActionNextId()
-                  + "\" class=\"button\">" + projectAction.getNextDescriptionForDisplay(null) + "</a></td>");
-        } else {
-          out.println("    <td class=\"boxed\"></td>");
-        }
-        out.println("    <td class=\"boxed\">" + (billCode != null ? billCode.getBillLabel() : "")
-            + "</td>");
-        out.println(
-            "    <td class=\"boxed\">" + timeFormat.format(billEntry.getStartTime()) + "</td>");
-        out.println(
-            "    <td class=\"boxed\">" + timeFormat.format(billEntry.getEndTime()) + "</td>");
-        out.println("    <td class=\"boxed\"><a href=\"BillEntryEditServlet?billId="
-            + billEntry.getBillId() + "&billDate=" + billDateString + "\" class=\"button\">"
-            + TimeTracker.formatTime(billEntry.getBillMins()) + "</a></td>");
-        out.println("    <td class=\"boxed\">" + billEntry.getBillable() + "</td>");
-        out.println("  </tr>");
       }
-      out.println("</table> ");
       printHtmlFoot(appReq);
 
     } catch (Exception e) {
@@ -239,6 +265,32 @@ public class BillEntriesServlet extends ClientServlet {
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     processRequest(request, response);
+  }
+
+  private static void printBillEntriesTableStart(PrintWriter out) {
+    out.println("<table class=\"boxed\">");
+    out.println("  <tr>");
+    out.println("    <th class=\"title\" colspan=\"8\">Bill Entries</th>");
+    out.println("  </tr>");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Category</th>");
+    out.println("    <th class=\"boxed\">Project</th>");
+    out.println("    <th class=\"boxed\">Action</th>");
+    out.println("    <th class=\"boxed\">Bill Code</th>");
+    out.println("    <th class=\"boxed\">Start</th>");
+    out.println("    <th class=\"boxed\">End</th>");
+    out.println("    <th class=\"boxed\">Time</th>");
+    out.println("    <th class=\"boxed\">Bill</th>");
+    out.println("  </tr>");
+  }
+
+  private static boolean isSameMinute(Date first, Date second) {
+    if (first == null || second == null) {
+      return false;
+    }
+    long firstMinute = first.getTime() / 60000L;
+    long secondMinute = second.getTime() / 60000L;
+    return firstMinute == secondMinute;
   }
 
 }
