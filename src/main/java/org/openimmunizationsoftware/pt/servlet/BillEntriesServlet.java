@@ -70,14 +70,20 @@ public class BillEntriesServlet extends ClientServlet {
         billDateString = sdf.format(new Date());
       }
 
-      appReq.setTitle("Track");
+      appReq.setTitle("Time");
       printHtmlHead(appReq);
+
+      Date previousBillDate = getPreviousBillDate(webUser, dataSession, billDate);
 
       out.println("<form action=\"BillEntriesServlet\" method=\"GET\">");
       out.println("Date");
       out.println(
           "<input type=\"text\" name=\"billDate\" value=\"" + billDateString + "\" size=\"10\">");
       out.println("<input type=\"submit\" name=\"action\" value=\"Refresh\">");
+      if (previousBillDate != null) {
+        out.println("<a class=\"button\" href=\"BillEntriesServlet?billDate="
+            + sdf.format(previousBillDate) + "\">Previous Day</a>");
+      }
       out.println("</form>");
 
       Query query;
@@ -166,6 +172,33 @@ public class BillEntriesServlet extends ClientServlet {
     } finally {
       appReq.close();
     }
+  }
+
+  private Date getPreviousBillDate(WebUser webUser, Session dataSession, Date billDate) {
+    Calendar calendar = TimeTracker.createToday(webUser);
+    if (billDate != null) {
+      calendar.setTime(billDate);
+    }
+    calendar.add(Calendar.DAY_OF_YEAR, -1);
+    Date cutoff = new Date(946684800000L);
+    while (calendar.getTime().after(cutoff)) {
+      Date start = calendar.getTime();
+      Calendar nextDay = (Calendar) calendar.clone();
+      nextDay.add(Calendar.DAY_OF_YEAR, 1);
+      Date end = nextDay.getTime();
+      Query query = dataSession.createQuery(
+          "select 1 from BillEntry where username = :username and startTime >= :start and startTime < :end "
+              + "and billMins > 0");
+      query.setParameter("username", webUser.getUsername());
+      query.setParameter("start", start);
+      query.setParameter("end", end);
+      query.setMaxResults(1);
+      if (!query.list().isEmpty()) {
+        return start;
+      }
+      calendar.add(Calendar.DAY_OF_YEAR, -1);
+    }
+    return null;
   }
 
   // <editor-fold defaultstate="collapsed"

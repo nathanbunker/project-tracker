@@ -228,6 +228,7 @@ public class ClientServlet extends HttpServlet {
 
       if (webUser.getParentWebUser() == null) {
         if (timeTracker != null) {
+          menuList.add(new String[] { "BillEntriesServlet", "Time" });
           menuList.add(new String[] { "TrackServlet", "Track" });
         }
       }
