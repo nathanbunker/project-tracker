@@ -55,6 +55,8 @@ public class LoginServlet extends ClientServlet {
           loginSuccess = login(request, appReq, dataSession, loginSuccess);
         } else if (action.equals(ACTION_LOGOUT)) {
           appReq.logout();
+          response.sendRedirect("LoginServlet");
+          return;
         }
       }
       if (!loginSuccess) {
