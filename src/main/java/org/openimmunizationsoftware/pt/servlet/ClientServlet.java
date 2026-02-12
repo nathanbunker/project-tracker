@@ -232,6 +232,7 @@ public class ClientServlet extends HttpServlet {
           menuList.add(new String[] { "TrackServlet", "Track" });
         }
       }
+      menuList.add(new String[] { "trackerNarrative", "Narrative" });
       menuList.add(new String[] { "SettingsServlet", "Settings" });
     } else {
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });

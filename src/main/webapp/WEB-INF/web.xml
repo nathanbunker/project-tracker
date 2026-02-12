@@ -82,6 +82,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectNarrativeReviewServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>TrackerNarrativeServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.TrackerNarrativeServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ProjectContactEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectContactEditServlet</servlet-class>
   </servlet>
@@ -196,6 +200,14 @@
   <servlet-mapping>
     <servlet-name>ProjectNarrativeReviewServlet</servlet-name>
     <url-pattern>/ProjectNarrativeReviewServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>TrackerNarrativeServlet</servlet-name>
+    <url-pattern>/TrackerNarrativeServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>TrackerNarrativeServlet</servlet-name>
+    <url-pattern>/trackerNarrative</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectContactEditServlet</servlet-name>

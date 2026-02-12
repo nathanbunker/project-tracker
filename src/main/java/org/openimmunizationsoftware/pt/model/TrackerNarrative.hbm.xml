@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="TrackerNarrative" table="tracker_narrative">
+    <id name="narrativeId" type="int">
+      <column name="narrative_id" />
+      <generator class="native" />
+    </id>
+    <property name="displayTitle" type="string">
+      <column name="display_title" length="255" not-null="true" />
+    </property>
+    <property name="narrativeType" type="string">
+      <column name="narrative_type" length="20" not-null="true" />
+    </property>
+    <property name="periodStart" type="date">
+      <column name="period_start" not-null="true" />
+    </property>
+    <property name="periodEnd" type="date">
+      <column name="period_end" not-null="true" />
+    </property>
+    <property name="reviewStatusString" type="string">
+      <column name="review_status" length="20" not-null="true" />
+    </property>
+    <property name="markdownGenerated" type="text">
+      <column name="markdown_generated" not-null="false" />
+    </property>
+    <property name="markdownFinal" type="text">
+      <column name="markdown_final" not-null="false" />
+    </property>
+    <property name="dateGenerated" type="timestamp">
+      <column name="date_generated" length="19" not-null="false" />
+    </property>
+    <property name="dateApproved" type="timestamp">
+      <column name="date_approved" length="19" not-null="false" />
+    </property>
+    <property name="promptVersion" type="string">
+      <column name="prompt_version" length="50" not-null="false" />
+    </property>
+    <property name="modelName" type="string">
+      <column name="model_name" length="50" not-null="false" />
+    </property>
+  </class>
+</hibernate-mapping>

@@ -263,13 +263,6 @@ public class ProjectNarrativeDao {
         return Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 
-    private static String firstNonEmpty(String primary, String fallback) {
-        if (primary != null && !primary.trim().isEmpty()) {
-            return primary;
-        }
-        return fallback;
-    }
-
     private static String normalizeText(String value) {
         return value == null ? "" : value.trim();
     }
