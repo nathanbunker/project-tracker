@@ -7,6 +7,9 @@
   <!-- TODO project name -->
   <name>Project Tracker</name>
   <description></description>
+  <properties>
+    <tomcat.webapps>C:/Program Files/Apache Software Foundation/Tomcat 9.0/webapps</tomcat.webapps>
+  </properties>
   <!-- TODO <organization> <name>company name</name> <url>company url</url> </organization> -->
   <licenses>
     <license>
@@ -206,6 +209,27 @@
           <optimize>true</optimize>
           <debug>true</debug>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>copy-war-to-tomcat</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <copy file="${project.build.directory}/${project.build.finalName}.war"
+                      todir="${tomcat.webapps}"
+                      overwrite="true" />
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
