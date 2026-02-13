@@ -208,6 +208,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 + "\" value=\"" + selectedDate + "\"></td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
+        out.println("    <td class=\"boxed\" colspan=\"2\"><a class=\"button\" href=\""
+                + buildListLink(type, selectedDate.minusDays(1)) + "\">Previous Day</a></td>");
+        out.println("  </tr>");
+        out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\" colspan=\"2\">"
                 + "<input type=\"submit\" value=\"Apply\"></td>");
         out.println("  </tr>");
@@ -230,7 +234,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">Status</th>");
         out.println("    <th class=\"boxed\">Title</th>");
         out.println("    <th class=\"boxed\">Generated</th>");
-        out.println("    <th class=\"boxed\">Edit</th>");
+        out.println("    <th class=\"boxed\">View</th>");
         out.println("  </tr>");
 
         List<TrackerNarrative> narratives = narrativeDao.findByTypeAndPeriod(type, period.getStart(), period.getEnd());
@@ -253,7 +257,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
                         "    <td class=\"" + rowClass + "\">" + formatDateTime(webUser, narrative.getDateGenerated())
                                 + "</td>");
                 out.println("    <td class=\"" + rowClass + "\"><a class=\"button\" href=\""
-                        + buildEditorLink(narrative.getNarrativeId(), type, selectedDate) + "\">Edit</a></td>");
+                        + buildEditorLink(narrative.getNarrativeId(), type, selectedDate) + "\">View</a></td>");
                 out.println("  </tr>");
             }
         }
@@ -307,29 +311,17 @@ public class TrackerNarrativeServlet extends ClientServlet {
             out.println("<p><a class=\"button\" href=\""
                     + buildEditorLink(narrative.getNarrativeId(), type, selectedDate)
                     + "\">Preview</a></p>\n");
-            out.println("<table class=\"boxed-fill\">\n");
-            out.println("  <tr class=\"boxed\">\n");
-            out.println("    <th class=\"title\">Final Markdown</th>\n");
-            out.println("  </tr>\n");
-            out.println("  <tr class=\"boxed\">\n");
-            out.println("    <td class=\"boxed\"><textarea name=\"" + PARAM_MARKDOWN_FINAL
+            out.println("<h3>Final Markdown</h3>\n");
+            out.println("<textarea name=\"" + PARAM_MARKDOWN_FINAL
                     + "\" rows=\"20\" cols=\"100\" onkeydown=\"resetRefresh()\">"
-                    + escapeHtml(n(narrative.getMarkdownFinal())) + "</textarea></td>\n");
-            out.println("  </tr>\n");
-            out.println("</table><br/>\n");
+                    + escapeHtml(n(narrative.getMarkdownFinal())) + "</textarea><br/><br/>\n");
         } else {
             out.println("<p><a class=\"button\" href=\""
                     + buildEditorLink(narrative.getNarrativeId(), type, selectedDate, VIEW_EDIT)
                     + "\">Edit</a></p>\n");
-            out.println("<table class=\"boxed-fill\">\n");
-            out.println("  <tr class=\"boxed\">\n");
-            out.println("    <th class=\"title\">Final Markdown</th>\n");
-            out.println("  </tr>\n");
-            out.println("  <tr class=\"boxed\">\n");
-            out.println("    <td class=\"boxed\"><div class=\"scrollbox\">"
-                    + renderMarkdown(n(narrative.getMarkdownFinal())) + "</div></td>\n");
-            out.println("  </tr>\n");
-            out.println("</table><br/>\n");
+            out.println("<h3>Final Markdown</h3>\n");
+            out.println("<div class=\"scrollbox\">"
+                    + renderMarkdown(n(narrative.getMarkdownFinal())) + "</div><br/><br/>\n");
         }
 
         String generatedId = "generatedMarkdown" + narrative.getNarrativeId();
