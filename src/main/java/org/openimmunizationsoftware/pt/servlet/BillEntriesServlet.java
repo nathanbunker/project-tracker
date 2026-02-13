@@ -102,6 +102,8 @@ public class BillEntriesServlet extends ClientServlet {
       query.setParameter(2, tomorrow);
       @SuppressWarnings("unchecked")
       List<BillEntry> billEntryList = query.list();
+      TimeTracker timeTracker = appReq.getTimeTracker();
+      Integer lockedBillEntryId = timeTracker == null ? null : timeTracker.getBillEntryId();
 
       SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
       if (billEntryList.isEmpty()) {
@@ -170,9 +172,14 @@ public class BillEntriesServlet extends ClientServlet {
               "    <td class=\"boxed\">" + timeFormat.format(billEntry.getStartTime()) + "</td>");
           out.println(
               "    <td class=\"boxed\">" + timeFormat.format(billEntry.getEndTime()) + "</td>");
-          out.println("    <td class=\"boxed\"><a href=\"BillEntryEditServlet?billId="
-              + billEntry.getBillId() + "&billDate=" + billDateString + "\" class=\"button\">"
-              + TimeTracker.formatTime(billEntry.getBillMins()) + "</a></td>");
+          if (lockedBillEntryId != null && lockedBillEntryId.intValue() == billEntry.getBillId()) {
+            out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billEntry.getBillMins())
+                + "</td>");
+          } else {
+            out.println("    <td class=\"boxed\"><a href=\"BillEntryEditServlet?billId="
+                + billEntry.getBillId() + "&billDate=" + billDateString + "\" class=\"button\">"
+                + TimeTracker.formatTime(billEntry.getBillMins()) + "</a></td>");
+          }
           out.println("    <td class=\"boxed\">" + billEntry.getBillable() + "</td>");
           out.println("  </tr>");
 

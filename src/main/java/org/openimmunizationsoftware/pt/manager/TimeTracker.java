@@ -46,6 +46,10 @@ public class TimeTracker {
     return totalMinsForBillCodeMap;
   }
 
+  public synchronized Integer getBillEntryId() {
+    return billEntryId;
+  }
+
   public List<TimeEntry> createTimeEntryList() {
     List<TimeEntry> timeEntryList;
     timeEntryList = new ArrayList<TimeEntry>();
