@@ -30,7 +30,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             + "- Do not invent facts. If data is missing, omit it.\n"
             + "- Do not add life advice, strategy, or long reflection.\n\n"
             + "Required structure:\n"
-            + "# Daily Summary — {DATE}\n"
+            + "# Daily Summary - {DATE}\n"
             + "## Time Overview\n"
             + "- Total tracked time: ...\n"
             + "- Top projects by time: ...\n"
@@ -88,6 +88,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             } else if (status != null && status.startsWith("5")) {
                 message = "OpenAI server error (" + status + ")." + detail.toString();
             }
+            System.out.println("[OpenAI] " + message);
             throw new RuntimeException(message, e);
         }
     }
@@ -198,6 +199,13 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             return "";
         }
         String cleaned = markdown.trim();
+        cleaned = cleaned.replace("\u2014", " - ")
+                .replace("\u2013", "-")
+                .replace("\u2018", "'")
+                .replace("\u2019", "'")
+                .replace("\u201C", "\"")
+                .replace("\u201D", "\"")
+                .replace("\u00A0", " ");
         if (cleaned.startsWith("```")) {
             int firstBreak = cleaned.indexOf('\n');
             if (firstBreak > -1) {
@@ -233,19 +241,52 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         if (item == null) {
             return;
         }
-        Object directText = tryInvoke(item, "text");
-        if (directText != null) {
-            sb.append(String.valueOf(directText));
+        Object message = tryInvokeAny(item, "message", "getMessage");
+        if (message == null) {
+            message = tryGetFieldAny(item, "message");
+        }
+        if (message != null) {
+            appendFromContent(sb, message);
             return;
         }
-        Object content = tryInvoke(item, "content");
+        appendFromContent(sb, item);
+    }
+
+    private static void appendFromContent(StringBuilder sb, Object container) {
+        Object content = tryInvokeAny(container, "content", "getContent");
+        if (content == null) {
+            content = tryGetFieldAny(container, "content");
+        }
         if (content instanceof Iterable) {
             for (Object part : (Iterable<?>) content) {
-                Object partText = tryInvoke(part, "text");
-                if (partText != null) {
-                    sb.append(String.valueOf(partText));
+                Object outputText = tryInvokeAny(part, "outputText", "getOutputText");
+                if (outputText == null) {
+                    outputText = tryGetFieldAny(part, "outputText");
+                }
+                if (outputText != null) {
+                    appendTextValue(sb, outputText);
+                    continue;
+                }
+                Object text = tryInvokeAny(part, "text", "getText");
+                if (text == null) {
+                    text = tryGetFieldAny(part, "text");
+                }
+                if (text != null) {
+                    sb.append(String.valueOf(text));
                 }
             }
+        }
+    }
+
+    private static void appendTextValue(StringBuilder sb, Object value) {
+        Object text = tryInvokeAny(value, "text", "getText");
+        if (text == null) {
+            text = tryGetFieldAny(value, "text");
+        }
+        if (text != null) {
+            sb.append(String.valueOf(text));
+        } else {
+            sb.append(String.valueOf(value));
         }
     }
 
@@ -258,5 +299,47 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private static Object tryInvokeAny(Object target, String... methodNames) {
+        if (methodNames == null) {
+            return null;
+        }
+        for (String name : methodNames) {
+            Object value = tryInvoke(target, name);
+            value = unwrapOptional(value);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static Object tryGetFieldAny(Object target, String... fieldNames) {
+        if (target == null || fieldNames == null) {
+            return null;
+        }
+        for (String name : fieldNames) {
+            try {
+                java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+                field.setAccessible(true);
+                Object value = field.get(target);
+                value = unwrapOptional(value);
+                if (value != null) {
+                    return value;
+                }
+            } catch (Exception ignored) {
+                // ignore and continue
+            }
+        }
+        return null;
+    }
+
+    private static Object unwrapOptional(Object value) {
+        if (value instanceof java.util.Optional) {
+            java.util.Optional<?> optional = (java.util.Optional<?>) value;
+            return optional.isPresent() ? optional.get() : null;
+        }
+        return value;
     }
 }

@@ -3,7 +3,7 @@
 <hibernate-configuration>
   <session-factory>
     <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
-    <property name="hibernate.connection.url">jdbc:mysql://mysql3000.mochahost.com/azturnip_tracker?zeroDateTimeBehavior=convertToNull</property>
+    <property name="hibernate.connection.url">jdbc:mysql://mysql3000.mochahost.com/azturnip_tracker?zeroDateTimeBehavior=convertToNull&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;characterSetResults=utf8mb4&amp;connectionCollation=utf8mb4_0900_ai_ci</property>
     <property name="hibernate.connection.username">azturnip_tweb</property>
     <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
     <property name="connection.password">xJ72QwAAQ9PzOK</property>

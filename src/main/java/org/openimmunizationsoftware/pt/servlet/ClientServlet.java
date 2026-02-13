@@ -380,6 +380,13 @@ public class ClientServlet extends HttpServlet {
     return "" + i;
   }
 
+  protected static String n(Object value) {
+    if (value == null) {
+      return "";
+    }
+    return String.valueOf(value);
+  }
+
   protected String addBreaks(String s) {
     if (s == null) {
       return "";

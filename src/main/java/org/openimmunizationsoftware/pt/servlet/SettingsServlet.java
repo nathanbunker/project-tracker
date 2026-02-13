@@ -588,6 +588,19 @@ public class SettingsServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
 
+      out.println("<br/>");
+      out.println("<table class=\"boxed\">");
+      out.println("  <tr class=\"boxed\">");
+      out.println("     <th class=\"title\" colspan=\"2\">Database Connection Settings</td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("     <th>Variable</th>");
+      out.println("     <th>Value</th>");
+      out.println("  </tr>");
+      printDbVariables(out, dataSession, "character_set_%");
+      printDbVariables(out, dataSession, "collation_%");
+      out.println("</table>");
+
       printHtmlFoot(appReq);
 
     } catch (Exception e) {
@@ -667,6 +680,22 @@ public class SettingsServlet extends ClientServlet {
       if (matches.isEmpty()) {
         return apiKey;
       }
+    }
+  }
+
+  private static void printDbVariables(PrintWriter out, Session dataSession, String pattern) {
+    Query query = dataSession.createSQLQuery("SHOW VARIABLES LIKE :pattern");
+    query.setParameter("pattern", pattern);
+    @SuppressWarnings("unchecked")
+    List<Object[]> rows = query.list();
+    for (Object[] row : rows) {
+      if (row == null || row.length < 2) {
+        continue;
+      }
+      out.println("  <tr class=\"boxed\">");
+      out.println("     <td>" + n(row[0]) + "</td>");
+      out.println("     <td>" + n(row[1]) + "</td>");
+      out.println("  </tr>");
     }
   }
 }

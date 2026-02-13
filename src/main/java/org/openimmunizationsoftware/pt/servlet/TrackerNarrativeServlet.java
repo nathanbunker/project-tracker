@@ -18,6 +18,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.commonmark.node.Node;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -38,9 +41,13 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
     private static final long serialVersionUID = 1952130555696282854L;
 
+    private static final Parser MARKDOWN_PARSER = Parser.builder().build();
+    private static final HtmlRenderer MARKDOWN_RENDERER = HtmlRenderer.builder().build();
+
     private static final String PARAM_ID = "id";
     private static final String PARAM_DATE = "date";
     private static final String PARAM_TYPE = "type";
+    private static final String PARAM_VIEW = "view";
     private static final String PARAM_MARKDOWN_FINAL = "markdownFinal";
 
     private static final String ACTION_SAVE = "Save";
@@ -53,6 +60,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
     private static final String TYPE_DAILY = "DAILY";
     private static final String TYPE_WEEKLY = "WEEKLY";
     private static final String TYPE_MONTHLY = "MONTHLY";
+
+    private static final String VIEW_EDIT = "edit";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -76,6 +85,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
             LocalDate selectedDate = resolveDate(request, appReq);
             PeriodRange period = resolvePeriod(type, selectedDate);
             long narrativeId = readLong(request.getParameter(PARAM_ID));
+            boolean editMode = VIEW_EDIT.equalsIgnoreCase(n(request.getParameter(PARAM_VIEW)));
 
             appReq.setTitle("Narrative");
             printHtmlHead(appReq);
@@ -87,7 +97,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 if (narrative == null) {
                     out.println("<p class=\"fail\">Narrative not found.</p>");
                 } else {
-                    printEditor(out, webUser, narrative, type, selectedDate);
+                    printEditor(out, webUser, narrative, type, selectedDate, editMode);
                 }
             } else {
                 printList(out, webUser, narrativeDao, type, selectedDate, period);
@@ -251,7 +261,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
     }
 
     private void printEditor(PrintWriter out, WebUser webUser, TrackerNarrative narrative, String type,
-            LocalDate selectedDate) {
+            LocalDate selectedDate, boolean editMode) {
         out.println("<h2>Tracker Narrative</h2>");
         out.println("<p><a class=\"button\" href=\"" + buildListLink(type, selectedDate)
                 + "\">Back to list</a></p>");
@@ -289,26 +299,38 @@ public class TrackerNarrativeServlet extends ClientServlet {
         if (TrackerNarrativeReviewStatus.GENERATING.equals(narrative.getReviewStatus())) {
             out.println("<p class=\"fail\">Generating... "
                     + "<a class=\"button\" href=\"" + buildEditorLink(narrative.getNarrativeId(), type,
-                            selectedDate)
+                            selectedDate, editMode ? VIEW_EDIT : null)
                     + "\">Refresh</a></p>\n");
         }
 
-        out.println("<table class=\"boxed-fill\">\n");
-        out.println("  <tr class=\"boxed\">\n");
-        out.println("    <th class=\"title\" colspan=\"2\">Final Markdown</th>\n");
-        out.println("  </tr>\n");
-        out.println("  <tr class=\"boxed\">\n");
-        out.println("    <th class=\"boxed\">Preview</th>\n");
-        out.println("    <th class=\"boxed\">Editor</th>\n");
-        out.println("  </tr>\n");
-        out.println("  <tr class=\"boxed\">\n");
-        out.println("    <td class=\"boxed\"><div class=\"scrollbox\"><pre>"
-                + escapeHtml(n(narrative.getMarkdownFinal())) + "</pre></div></td>\n");
-        out.println("    <td class=\"boxed\"><textarea name=\"" + PARAM_MARKDOWN_FINAL
-                + "\" rows=\"20\" cols=\"80\" onkeydown=\"resetRefresh()\">"
-                + escapeHtml(n(narrative.getMarkdownFinal())) + "</textarea></td>\n");
-        out.println("  </tr>\n");
-        out.println("</table><br/>\n");
+        if (editMode) {
+            out.println("<p><a class=\"button\" href=\""
+                    + buildEditorLink(narrative.getNarrativeId(), type, selectedDate)
+                    + "\">Preview</a></p>\n");
+            out.println("<table class=\"boxed-fill\">\n");
+            out.println("  <tr class=\"boxed\">\n");
+            out.println("    <th class=\"title\">Final Markdown</th>\n");
+            out.println("  </tr>\n");
+            out.println("  <tr class=\"boxed\">\n");
+            out.println("    <td class=\"boxed\"><textarea name=\"" + PARAM_MARKDOWN_FINAL
+                    + "\" rows=\"20\" cols=\"100\" onkeydown=\"resetRefresh()\">"
+                    + escapeHtml(n(narrative.getMarkdownFinal())) + "</textarea></td>\n");
+            out.println("  </tr>\n");
+            out.println("</table><br/>\n");
+        } else {
+            out.println("<p><a class=\"button\" href=\""
+                    + buildEditorLink(narrative.getNarrativeId(), type, selectedDate, VIEW_EDIT)
+                    + "\">Edit</a></p>\n");
+            out.println("<table class=\"boxed-fill\">\n");
+            out.println("  <tr class=\"boxed\">\n");
+            out.println("    <th class=\"title\">Final Markdown</th>\n");
+            out.println("  </tr>\n");
+            out.println("  <tr class=\"boxed\">\n");
+            out.println("    <td class=\"boxed\"><div class=\"scrollbox\">"
+                    + renderMarkdown(n(narrative.getMarkdownFinal())) + "</div></td>\n");
+            out.println("  </tr>\n");
+            out.println("</table><br/>\n");
+        }
 
         String generatedId = "generatedMarkdown" + narrative.getNarrativeId();
         out.println("<p><a class=\"button\" href=\"javascript:toggleLayer('" + generatedId
@@ -325,7 +347,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("</table></div><br/>\n");
 
         out.println("<p>");
-        out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE + "\">\n");
+        if (editMode) {
+            out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE
+                    + "\">\n");
+        }
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_APPROVE
                 + "\">\n");
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REGENERATE
@@ -439,6 +464,12 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 .replace("'", "&#39;");
     }
 
+    private static String renderMarkdown(String markdown) {
+        String value = markdown == null ? "" : markdown;
+        Node document = MARKDOWN_PARSER.parse(value);
+        return MARKDOWN_RENDERER.render(document);
+    }
+
     private static long readLong(String value) {
         if (value == null || value.trim().length() == 0) {
             return 0;
@@ -477,8 +508,16 @@ public class TrackerNarrativeServlet extends ClientServlet {
     }
 
     private static String buildEditorLink(long id, String type, LocalDate date) {
-        return "TrackerNarrativeServlet?" + PARAM_ID + "=" + id + "&" + PARAM_TYPE + "=" + type
+        return buildEditorLink(id, type, date, null);
+    }
+
+    private static String buildEditorLink(long id, String type, LocalDate date, String view) {
+        String link = "TrackerNarrativeServlet?" + PARAM_ID + "=" + id + "&" + PARAM_TYPE + "=" + type
                 + "&" + PARAM_DATE + "=" + date;
+        if (view != null && view.trim().length() > 0) {
+            link += "&" + PARAM_VIEW + "=" + view;
+        }
+        return link;
     }
 
     @Override
