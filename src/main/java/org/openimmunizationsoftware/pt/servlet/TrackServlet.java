@@ -83,14 +83,31 @@ public class TrackServlet extends ClientServlet {
 
       if (action != null) {
         if (action.equals("StopTimer")) {
+          Integer lockedBillEntryId = timeTracker == null ? null : timeTracker.getBillEntryId();
           if (timeTracker != null) {
             timeTracker.stopClock(dataSession);
-            if (webUser.getParentWebUser() != null) {
-              response.sendRedirect(
-                  "HomeServlet?action=Switch&childWebUserName="
-                      + URLEncoder.encode(webUser.getParentWebUser().getUsername(), "UTF-8"));
-              return;
+          }
+          Transaction trans = dataSession.beginTransaction();
+          try {
+            Query cleanupQuery;
+            if (lockedBillEntryId != null) {
+              cleanupQuery = dataSession.createQuery(
+                  "delete from BillEntry where username = :username and billMins = 0 and billId <> :billId");
+              cleanupQuery.setParameter("billId", lockedBillEntryId);
+            } else {
+              cleanupQuery = dataSession
+                  .createQuery("delete from BillEntry where username = :username and billMins = 0");
             }
+            cleanupQuery.setParameter("username", webUser.getUsername());
+            cleanupQuery.executeUpdate();
+          } finally {
+            trans.commit();
+          }
+          if (webUser.getParentWebUser() != null) {
+            response.sendRedirect(
+                "HomeServlet?action=Switch&childWebUserName="
+                    + URLEncoder.encode(webUser.getParentWebUser().getUsername(), "UTF-8"));
+            return;
           }
         }
       }
