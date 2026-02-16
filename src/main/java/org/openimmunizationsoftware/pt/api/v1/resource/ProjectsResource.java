@@ -1,6 +1,7 @@
 package org.openimmunizationsoftware.pt.api.v1.resource;
 
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ActionNextDto;
+import org.openimmunizationsoftware.pt.api.v1.resource.dto.ActionTakenDto;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.CreateProposalRequest;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ProjectDto;
@@ -26,6 +27,7 @@ import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.api.v1.service.ProjectActionProposalService;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
 
 @Path("/v1/projects")
@@ -52,22 +54,43 @@ public class ProjectsResource extends BaseApiResource {
     }
 
     @GET
-    @Path("/{projectId}/actions")
-    @Operation(summary = "List actions for a project")
+    @Path("/{projectId}/actions/next")
+    @Operation(summary = "List next actions for a project")
     @ApiResponse(responseCode = "200", description = "OK")
     @ApiResponse(responseCode = "400", description = "Invalid projectId")
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Project not found")
-    public List<ActionNextDto> listActions(@PathParam("projectId") int projectId) {
+    public List<ActionNextDto> listActionsNext(@PathParam("projectId") int projectId) {
         requirePositiveId(projectId, "projectId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
         requireProject(providerId, projectId);
-        List<ProjectActionNext> actions = proposalService.listActionsForProject(providerId, projectId);
+        List<ProjectActionNext> actions = proposalService.listActionsNextForProject(providerId, projectId);
         List<ActionNextDto> result = new ArrayList<ActionNextDto>();
         for (ProjectActionNext action : actions) {
             result.add(ActionNextDto.from(action));
+        }
+        return result;
+    }
+
+    @GET
+    @Path("/{projectId}/actions/taken")
+    @Operation(summary = "List actions taken for a project")
+    @ApiResponse(responseCode = "200", description = "OK")
+    @ApiResponse(responseCode = "400", description = "Invalid projectId")
+    @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
+    @ApiResponse(responseCode = "403", description = "Provider scope missing")
+    @ApiResponse(responseCode = "404", description = "Project not found")
+    public List<ActionTakenDto> listActionsTaken(@PathParam("projectId") int projectId) {
+        requirePositiveId(projectId, "projectId");
+        ApiRequestContext.ApiClientInfo client = requireClient();
+        String providerId = requireProviderId(client);
+        requireProject(providerId, projectId);
+        List<ProjectActionTaken> actions = proposalService.listActionsTakenForProject(providerId, projectId);
+        List<ActionTakenDto> result = new ArrayList<ActionTakenDto>();
+        for (ProjectActionTaken action : actions) {
+            result.add(ActionTakenDto.from(action));
         }
         return result;
     }

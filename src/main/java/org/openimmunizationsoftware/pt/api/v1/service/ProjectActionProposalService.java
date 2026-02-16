@@ -8,6 +8,7 @@ import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
 
 public class ProjectActionProposalService {
@@ -30,7 +31,7 @@ public class ProjectActionProposalService {
         return results;
     }
 
-    public List<ProjectActionNext> listActionsForProject(String providerId, int projectId) {
+    public List<ProjectActionNext> listActionsNextForProject(String providerId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId");
@@ -38,6 +39,17 @@ public class ProjectActionProposalService {
         query.setString("providerId", providerId);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
+        return results;
+    }
+
+    public List<ProjectActionTaken> listActionsTakenForProject(String providerId, int projectId) {
+        Session session = HibernateRequestContext.getCurrentSession();
+        Query query = session.createQuery(
+                "from ProjectActionTaken pat where pat.projectId = :projectId and pat.provider.providerId = :providerId");
+        query.setInteger("projectId", projectId);
+        query.setString("providerId", providerId);
+        @SuppressWarnings("unchecked")
+        List<ProjectActionTaken> results = query.list();
         return results;
     }
 
