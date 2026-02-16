@@ -91,8 +91,10 @@ public class TemplateScheduleServlet extends ClientServlet {
           Query query = dataSession.createQuery(
               "from ProjectActionNext where projectId = :projectId and nextDescription <> '' "
                   + "and templateTypeString is NOT NULL and templateTypeString <> '' "
+                  + "and nextActionStatusString = :nextActionStatus "
                   + "order by nextDue asc, nextDescription");
           query.setParameter(PROJECT_ID, project.getProjectId());
+          query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
           @SuppressWarnings("unchecked")
           List<ProjectActionNext> projectActionTemplateList = query.list();
           templateMap.put(project, projectActionTemplateList);
