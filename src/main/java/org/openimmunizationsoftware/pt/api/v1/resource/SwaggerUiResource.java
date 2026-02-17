@@ -26,7 +26,7 @@ public class SwaggerUiResource {
                 + "  <script>\n"
                 + "    window.onload = function() {\n"
                 + "      SwaggerUIBundle({\n"
-                + "        url: '/api/openapi.json',\n"
+                + "        url: 'openapi.json',\n"
                 + "        dom_id: '#swagger-ui',\n"
                 + "        persistAuthorization: true\n"
                 + "      });\n"
