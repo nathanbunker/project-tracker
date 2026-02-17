@@ -83,9 +83,13 @@ $proposals = Invoke-RestMethod -Uri "$BaseUrl/v1/actions/$ActionNextId/proposals
 $match = @($proposals | Where-Object { $_.proposalId -eq $createResponse2.proposalId })
 Assert-True ($match.Count -eq 1) "New proposal not found in action proposals list."
 
-Write-Host "8) List narratives updated in last 14 days for contact..."
+Write-Host "8) List project narratives updated in last 14 days for contact..."
 $cutoffDate = (Get-Date).AddDays(-14).ToString("yyyy-MM-dd")
-$narratives = Invoke-RestMethod -Uri "$BaseUrl/v1/narratives?contactId=$ContactId&lastUpdatedAfter=$cutoffDate" -Method Get -Headers $headers
-Assert-True ($narratives.Count -gt 0) "No narratives returned for last 14 days."
+$projectNarratives = Invoke-RestMethod -Uri "$BaseUrl/v1/project-narratives?contactId=$ContactId&lastUpdatedAfter=$cutoffDate" -Method Get -Headers $headers
+Assert-True ($projectNarratives.Count -gt 0) "No project narratives returned for last 14 days."
+
+Write-Host "9) List tracker narratives updated in last 14 days for contact..."
+$trackerNarratives = Invoke-RestMethod -Uri "$BaseUrl/v1/tracker-narratives?contactId=$ContactId&lastUpdatedAfter=$cutoffDate" -Method Get -Headers $headers
+Assert-True ($null -ne $trackerNarratives) "Tracker narratives request failed."
 
 Write-Host "All smoke checks passed."

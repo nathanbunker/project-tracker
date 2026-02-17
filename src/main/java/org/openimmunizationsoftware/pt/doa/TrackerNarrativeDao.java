@@ -27,6 +27,16 @@ public class TrackerNarrativeDao {
     }
 
     @SuppressWarnings("unchecked")
+    public List<TrackerNarrative> listByContactUpdatedAfter(int contactId, Date updatedAfter) {
+        Query query = session.createQuery(
+                "from TrackerNarrative where contactId = :contactId and lastUpdated > :updatedAfter "
+                        + "order by lastUpdated asc");
+        query.setInteger("contactId", contactId);
+        query.setTimestamp("updatedAfter", updatedAfter);
+        return query.list();
+    }
+
+    @SuppressWarnings("unchecked")
     public List<TrackerNarrative> findByTypeAndPeriod(String type, LocalDate start, LocalDate end) {
         Query query = session.createQuery(
                 "from TrackerNarrative where narrativeType = :type and periodStart = :start and periodEnd = :end "

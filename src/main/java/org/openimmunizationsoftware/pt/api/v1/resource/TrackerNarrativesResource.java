@@ -22,30 +22,30 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
-import org.openimmunizationsoftware.pt.api.v1.resource.dto.ProjectNarrativeDto;
-import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
-import org.openimmunizationsoftware.pt.model.ProjectNarrative;
+import org.openimmunizationsoftware.pt.api.v1.resource.dto.TrackerNarrativeDto;
+import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
+import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 
-@Path("/v1/project-narratives")
+@Path("/v1/tracker-narratives")
 @Produces(MediaType.APPLICATION_JSON)
 @SecurityRequirement(name = "ApiKeyAuth")
-public class ProjectNarrativesResource extends BaseApiResource {
+public class TrackerNarrativesResource extends BaseApiResource {
 
     private static final String LAST_UPDATED_FORMATS = "ISO-8601 (e.g. 2026-02-17T13:45:00Z), "
             + "yyyy-MM-dd HH:mm:ss, yyyy-MM-dd HH:mm, or yyyy-MM-dd";
 
-    private final ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao();
+    private final TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao();
 
     @GET
-    @Operation(summary = "List project narratives updated after a timestamp")
+    @Operation(summary = "List tracker narratives updated after a timestamp")
     @ApiResponse(responseCode = "200", description = "OK")
     @ApiResponse(responseCode = "400", description = "Invalid query parameters")
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
-    public List<ProjectNarrativeDto> listProjectNarratives(@QueryParam("contactId") Integer contactId,
+    public List<TrackerNarrativeDto> listTrackerNarratives(@QueryParam("contactId") Integer contactId,
             @QueryParam("lastUpdatedAfter") String lastUpdatedAfter) {
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
+        requireProviderId(client);
         if (contactId == null) {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ApiErrorResponse("bad_request", "contactId is required.", null))
@@ -53,11 +53,11 @@ public class ProjectNarrativesResource extends BaseApiResource {
         }
         requirePositiveId(contactId.intValue(), "contactId");
         Date updatedAfter = parseLastUpdated(lastUpdatedAfter);
-        List<ProjectNarrative> narratives = narrativeDao.listByContactProviderUpdatedAfter(
-                providerId, contactId.intValue(), updatedAfter);
-        List<ProjectNarrativeDto> result = new ArrayList<ProjectNarrativeDto>();
-        for (ProjectNarrative narrative : narratives) {
-            result.add(ProjectNarrativeDto.from(narrative));
+        List<TrackerNarrative> narratives = narrativeDao.listByContactUpdatedAfter(
+                contactId.intValue(), updatedAfter);
+        List<TrackerNarrativeDto> result = new ArrayList<TrackerNarrativeDto>();
+        for (TrackerNarrative narrative : narratives) {
+            result.add(TrackerNarrativeDto.from(narrative));
         }
         return result;
     }
