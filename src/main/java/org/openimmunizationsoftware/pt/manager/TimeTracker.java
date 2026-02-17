@@ -24,7 +24,7 @@ public class TimeTracker {
   private String billEntryCategoryCode = null;
   private String billEntryBillable = null;
   private String billEntryBillCode = null;
-  private Integer billEntryActionId = null;
+  private Integer billEntryActionNextId = null;
   private Date billEntryStartTime = null;
   private Date billEntryEndTime = null;
   private Integer billEntryBillMins = null;
@@ -64,8 +64,8 @@ public class TimeTracker {
   public synchronized int getTotalMinsForAction(ProjectActionNext projectAction) {
     int totalMins = 0;
     if (hasRunningEntry()) {
-      if (billEntryActionId != null && projectAction != null
-          && billEntryActionId.intValue() == projectAction.getActionNextId()) {
+      if (billEntryActionNextId != null && projectAction != null
+          && billEntryActionNextId.intValue() == projectAction.getActionNextId()) {
         totalMins += billEntryBillMins == null ? 0 : billEntryBillMins;
       }
     }
@@ -307,13 +307,13 @@ public class TimeTracker {
     if (billEntryProjectId != project.getProjectId()) {
       return true;
     }
-    if (action == null && billEntryActionId == null) {
+    if (action == null && billEntryActionNextId == null) {
       return false;
     }
-    if (action == null || billEntryActionId == null) {
+    if (action == null || billEntryActionNextId == null) {
       return true;
     }
-    return billEntryActionId.intValue() != action.getActionNextId();
+    return billEntryActionNextId.intValue() != action.getActionNextId();
   }
 
   public synchronized void stopClock(Session dataSession) {
@@ -358,7 +358,7 @@ public class TimeTracker {
         billEntryCategoryCode = billEntry.getCategoryCode();
         billEntryBillable = billEntry.getBillable();
         billEntryBillCode = billEntry.getBillCode();
-        billEntryActionId = action == null ? null : action.getActionNextId();
+        billEntryActionNextId = action == null ? null : action.getActionNextId();
         billEntryStartTime = billEntry.getStartTime();
         billEntryEndTime = billEntry.getEndTime();
         billEntryBillMins = billEntry.getBillMins();
@@ -465,7 +465,7 @@ public class TimeTracker {
     billEntryCategoryCode = null;
     billEntryBillable = null;
     billEntryBillCode = null;
-    billEntryActionId = null;
+    billEntryActionNextId = null;
     billEntryStartTime = null;
     billEntryEndTime = null;
     billEntryBillMins = null;

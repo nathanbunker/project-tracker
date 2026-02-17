@@ -411,14 +411,14 @@ public class AppReq {
   }
 
   private ProjectActionNext loadProjectActionFromSession(String key) {
-    Integer actionId = readProjectActionIdFromSession(key);
-    if (actionId == null) {
+    Integer actionNextId = readProjectActionNextIdFromSession(key);
+    if (actionNextId == null) {
       return null;
     }
-    return (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+    return (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
   }
 
-  private Integer readProjectActionIdFromSession(String key) {
+  private Integer readProjectActionNextIdFromSession(String key) {
     Object value = webSession.getAttribute(key);
     if (value == null) {
       return null;

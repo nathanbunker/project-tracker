@@ -40,7 +40,7 @@ public class TemplateScheduleServlet extends ClientServlet {
   private static final String PROJECT_ID = "projectId";
   private static final String TIME_ESTIMATE = "te";
   private static final String NEXT_DESCRIPTION = "nd";
-  private static final String PARAM_ACTION_ID = "actionId";
+  private static final String PARAM_ACTION_NEXT_ID = "actionNextId";
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -285,7 +285,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                 + projectActionTemplate.getNextDescription() + "\" size=\"30\"/>");
             {
               String link = "ProjectServlet?projectId=" + project.getProjectId() + "&"
-                  + PARAM_ACTION_ID + "=" + projectActionTemplate.getActionNextId();
+                  + PARAM_ACTION_NEXT_ID + "=" + projectActionTemplate.getActionNextId();
               out.println("      <a href=\"" + link + "\" class=\"button\">edit</a>");
             }
             out.println("    </td>");

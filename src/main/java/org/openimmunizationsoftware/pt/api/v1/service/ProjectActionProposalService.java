@@ -136,9 +136,9 @@ public class ProjectActionProposalService {
     private ProjectActionNext requireAction(String providerId, int projectId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.projectId = :projectId "
+                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId "
                         + "and pan.provider.providerId = :providerId");
-        query.setInteger("actionId", actionNextId);
+        query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();

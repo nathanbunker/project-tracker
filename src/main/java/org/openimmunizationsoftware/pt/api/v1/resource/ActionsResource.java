@@ -45,15 +45,15 @@ public class ActionsResource extends BaseApiResource {
     private final ActionChangeLogDao changeLogDao = new ActionChangeLogDao();
 
     @GET
-    @Path("/{actionId}/proposals")
+    @Path("/{actionNextId}/proposals")
     @Operation(summary = "List proposals for an action")
     @ApiResponse(responseCode = "200", description = "OK")
-    @ApiResponse(responseCode = "400", description = "Invalid actionId")
+    @ApiResponse(responseCode = "400", description = "Invalid actionNextId")
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Action not found")
-    public List<ProposalDto> listProposals(@PathParam("actionId") int actionNextId) {
-        requirePositiveId(actionNextId, "actionId");
+    public List<ProposalDto> listProposals(@PathParam("actionNextId") int actionNextId) {
+        requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
         requireAction(providerId, actionNextId);
@@ -66,7 +66,7 @@ public class ActionsResource extends BaseApiResource {
     }
 
     @POST
-    @Path("/{actionId}/proposals")
+    @Path("/{actionNextId}/proposals")
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Create action-level proposal", description = "Creates a new proposal with status 'new' and supersedes any active proposal for the same client+action target.")
     @ApiResponse(responseCode = "201", description = "Created")
@@ -74,9 +74,9 @@ public class ActionsResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Action not found")
-    public Response createActionProposal(@PathParam("actionId") int actionNextId,
+    public Response createActionProposal(@PathParam("actionNextId") int actionNextId,
             CreateProposalRequest request) {
-        requirePositiveId(actionNextId, "actionId");
+        requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
         ProjectActionNext action = requireAction(providerId, actionNextId);
@@ -89,16 +89,16 @@ public class ActionsResource extends BaseApiResource {
     }
 
     @GET
-    @Path("/{actionId}/changes")
+    @Path("/{actionNextId}/changes")
     @Operation(summary = "List change logs for an action")
     @ApiResponse(responseCode = "200", description = "OK")
-    @ApiResponse(responseCode = "400", description = "Invalid actionId or limit")
+    @ApiResponse(responseCode = "400", description = "Invalid actionNextId or limit")
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Action not found")
-    public List<ActionChangeLogDto> listChanges(@PathParam("actionId") int actionNextId,
+    public List<ActionChangeLogDto> listChanges(@PathParam("actionNextId") int actionNextId,
             @QueryParam("limit") Integer limit) {
-        requirePositiveId(actionNextId, "actionId");
+        requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
         requireAction(providerId, actionNextId);
@@ -124,11 +124,11 @@ public class ActionsResource extends BaseApiResource {
         return Math.min(limit.intValue(), MAX_LIMIT);
     }
 
-    private ProjectActionNext requireAction(String providerId, int actionId) {
+    private ProjectActionNext requireAction(String providerId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.provider.providerId = :providerId");
-        query.setInteger("actionId", actionId);
+                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.provider.providerId = :providerId");
+        query.setInteger("actionNextId", actionNextId);
         query.setString("providerId", providerId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
         if (action == null) {

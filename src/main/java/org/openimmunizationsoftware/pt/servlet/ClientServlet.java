@@ -96,7 +96,7 @@ public class ClientServlet extends HttpServlet {
     if (title.equals("Projects") && projectSelected != null) {
       link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
     } else if (title.equals("Actions") && completingAction != null) {
-      link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "="
+      link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
           + completingAction.getActionNextId();
     }
     out.println("        window.location.href=\"" + link + "\"");
@@ -291,7 +291,7 @@ public class ClientServlet extends HttpServlet {
               String link = "ProjectServlet?projectId=" + project.getProjectId()
                   + "&action=StartTimer";
               if (completingAction != null) {
-                link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID + "="
+                link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
                     + completingAction.getActionNextId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
                     + ProjectActionServlet.ACTION_START_TIMER;
               }

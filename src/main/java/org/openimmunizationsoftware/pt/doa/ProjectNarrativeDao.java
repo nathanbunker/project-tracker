@@ -268,20 +268,20 @@ public class ProjectNarrativeDao {
     }
 
     public static class Action {
-        private final int actionId;
+        private final int actionTakenId;
         private final String description;
         private final Date completedDate;
         private final String completionNote;
 
-        public Action(int actionId, String description, Date completedDate, String completionNote) {
-            this.actionId = actionId;
+        public Action(int actionTakenId, String description, Date completedDate, String completionNote) {
+            this.actionTakenId = actionTakenId;
             this.description = description;
             this.completedDate = completedDate;
             this.completionNote = completionNote;
         }
 
-        public int getActionId() {
-            return actionId;
+        public int getActionTakenId() {
+            return actionTakenId;
         }
 
         public String getDescription() {
@@ -298,20 +298,20 @@ public class ProjectNarrativeDao {
     }
 
     public static class ActionWithMinutes {
-        private final int actionId;
+        private final int actionTakenId;
         private final String description;
         private final Date changeDate;
         private final int minutes;
 
-        public ActionWithMinutes(int actionId, String description, Date changeDate, int minutes) {
-            this.actionId = actionId;
+        public ActionWithMinutes(int actionTakenId, String description, Date changeDate, int minutes) {
+            this.actionTakenId = actionTakenId;
             this.description = description;
             this.changeDate = changeDate;
             this.minutes = minutes;
         }
 
-        public int getActionId() {
-            return actionId;
+        public int getActionTakenId() {
+            return actionTakenId;
         }
 
         public String getDescription() {

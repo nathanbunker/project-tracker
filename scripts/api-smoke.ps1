@@ -3,7 +3,7 @@ param(
     [string]$ApiKey = "7efd2d2af3ec43abb7ce428392c644b7",
     [string]$ProviderId = "12",
     [int]$ProjectId = 48689,
-    [int]$ActionId = 786633
+    [int]$ActionNextId = 786633
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,8 +17,8 @@ if ([string]::IsNullOrWhiteSpace($ProviderId)) {
 if ($ProjectId -le 0) {
     throw "ProjectId must be provided and > 0."
 }
-if ($ActionId -le 0) {
-    throw "ActionId must be provided and > 0."
+if ($ActionNextId -le 0) {
+    throw "ActionNextId must be provided and > 0."
 }
 
 $headers = @{
@@ -65,7 +65,7 @@ $proposalPayload = @{
     rationale = "Validate supersede logic"
     proposedPatchJson = "{}"
     contactId = $null
-    actionNextId = $ActionId
+    actionNextId = $ActionNextId
 }
 $createResponse = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/proposals" -Method Post -Headers $headers -ContentType "application/json" -Body ($proposalPayload | ConvertTo-Json)
 Assert-True ($createResponse.proposalId -gt 0) "Proposal creation failed."
@@ -74,7 +74,7 @@ $createResponse2 = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/propo
 Assert-True ($createResponse2.proposalId -ne $createResponse.proposalId) "Expected new proposal id."
 
 Write-Host "7) List proposals for action and verify new proposal exists..."
-$proposals = Invoke-RestMethod -Uri "$BaseUrl/v1/actions/$ActionId/proposals" -Method Get -Headers $headers
+$proposals = Invoke-RestMethod -Uri "$BaseUrl/v1/actions/$ActionNextId/proposals" -Method Get -Headers $headers
 $match = @($proposals | Where-Object { $_.proposalId -eq $createResponse2.proposalId })
 Assert-True ($match.Count -eq 1) "New proposal not found in action proposals list."
 

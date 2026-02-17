@@ -469,7 +469,7 @@ public class BillEntriesServlet extends ClientServlet {
       }
       if (projectAction != null) {
         out.println(
-            "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionId=" + projectAction.getActionNextId()
+            "    <td class=\"boxed\"><a href=\"ProjectActionServlet?actionNextId=" + projectAction.getActionNextId()
                 + "\" class=\"button\">" + projectAction.getNextDescriptionForDisplay(null) + "</a></td>");
       } else {
         out.println("    <td class=\"boxed\"></td>");

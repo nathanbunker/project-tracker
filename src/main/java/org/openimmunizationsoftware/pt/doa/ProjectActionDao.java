@@ -81,10 +81,10 @@ public class ProjectActionDao {
         return results;
     }
 
-    public ProjectActionNext getNextActionById(String providerId, int projectId, int actionId) {
+    public ProjectActionNext getNextActionById(String providerId, int projectId, int actionNextId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.projectId = :projectId and pan.provider.providerId = :providerId");
-        query.setInteger("actionId", actionId);
+                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId and pan.provider.providerId = :providerId");
+        query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
         return (ProjectActionNext) query.uniqueResult();
@@ -179,8 +179,8 @@ public class ProjectActionDao {
 
     public List<ProjectActionNext> findNextActionsByTemplate(int templateActionNextId) {
         Query query = session
-                .createQuery("from ProjectActionNext pan where pan.templateActionNextId = :templateActionId");
-        query.setInteger("templateActionId", templateActionNextId);
+                .createQuery("from ProjectActionNext pan where pan.templateActionNextId = :templateActionNextId");
+        query.setInteger("templateActionNextId", templateActionNextId);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
         return results;

@@ -83,8 +83,9 @@ public class HomeServlet extends ClientServlet {
         if (action != null) {
           if (action.equals("DoToday") || action.equals("DoNextWeek")
               || action.equals("DoTomorrow")) {
-            int actionId = Integer.parseInt(request.getParameter("actionId"));
-            ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+            int actionNextId = Integer.parseInt(request.getParameter("actionNextId"));
+            ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                actionNextId);
             Transaction trans = dataSession.beginTransaction();
             try {
               Calendar calendar = TimeTracker.createToday(webUser);
@@ -98,39 +99,40 @@ public class HomeServlet extends ClientServlet {
               trans.commit();
             }
           } else if (action.equals("UpdateAction")) {
-            int actionId = Integer.parseInt(request.getParameter("actionId"));
-            ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+            int actionNextId = Integer.parseInt(request.getParameter("actionNextId"));
+            ProjectActionNext projectActionNext = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                actionNextId);
             Transaction trans = dataSession.beginTransaction();
             try {
-              Date oldDateDue = projectAction.getNextDue();
+              Date oldDateDue = projectActionNext.getNextDue();
               try {
-                projectAction.setNextDue(sdf.parse(request.getParameter("changeNextDue")));
+                projectActionNext.setNextDue(sdf.parse(request.getParameter("changeNextDue")));
               } catch (ParseException pe) {
                 message = "Unable to parse next due date: " + pe.getMessage();
               }
-              projectAction.setNextActionType(request.getParameter("changeNextActionType"));
-              if (oldDateDue != null && oldDateDue.before(projectAction.getNextDue())) {
-                if (projectAction.getNextActionType() != null) {
-                  if (projectAction.getNextActionType()
+              projectActionNext.setNextActionType(request.getParameter("changeNextActionType"));
+              if (oldDateDue != null && oldDateDue.before(projectActionNext.getNextDue())) {
+                if (projectActionNext.getNextActionType() != null) {
+                  if (projectActionNext.getNextActionType()
                       .equals(ProjectNextActionType.COMMITTED_TO)) {
-                    projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
-                  } else if (projectAction.getNextActionType()
+                    projectActionNext.setNextActionType(ProjectNextActionType.OVERDUE_TO);
+                  } else if (projectActionNext.getNextActionType()
                       .equals(ProjectNextActionType.MIGHT)) {
-                    projectAction.setNextActionType(ProjectNextActionType.WILL);
+                    projectActionNext.setNextActionType(ProjectNextActionType.WILL);
                   }
                 }
               }
               if (request.getParameter("nextTimeEstimate") != null
                   && !request.getParameter("nextTimeEstimate").equals("")) {
                 try {
-                  projectAction.setNextTimeEstimate(
+                  projectActionNext.setNextTimeEstimate(
                       Integer.parseInt(request.getParameter("nextTimeEstimate")));
                 } catch (NumberFormatException nfe) {
                   //
-                  projectAction.setNextTimeEstimate(0);
+                  projectActionNext.setNextTimeEstimate(0);
                 }
               } else {
-                projectAction.setNextTimeEstimate(0);
+                projectActionNext.setNextTimeEstimate(0);
               }
 
             } finally {
@@ -678,7 +680,7 @@ public class HomeServlet extends ClientServlet {
       out.println(
           "        <form action=\"HomeServlet\" method=\"GET\" id=\"" + changeFormId + "\">");
       out.println("            <input type=\"hidden\" name=\"action\" value=\"UpdateAction\">");
-      out.println("            <input type=\"hidden\" name=\"actionId\" value=\""
+      out.println("            <input type=\"hidden\" name=\"actionNextId\" value=\""
           + projectAction.getActionNextId() + "\">");
       out.println("            <input type=\"hidden\" name=\"changeNextActionType\" value=\""
           + projectAction.getNextActionType() + "\">");

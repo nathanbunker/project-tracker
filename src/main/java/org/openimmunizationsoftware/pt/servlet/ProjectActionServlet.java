@@ -83,10 +83,10 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_TIME_ESTIMATE = "nextTimeEstimate";
   private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
   private static final String PARAM_PROJECT_ID = "projectId";
-  public static final String PARAM_ACTION_ID = "actionId";
+  public static final String PARAM_ACTION_NEXT_ID = "actionNextId";
   private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
-  protected static final String PARAM_COMPLETING_ACTION_ID = "completingActionId";
-  private static final String PARAM_EDIT_ACTION_ID = "editActionId";
+  protected static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
+  private static final String PARAM_EDIT_ACTION_NEXT_ID = "editActionNextId";
   protected static final String PARAM_ACTION = "action";
   protected static final String ACTION_START_TIMER = "StartTimer";
   private static final String ACTION_STOP_TIMER = "StopTimer";
@@ -771,7 +771,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println(
         "<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + project.getProjectId() + "\">");
     if (completingAction != null) {
-      out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID + "\" value=\""
+      out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
           + completingAction.getActionNextId() + "\">");
     }
 
@@ -836,7 +836,7 @@ public class ProjectActionServlet extends ClientServlet {
         for (ProjectActionNext pa : paList) {
           out.println("<li>");
           out.println(
-              "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + pa.getActionNextId() + "\">"
+              "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + pa.getActionNextId() + "\">"
                   + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>");
           out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
               + pa.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
@@ -914,7 +914,8 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void printFetchAndUpdateTimesScript(PrintWriter out, ProjectActionNext completingAction) {
-    String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&" + PARAM_COMPLETING_ACTION_ID
+    String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&"
+        + PARAM_COMPLETING_ACTION_NEXT_ID
         + "=" + completingAction.getActionNextId();
     out.println("<script>");
     out.println("async function fetchAndUpdateTimes() { ");
@@ -1048,10 +1049,10 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void readCompletingAction(HttpServletRequest request, AppReq appReq, Session dataSession) {
-    String completingActionIdString = request.getParameter(PARAM_COMPLETING_ACTION_ID);
-    if (completingActionIdString != null) {
+    String completingActionNextIdString = request.getParameter(PARAM_COMPLETING_ACTION_NEXT_ID);
+    if (completingActionNextIdString != null) {
       ProjectActionNext completingProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
-          Integer.parseInt(completingActionIdString));
+          Integer.parseInt(completingActionNextIdString));
       appReq.setCompletingAction(completingProjectAction);
     }
   }
@@ -1059,11 +1060,11 @@ public class ProjectActionServlet extends ClientServlet {
   private ProjectActionNext readEditProjectAction(AppReq appReq) {
     Session dataSession = appReq.getDataSession();
     HttpServletRequest request = appReq.getRequest();
-    String actionIdString = request.getParameter(PARAM_EDIT_ACTION_ID);
+    String actionNextIdString = request.getParameter(PARAM_EDIT_ACTION_NEXT_ID);
     ProjectActionNext editProjectAction = null;
-    if (actionIdString != null) {
+    if (actionNextIdString != null) {
       editProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
-          Integer.parseInt(actionIdString));
+          Integer.parseInt(actionNextIdString));
     }
     return editProjectAction;
   }
@@ -1281,7 +1282,8 @@ public class ProjectActionServlet extends ClientServlet {
       timeTracker.update(completingAction, dataSession);
     }
     {
-      // query the Bill Entry table for the bill entry with the same actionId, sum up
+      // query the Bill Entry table for the bill entry with the same actionNextId, sum
+      // up
       // the time spent
       // Here is the query: select sum(bill_mins) from bill_entry where action_id =
       // {action_id}
@@ -1569,7 +1571,7 @@ public class ProjectActionServlet extends ClientServlet {
     printGenerateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
     if (editProjectAction != null) {
-      out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
+      out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_NEXT_ID + "\" value=\""
           + editProjectAction.getActionNextId() + "\">");
     }
     printCurrentActionEdit(appReq, webUser, out, editProjectAction, project, projectContactList, formName, projectList);
@@ -1674,7 +1676,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  </tr>");
     for (ProjectNarrativeDao.ActionWithMinutes action : deletedActions) {
       String description = action.getDescription() == null ? "" : action.getDescription();
-      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + action.getActionId();
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + action.getActionTakenId();
       out.println("  <tr class=\"boxed\">");
       if (project == null) {
         out.println("    <td class=\"boxed\">&nbsp;</td>");
@@ -1701,7 +1703,7 @@ public class ProjectActionServlet extends ClientServlet {
     for (int i = 0; i < deletedActions.size(); i++) {
       ProjectNarrativeDao.Action action = deletedActions.get(i);
       String description = action.getDescription() == null ? "" : action.getDescription();
-      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + action.getActionId();
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + action.getActionTakenId();
       if (i > 0) {
         out.print(", ");
       }
@@ -2112,9 +2114,9 @@ public class ProjectActionServlet extends ClientServlet {
         + n(completingAction.getNextSummary()) + "</textarea>");
     printSendEmailSelection(out, formName, projectContactList);
     out.println("<br/><span class=\"right\">");
-    out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_ID + "\" value=\""
+    out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
         + completingAction.getActionNextId() + "\"/>");
-    out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_ID + "\" value=\""
+    out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_NEXT_ID + "\" value=\""
         + completingAction.getActionNextId() + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\"/>");
@@ -2288,7 +2290,7 @@ public class ProjectActionServlet extends ClientServlet {
           timeString += "<a href=\"ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_STOP_TIMER
               + "\" class=\"timerRunning\" id=\"" + ID_TIME_RUNNING + "\">" + t + "</a>";
         } else {
-          timeString += "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "="
+          timeString += "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "="
               + completingAction.getActionNextId()
               + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + "\" class=\"timerStopped\" id=\""
               + ID_TIME_RUNNING
@@ -2572,7 +2574,7 @@ public class ProjectActionServlet extends ClientServlet {
     PrintWriter out = appReq.getOut();
     WebUser webUser = appReq.getWebUser();
     for (ProjectActionNext projectAction : paList) {
-      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_ID + "=" + projectAction.getActionNextId();
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
       out.println("  <tr class=\"boxed\">");
       if (projectAction.getProject() == null) {
         out.println("    <td class=\"boxed\">&nbsp;</td>");
@@ -2732,7 +2734,7 @@ public class ProjectActionServlet extends ClientServlet {
     printOutScript(out, formName, webUser);
     out.println("<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + projectId + "\">");
     if (projectAction != null) {
-      out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
+      out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION_NEXT_ID + "\" value=\""
           + projectAction.getActionNextId() + "\">");
     }
     out.println("  <table class=\"boxed\">");
@@ -3098,7 +3100,7 @@ public class ProjectActionServlet extends ClientServlet {
       calendar1.add(Calendar.DAY_OF_MONTH, -1);
       Date yesterday = calendar1.getTime();
       String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId + "&"
-          + PARAM_ACTION_ID + "=" + pa.getActionNextId() + "\" class=\"button\">";
+          + PARAM_ACTION_NEXT_ID + "=" + pa.getActionNextId() + "\" class=\"button\">";
       ProjectContact projectContact1 = (ProjectContact) dataSession.get(ProjectContact.class, pa.getContactId());
       pa.setContact(projectContact1);
       ProjectContact nextProjectContact = null;
@@ -3155,11 +3157,11 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("  </tr>");
       SimpleDateFormat sdf11 = webUser.getDateFormat();
       for (ProjectActionNext pa : projectActionList) {
-        String workActionLink = "<a href=\"ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_ID
+        String workActionLink = "<a href=\"ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID
             + "=" + pa.getActionNextId()
             + "\" class=\"button\">";
         String editActionLink = "<a href=\"ProjectServlet?" + PARAM_PROJECT_ID + "=" + projectId
-            + "&" + PARAM_ACTION_ID + "=" + pa.getActionNextId() + "\" class=\"button\">";
+            + "&" + PARAM_ACTION_NEXT_ID + "=" + pa.getActionNextId() + "\" class=\"button\">";
         Date today = new Date();
         Calendar calendar1 = webUser.getCalendar();
         calendar1.add(Calendar.DAY_OF_MONTH, -1);
