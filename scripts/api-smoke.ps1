@@ -1,6 +1,7 @@
 param(
+    # Set PROJECT_TRACKER_API_KEY in your environment or pass -ApiKey explicitly.
     [string]$BaseUrl = "http://localhost:8080/tracker/api",
-    [string]$ApiKey = "7efd2d2af3ec43abb7ce428392c644b7",
+    [string]$ApiKey = $env:PROJECT_TRACKER_API_KEY,
     [string]$ProviderId = "12",
     [int]$ProjectId = 48689,
     [int]$ActionNextId = 786633,
@@ -10,7 +11,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-    throw "ApiKey is required. Set -ApiKey or $env:API_KEY."
+    throw "ApiKey is required. Set -ApiKey or $env:PROJECT_TRACKER_API_KEY."
 }
 if ([string]::IsNullOrWhiteSpace($ProviderId)) {
     throw "ProviderId is required. Set -ProviderId or $env:PROVIDER_ID."
