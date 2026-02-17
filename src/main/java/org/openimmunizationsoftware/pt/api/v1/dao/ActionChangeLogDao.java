@@ -8,13 +8,13 @@ import org.openimmunizationsoftware.pt.model.ProjectActionChangeLog;
 
 public class ActionChangeLogDao {
 
-    public List<ProjectActionChangeLog> listByAction(String providerId, int actionId, int limit) {
+    public List<ProjectActionChangeLog> listByAction(String providerId, int actionNextId, int limit) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "select cl from ProjectActionChangeLog cl join cl.action a "
-                        + "where cl.actionId = :actionId and a.provider.providerId = :providerId "
+                        + "where cl.actionNextId = :actionNextId and a.provider.providerId = :providerId "
                         + "order by cl.changeDate desc");
-        query.setInteger("actionId", actionId);
+        query.setInteger("actionNextId", actionNextId);
         query.setString("providerId", providerId);
         query.setMaxResults(limit);
         @SuppressWarnings("unchecked")

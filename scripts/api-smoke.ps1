@@ -3,7 +3,7 @@ param(
     [string]$ApiKey = "7efd2d2af3ec43abb7ce428392c644b7",
     [string]$ProviderId = "12",
     [int]$ProjectId = 48689,
-    [int]$ActionId = 786577
+    [int]$ActionId = 786633
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,12 +51,21 @@ Assert-True ($projects.Count -gt 0) "No projects returned."
 $foreign = @($projects | Where-Object { $_.providerId -and $_.providerId -ne $ProviderId })
 Assert-True ($foreign.Count -eq 0) "Found projects outside provider scope."
 
-Write-Host "4) Create project-level proposal (supersede prior) and verify list..."
+Write-Host "4) List next actions for project..."
+$actionsNext = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/actions/next" -Method Get -Headers $headers
+Assert-True ($null -ne $actionsNext) "Next actions request failed."
+
+Write-Host "5) List actions taken for project..."
+$actionsTaken = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/actions/taken" -Method Get -Headers $headers
+Assert-True ($null -ne $actionsTaken) "Taken actions request failed."
+
+Write-Host "6) Create project-level proposal (supersede prior) and verify list..."
 $proposalPayload = @{
     summary = "Smoke test proposal"
     rationale = "Validate supersede logic"
     proposedPatchJson = "{}"
     contactId = $null
+    actionNextId = $ActionId
 }
 $createResponse = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/proposals" -Method Post -Headers $headers -ContentType "application/json" -Body ($proposalPayload | ConvertTo-Json)
 Assert-True ($createResponse.proposalId -gt 0) "Proposal creation failed."
@@ -64,7 +73,7 @@ Assert-True ($createResponse.proposalId -gt 0) "Proposal creation failed."
 $createResponse2 = Invoke-RestMethod -Uri "$BaseUrl/v1/projects/$ProjectId/proposals" -Method Post -Headers $headers -ContentType "application/json" -Body ($proposalPayload | ConvertTo-Json)
 Assert-True ($createResponse2.proposalId -ne $createResponse.proposalId) "Expected new proposal id."
 
-Write-Host "5) List proposals for action and verify new proposal exists..."
+Write-Host "7) List proposals for action and verify new proposal exists..."
 $proposals = Invoke-RestMethod -Uri "$BaseUrl/v1/actions/$ActionId/proposals" -Method Get -Headers $headers
 $match = @($proposals | Where-Object { $_.proposalId -eq $createResponse2.proposalId })
 Assert-True ($match.Count -eq 1) "New proposal not found in action proposals list."

@@ -7,7 +7,7 @@ public class ProjectActionChangeLog implements java.io.Serializable {
     private static final long serialVersionUID = 2038137430999366165L;
 
     private int changeId;
-    private int actionId;
+    private int actionNextId;
     private int projectId;
     private Integer proposalId;
     private Date changeDate;
@@ -29,12 +29,12 @@ public class ProjectActionChangeLog implements java.io.Serializable {
         this.changeId = changeId;
     }
 
-    public int getActionId() {
-        return actionId;
+    public int getActionNextId() {
+        return actionNextId;
     }
 
-    public void setActionId(int actionId) {
-        this.actionId = actionId;
+    public void setActionNextId(int actionNextId) {
+        this.actionNextId = actionNextId;
     }
 
     public int getProjectId() {
@@ -127,7 +127,7 @@ public class ProjectActionChangeLog implements java.io.Serializable {
     public void setAction(ProjectActionNext action) {
         this.action = action;
         if (action != null) {
-            this.actionId = action.getActionNextId();
+            this.actionNextId = action.getActionNextId();
         }
     }
 

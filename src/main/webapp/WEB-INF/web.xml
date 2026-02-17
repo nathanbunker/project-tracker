@@ -8,6 +8,10 @@
     <servlet-name>HomeServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.HomeServlet</servlet-class>
   </servlet>
+  <filter>
+    <filter-name>HibernateSessionFilter</filter-name>
+    <filter-class>org.openimmunizationsoftware.pt.api.common.HibernateSessionFilter</filter-class>
+  </filter>
   <servlet>
     <servlet-name>ProjectActionServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectActionServlet</servlet-class>
@@ -121,6 +125,18 @@
     <servlet-name>BillCodesServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillCodesServlet</servlet-class>
   </servlet>
+  <servlet>
+    <servlet-name>ApiServlet</servlet-name>
+    <servlet-class>org.glassfish.jersey.servlet.ServletContainer</servlet-class>
+    <init-param>
+      <param-name>jersey.config.server.provider.packages</param-name>
+      <param-value>org.openimmunizationsoftware.pt.api.v1.resource,org.openimmunizationsoftware.pt.api.common</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+  <listener>
+    <listener-class>org.openimmunizationsoftware.pt.api.v1.resource.OpenApiBootstrap</listener-class>
+  </listener>
   <servlet-mapping>
     <servlet-name>LoginServlet</servlet-name>
     <url-pattern>/LoginServlet</url-pattern>
@@ -240,6 +256,14 @@
   <servlet-mapping>
     <servlet-name>BillCodesServlet</servlet-name>
     <url-pattern>/BillCodesServlet</url-pattern>
+  </servlet-mapping>
+  <filter-mapping>
+    <filter-name>HibernateSessionFilter</filter-name>
+    <url-pattern>/api/*</url-pattern>
+  </filter-mapping>
+  <servlet-mapping>
+    <servlet-name>ApiServlet</servlet-name>
+    <url-pattern>/api/*</url-pattern>
   </servlet-mapping>
   
   <session-config>

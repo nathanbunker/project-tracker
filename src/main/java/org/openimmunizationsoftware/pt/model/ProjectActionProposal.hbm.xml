@@ -14,7 +14,7 @@
       <column name="project_id" not-null="true" />
     </property>
     <many-to-one name="project" column="project_id" class="Project" insert="false" update="false" lazy="proxy" fetch="select"/>
-    <property name="actionId" type="java.lang.Integer">
+    <property name="actionNextId" type="java.lang.Integer">
       <column name="action_next_id" />
     </property>
     <many-to-one name="action" column="action_next_id" class="ProjectActionNext" insert="false" update="false" lazy="proxy" fetch="select"/>

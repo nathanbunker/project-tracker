@@ -17,7 +17,8 @@ public class OpenApiJsonResource {
     @GET
     public Response getOpenApi() {
         System.err.println("OpenApiJsonResource.getOpenApi: start");
-        OpenApiContext context = OpenApiContextLocator.getInstance().getOpenApiContext(null);
+        OpenApiContext context = OpenApiContextLocator.getInstance()
+            .getOpenApiContext(OpenApiBootstrap.OPENAPI_CONTEXT_ID);
         if (context == null) {
             System.err.println("OpenApiJsonResource.getOpenApi: OpenApiContext is null");
             return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();

@@ -10,6 +10,8 @@ public class CreateProposalRequest {
     private String summary;
     private String rationale;
     private Integer contactId;
+    @Schema(description = "Optional action_next_id to scope proposal to a next action")
+    private Integer actionNextId;
 
     public String getProposedPatchJson() {
         return proposedPatchJson;
@@ -41,5 +43,13 @@ public class CreateProposalRequest {
 
     public void setContactId(Integer contactId) {
         this.contactId = contactId;
+    }
+
+    public Integer getActionNextId() {
+        return actionNextId;
+    }
+
+    public void setActionNextId(Integer actionNextId) {
+        this.actionNextId = actionNextId;
     }
 }

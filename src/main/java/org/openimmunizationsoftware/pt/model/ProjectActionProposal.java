@@ -9,7 +9,7 @@ public class ProjectActionProposal implements java.io.Serializable {
     private int proposalId;
     private int clientId;
     private int projectId;
-    private Integer actionId;
+    private Integer actionNextId;
     private Integer contactId;
     private ProposalStatus proposalStatus;
     private Date proposalCreateDate;
@@ -48,12 +48,12 @@ public class ProjectActionProposal implements java.io.Serializable {
         this.projectId = projectId;
     }
 
-    public Integer getActionId() {
-        return actionId;
+    public Integer getActionNextId() {
+        return actionNextId;
     }
 
-    public void setActionId(Integer actionId) {
-        this.actionId = actionId;
+    public void setActionNextId(Integer actionNextId) {
+        this.actionNextId = actionNextId;
     }
 
     public Integer getContactId() {
@@ -165,9 +165,9 @@ public class ProjectActionProposal implements java.io.Serializable {
     public void setAction(ProjectActionNext action) {
         this.action = action;
         if (action != null) {
-            this.actionId = action.getActionNextId();
+            this.actionNextId = action.getActionNextId();
         } else {
-            this.actionId = null;
+            this.actionNextId = null;
         }
     }
 

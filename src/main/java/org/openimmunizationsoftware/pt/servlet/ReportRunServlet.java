@@ -94,6 +94,15 @@ public class ReportRunServlet extends ClientServlet {
     dailyReportRunner.start();
   }
 
+  @Override
+  public void destroy() {
+    if (dailyReportRunner != null) {
+      dailyReportRunner.shutdown();
+      dailyReportRunner = null;
+    }
+    super.destroy();
+  }
+
   private class DailyReportRunner extends Thread {
     private Date lastRunTime = new Date();
     private Date nextRunTime;
@@ -145,11 +154,16 @@ public class ReportRunServlet extends ClientServlet {
       dataSession.close();
     }
 
-    private boolean keepRunning = true;
+    private volatile boolean keepRunning = true;
     private String statusMessage = "Automatic daily report sender initialized";
 
     public String getStatusMessage() {
       return statusMessage;
+    }
+
+    public void shutdown() {
+      keepRunning = false;
+      interrupt();
     }
 
     @Override

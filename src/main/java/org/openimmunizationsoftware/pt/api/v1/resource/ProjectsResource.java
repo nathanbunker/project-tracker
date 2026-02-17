@@ -98,7 +98,7 @@ public class ProjectsResource extends BaseApiResource {
     @POST
     @Path("/{projectId}/proposals")
     @Consumes(MediaType.APPLICATION_JSON)
-    @Operation(summary = "Create project-level proposal", description = "Creates a new proposal with status 'new' and supersedes any active proposal for the same client+project target.")
+    @Operation(summary = "Create project-level proposal", description = "Creates a new proposal with status 'new' and supersedes any active proposal for the same client+project target. If actionNextId is provided, superseding is scoped to that next action.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(responseCode = "400", description = "Invalid request")
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
@@ -112,9 +112,16 @@ public class ProjectsResource extends BaseApiResource {
         requireProject(providerId, projectId);
         validateProposalRequest(request);
         String agentName = client.getAgentName() != null ? client.getAgentName() : providerId;
+        Integer actionNextId = request.getActionNextId();
+        if (actionNextId != null && actionNextId.intValue() <= 0) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ApiErrorResponse("bad_request",
+                    "actionNextId must be a positive integer.", null))
+                .build());
+        }
         ProjectActionProposal proposal = proposalService.createProposal(providerId, agentName, projectId,
-                null, request.getProposedPatchJson(), request.getSummary(), request.getRationale(),
-                request.getContactId());
+            actionNextId, request.getProposedPatchJson(), request.getSummary(), request.getRationale(),
+            request.getContactId());
         return Response.status(Response.Status.CREATED).entity(ProposalDto.from(proposal)).build();
     }
 

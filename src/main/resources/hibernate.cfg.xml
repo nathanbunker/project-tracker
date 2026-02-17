@@ -24,6 +24,8 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/Project.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionNext.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionTaken.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionProposal.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionChangeLog.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAddress.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectArea.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAreaAssigned.hbm.xml"/>

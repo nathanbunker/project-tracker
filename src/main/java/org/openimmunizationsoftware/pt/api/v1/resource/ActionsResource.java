@@ -52,12 +52,12 @@ public class ActionsResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Action not found")
-    public List<ProposalDto> listProposals(@PathParam("actionId") int actionId) {
-        requirePositiveId(actionId, "actionId");
+    public List<ProposalDto> listProposals(@PathParam("actionId") int actionNextId) {
+        requirePositiveId(actionNextId, "actionId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
-        requireAction(providerId, actionId);
-        List<ProjectActionProposal> proposals = proposalService.listProposalsForAction(providerId, actionId);
+        requireAction(providerId, actionNextId);
+        List<ProjectActionProposal> proposals = proposalService.listProposalsForAction(providerId, actionNextId);
         List<ProposalDto> result = new ArrayList<ProposalDto>();
         for (ProjectActionProposal proposal : proposals) {
             result.add(ProposalDto.from(proposal));
@@ -74,16 +74,16 @@ public class ActionsResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Action not found")
-    public Response createActionProposal(@PathParam("actionId") int actionId,
+    public Response createActionProposal(@PathParam("actionId") int actionNextId,
             CreateProposalRequest request) {
-        requirePositiveId(actionId, "actionId");
+        requirePositiveId(actionNextId, "actionId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
-        ProjectActionNext action = requireAction(providerId, actionId);
+        ProjectActionNext action = requireAction(providerId, actionNextId);
         validateProposalRequest(request);
         String agentName = client.getAgentName() != null ? client.getAgentName() : providerId;
         ProjectActionProposal proposal = proposalService.createProposal(providerId, agentName,
-                action.getProjectId(), actionId, request.getProposedPatchJson(), request.getSummary(),
+                action.getProjectId(), actionNextId, request.getProposedPatchJson(), request.getSummary(),
                 request.getRationale(), request.getContactId());
         return Response.status(Response.Status.CREATED).entity(ProposalDto.from(proposal)).build();
     }
@@ -96,14 +96,14 @@ public class ActionsResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     @ApiResponse(responseCode = "404", description = "Action not found")
-    public List<ActionChangeLogDto> listChanges(@PathParam("actionId") int actionId,
+    public List<ActionChangeLogDto> listChanges(@PathParam("actionId") int actionNextId,
             @QueryParam("limit") Integer limit) {
-        requirePositiveId(actionId, "actionId");
+        requirePositiveId(actionNextId, "actionId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         String providerId = requireProviderId(client);
-        requireAction(providerId, actionId);
+        requireAction(providerId, actionNextId);
         int effectiveLimit = normalizeLimit(limit);
-        List<ProjectActionChangeLog> changeLogs = changeLogDao.listByAction(providerId, actionId, effectiveLimit);
+        List<ProjectActionChangeLog> changeLogs = changeLogDao.listByAction(providerId, actionNextId, effectiveLimit);
         List<ActionChangeLogDto> result = new ArrayList<ActionChangeLogDto>();
         for (ProjectActionChangeLog log : changeLogs) {
             result.add(ActionChangeLogDto.from(log));

@@ -13,6 +13,8 @@ import javax.servlet.ServletContextListener;
 
 public class OpenApiBootstrap implements ServletContextListener {
 
+        public static final String OPENAPI_CONTEXT_ID = "project-tracker-api";
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         OpenAPI openApi = new OpenAPI()
@@ -35,6 +37,7 @@ public class OpenApiBootstrap implements ServletContextListener {
 
         try {
             new JaxrsOpenApiContextBuilder<>()
+                                        .ctxId(OPENAPI_CONTEXT_ID)
                     .openApiConfiguration(config)
                     .buildContext(true);
         } catch (Exception ex) {

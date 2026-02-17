@@ -11,7 +11,8 @@ public class ProposalDto {
     private int proposalId;
     @Schema(example = "123")
     private int projectId;
-    private Integer actionId;
+    @Schema(example = "456")
+    private Integer actionNextId;
     private Integer contactId;
     private String proposalStatus;
     private Date proposalCreateDate;
@@ -26,7 +27,7 @@ public class ProposalDto {
         ProposalDto dto = new ProposalDto();
         dto.setProposalId(proposal.getProposalId());
         dto.setProjectId(proposal.getProjectId());
-        dto.setActionId(proposal.getActionId());
+        dto.setActionNextId(proposal.getActionNextId());
         dto.setContactId(proposal.getContactId());
         dto.setProposalStatus(proposal.getProposalStatusString());
         dto.setProposalCreateDate(proposal.getProposalCreateDate());
@@ -55,12 +56,12 @@ public class ProposalDto {
         this.projectId = projectId;
     }
 
-    public Integer getActionId() {
-        return actionId;
+    public Integer getActionNextId() {
+        return actionNextId;
     }
 
-    public void setActionId(Integer actionId) {
-        this.actionId = actionId;
+    public void setActionNextId(Integer actionNextId) {
+        this.actionNextId = actionNextId;
     }
 
     public Integer getContactId() {

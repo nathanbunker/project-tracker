@@ -53,13 +53,13 @@ public class ProjectActionProposalService {
         return results;
     }
 
-    public List<ProjectActionProposal> listProposalsForAction(String providerId, int actionId) {
+    public List<ProjectActionProposal> listProposalsForAction(String providerId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "select pap from ProjectActionProposal pap join pap.project p "
-                        + "where pap.actionId = :actionId and p.provider.providerId = :providerId "
+                        + "where pap.actionNextId = :actionNextId and p.provider.providerId = :providerId "
                         + "order by pap.proposalCreateDate desc");
-        query.setInteger("actionId", actionId);
+        query.setInteger("actionNextId", actionNextId);
         query.setString("providerId", providerId);
         @SuppressWarnings("unchecked")
         List<ProjectActionProposal> results = query.list();
@@ -67,26 +67,26 @@ public class ProjectActionProposalService {
     }
 
     public ProjectActionProposal createProposal(String providerId, String agentName, int projectId,
-            Integer actionId, String proposedPatchJson, String summary, String rationale,
+            Integer actionNextId, String proposedPatchJson, String summary, String rationale,
             Integer contactId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Project project = requireProject(providerId, projectId);
         ProjectActionNext action = null;
-        if (actionId != null) {
-            action = requireAction(providerId, projectId, actionId.intValue());
+        if (actionNextId != null) {
+            action = requireAction(providerId, projectId, actionNextId.intValue());
         }
 
         int clientId = ApiRequestContext.getCurrentClient().getClientId();
         Date now = new Date();
 
-        supersedeActiveForTarget(providerId, clientId, projectId, actionId, now);
+        supersedeActiveForTarget(providerId, clientId, projectId, actionNextId, now);
 
         ProjectActionProposal proposal = new ProjectActionProposal();
         proposal.setClientId(clientId);
         proposal.setProject(project);
         proposal.setProjectId(projectId);
         proposal.setAction(action);
-        proposal.setActionId(actionId);
+        proposal.setActionNextId(actionNextId);
         proposal.setContactId(contactId);
         proposal.setProposalStatusString("new");
         proposal.setProposalCreateDate(now);
@@ -133,12 +133,12 @@ public class ProjectActionProposalService {
         return project;
     }
 
-    private ProjectActionNext requireAction(String providerId, int projectId, int actionId) {
+    private ProjectActionNext requireAction(String providerId, int projectId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.projectId = :projectId "
                         + "and pan.provider.providerId = :providerId");
-        query.setInteger("actionId", actionId);
+        query.setInteger("actionId", actionNextId);
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
@@ -149,24 +149,24 @@ public class ProjectActionProposalService {
     }
 
     private void supersedeActiveForTarget(String providerId, int clientId, int projectId,
-            Integer actionId, Date now) {
+            Integer actionNextId, Date now) {
         Session session = HibernateRequestContext.getCurrentSession();
         StringBuilder hql = new StringBuilder(
                 "select pap from ProjectActionProposal pap join pap.project p "
                         + "where pap.clientId = :clientId and p.provider.providerId = :providerId "
                         + "and pap.proposalStatusString not in (:rejected, :superseded)");
-        if (actionId != null) {
-            hql.append(" and pap.actionId = :actionId");
+        if (actionNextId != null) {
+            hql.append(" and pap.actionNextId = :actionNextId");
         } else {
-            hql.append(" and pap.actionId is null and pap.projectId = :projectId");
+            hql.append(" and pap.actionNextId is null and pap.projectId = :projectId");
         }
         Query query = session.createQuery(hql.toString());
         query.setInteger("clientId", clientId);
         query.setString("providerId", providerId);
         query.setString("rejected", "rejected");
         query.setString("superseded", "superseded");
-        if (actionId != null) {
-            query.setInteger("actionId", actionId.intValue());
+        if (actionNextId != null) {
+            query.setInteger("actionNextId", actionNextId.intValue());
         } else {
             query.setInteger("projectId", projectId);
         }

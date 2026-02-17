@@ -18,15 +18,15 @@ public class ActionChangeLogService {
 
     private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm";
 
-    public void logChange(String providerId, int actionId, int projectId, String actorType,
+    public void logChange(String providerId, int actionNextId, int projectId, String actorType,
             String actorId, String sourceType, Integer proposalId, Map<String, FromTo> patch,
             String reason) {
-        ProjectActionNext action = requireAction(providerId, actionId, projectId);
+        ProjectActionNext action = requireAction(providerId, actionNextId, projectId);
         Session session = HibernateRequestContext.getCurrentSession();
 
         ProjectActionChangeLog changeLog = new ProjectActionChangeLog();
         changeLog.setAction(action);
-        changeLog.setActionId(actionId);
+        changeLog.setActionNextId(actionNextId);
         changeLog.setProjectId(projectId);
         if (proposalId != null) {
             ProjectActionProposal proposal = (ProjectActionProposal) session.get(
@@ -45,12 +45,12 @@ public class ActionChangeLogService {
         session.save(changeLog);
     }
 
-    private ProjectActionNext requireAction(String providerId, int actionId, int projectId) {
+    private ProjectActionNext requireAction(String providerId, int actionNextId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionId and pan.projectId = :projectId "
+                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId "
                         + "and pan.provider.providerId = :providerId");
-        query.setInteger("actionId", actionId);
+        query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();

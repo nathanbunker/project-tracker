@@ -10,7 +10,7 @@ public class ActionChangeLogDto {
     @Schema(example = "321")
     private int changeId;
     @Schema(example = "456")
-    private int actionId;
+    private int actionNextId;
     @Schema(example = "123")
     private int projectId;
     private Integer proposalId;
@@ -25,7 +25,7 @@ public class ActionChangeLogDto {
     public static ActionChangeLogDto from(ProjectActionChangeLog log) {
         ActionChangeLogDto dto = new ActionChangeLogDto();
         dto.setChangeId(log.getChangeId());
-        dto.setActionId(log.getActionId());
+        dto.setActionNextId(log.getActionNextId());
         dto.setProjectId(log.getProjectId());
         dto.setProposalId(log.getProposalId());
         dto.setChangeDate(log.getChangeDate());
@@ -46,12 +46,12 @@ public class ActionChangeLogDto {
         this.changeId = changeId;
     }
 
-    public int getActionId() {
-        return actionId;
+    public int getActionNextId() {
+        return actionNextId;
     }
 
-    public void setActionId(int actionId) {
-        this.actionId = actionId;
+    public void setActionNextId(int actionNextId) {
+        this.actionNextId = actionNextId;
     }
 
     public int getProjectId() {
