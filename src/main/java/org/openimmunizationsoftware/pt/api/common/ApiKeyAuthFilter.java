@@ -18,6 +18,9 @@ public class ApiKeyAuthFilter implements ContainerRequestFilter {
 
     @Override
     public void filter(ContainerRequestContext requestContext) {
+        if (isPublicPath(requestContext)) {
+            return;
+        }
         String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
         if (apiKey == null || apiKey.trim().length() == 0) {
             abortUnauthorized(requestContext, "missing_api_key", "Missing API key.");
@@ -44,5 +47,13 @@ public class ApiKeyAuthFilter implements ContainerRequestFilter {
             String message) {
         ApiErrorResponse error = new ApiErrorResponse(errorCode, message, null);
         requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED).entity(error).build());
+    }
+
+    private boolean isPublicPath(ContainerRequestContext requestContext) {
+        String path = requestContext.getUriInfo().getPath();
+        if (path == null) {
+            return false;
+        }
+        return path.equals("openapi.json") || path.startsWith("swagger-ui");
     }
 }
