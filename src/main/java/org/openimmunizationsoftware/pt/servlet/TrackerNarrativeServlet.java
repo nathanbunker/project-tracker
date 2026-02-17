@@ -28,6 +28,7 @@ import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
 import org.openimmunizationsoftware.pt.manager.NarrativePeriods;
 import org.openimmunizationsoftware.pt.manager.NarrativePeriods.PeriodRange;
 import org.openimmunizationsoftware.pt.manager.TrackerNarrativeGenerator;
+import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -153,8 +154,16 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 appReq.setMessageConfirmation("Narrative deleted.");
                 redirect = buildEditorLink(narrativeId, type, selectedDate);
             } else if (ACTION_GENERATE.equals(action)) {
+                int projectId = resolveProjectId(appReq);
+                int contactId = resolveContactId(appReq.getWebUser());
+                if (projectId <= 0 || contactId <= 0) {
+                    appReq.setMessageProblem("Unable to determine project/contact for narrative.");
+                    transaction.rollback();
+                    response.sendRedirect(redirect);
+                    return;
+                }
                 PeriodRange period = resolvePeriod(type, selectedDate);
-                TrackerNarrative newNarrative = buildNewNarrative(type, period);
+                TrackerNarrative newNarrative = buildNewNarrative(type, period, projectId, contactId);
                 queuedNarrativeId = narrativeDao.insert(newNarrative);
                 appReq.setMessageConfirmation("Generation requested.");
                 redirect = buildEditorLink(queuedNarrativeId, type, selectedDate);
@@ -164,9 +173,22 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 if (existing == null) {
                     appReq.setMessageProblem("Narrative not found.");
                 } else {
+                    int projectId = existing.getProjectId();
+                    int contactId = existing.getContactId();
+                    if (projectId <= 0 || contactId <= 0) {
+                        projectId = resolveProjectId(appReq);
+                        contactId = resolveContactId(appReq.getWebUser());
+                    }
+                    if (projectId <= 0 || contactId <= 0) {
+                        appReq.setMessageProblem("Unable to determine project/contact for narrative.");
+                        transaction.rollback();
+                        response.sendRedirect(redirect);
+                        return;
+                    }
                     PeriodRange period = new PeriodRange(toLocalDate(existing.getPeriodStart()),
                             toLocalDate(existing.getPeriodEnd()));
-                    TrackerNarrative replacement = buildNewNarrative(existing.getNarrativeType(), period);
+                    TrackerNarrative replacement = buildNewNarrative(existing.getNarrativeType(), period,
+                            projectId, contactId);
                     long newId = narrativeDao.insert(replacement);
                     queuedNarrativeId = newId;
                     appReq.setMessageConfirmation("Generation requested.");
@@ -387,8 +409,11 @@ public class TrackerNarrativeServlet extends ClientServlet {
         return webUser.getTimeFormat().format(date);
     }
 
-    private static TrackerNarrative buildNewNarrative(String type, PeriodRange period) {
+    private static TrackerNarrative buildNewNarrative(String type, PeriodRange period, int projectId,
+            int contactId) {
         TrackerNarrative narrative = new TrackerNarrative();
+        narrative.setProjectId(projectId);
+        narrative.setContactId(contactId);
         narrative.setNarrativeType(type);
         narrative.setPeriodStart(toDate(period.getStart()));
         narrative.setPeriodEnd(toDate(period.getEnd()));
@@ -397,6 +422,21 @@ public class TrackerNarrativeServlet extends ClientServlet {
         narrative.setMarkdownGenerated(null);
         narrative.setMarkdownFinal(null);
         return narrative;
+    }
+
+    private static int resolveProjectId(AppReq appReq) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            project = appReq.getProjectSelected();
+        }
+        if (project == null) {
+            project = appReq.getProjectTrackTime();
+        }
+        return project == null ? 0 : project.getProjectId();
+    }
+
+    private static int resolveContactId(WebUser webUser) {
+        return webUser == null ? 0 : webUser.getContactId();
     }
 
     private static String buildDisplayTitle(String type, PeriodRange period) {

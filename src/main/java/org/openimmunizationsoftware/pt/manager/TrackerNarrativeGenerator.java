@@ -95,6 +95,7 @@ public class TrackerNarrativeGenerator {
                 refresh.setMarkdownGenerated(markdownGenerated);
                 refresh.setDateGenerated(new Date());
                 refresh.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
+                refresh.setLastUpdated(new Date());
                 if (isEmpty(refresh.getMarkdownFinal())) {
                     refresh.setMarkdownFinal(markdownGenerated);
                 }

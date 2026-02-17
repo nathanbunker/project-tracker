@@ -55,6 +55,9 @@ public class TrackerNarrativeDao {
     }
 
     public long insert(TrackerNarrative narrative) {
+        if (narrative.getLastUpdated() == null) {
+            narrative.setLastUpdated(new Date());
+        }
         Serializable id = session.save(narrative);
         if (id instanceof Number) {
             return ((Number) id).longValue();
@@ -73,6 +76,7 @@ public class TrackerNarrativeDao {
         narrative.setPromptVersion(promptVersion);
         narrative.setDateGenerated(toDate(dateGenerated));
         narrative.setReviewStatusString(status);
+        narrative.setLastUpdated(new Date());
         session.update(narrative);
     }
 
@@ -82,6 +86,7 @@ public class TrackerNarrativeDao {
             return;
         }
         narrative.setMarkdownFinal(markdownFinal);
+        narrative.setLastUpdated(new Date());
         session.update(narrative);
     }
 
@@ -101,6 +106,7 @@ public class TrackerNarrativeDao {
             }
             narrative.setReviewStatus(TrackerNarrativeReviewStatus.APPROVED);
             narrative.setDateApproved(toDate(dateApproved));
+            narrative.setLastUpdated(new Date());
             session.update(narrative);
             transaction.commit();
         } catch (RuntimeException exception) {
@@ -117,6 +123,7 @@ public class TrackerNarrativeDao {
             return;
         }
         narrative.setReviewStatus(TrackerNarrativeReviewStatus.REJECTED);
+        narrative.setLastUpdated(new Date());
         session.update(narrative);
     }
 
@@ -126,18 +133,21 @@ public class TrackerNarrativeDao {
             return;
         }
         narrative.setReviewStatus(TrackerNarrativeReviewStatus.DELETED);
+        narrative.setLastUpdated(new Date());
         session.update(narrative);
     }
 
     public void clearApprovedForPeriod(String type, LocalDate start, LocalDate end) {
         Query query = session.createQuery(
-                "update TrackerNarrative set reviewStatusString = :rejected where narrativeType = :type "
-                        + "and periodStart = :start and periodEnd = :end and reviewStatusString = :approved");
+                "update TrackerNarrative set reviewStatusString = :rejected, lastUpdated = :lastUpdated "
+                        + "where narrativeType = :type and periodStart = :start and periodEnd = :end "
+                        + "and reviewStatusString = :approved");
         query.setString("rejected", TrackerNarrativeReviewStatus.REJECTED.getId());
         query.setString("approved", TrackerNarrativeReviewStatus.APPROVED.getId());
         query.setString("type", type);
         query.setDate("start", toSqlDate(start));
         query.setDate("end", toSqlDate(end));
+        query.setTimestamp("lastUpdated", new Date());
         query.executeUpdate();
     }
 

@@ -7,6 +7,12 @@
       <column name="narrative_id" />
       <generator class="native" />
     </id>
+    <property name="projectId" type="int">
+      <column name="project_id" not-null="true" />
+    </property>
+    <property name="contactId" type="int">
+      <column name="contact_id" not-null="true" />
+    </property>
     <property name="displayTitle" type="string">
       <column name="display_title" length="255" not-null="true" />
     </property>
@@ -18,6 +24,9 @@
     </property>
     <property name="periodEnd" type="date">
       <column name="period_end" not-null="true" />
+    </property>
+    <property name="lastUpdated" type="timestamp">
+      <column name="last_updated" length="19" not-null="true" />
     </property>
     <property name="reviewStatusString" type="string">
       <column name="review_status" length="20" not-null="true" />

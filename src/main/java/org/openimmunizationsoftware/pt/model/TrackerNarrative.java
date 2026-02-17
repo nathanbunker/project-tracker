@@ -7,10 +7,13 @@ public class TrackerNarrative implements java.io.Serializable {
     private static final long serialVersionUID = 6256647617619498403L;
 
     private int narrativeId;
+    private int projectId;
+    private int contactId;
     private String displayTitle;
     private String narrativeType;
     private Date periodStart;
     private Date periodEnd;
+    private Date lastUpdated;
     private TrackerNarrativeReviewStatus reviewStatus;
     private String markdownGenerated;
     private String markdownFinal;
@@ -25,6 +28,22 @@ public class TrackerNarrative implements java.io.Serializable {
 
     public void setNarrativeId(int narrativeId) {
         this.narrativeId = narrativeId;
+    }
+
+    public int getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(int projectId) {
+        this.projectId = projectId;
+    }
+
+    public int getContactId() {
+        return contactId;
+    }
+
+    public void setContactId(int contactId) {
+        this.contactId = contactId;
     }
 
     public String getDisplayTitle() {
@@ -57,6 +76,14 @@ public class TrackerNarrative implements java.io.Serializable {
 
     public void setPeriodEnd(Date periodEnd) {
         this.periodEnd = periodEnd;
+    }
+
+    public Date getLastUpdated() {
+        return lastUpdated;
+    }
+
+    public void setLastUpdated(Date lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
 
     public TrackerNarrativeReviewStatus getReviewStatus() {
