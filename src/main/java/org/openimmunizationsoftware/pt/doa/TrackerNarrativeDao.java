@@ -4,8 +4,12 @@ import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -62,6 +66,68 @@ public class TrackerNarrativeDao {
             return null;
         }
         return results.get(0);
+    }
+
+    public Map<LocalDate, Integer> sumBillableMinutesByDay(String username, LocalDate startInclusive,
+            LocalDate endExclusive) {
+        Map<LocalDate, Integer> minutesByDay = new HashMap<LocalDate, Integer>();
+        if (username == null || username.trim().length() == 0 || startInclusive == null || endExclusive == null
+                || !startInclusive.isBefore(endExclusive)) {
+            return minutesByDay;
+        }
+
+        Query query = session.createQuery(
+                "select startTime, billMins from BillEntry "
+                        + "where username = :username and billable = :billable and billMins > 0 "
+                        + "and startTime >= :start and startTime < :end");
+        query.setString("username", username);
+        query.setString("billable", "Y");
+        query.setTimestamp("start", toDate(startInclusive.atStartOfDay()));
+        query.setTimestamp("end", toDate(endExclusive.atStartOfDay()));
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.list();
+        for (Object[] row : rows) {
+            if (row == null || row.length < 2) {
+                continue;
+            }
+            Date startTime = (Date) row[0];
+            Number billMinsNumber = (Number) row[1];
+            if (startTime == null || billMinsNumber == null) {
+                continue;
+            }
+            LocalDate day = toLocalDate(startTime);
+            int billMins = billMinsNumber.intValue();
+            Integer existing = minutesByDay.get(day);
+            minutesByDay.put(day, (existing == null ? 0 : existing.intValue()) + billMins);
+        }
+        return minutesByDay;
+    }
+
+    public Set<LocalDate> findApprovedPeriodStarts(String type, LocalDate startInclusive, LocalDate endInclusive) {
+        Set<LocalDate> approvedStarts = new HashSet<LocalDate>();
+        if (type == null || type.trim().length() == 0 || startInclusive == null || endInclusive == null
+                || startInclusive.isAfter(endInclusive)) {
+            return approvedStarts;
+        }
+
+        Query query = session.createQuery(
+                "select periodStart from TrackerNarrative where narrativeType = :type "
+                        + "and reviewStatusString = :status and periodStart >= :start and periodStart <= :end");
+        query.setString("type", type);
+        query.setString("status", TrackerNarrativeReviewStatus.APPROVED.getId());
+        query.setDate("start", toSqlDate(startInclusive));
+        query.setDate("end", toSqlDate(endInclusive));
+
+        @SuppressWarnings("unchecked")
+        List<Date> rows = query.list();
+        for (Date date : rows) {
+            LocalDate localDate = toLocalDate(date);
+            if (localDate != null) {
+                approvedStarts.add(localDate);
+            }
+        }
+        return approvedStarts;
     }
 
     public long insert(TrackerNarrative narrative) {

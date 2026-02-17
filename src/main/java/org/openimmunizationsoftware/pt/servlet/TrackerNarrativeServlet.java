@@ -10,9 +10,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.format.TextStyle;
 import java.time.format.DateTimeParseException;
+import java.util.Map;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -240,6 +244,9 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("</table>");
         out.println("</form><br/>");
 
+        printRapidSelectCalendar(out, narrativeDao, webUser, selectedDate);
+        out.println("<br/>");
+
         out.println("<form method=\"POST\" action=\"TrackerNarrativeServlet\">\n");
         out.println("<input type=\"hidden\" name=\"" + PARAM_TYPE + "\" value=\"" + type + "\">\n");
         out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + selectedDate + "\">\n");
@@ -283,6 +290,95 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 out.println("  </tr>");
             }
         }
+        out.println("</table>");
+    }
+
+    private void printRapidSelectCalendar(PrintWriter out, TrackerNarrativeDao narrativeDao, WebUser webUser,
+            LocalDate selectedDate) {
+        YearMonth month = YearMonth.from(selectedDate);
+        LocalDate firstDayOfMonth = month.atDay(1);
+        LocalDate lastDayOfMonth = month.atEndOfMonth();
+        YearMonth previousMonth = month.minusMonths(1);
+        YearMonth nextMonth = month.plusMonths(1);
+        LocalDate previousMonthStart = previousMonth.atDay(1);
+        LocalDate nextMonthStart = nextMonth.atDay(1);
+
+        int offset = firstDayOfMonth.getDayOfWeek().getValue() % 7;
+        LocalDate weekStart = firstDayOfMonth.minusDays(offset);
+        LocalDate firstWeekStart = weekStart;
+
+        String monthLabel = firstDayOfMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.US)
+                + " " + firstDayOfMonth.getYear();
+        String previousMonthShort = previousMonth.getMonth().getDisplayName(TextStyle.SHORT, Locale.US);
+        String currentMonthShort = month.getMonth().getDisplayName(TextStyle.SHORT, Locale.US);
+        String nextMonthShort = nextMonth.getMonth().getDisplayName(TextStyle.SHORT, Locale.US);
+
+        LocalDate lastWeekStart = lastDayOfMonth
+                .minusDays(lastDayOfMonth.getDayOfWeek().getValue() % 7);
+        LocalDate endExclusive = lastWeekStart.plusWeeks(1);
+        String username = webUser == null ? null : webUser.getUsername();
+        Map<LocalDate, Integer> billableMinutesByDay = narrativeDao.sumBillableMinutesByDay(username,
+                firstWeekStart, endExclusive);
+        Set<LocalDate> approvedDailyStarts = narrativeDao.findApprovedPeriodStarts(TYPE_DAILY, firstWeekStart,
+                endExclusive.minusDays(1));
+        Set<LocalDate> approvedWeeklyStarts = narrativeDao.findApprovedPeriodStarts(TYPE_WEEKLY, firstWeekStart,
+                lastWeekStart);
+
+        out.println("<table class=\"boxed\">");
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"title\" colspan=\"8\">" + escapeHtml(monthLabel) + "</th>");
+        out.println("  </tr>");
+
+        while (!weekStart.isAfter(lastDayOfMonth)) {
+            boolean weekApproved = approvedWeeklyStarts.contains(weekStart);
+            String weekCellClass = weekApproved ? "boxed" : "boxed fail";
+            String weekLinkClass = weekApproved ? " class=\"button\"" : "";
+
+            out.println("  <tr class=\"boxed\">");
+            out.println("    <td class=\"" + weekCellClass + "\"><a" + weekLinkClass + " href=\""
+                    + buildListLink(TYPE_WEEKLY, weekStart)
+                    + "\">Week</a></td>");
+
+            for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+                LocalDate day = weekStart.plusDays(dayOffset);
+                Integer billableMinutes = billableMinutesByDay.get(day);
+                boolean hasBillableTime = billableMinutes != null && billableMinutes.intValue() > 0;
+                boolean dailyApproved = approvedDailyStarts.contains(day);
+                String dayCellClass;
+                if (!hasBillableTime) {
+                    dayCellClass = "boxed";
+                } else if (dailyApproved) {
+                    dayCellClass = "boxed";
+                } else {
+                    dayCellClass = "boxed fail";
+                }
+
+                out.print("    <td class=\"" + dayCellClass + "\">");
+                if (hasBillableTime) {
+                    String dayLinkClass = dailyApproved ? " class=\"button\"" : "";
+                    out.print("<a" + dayLinkClass + " href=\"" + buildListLink(TYPE_DAILY, day)
+                            + "\">" + day.getDayOfMonth() + "</a>");
+                } else {
+                    out.print("<span style=\"color:#6C757D;\">" + day.getDayOfMonth() + "</span>");
+                }
+                out.println("</td>");
+            }
+
+            out.println("  </tr>");
+            weekStart = weekStart.plusWeeks(1);
+        }
+
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <td class=\"boxed\"><a class=\"button\" href=\"" + buildListLink(TYPE_MONTHLY, firstDayOfMonth)
+                + "\">Month</a></td>");
+        out.println("    <td class=\"boxed\" colspan=\"7\">"
+                + "<a class=\"button\" href=\"" + buildListLink(TYPE_MONTHLY, previousMonthStart) + "\">"
+                + escapeHtml(previousMonthShort) + "</a> "
+                + "<a class=\"button\" href=\"" + buildListLink(TYPE_MONTHLY, firstDayOfMonth) + "\">"
+                + escapeHtml(currentMonthShort) + "</a> "
+                + "<a class=\"button\" href=\"" + buildListLink(TYPE_MONTHLY, nextMonthStart) + "\">"
+                + escapeHtml(nextMonthShort) + "</a></td>");
+        out.println("  </tr>");
         out.println("</table>");
     }
 
