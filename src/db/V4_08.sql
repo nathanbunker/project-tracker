@@ -39,3 +39,7 @@ ALTER TABLE tracker_narrative
     MODIFY project_id INT NOT NULL,
     MODIFY contact_id INT NOT NULL,
     MODIFY last_updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE tracker_narrative
+    ADD INDEX idx_tracker_narrative_contact_updated (contact_id, last_updated),
+    ADD INDEX idx_tracker_narrative_project (project_id);
