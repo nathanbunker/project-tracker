@@ -84,6 +84,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
   private static final String PARAM_PROJECT_ID = "projectId";
   public static final String PARAM_ACTION_NEXT_ID = "actionNextId";
+  private static final String PARAM_POSTPONE_ACTION_NEXT_ID = "postponeActionNextId";
   private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
   protected static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
   private static final String PARAM_EDIT_ACTION_NEXT_ID = "editActionNextId";
@@ -101,6 +102,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_START = "Start";
   private static final String ACTION_REFRESH_TIME = "RefreshTime";
   private static final String ACTION_SUGGEST = "Suggest";
+  private static final String ACTION_POSTPONE_NEXT_WORKING_DAY = "PostponeNextWorkingDay";
 
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
@@ -189,6 +191,8 @@ public class ProjectActionServlet extends ClientServlet {
           return;
         } else if (action.equals(ACTION_STOP_TIMER)) {
           stopTimer(appReq, dataSession);
+        } else if (action.equals(ACTION_POSTPONE_NEXT_WORKING_DAY)) {
+          postponeActionToNextWorkingDay(appReq, dataSession);
         } else if (action.equals(ACTION_PROPOSE)) {
           chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else if (action.equals(ACTION_FEEDBACK)) {
@@ -1326,6 +1330,61 @@ public class ProjectActionServlet extends ClientServlet {
     calendar.set(Calendar.SECOND, 0);
     calendar.set(Calendar.MILLISECOND, 0);
     return calendar;
+  }
+
+  private ProjectActionNext postponeActionToNextWorkingDay(AppReq appReq, Session dataSession) {
+    HttpServletRequest request = appReq.getRequest();
+    String actionNextIdString = request.getParameter(PARAM_POSTPONE_ACTION_NEXT_ID);
+    if (actionNextIdString == null) {
+      return null;
+    }
+    int actionNextId;
+    try {
+      actionNextId = Integer.parseInt(actionNextIdString);
+    } catch (NumberFormatException nfe) {
+      return null;
+    }
+    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+        actionNextId);
+    if (projectAction == null) {
+      return null;
+    }
+    Calendar todayCalendar = getCalendarForTodayNoTime(appReq.getWebUser());
+    Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
+    if (projectAction.getNextDue() != null && projectAction.getNextDue().after(todayCalendar.getTime())) {
+      calendar.setTime(projectAction.getNextDue());
+      calendar.set(Calendar.HOUR_OF_DAY, 0);
+      calendar.set(Calendar.MINUTE, 0);
+      calendar.set(Calendar.SECOND, 0);
+      calendar.set(Calendar.MILLISECOND, 0);
+    }
+    int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+    if (dayOfWeek == Calendar.FRIDAY) {
+      calendar.add(Calendar.DAY_OF_MONTH, 3);
+    } else if (dayOfWeek == Calendar.SATURDAY) {
+      calendar.add(Calendar.DAY_OF_MONTH, 2);
+    } else {
+      calendar.add(Calendar.DAY_OF_MONTH, 1);
+    }
+    Date postponedDueDate = calendar.getTime();
+    projectAction.setNextDue(postponedDueDate);
+    if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())) {
+      projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
+    }
+    if (projectAction.getNextDeadline() != null) {
+      Date deadlineDate = normalizeDate(projectAction.getNextDeadline());
+      Date postponedDateOnly = normalizeDate(postponedDueDate);
+      if (postponedDateOnly.equals(deadlineDate)) {
+        projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
+      } else if (postponedDateOnly.after(deadlineDate)) {
+        projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
+      }
+    }
+    projectAction.setNextChangeDate(new Date());
+    Transaction transaction = dataSession.beginTransaction();
+    dataSession.update(projectAction);
+    transaction.commit();
+    return projectAction;
   }
 
   private void chatPropose(AppReq appReq, ProjectActionNext completingAction, List<ChatAgent> chatAgentList,
@@ -2575,6 +2634,8 @@ public class ProjectActionServlet extends ClientServlet {
     WebUser webUser = appReq.getWebUser();
     for (ProjectActionNext projectAction : paList) {
       String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
+          + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
       out.println("  <tr class=\"boxed\">");
       if (projectAction.getProject() == null) {
         out.println("    <td class=\"boxed\">&nbsp;</td>");
@@ -2583,7 +2644,9 @@ public class ProjectActionServlet extends ClientServlet {
             + projectAction.getProject().getProjectName() + "</a></td>");
       }
       out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
-          + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a></td>");
+          + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a> "
+          + "<a href=\"" + postponeLink
+          + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a></td>");
       if (projectAction.getNextTimeEstimate() == null || projectAction.getNextTimeEstimate() == 0) {
         out.println("    <td class=\"boxed\">&nbsp;</a></td>");
       } else {
