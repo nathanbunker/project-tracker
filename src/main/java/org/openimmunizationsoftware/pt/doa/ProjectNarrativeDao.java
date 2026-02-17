@@ -69,6 +69,18 @@ public class ProjectNarrativeDao {
         session.update(narrative);
     }
 
+    @SuppressWarnings("unchecked")
+    public List<ProjectNarrative> listByContactProviderUpdatedAfter(String providerId, int contactId,
+            Date updatedAfter) {
+        Query query = session.createQuery(
+                "from ProjectNarrative where providerId = :providerId and contactId = :contactId "
+                        + "and lastUpdated > :updatedAfter order by lastUpdated asc");
+        query.setString("providerId", providerId);
+        query.setInteger("contactId", contactId);
+        query.setTimestamp("updatedAfter", updatedAfter);
+        return query.list();
+    }
+
     public boolean updateNarrativeTextIfChanged(ProjectNarrative narrative, String newText, Date narrativeDate) {
         if (narrative == null) {
             return false;

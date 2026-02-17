@@ -3,7 +3,8 @@ param(
     [string]$ApiKey = "7efd2d2af3ec43abb7ce428392c644b7",
     [string]$ProviderId = "12",
     [int]$ProjectId = 48689,
-    [int]$ActionNextId = 786633
+    [int]$ActionNextId = 786633,
+    [int]$ContactId = 66747
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +20,9 @@ if ($ProjectId -le 0) {
 }
 if ($ActionNextId -le 0) {
     throw "ActionNextId must be provided and > 0."
+}
+if ($ContactId -le 0) {
+    throw "ContactId must be provided and > 0."
 }
 
 $headers = @{
@@ -77,5 +81,10 @@ Write-Host "7) List proposals for action and verify new proposal exists..."
 $proposals = Invoke-RestMethod -Uri "$BaseUrl/v1/actions/$ActionNextId/proposals" -Method Get -Headers $headers
 $match = @($proposals | Where-Object { $_.proposalId -eq $createResponse2.proposalId })
 Assert-True ($match.Count -eq 1) "New proposal not found in action proposals list."
+
+Write-Host "8) List narratives updated in last 14 days for contact..."
+$cutoffDate = (Get-Date).AddDays(-14).ToString("yyyy-MM-dd")
+$narratives = Invoke-RestMethod -Uri "$BaseUrl/v1/narratives?contactId=$ContactId&lastUpdatedAfter=$cutoffDate" -Method Get -Headers $headers
+Assert-True ($narratives.Count -gt 0) "No narratives returned for last 14 days."
 
 Write-Host "All smoke checks passed."
