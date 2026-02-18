@@ -29,7 +29,8 @@ public class ProjectActionNext implements java.io.Serializable {
     private ProjectNextActionStatus nextActionStatus;
     private Date nextChangeDate;
     private Date nextActionDate;
-    private Date nextDeadline;
+    private Date nextDeadlineDate;
+    private Date nextTargetDate;
     private String nextDescription;
     private boolean billable;
 
@@ -313,12 +314,20 @@ public class ProjectActionNext implements java.io.Serializable {
         this.nextActionDate = nextActionDate;
     }
 
-    public Date getNextDeadline() {
-        return nextDeadline;
+    public Date getNextDeadlineDate() {
+        return nextDeadlineDate;
     }
 
-    public void setNextDeadline(Date nextDeadline) {
-        this.nextDeadline = nextDeadline;
+    public void setNextDeadlineDate(Date nextDeadlineDate) {
+        this.nextDeadlineDate = nextDeadlineDate;
+    }
+
+    public Date getNextTargetDate() {
+        return nextTargetDate;
+    }
+
+    public void setNextTargetDate(Date nextTargetDate) {
+        this.nextTargetDate = nextTargetDate;
     }
 
     public String getNextDescription() {

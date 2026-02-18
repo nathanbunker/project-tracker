@@ -14,7 +14,7 @@ public class ActionNextDto {
     private int contactId;
     private String nextDescription;
     private Date nextActionDate;
-    private Date nextDeadline;
+    private Date nextDeadlineDate;
     private String nextActionType;
     private int priorityLevel;
 
@@ -25,7 +25,7 @@ public class ActionNextDto {
         dto.setContactId(action.getContactId());
         dto.setNextDescription(action.getNextDescription());
         dto.setNextActionDate(action.getNextActionDate());
-        dto.setNextDeadline(action.getNextDeadline());
+        dto.setNextDeadlineDate(action.getNextDeadlineDate());
         dto.setNextActionType(action.getNextActionType());
         dto.setPriorityLevel(action.getPriorityLevel());
         return dto;
@@ -71,12 +71,12 @@ public class ActionNextDto {
         this.nextActionDate = nextActionDate;
     }
 
-    public Date getNextDeadline() {
-        return nextDeadline;
+    public Date getNextDeadlineDate() {
+        return nextDeadlineDate;
     }
 
-    public void setNextDeadline(Date nextDeadline) {
-        this.nextDeadline = nextDeadline;
+    public void setNextDeadlineDate(Date nextDeadlineDate) {
+        this.nextDeadlineDate = nextDeadlineDate;
     }
 
     public String getNextActionType() {
@@ -95,3 +95,4 @@ public class ActionNextDto {
         this.priorityLevel = priorityLevel;
     }
 }
+

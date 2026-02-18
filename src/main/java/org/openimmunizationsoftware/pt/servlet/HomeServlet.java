@@ -788,8 +788,8 @@ public class HomeServlet extends ClientServlet {
       out.println("              <a href=\"javascript: void changeNextTimeEstimate('360', '"
           + changeFormId + "');\" class=\"button\"> 6h</a>");
       out.println("            </font>");
-      if (projectAction.getNextDeadline() != null) {
-        out.println("<br/>Deadline:  " + sdf1.format(projectAction.getNextDeadline()));
+      if (projectAction.getNextDeadlineDate() != null) {
+        out.println("<br/>Deadline:  " + sdf1.format(projectAction.getNextDeadlineDate()));
       }
       out.println("</form></div>");
     }
@@ -864,6 +864,7 @@ public class HomeServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 }
+
 
 
 

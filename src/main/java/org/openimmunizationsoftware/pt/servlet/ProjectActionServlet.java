@@ -75,7 +75,8 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_NEXT_ACTION_TYPE = "nextActionType";
   private static final String PARAM_TEMPLATE_TYPE = "templateType";
   private static final String PARAM_LINK_URL = "linkUrl";
-  private static final String PARAM_NEXT_DEADLINE = "nextDeadline";
+  private static final String PARAM_NEXT_TARGET_DATE = "nextTargetDate";
+  private static final String PARAM_NEXT_DEADLINE_DATE = "nextDeadlineDate";
   private static final String PARAM_NEXT_ACTION_DATE = "nextActionDate";
   private static final String PARAM_NEXT_DESCRIPTION = "nextDescription";
   private static final String PARAM_NEXT_NOTES = "nextNotes";
@@ -271,7 +272,7 @@ public class ProjectActionServlet extends ClientServlet {
       planningRangeList = filterProjectActionList(planningRangeList, showWork, showPersonal);
       Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
       for (ProjectActionNext projectAction : planningRangeList) {
-        Date bucketDate = normalizeDate(projectAction.getNextActionDate());
+        Date bucketDate = projectAction.getNextActionDate();
         List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
         if (bucketList == null) {
           bucketList = new ArrayList<>();
@@ -284,7 +285,7 @@ public class ProjectActionServlet extends ClientServlet {
       for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
         Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
         dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-        Date dayKey = normalizeDate(dayCalendar.getTime());
+        Date dayKey = dayCalendar.getTime();
         List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
         if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
           continue;
@@ -1144,13 +1145,6 @@ public class ProjectActionServlet extends ClientServlet {
     c.set(Calendar.SECOND, 0);
     c.set(Calendar.MILLISECOND, 0);
     dateFromDateList = c.getTime();
-    c = Calendar.getInstance();
-    c.setTime(nextActionDate);
-    c.set(Calendar.HOUR_OF_DAY, 0);
-    c.set(Calendar.MINUTE, 0);
-    c.set(Calendar.SECOND, 0);
-    c.set(Calendar.MILLISECOND, 0);
-    nextActionDate = c.getTime();
 
     return dateFromDateList.equals(nextActionDate) || nextActionDate.before(dateFromDateList);
   }
@@ -1223,7 +1217,8 @@ public class ProjectActionServlet extends ClientServlet {
     }
 
     editProjectAction.setNextActionDate(parseDate(appReq, request.getParameter(PARAM_NEXT_ACTION_DATE)));
-    editProjectAction.setNextDeadline(parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
+    editProjectAction.setNextTargetDate(parseDate(appReq, request.getParameter(PARAM_NEXT_TARGET_DATE)));
+    editProjectAction.setNextDeadlineDate(parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE_DATE)));
     String linkUrl = request.getParameter(PARAM_LINK_URL);
     if (linkUrl == null || linkUrl.equals("")) {
       editProjectAction.setLinkUrl(null);
@@ -1467,10 +1462,6 @@ public class ProjectActionServlet extends ClientServlet {
     Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
     if (projectAction.getNextActionDate() != null && projectAction.getNextActionDate().after(todayCalendar.getTime())) {
       calendar.setTime(projectAction.getNextActionDate());
-      calendar.set(Calendar.HOUR_OF_DAY, 0);
-      calendar.set(Calendar.MINUTE, 0);
-      calendar.set(Calendar.SECOND, 0);
-      calendar.set(Calendar.MILLISECOND, 0);
     }
     int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
     if (dayOfWeek == Calendar.FRIDAY) {
@@ -1485,13 +1476,40 @@ public class ProjectActionServlet extends ClientServlet {
     if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())) {
       projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
     }
-    if (projectAction.getNextDeadline() != null) {
-      Date deadlineDate = normalizeDate(projectAction.getNextDeadline());
-      Date postponedDateOnly = normalizeDate(postponedDueDate);
+
+    // Case 1: nextDeadline set but not nextTarget - keep same logic as today
+    if (projectAction.getNextDeadlineDate() != null && projectAction.getNextTargetDate() == null) {
+      Date deadlineDate = projectAction.getNextDeadlineDate();
+      Date postponedDateOnly = postponedDueDate;
       if (postponedDateOnly.equals(deadlineDate)) {
         projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
       } else if (postponedDateOnly.after(deadlineDate)) {
         projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
+      }
+    }
+    // Case 2: nextDeadline set AND nextTarget is set
+    else if (projectAction.getNextDeadlineDate() != null && projectAction.getNextTargetDate() != null) {
+      Date targetDate = projectAction.getNextTargetDate();
+      Date deadlineDate = projectAction.getNextDeadlineDate();
+      Date postponedDateOnly = postponedDueDate;
+
+      // At or past deadline date → OVERDUE_TO
+      if (postponedDateOnly.equals(deadlineDate) || postponedDateOnly.after(deadlineDate)) {
+        projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
+      }
+      // At or past target date (but before deadline) → COMMITTED_TO
+      else if (postponedDateOnly.equals(targetDate) || postponedDateOnly.after(targetDate)) {
+        projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
+      }
+    }
+    // Case 3: nextDeadline NOT set, but nextTarget IS set
+    else if (projectAction.getNextDeadlineDate() == null && projectAction.getNextTargetDate() != null) {
+      Date targetDate = projectAction.getNextTargetDate();
+      Date postponedDateOnly = postponedDueDate;
+
+      // At or past target date → COMMITTED_TO
+      if (postponedDateOnly.equals(targetDate) || postponedDateOnly.after(targetDate)) {
+        projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
       }
     }
     projectAction.setNextChangeDate(new Date());
@@ -1724,7 +1742,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      form." + PARAM_NEXT_CONTACT_ID + ".disabled = false;");
     out.println("      form." + PARAM_START_SENTANCE + ".disabled = false;");
     out.println("      form." + PARAM_NEXT_TIME_ESTIMATE + ".disabled = false;");
-    out.println("      form." + PARAM_NEXT_DEADLINE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_TARGET_DATE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_DEADLINE_DATE + ".disabled = false;");
     out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
     out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
     out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
@@ -1738,8 +1757,13 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      document.projectAction" + formName + "." + PARAM_NEXT_ACTION_DATE + ".value = nextActionDate;");
     out.println("      enableForm" + formName + "(); ");
     out.println("    }");
-    out.println("    function setNextDeadline" + formName + "(nextDeadline) {");
-    out.println("      document.projectAction" + formName + "." + PARAM_NEXT_DEADLINE + ".value = nextDeadline;");
+    out.println("    function setNextDeadlineDate" + formName + "(nextDeadlineDate) {");
+    out.println(
+        "      document.projectAction" + formName + "." + PARAM_NEXT_DEADLINE_DATE + ".value = nextDeadlineDate;");
+    out.println("    }");
+    out.println("    function setNextTargetDate" + formName + "(nextTargetDate) {");
+    out.println(
+        "      document.projectAction" + formName + "." + PARAM_NEXT_TARGET_DATE + ".value = nextTargetDate;");
     out.println("    }");
     printGenerateSelectNextTimeEstimateFunction(out, formName);
     out.println("  </script>");
@@ -2192,29 +2216,67 @@ public class ProjectActionServlet extends ClientServlet {
       Calendar calendar = webUser.getCalendar();
       SimpleDateFormat day = webUser.getDateFormat("EEE");
       out.println("        <tr>");
-      out.println("          <th class=\"inside\">Deadline</th>");
+      out.println("          <th class=\"inside\">Target</th>");
       out.println(
-          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_NEXT_DEADLINE
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_NEXT_TARGET_DATE
               + "\" size=\"10\" value=\""
-              + n(projectAction == null || projectAction.getNextDeadline() == null
-                  ? request.getParameter(PARAM_NEXT_DEADLINE)
-                  : sdf1.format(projectAction.getNextDeadline()))
+              + n(projectAction == null || projectAction.getNextTargetDate() == null
+                  ? request.getParameter(PARAM_NEXT_TARGET_DATE)
+                  : sdf1.format(projectAction.getNextTargetDate()))
               + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
       out.println("            <font size=\"-1\">");
       sdf1 = webUser.getDateFormat();
       calendar.add(Calendar.DAY_OF_MONTH, 2);
-      out.println("              <a href=\"javascript: void setNextDeadline" + formName + "('"
+      out.println("              <a href=\"javascript: void setNextTargetDate" + formName + "('"
           + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
           + day.format(calendar.getTime()) + "</a>");
       boolean nextWeek = false;
       for (int i = 0; i < 7; i++) {
         calendar.add(Calendar.DAY_OF_MONTH, 1);
         if (nextWeek) {
-          out.println("              <a href=\"javascript: void setNextDeadline" + formName + "('"
+          out.println("              <a href=\"javascript: void setNextTargetDate" + formName + "('"
               + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
               + day.format(calendar.getTime()) + "</a>");
         } else {
-          out.println("              <a href=\"javascript: void setNextDeadline" + formName + "('"
+          out.println("              <a href=\"javascript: void setNextTargetDate" + formName + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+              + day.format(calendar.getTime()) + "</a>");
+        }
+        if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+          nextWeek = true;
+        }
+      }
+      out.println("</font>");
+      out.println("          </td>");
+      out.println("        </tr>");
+    }
+    {
+      Calendar calendar = webUser.getCalendar();
+      SimpleDateFormat day = webUser.getDateFormat("EEE");
+      out.println("        <tr>");
+      out.println("          <th class=\"inside\">Deadline</th>");
+      out.println(
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_NEXT_DEADLINE_DATE
+              + "\" size=\"10\" value=\""
+              + n(projectAction == null || projectAction.getNextDeadlineDate() == null
+                  ? request.getParameter(PARAM_NEXT_DEADLINE_DATE)
+                  : sdf1.format(projectAction.getNextDeadlineDate()))
+              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+      out.println("            <font size=\"-1\">");
+      sdf1 = webUser.getDateFormat();
+      calendar.add(Calendar.DAY_OF_MONTH, 2);
+      out.println("              <a href=\"javascript: void setNextDeadlineDate" + formName + "('"
+          + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
+          + day.format(calendar.getTime()) + "</a>");
+      boolean nextWeek = false;
+      for (int i = 0; i < 7; i++) {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        if (nextWeek) {
+          out.println("              <a href=\"javascript: void setNextDeadlineDate" + formName + "('"
+              + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
+              + day.format(calendar.getTime()) + "</a>");
+        } else {
+          out.println("              <a href=\"javascript: void setNextDeadlineDate" + formName + "('"
               + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
               + day.format(calendar.getTime()) + "</a>");
         }
@@ -2293,12 +2355,14 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("<br/>Link: <a href=\"" + completingAction.getLinkUrl() + "\" target=\"_blank\">"
           + trim(completingAction.getLinkUrl(), 40) + "</a>");
     }
-    if (completingAction.getNextDeadline() != null) {
-      if (completingAction.getNextDeadline().after(new Date())) {
-        out.println("    <br/>Deadline: " + sdf11.format(completingAction.getNextDeadline()));
+    if (completingAction.getNextDeadlineDate() != null) {
+      Date today = normalizeDate(new Date());
+      Date deadlineDate = completingAction.getNextDeadlineDate();
+      if (deadlineDate.after(today)) {
+        out.println("    <br/>Deadline: " + sdf11.format(completingAction.getNextDeadlineDate()));
       } else {
         out.println("    <br/><span class=\"fail\">Deadline Overdue:</span> "
-            + sdf11.format(completingAction.getNextDeadline()));
+            + sdf11.format(completingAction.getNextDeadlineDate()));
       }
     }
     out.println("</p>");
@@ -2999,10 +3063,10 @@ public class ProjectActionServlet extends ClientServlet {
         "            document.projectAction" + projectId + ".nextActionDate.value = nextActionDate;");
     out.println("            enableForm" + projectId + "(); ");
     out.println("          }");
-    out.println("          function setNextDeadline" + projectId + "(nextDeadline)");
+    out.println("          function setNextDeadlineDate" + projectId + "(nextDeadlineDate)");
     out.println("          {");
     out.println(
-        "            document.projectAction" + projectId + ".nextDeadline.value = nextDeadline;");
+        "            document.projectAction" + projectId + ".nextDeadlineDate.value = nextDeadlineDate;");
     out.println("          }");
     out.println("        </script>");
     out.println("      </table>");
@@ -3176,26 +3240,26 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("        <tr>");
       out.println("          <th class=\"inside\">Deadline</th>");
       out.println(
-          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDeadline\" size=\"10\" value=\""
-              + n(projectAction == null || projectAction.getNextDeadline() == null
-                  ? request.getParameter(PARAM_NEXT_DEADLINE)
-                  : sdf1.format(projectAction.getNextDeadline()))
+          "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDeadlineDate\" size=\"10\" value=\""
+              + n(projectAction == null || projectAction.getNextDeadlineDate() == null
+                  ? request.getParameter(PARAM_NEXT_DEADLINE_DATE)
+                  : sdf1.format(projectAction.getNextDeadlineDate()))
               + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
       out.println("            <font size=\"-1\">");
       sdf1 = webUser.getDateFormat();
       calendar.add(Calendar.DAY_OF_MONTH, 2);
-      out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+      out.println("              <a href=\"javascript: void setNextDeadlineDate" + projectId + "('"
           + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
           + day.format(calendar.getTime()) + "</a>");
       boolean nextWeek = false;
       for (int i = 0; i < 7; i++) {
         calendar.add(Calendar.DAY_OF_MONTH, 1);
         if (nextWeek) {
-          out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+          out.println("              <a href=\"javascript: void setNextDeadlineDate" + projectId + "('"
               + sdf1.format(calendar.getTime()) + "');\" class=\"button\">Next-"
               + day.format(calendar.getTime()) + "</a>");
         } else {
-          out.println("              <a href=\"javascript: void setNextDeadline" + projectId + "('"
+          out.println("              <a href=\"javascript: void setNextDeadlineDate" + projectId + "('"
               + sdf1.format(calendar.getTime()) + "');\" class=\"button\">"
               + day.format(calendar.getTime()) + "</a>");
         }
@@ -3448,12 +3512,14 @@ public class ProjectActionServlet extends ClientServlet {
     if (pa.getLinkUrl() != null && pa.getLinkUrl().length() > 0) {
       additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
     }
-    if (pa.getNextDeadline() != null) {
-      if (pa.getNextDeadline().after(today)) {
-        additionalContent += "    <br/>Deadline: " + sdf11.format(pa.getNextDeadline());
+    if (pa.getNextDeadlineDate() != null) {
+      Date todayDateOnly = normalizeDate(today);
+      Date deadlineDateOnly = pa.getNextDeadlineDate();
+      if (deadlineDateOnly.after(todayDateOnly)) {
+        additionalContent += "    <br/>Deadline: " + sdf11.format(pa.getNextDeadlineDate());
       } else {
         additionalContent += "    <br/>Deadline: <span class=\"fail\">"
-            + sdf11.format(pa.getNextDeadline()) + "</span>";
+            + sdf11.format(pa.getNextDeadlineDate()) + "</span>";
       }
     }
     if (editActionLink == null) {
@@ -3492,7 +3558,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      form." + PARAM_NEXT_CONTACT_ID + ".disabled = false;");
     out.println("      form." + PARAM_START_SENTANCE + ".disabled = false;");
     out.println("      form." + PARAM_NEXT_TIME_ESTIMATE + ".disabled = false;");
-    out.println("      form." + PARAM_NEXT_DEADLINE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_TARGET_DATE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_DEADLINE_DATE + ".disabled = false;");
     out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
     out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
     out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
@@ -3618,6 +3685,3 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 }
-
-
-

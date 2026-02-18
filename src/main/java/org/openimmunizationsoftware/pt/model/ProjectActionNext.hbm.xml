@@ -71,8 +71,12 @@
     <property name="templateTypeString" type="string">
       <column name="template_type" />
     </property>
-    <property name="nextDeadline" type="timestamp">
-      <column name="next_deadline" length="19" />
+    <property name="nextDeadlineDate" type="date">
+      <column name="next_deadline_date" />
+    </property>
+    <property name="nextTargetDate" type="date">
+      <column name="next_target_date" />
     </property>
   </class>
 </hibernate-mapping>
+
