@@ -33,11 +33,11 @@ public class GenerateReport {
     out.println("    <title>" + reportProfile.getProfileLabel() + "</title>");
     out.println(
         "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"/>");
-    //    out.println("    <style>");
-    //    out.println("       <!--");
-    //    out.println(reportProfile.getReportCSS());
-    //    out.println("       -->");
-    //    out.println("    </style>");
+    // out.println(" <style>");
+    // out.println(" <!--");
+    // out.println(reportProfile.getReportCSS());
+    // out.println(" -->");
+    // out.println(" </style>");
     out.println("  </head>");
     out.println("  <body>");
   }
@@ -94,7 +94,7 @@ public class GenerateReport {
       if (endDate.get(Calendar.MONTH) == Calendar.JANUARY) {
         reportBatch.setDateRangeLabel(sdfYear.format(startDate.getTime()));
       } else {
-        Calendar tempEndDate = Calendar.getInstance();
+        Calendar tempEndDate = webUser.getCalendar();
         tempEndDate.setTime(endDate.getTime());
         tempEndDate.add(Calendar.DAY_OF_MONTH, -1);
         reportBatch.setDateRangeLabel(

@@ -135,7 +135,7 @@ public class TemplateScheduleServlet extends ClientServlet {
 
       if (action != null) {
         SimpleDateFormat sdfField = webUser.getDateFormat("yyyyMMdd");
-        Date endOfYear = calculateEndOfYear();
+        Date endOfYear = calculateEndOfYear(webUser);
         Transaction transaction = dataSession.beginTransaction();
         ProjectActionNext templateActionPrevious = null;
         for (Project project : projectList) {
@@ -380,8 +380,8 @@ public class TemplateScheduleServlet extends ClientServlet {
     }
   }
 
-  private Date calculateEndOfYear() {
-    Calendar calendar = Calendar.getInstance();
+  private Date calculateEndOfYear(WebUser webUser) {
+    Calendar calendar = webUser.getCalendar();
     calendar.add(Calendar.MONTH, 1);
     calendar.set(Calendar.MONTH, 11);
     calendar.set(Calendar.DAY_OF_MONTH, 31);
@@ -426,5 +426,3 @@ public class TemplateScheduleServlet extends ClientServlet {
   }
 
 }
-
-

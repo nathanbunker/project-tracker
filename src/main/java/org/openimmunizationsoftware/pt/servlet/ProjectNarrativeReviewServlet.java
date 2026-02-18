@@ -7,7 +7,6 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
 import java.util.Date;
@@ -68,7 +67,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
 
             Session dataSession = appReq.getDataSession();
             ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
-            LocalDate reviewDate = resolveReviewDate(request, appReq);
+            LocalDate reviewDate = resolveReviewDate(request, appReq, webUser);
 
             if ("POST".equalsIgnoreCase(request.getMethod())) {
                 handlePost(request, response, appReq, narrativeDao, reviewDate);
@@ -84,7 +83,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             ReviewItem selectedItem = selectReviewItem(reviewItems, selectedProjectId);
 
             printReviewList(out, narrativeDao, reviewItems, selectedItem == null ? 0 : selectedItem.getProjectId(),
-                    reviewDate);
+                    reviewDate, webUser);
 
             out.println("<form action=\"ProjectNarrativeReviewServlet\" method=\"POST\">");
             out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + reviewDate
@@ -180,7 +179,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
         ProjectNarrative narrative = narrativeDao.findNarrativeForProjectVerbOnDate(project.getProjectId(), verb,
                 reviewDate);
-        Date narrativeDate = buildNarrativeDate(reviewDate, offsetSeconds);
+        Date narrativeDate = buildNarrativeDate(reviewDate, offsetSeconds, appReq.getWebUser());
         if (narrative == null) {
             narrative = new ProjectNarrative();
             narrative.setProject(project);
@@ -323,8 +322,8 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
     }
 
     private void printReviewList(PrintWriter out, ProjectNarrativeDao narrativeDao, List<ReviewItem> reviewItems,
-            long selectedProjectId, LocalDate reviewDate) {
-        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            long selectedProjectId, LocalDate reviewDate, WebUser webUser) {
+        LocalDate today = webUser.getLocalDateToday();
         LocalDate previousDate = getPreviousReviewDate(narrativeDao, reviewDate);
         LocalDate nextDate = reviewDate.plusDays(1);
 
@@ -391,16 +390,16 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         return null;
     }
 
-    private LocalDate resolveReviewDate(HttpServletRequest request, AppReq appReq) {
+    private LocalDate resolveReviewDate(HttpServletRequest request, AppReq appReq, WebUser webUser) {
         String dateParam = request.getParameter(PARAM_DATE);
         if (dateParam == null || dateParam.trim().length() == 0) {
-            return LocalDate.now(ZoneId.systemDefault());
+            return webUser.getLocalDateToday();
         }
         try {
             return LocalDate.parse(dateParam.trim());
         } catch (DateTimeParseException e) {
             appReq.setMessageProblem("Invalid date format. Use YYYY-MM-DD.");
-            return LocalDate.now(ZoneId.systemDefault());
+            return webUser.getLocalDateToday();
         }
     }
 
@@ -429,9 +428,9 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         return null;
     }
 
-    private static Date buildNarrativeDate(LocalDate date, int offsetSeconds) {
+    private static Date buildNarrativeDate(LocalDate date, int offsetSeconds, WebUser webUser) {
         long offsetMillis = offsetSeconds * 1000L;
-        Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date start = webUser.toDate(date);
         return new Date(start.getTime() + offsetMillis);
     }
 

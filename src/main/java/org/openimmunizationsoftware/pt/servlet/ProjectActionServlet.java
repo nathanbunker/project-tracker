@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -311,7 +310,7 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectNarrativeDao.Action> deletedActionsWithoutTimeToday = new ArrayList<>();
       if (project != null) {
         ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
-        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        LocalDate today = webUser.getLocalDateToday();
         deletedActionsWithTimeToday = narrativeDao.getDeletedActionsWithTimeForProjectOnDate(project.getProjectId(),
             today);
         deletedActionsWithoutTimeToday = narrativeDao.getDeletedActionsWithoutTimeForProjectOnDate(
@@ -1118,7 +1117,7 @@ public class ProjectActionServlet extends ClientServlet {
           boolean found = false;
           for (int i = 0; i < dateList.size(); i++) {
             Date date = dateList.get(i);
-            if (sameDayOrBefore(pa, date)) {
+            if (sameDayOrBefore(pa, date, webUser)) {
               label = dateToLabelMap.get(date);
               addToMap(projectActionMap, pa, label);
               found = true;
@@ -1135,11 +1134,11 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private static boolean sameDayOrBefore(ProjectActionNext pa, Date dateFromDateList) {
+  private static boolean sameDayOrBefore(ProjectActionNext pa, Date dateFromDateList,
+      WebUser webUser) {
     Date nextActionDate = pa.getNextActionDate();
     // need to chop off the time from the date
-    Calendar c = Calendar.getInstance();
-    c.setTime(dateFromDateList);
+    Calendar c = webUser.getCalendar(dateFromDateList);
     c.set(Calendar.HOUR_OF_DAY, 0);
     c.set(Calendar.MINUTE, 0);
     c.set(Calendar.SECOND, 0);
@@ -1820,8 +1819,7 @@ public class ProjectActionServlet extends ClientServlet {
     int colspan = showWork ? 4 : 2;
     String title = "All actions scheduled for ";
     // print name of next working day, either "Monday" or "Next Monday". that format
-    Calendar nextWorkingDay = Calendar.getInstance();
-    nextWorkingDay.setTime(workingDay);
+    Calendar nextWorkingDay = appReq.getWebUser().getCalendar(workingDay);
     SimpleDateFormat daynameSdf = new SimpleDateFormat("EEEE dd MMMM yyyy");
     title += daynameSdf.format(nextWorkingDay.getTime());
     out.println("<table class=\"boxed\">");
@@ -2356,7 +2354,7 @@ public class ProjectActionServlet extends ClientServlet {
           + trim(completingAction.getLinkUrl(), 40) + "</a>");
     }
     if (completingAction.getNextDeadlineDate() != null) {
-      Date today = normalizeDate(new Date());
+      Date today = normalizeDate(webUser, webUser.now());
       Date deadlineDate = completingAction.getNextDeadlineDate();
       if (deadlineDate.after(today)) {
         out.println("    <br/>Deadline: " + sdf11.format(completingAction.getNextDeadlineDate()));
@@ -2670,8 +2668,7 @@ public class ProjectActionServlet extends ClientServlet {
     Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
     if (dayOffset > 0) {
       // add number of days to today and tomorrow to get new "today" and "tomorrow"
-      Calendar calendar = Calendar.getInstance();
-      calendar.setTime(today);
+      Calendar calendar = webUser.getCalendar(today);
       calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
       today = calendar.getTime();
       calendar.setTime(tomorrow);
@@ -2679,8 +2676,7 @@ public class ProjectActionServlet extends ClientServlet {
       tomorrow = calendar.getTime();
     } else if (dayOffset < 0) {
       // getting overdue actions, going back a year
-      Calendar calendar = Calendar.getInstance();
-      calendar.setTime(today);
+      Calendar calendar = webUser.getCalendar(today);
       calendar.add(Calendar.YEAR, -1);
       today = calendar.getTime();
       calendar.setTime(tomorrow);
@@ -2730,14 +2726,8 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 
-  private static Date normalizeDate(Date date) {
-    Calendar calendar = Calendar.getInstance();
-    calendar.setTime(date);
-    calendar.set(Calendar.HOUR_OF_DAY, 0);
-    calendar.set(Calendar.MINUTE, 0);
-    calendar.set(Calendar.SECOND, 0);
-    calendar.set(Calendar.MILLISECOND, 0);
-    return calendar.getTime();
+  private static Date normalizeDate(WebUser webUser, Date date) {
+    return webUser.startOfDay(date);
   }
 
   private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {
@@ -3513,7 +3503,7 @@ public class ProjectActionServlet extends ClientServlet {
       additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
     }
     if (pa.getNextDeadlineDate() != null) {
-      Date todayDateOnly = normalizeDate(today);
+      Date todayDateOnly = normalizeDate(webUser, today);
       Date deadlineDateOnly = pa.getNextDeadlineDate();
       if (deadlineDateOnly.after(todayDateOnly)) {
         additionalContent += "    <br/>Deadline: " + sdf11.format(pa.getNextDeadlineDate());

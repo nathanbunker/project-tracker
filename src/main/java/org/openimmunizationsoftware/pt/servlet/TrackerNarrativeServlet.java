@@ -7,15 +7,13 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.time.ZoneId;
-import java.time.format.TextStyle;
 import java.time.format.DateTimeParseException;
-import java.util.Map;
+import java.time.format.TextStyle;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.ServletException;
@@ -87,7 +85,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
             }
 
             String type = resolveType(request);
-            LocalDate selectedDate = resolveDate(request, appReq);
+            LocalDate selectedDate = resolveDate(request, appReq, webUser);
             PeriodRange period = resolvePeriod(type, selectedDate);
             long narrativeId = readLong(request.getParameter(PARAM_ID));
             boolean editMode = VIEW_EDIT.equalsIgnoreCase(n(request.getParameter(PARAM_VIEW)));
@@ -121,7 +119,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
         String action = appReq.getAction();
         long narrativeId = readLong(request.getParameter(PARAM_ID));
         String type = resolveType(request);
-        LocalDate selectedDate = resolveDate(request, appReq);
+        LocalDate selectedDate = resolveDate(request, appReq, appReq.getWebUser());
 
         if (action == null || action.trim().length() == 0) {
             response.sendRedirect(buildListLink(type, selectedDate));
@@ -130,7 +128,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
         if (ACTION_APPROVE.equals(action)) {
             if (narrativeId > 0) {
-                narrativeDao.approve(narrativeId, LocalDateTime.now(ZoneId.systemDefault()));
+                narrativeDao.approve(narrativeId, appReq.getWebUser().getLocalDateTimeNow());
                 appReq.setMessageConfirmation("Narrative approved.");
             }
             response.sendRedirect(buildEditorLink(narrativeId, type, selectedDate));
@@ -167,7 +165,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
                     return;
                 }
                 PeriodRange period = resolvePeriod(type, selectedDate);
-                TrackerNarrative newNarrative = buildNewNarrative(type, period, projectId, contactId);
+                TrackerNarrative newNarrative = buildNewNarrative(type, period, projectId, contactId,
+                        appReq.getWebUser());
                 queuedNarrativeId = narrativeDao.insert(newNarrative);
                 appReq.setMessageConfirmation("Generation requested.");
                 redirect = buildEditorLink(queuedNarrativeId, type, selectedDate);
@@ -189,10 +188,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
                         response.sendRedirect(redirect);
                         return;
                     }
-                    PeriodRange period = new PeriodRange(toLocalDate(existing.getPeriodStart()),
-                            toLocalDate(existing.getPeriodEnd()));
+                    PeriodRange period = new PeriodRange(appReq.getWebUser().toLocalDate(existing.getPeriodStart()),
+                            appReq.getWebUser().toLocalDate(existing.getPeriodEnd()));
                     TrackerNarrative replacement = buildNewNarrative(existing.getNarrativeType(), period,
-                            projectId, contactId);
+                            projectId, contactId, appReq.getWebUser());
                     long newId = narrativeDao.insert(replacement);
                     queuedNarrativeId = newId;
                     appReq.setMessageConfirmation("Generation requested.");
@@ -494,7 +493,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
         if (date == null) {
             return "";
         }
-        Date asDate = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date asDate = webUser.toDate(date);
         return webUser.getDateFormat().format(asDate);
     }
 
@@ -506,13 +505,13 @@ public class TrackerNarrativeServlet extends ClientServlet {
     }
 
     private static TrackerNarrative buildNewNarrative(String type, PeriodRange period, int projectId,
-            int contactId) {
+            int contactId, WebUser webUser) {
         TrackerNarrative narrative = new TrackerNarrative();
         narrative.setProjectId(projectId);
         narrative.setContactId(contactId);
         narrative.setNarrativeType(type);
-        narrative.setPeriodStart(toDate(period.getStart()));
-        narrative.setPeriodEnd(toDate(period.getEnd()));
+        narrative.setPeriodStart(webUser.toDate(period.getStart()));
+        narrative.setPeriodEnd(webUser.toDate(period.getEnd()));
         narrative.setDisplayTitle(buildDisplayTitle(type, period));
         narrative.setReviewStatus(TrackerNarrativeReviewStatus.GENERATING);
         narrative.setMarkdownGenerated(null);
@@ -568,16 +567,16 @@ public class TrackerNarrativeServlet extends ClientServlet {
         return TYPE_DAILY;
     }
 
-    private static LocalDate resolveDate(HttpServletRequest request, AppReq appReq) {
+    private static LocalDate resolveDate(HttpServletRequest request, AppReq appReq, WebUser webUser) {
         String dateParam = request.getParameter(PARAM_DATE);
         if (dateParam == null || dateParam.trim().length() == 0) {
-            return LocalDate.now(ZoneId.systemDefault());
+            return webUser.getLocalDateToday();
         }
         try {
             return LocalDate.parse(dateParam.trim());
         } catch (DateTimeParseException e) {
             appReq.setMessageProblem("Invalid date format. Use YYYY-MM-DD.");
-            return LocalDate.now(ZoneId.systemDefault());
+            return webUser.getLocalDateToday();
         }
     }
 
@@ -615,20 +614,6 @@ public class TrackerNarrativeServlet extends ClientServlet {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : value;
-    }
-
-    private static LocalDate toLocalDate(Date date) {
-        if (date == null) {
-            return null;
-        }
-        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-    }
-
-    private static Date toDate(LocalDate date) {
-        if (date == null) {
-            return null;
-        }
-        return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 
     private static String buildListLink(String type, LocalDate date) {

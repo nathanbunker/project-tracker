@@ -440,8 +440,7 @@ public class ReportRunServlet extends ClientServlet {
           boolean isSunday;
           Date billDate;
           {
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(runDate);
+            Calendar calendar = webUser.getCalendar(runDate);
             isSunday = calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY;
             Date endDate = calendar.getTime();
             calendar.add(Calendar.DAY_OF_MONTH, -1);

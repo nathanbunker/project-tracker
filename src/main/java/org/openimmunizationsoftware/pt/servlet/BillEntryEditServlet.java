@@ -105,9 +105,9 @@ public class BillEntryEditServlet extends ClientServlet {
           }
 
           if (message == null && adjustOthersChecked) {
-            boolean sameDay = isSameDate(newStart, newEnd);
-            boolean sameAsOriginalStart = isSameDate(newStart, originalStart);
-            boolean sameAsOriginalEnd = isSameDate(newEnd, originalStart);
+            boolean sameDay = isSameDate(webUser, newStart, newEnd);
+            boolean sameAsOriginalStart = isSameDate(webUser, newStart, originalStart);
+            boolean sameAsOriginalEnd = isSameDate(webUser, newEnd, originalStart);
             if (!sameDay || !sameAsOriginalStart || !sameAsOriginalEnd) {
               message = "Automatic adjustment only works within the same day. Uncheck 'Adjust other entries' to move entries across days.";
             }
@@ -418,14 +418,12 @@ public class BillEntryEditServlet extends ClientServlet {
     }
   }
 
-  private static boolean isSameDate(Date first, Date second) {
+  private static boolean isSameDate(WebUser webUser, Date first, Date second) {
     if (first == null || second == null) {
       return false;
     }
-    Calendar firstCal = Calendar.getInstance();
-    firstCal.setTime(first);
-    Calendar secondCal = Calendar.getInstance();
-    secondCal.setTime(second);
+    Calendar firstCal = webUser.getCalendar(first);
+    Calendar secondCal = webUser.getCalendar(second);
     return firstCal.get(Calendar.YEAR) == secondCal.get(Calendar.YEAR)
         && firstCal.get(Calendar.DAY_OF_YEAR) == secondCal.get(Calendar.DAY_OF_YEAR);
   }

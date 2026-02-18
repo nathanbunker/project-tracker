@@ -55,7 +55,8 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_SORT_ORDER = "sortOrder";
   private static final String PARAM_SORT_ORDER_PREFIX = "sortOrder_";
   private static final String PARAM_SYSTEM_WIDE_MESSAGE = "systemWideMessage";
-  private static final String PARAM_TIME_ZONE = "timeZone";
+  private static final String PARAM_TIME_ZONE_USER = "timeZoneUser";
+  private static final String PARAM_TIME_ZONE_APPLICATION = "timeZoneApplication";
   private static final String PARAM_TRACK_TIME = "trackTime";
   private static final String PARAM_USE_SMTPS = "useSmtps";
   private static final String PARAM_VISIBLE = "visible";
@@ -96,10 +97,13 @@ public class SettingsServlet extends ClientServlet {
               request.getParameter(PARAM_DISPLAY_SIZE), dataSession);
           TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, webUser,
               request.getParameter(PARAM_DISPLAY_COLOR), dataSession);
-          String timeZone = request.getParameter(PARAM_TIME_ZONE);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ZONE, webUser, timeZone,
+          String timeZoneUser = request.getParameter(PARAM_TIME_ZONE_USER);
+          String timeZoneApplication = request.getParameter(PARAM_TIME_ZONE_APPLICATION);
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ZONE, webUser, timeZoneUser,
               dataSession);
-          webUser.setTimeZone(TimeZone.getTimeZone(timeZone));
+          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
+              timeZoneApplication, dataSession);
+          webUser.setTimeZone(TimeZone.getTimeZone(timeZoneUser));
 
           if (webUser.isUserTypeAdmin()) {
             TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TRACK_TIME, webUser,
@@ -277,8 +281,10 @@ public class SettingsServlet extends ClientServlet {
           "small", webUser, dataSession);
       String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
           webUser, dataSession);
-      String timeZone = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
+      String timeZoneUser = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
           WebUser.AMERICA_DENVER, webUser, dataSession);
+      String timeZoneApplication = TrackerKeysManager.getApplicationKeyValue(
+          TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, dataSession);
 
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
@@ -309,12 +315,23 @@ public class SettingsServlet extends ClientServlet {
       out.println("    </td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Time Zone</th>");
+      out.println("    <th class=\"boxed\">User Time Zone</th>");
       out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_TIME_ZONE + "\">");
+      out.println("      <select name=\"" + PARAM_TIME_ZONE_USER + "\">");
       for (String tz : TimeZone.getAvailableIDs()) {
         out.println("        <option value=\"" + tz + "\""
-            + (timeZone.equals(tz) ? " selected" : "") + ">" + tz + "</option>");
+            + (timeZoneUser.equals(tz) ? " selected" : "") + ">" + tz + "</option>");
+      }
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Application Time Zone</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"" + PARAM_TIME_ZONE_APPLICATION + "\">");
+      for (String tz : TimeZone.getAvailableIDs()) {
+        out.println("        <option value=\"" + tz + "\""
+            + (timeZoneApplication.equals(tz) ? " selected" : "") + ">" + tz + "</option>");
       }
       out.println("      </select>");
       out.println("    </td>");

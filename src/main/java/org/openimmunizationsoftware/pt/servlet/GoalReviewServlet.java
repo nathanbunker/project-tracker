@@ -68,7 +68,7 @@ public class GoalReviewServlet extends ClientServlet {
 
       if (action == null) {
         Transaction transaction = dataSession.beginTransaction();
-        Calendar calendar = Calendar.getInstance();
+        Calendar calendar = webUser.getCalendar();
         boolean splitPriorities = true;
         if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
             || calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY) {
@@ -155,7 +155,7 @@ public class GoalReviewServlet extends ClientServlet {
           transaction.commit();
           projectActionGoalList = getProjectActionGoalList(dataSession);
         }
-        Calendar calendar = Calendar.getInstance();
+        Calendar calendar = webUser.getCalendar();
         calendar.add(Calendar.HOUR, -48);
         for (ProjectActionNext projectAction : projectActionGoalList) {
           Project project = (Project) dataSession.get(Project.class, projectAction.getProjectId());
@@ -391,5 +391,3 @@ public class GoalReviewServlet extends ClientServlet {
   }
 
 }
-
-
