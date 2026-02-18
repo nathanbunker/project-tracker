@@ -76,7 +76,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_TEMPLATE_TYPE = "templateType";
   private static final String PARAM_LINK_URL = "linkUrl";
   private static final String PARAM_NEXT_DEADLINE = "nextDeadline";
-  private static final String PARAM_NEXT_DUE = "nextDue";
+  private static final String PARAM_NEXT_ACTION_DATE = "nextActionDate";
   private static final String PARAM_NEXT_DESCRIPTION = "nextDescription";
   private static final String PARAM_NEXT_NOTES = "nextNotes";
   private static final String PARAM_NEXT_NOTE = "nextNote";
@@ -219,25 +219,25 @@ public class ProjectActionServlet extends ClientServlet {
             completingAction = null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             Project nextProject = project;
-            Date originalNextDue = null;
+            Date originalNextActionDate = null;
             if (editProjectAction == null) {
               String nextProjectIdString = request.getParameter(PARAM_NEXT_PROJECT_ID);
               if (nextProjectIdString != null) {
                 nextProject = (Project) dataSession.get(Project.class, Integer.parseInt(nextProjectIdString));
               }
             } else {
-              originalNextDue = editProjectAction.getNextDue();
+              originalNextActionDate = editProjectAction.getNextActionDate();
             }
             editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
-            Date nextDue = editProjectAction.getNextDue();
+            Date nextActionDate = editProjectAction.getNextActionDate();
             if (action.equals(ACTION_START)) {
               completingAction = editProjectAction;
               appReq.setCompletingAction(completingAction);
               project = completingAction.getProject();
               projectActionTakenList = getProjectActionsTakenList(dataSession, project);
-            } else if (nextDue != null && !webUser.isToday(nextDue)
+            } else if (nextActionDate != null && !webUser.isToday(nextActionDate)
                 && (completingAction != null && completingAction.equals(editProjectAction))
-                && (originalNextDue == null || !nextDue.equals(originalNextDue))) {
+                && (originalNextActionDate == null || !nextActionDate.equals(originalNextActionDate))) {
               // if next action is being saved and the user didn't signal they wanted to work
               // on this next.
               // Then we should shift off this task if it's been rescheduled to a future date
@@ -271,7 +271,7 @@ public class ProjectActionServlet extends ClientServlet {
       planningRangeList = filterProjectActionList(planningRangeList, showWork, showPersonal);
       Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
       for (ProjectActionNext projectAction : planningRangeList) {
-        Date bucketDate = normalizeDate(projectAction.getNextDue());
+        Date bucketDate = normalizeDate(projectAction.getNextActionDate());
         List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
         if (bucketList == null) {
           bucketList = new ArrayList<>();
@@ -342,9 +342,9 @@ public class ProjectActionServlet extends ClientServlet {
 
       Set<String> formNameSet = new HashSet<String>();
 
-      Date nextDue = webUser.getCalendar().getTime();
+      Date nextActionDate = webUser.getCalendar().getTime();
       Calendar cIndicated = webUser.getCalendar();
-      cIndicated.setTime(nextDue);
+      cIndicated.setTime(nextActionDate);
 
       if (completingAction == null) {
         printTimeManagementBox(appReq, projectActionDueTodayList);
@@ -392,7 +392,7 @@ public class ProjectActionServlet extends ClientServlet {
         {
           List<TimeAdder> timeAdderList = new ArrayList<>();
           for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
             TimeAdder timeAdder = new TimeAdder(projectActionDueNextWorkingDayList, appReq, workingDayDate);
             timeAdderList.add(timeAdder);
           }
@@ -401,7 +401,7 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"title\">Planning</th>");
           for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
             SimpleDateFormat sdf = new SimpleDateFormat("EEE MM/dd");
             out.println("    <th class=\"boxed\">" + sdf.format(workingDayDate) + "</th>");
           }
@@ -449,7 +449,7 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("</table><br/>");
         }
         for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-          Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextDue();
+          Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
           printActionsScheduledForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
           printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
         }
@@ -718,7 +718,7 @@ public class ProjectActionServlet extends ClientServlet {
     } else {
       nextAction.setNextActionType(ProjectNextActionType.WILL);
     }
-    nextAction.setNextDue(actionDate);
+    nextAction.setNextActionDate(actionDate);
     nextAction.setNextDescription(actionToTake);
     nextAction.setNextTimeEstimate(nextTimeEstimate);
     nextAction.setNextChangeDate(new Date());
@@ -727,7 +727,7 @@ public class ProjectActionServlet extends ClientServlet {
     nextAction.setBillable(resolveBillable(dataSession, foundProject));
     if (nextAction.getNextActionStatus() == null) {
       if (nextAction.hasNextDescription()) {
-        if (nextAction.hasNextDue()) {
+        if (nextAction.hasNextActionDate()) {
           nextAction.setNextActionStatus(ProjectNextActionStatus.READY);
         } else {
           nextAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
@@ -991,7 +991,7 @@ public class ProjectActionServlet extends ClientServlet {
             + "left join fetch pan.nextProjectContact "
             + "where pan.projectId = ? and pan.nextDescription <> '' "
             + "and pan.nextActionStatusString = :nextActionStatus "
-            + "order by pan.nextDue asc");
+            + "order by pan.nextActionDate asc");
     query.setParameter(0, project.getProjectId());
     query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
     @SuppressWarnings("unchecked")
@@ -1108,9 +1108,9 @@ public class ProjectActionServlet extends ClientServlet {
       } else if (pa.getNextActionStatus() != null
           && pa.getNextActionStatus().equals(ProjectNextActionStatus.PROPOSED)) {
         addToMap(projectActionMap, pa, "Proposed");
-      } else if (pa.hasNextDue()) {
+      } else if (pa.hasNextActionDate()) {
         String label = "Overdue";
-        if (pa.getNextDue().before(dateList.get(0))) {
+        if (pa.getNextActionDate().before(dateList.get(0))) {
           addToMap(projectActionMap, pa, label);
         } else {
           label = "Today";
@@ -1135,7 +1135,7 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private static boolean sameDayOrBefore(ProjectActionNext pa, Date dateFromDateList) {
-    Date nextDue = pa.getNextDue();
+    Date nextActionDate = pa.getNextActionDate();
     // need to chop off the time from the date
     Calendar c = Calendar.getInstance();
     c.setTime(dateFromDateList);
@@ -1145,14 +1145,14 @@ public class ProjectActionServlet extends ClientServlet {
     c.set(Calendar.MILLISECOND, 0);
     dateFromDateList = c.getTime();
     c = Calendar.getInstance();
-    c.setTime(nextDue);
+    c.setTime(nextActionDate);
     c.set(Calendar.HOUR_OF_DAY, 0);
     c.set(Calendar.MINUTE, 0);
     c.set(Calendar.SECOND, 0);
     c.set(Calendar.MILLISECOND, 0);
-    nextDue = c.getTime();
+    nextActionDate = c.getTime();
 
-    return dateFromDateList.equals(nextDue) || nextDue.before(dateFromDateList);
+    return dateFromDateList.equals(nextActionDate) || nextActionDate.before(dateFromDateList);
   }
 
   private void addToMap(Map<String, List<ProjectActionNext>> projectActionMap, ProjectActionNext pa, String key) {
@@ -1222,7 +1222,7 @@ public class ProjectActionServlet extends ClientServlet {
       editProjectAction.setNextNotes(nextNote);
     }
 
-    editProjectAction.setNextDue(parseDate(appReq, request.getParameter(PARAM_NEXT_DUE)));
+    editProjectAction.setNextActionDate(parseDate(appReq, request.getParameter(PARAM_NEXT_ACTION_DATE)));
     editProjectAction.setNextDeadline(parseDate(appReq, request.getParameter(PARAM_NEXT_DEADLINE)));
     String linkUrl = request.getParameter(PARAM_LINK_URL);
     if (linkUrl == null || linkUrl.equals("")) {
@@ -1254,7 +1254,7 @@ public class ProjectActionServlet extends ClientServlet {
     editProjectAction.setProvider(webUser.getProvider());
     if (editProjectAction.getNextActionStatus() == null) {
       if (editProjectAction.hasNextDescription()) {
-        if (editProjectAction.hasNextDue()) {
+        if (editProjectAction.hasNextActionDate()) {
           editProjectAction.setNextActionStatus(ProjectNextActionStatus.READY);
         } else {
           editProjectAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
@@ -1328,10 +1328,10 @@ public class ProjectActionServlet extends ClientServlet {
           && !completingAction.getNextDescription().equals("")) {
         msg.append("<p>");
         msg.append(completingAction.getNextDescriptionForDisplay(webUser.getProjectContact()));
-        if (completingAction.getNextDue() != null) {
+        if (completingAction.getNextActionDate() != null) {
           SimpleDateFormat sdf11 = webUser.getDateFormat();
           msg.append(" ");
-          msg.append(sdf11.format(completingAction.getNextDue()));
+          msg.append(sdf11.format(completingAction.getNextActionDate()));
         }
         msg.append("</p>");
       }
@@ -1465,8 +1465,8 @@ public class ProjectActionServlet extends ClientServlet {
     }
     Calendar todayCalendar = getCalendarForTodayNoTime(appReq.getWebUser());
     Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
-    if (projectAction.getNextDue() != null && projectAction.getNextDue().after(todayCalendar.getTime())) {
-      calendar.setTime(projectAction.getNextDue());
+    if (projectAction.getNextActionDate() != null && projectAction.getNextActionDate().after(todayCalendar.getTime())) {
+      calendar.setTime(projectAction.getNextActionDate());
       calendar.set(Calendar.HOUR_OF_DAY, 0);
       calendar.set(Calendar.MINUTE, 0);
       calendar.set(Calendar.SECOND, 0);
@@ -1481,7 +1481,7 @@ public class ProjectActionServlet extends ClientServlet {
       calendar.add(Calendar.DAY_OF_MONTH, 1);
     }
     Date postponedDueDate = calendar.getTime();
-    projectAction.setNextDue(postponedDueDate);
+    projectAction.setNextActionDate(postponedDueDate);
     if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())) {
       projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
     }
@@ -1659,7 +1659,7 @@ public class ProjectActionServlet extends ClientServlet {
         if (projectAction.equals(completingAction)) {
           continue;
         }
-        basePrompt += LIST_START + sdf.format(projectAction.getNextDue()) + " "
+        basePrompt += LIST_START + sdf.format(projectAction.getNextActionDate()) + " "
             + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + " \n";
       }
     }
@@ -1719,7 +1719,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    function enableForm" + formName + "()");
     out.println("    {");
     out.println("      var form = document.forms['" + SAVE_PROJECT_ACTION_FORM + formName + "'];");
-    out.println("      form." + PARAM_NEXT_DUE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_ACTION_DATE + ".disabled = false;");
     out.println("      form." + PARAM_NEXT_DESCRIPTION + ".disabled = false;");
     out.println("      form." + PARAM_NEXT_CONTACT_ID + ".disabled = false;");
     out.println("      form." + PARAM_START_SENTANCE + ".disabled = false;");
@@ -1728,14 +1728,14 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
     out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
     out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
-    out.println("      if (form." + PARAM_NEXT_DUE + ".value == \"\")");
+    out.println("      if (form." + PARAM_NEXT_ACTION_DATE + ".value == \"\")");
     out.println("      {");
-    out.println("       document.projectAction" + formName + "." + PARAM_NEXT_DUE + ".value = '"
+    out.println("       document.projectAction" + formName + "." + PARAM_NEXT_ACTION_DATE + ".value = '"
         + sdf.format(new Date()) + "';");
     out.println("      }");
     out.println("    }");
     out.println("    function setNextAction" + formName + "(nextActionDate) {");
-    out.println("      document.projectAction" + formName + "." + PARAM_NEXT_DUE + ".value = nextActionDate;");
+    out.println("      document.projectAction" + formName + "." + PARAM_NEXT_ACTION_DATE + ".value = nextActionDate;");
     out.println("      enableForm" + formName + "(); ");
     out.println("    }");
     out.println("    function setNextDeadline" + formName + "(nextDeadline) {");
@@ -2001,7 +2001,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  <tr>");
     out.println("    <td class=\"outside\">");
     out.println("      <table class=\"inside\">");
-    SimpleDateFormat sdf2 = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
+    SimpleDateFormat sdf2 = webUser.getDateFormat("MM/dd/yyyy");
     {
       sdf1 = webUser.getDateFormat();
       out.println("        <tr>");
@@ -2029,13 +2029,13 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("        <tr>");
       out.println("          <th class=\"inside\">When</th>");
       {
-        String nextDueString = projectAction == null || projectAction.getNextDue() == null
-            ? request.getParameter(PARAM_NEXT_DUE)
-            : sdf2.format(projectAction.getNextDue());
+        String nextActionDateString = projectAction == null || projectAction.getNextActionDate() == null
+            ? request.getParameter(PARAM_NEXT_ACTION_DATE)
+            : sdf2.format(projectAction.getNextActionDate());
         out.println(
-            "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_NEXT_DUE
+            "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_NEXT_ACTION_DATE
                 + "\" size=\"10\" value=\""
-                + n(nextDueString) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+                + n(nextActionDateString) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
       }
       out.println("            <font size=\"-1\">");
       Calendar calendar = webUser.getCalendar();
@@ -2631,8 +2631,8 @@ public class ProjectActionServlet extends ClientServlet {
             + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
             + "and pan.nextDescription <> '' "
             + "and pan.nextActionStatusString = :nextActionStatus "
-            + "and pan.nextDue >= :today and pan.nextDue < :tomorrow "
-            + "order by pan.nextDue, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+            + "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow "
+            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
@@ -2654,8 +2654,8 @@ public class ProjectActionServlet extends ClientServlet {
             + "left join fetch pan.nextProjectContact "
             + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
             + "and pan.nextDescription <> '' "
-            + "and pan.nextDue >= :startDate and pan.nextDue < :endDate "
-            + "order by pan.nextDue, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+            + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
+            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
     query.setParameter("provider", webUser.getProvider());
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
@@ -2831,12 +2831,12 @@ public class ProjectActionServlet extends ClientServlet {
   protected static Date parseDate(AppReq appReq, String dateString) {
     Date date = null;
     if (dateString != null && dateString.length() > 0) {
-      SimpleDateFormat sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy hh:mm aaa");
+      SimpleDateFormat sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy");
       try {
         date = sdf1.parse(dateString);
       } catch (Exception e) {
         // try again
-        sdf1 = appReq.getWebUser().getDateFormat();
+        sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy");
         try {
           date = sdf1.parse(dateString);
         } catch (Exception e2) {
@@ -2933,7 +2933,7 @@ public class ProjectActionServlet extends ClientServlet {
             + "where pan.projectId = ? and pan.nextDescription <> '' "
             + "and (pan.nextActionStatusString = :readyStatus "
             + "or pan.nextActionStatusString = :proposedStatus) "
-            + "order by pan.nextDue asc");
+            + "order by pan.nextActionDate asc");
     query.setParameter(0, projectId);
     query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
     query.setParameter("proposedStatus", ProjectNextActionStatus.PROPOSED.getId());
@@ -2945,7 +2945,7 @@ public class ProjectActionServlet extends ClientServlet {
       Date today = new Date();
       for (Iterator<ProjectActionNext> it = projectActionList.iterator(); it.hasNext();) {
         ProjectActionNext pa = it.next();
-        if (pa.getNextDue() == null || pa.getNextDue().after(today)) {
+        if (pa.getNextActionDate() == null || pa.getNextActionDate().after(today)) {
           if (pa.isTemplate()) {
             projectActionTemplateList.add(pa);
             it.remove();
@@ -2996,7 +2996,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("          function setNextAction" + projectId + "(nextActionDate)");
     out.println("          {");
     out.println(
-        "            document.projectAction" + projectId + ".nextDue.value = nextActionDate;");
+        "            document.projectAction" + projectId + ".nextActionDate.value = nextActionDate;");
     out.println("            enableForm" + projectId + "(); ");
     out.println("          }");
     out.println("          function setNextDeadline" + projectId + "(nextDeadline)");
@@ -3017,18 +3017,17 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  <tr>");
     out.println("    <td class=\"outside\">");
     out.println("      <table class=\"inside\">");
-    SimpleDateFormat sdf1 = webUser.getDateFormat("MM/dd/yyyy hh:mm aaa");
+    SimpleDateFormat sdf1 = webUser.getDateFormat("MM/dd/yyyy");
     {
-      sdf1 = webUser.getDateFormat();
       out.println("        <tr>");
       out.println("          <th class=\"inside\">When</th>");
       {
-        String nextDue = projectAction == null || projectAction.getNextDue() == null
-            ? request.getParameter(PARAM_NEXT_DUE)
-            : sdf1.format(projectAction.getNextDue());
+        String nextActionDate = projectAction == null || projectAction.getNextActionDate() == null
+            ? request.getParameter(PARAM_NEXT_ACTION_DATE)
+            : sdf1.format(projectAction.getNextActionDate());
         out.println(
-            "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextDue\" size=\"10\" value=\""
-                + n(nextDue) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+            "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"nextActionDate\" size=\"10\" value=\""
+                + n(nextActionDate) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
       }
       out.println("            <font size=\"-1\">");
       Calendar calendar = webUser.getCalendar();
@@ -3337,8 +3336,8 @@ public class ProjectActionServlet extends ClientServlet {
         pa.setNextProjectContact(nextProjectContact);
       }
       out.println("  <tr>");
-      if (pa.getNextDue() != null) {
-        out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextDue())
+      if (pa.getNextActionDate() != null) {
+        out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextActionDate())
             + "</a></td>");
       } else {
         out.println("    <td class=\"inside\">&nbsp;</td>");
@@ -3354,10 +3353,10 @@ public class ProjectActionServlet extends ClientServlet {
         out.println(" (time estimate: " + pa.getNextTimeEstimateForDisplay() + ")");
       }
       out.println("</a></td>");
-      if (pa.getNextDue() != null) {
-        if (pa.getNextDue().after(today)) {
+      if (pa.getNextActionDate() != null) {
+        if (pa.getNextActionDate().after(today)) {
           out.println("    <td class=\"inside\"></td>");
-        } else if (pa.getNextDue().after(yesterday)) {
+        } else if (pa.getNextActionDate().after(yesterday)) {
           out.println("    <td class=\"inside-highlight\">Due Today</td>");
         } else {
           out.println("    <td class=\"inside-highlight\">Overdue</td>");
@@ -3403,8 +3402,8 @@ public class ProjectActionServlet extends ClientServlet {
           pa.setNextProjectContact(nextProjectContact);
         }
         out.println("  <tr>");
-        if (pa.getNextDue() != null) {
-          out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextDue())
+        if (pa.getNextActionDate() != null) {
+          out.println("    <td class=\"inside\">" + editActionLink + sdf11.format(pa.getNextActionDate())
               + "</a></td>");
         } else {
           out.println("    <td class=\"inside\">&nbsp;</td>");
@@ -3417,10 +3416,10 @@ public class ProjectActionServlet extends ClientServlet {
         }
 
         printActionDescription(webUser, out, sdf11, pa, editActionLink, today);
-        if (pa.getNextDue() != null) {
-          if (pa.getNextDue().after(today)) {
+        if (pa.getNextActionDate() != null) {
+          if (pa.getNextActionDate().after(today)) {
             out.println("    <td class=\"inside\"></td>");
-          } else if (pa.getNextDue().after(yesterday)) {
+          } else if (pa.getNextActionDate().after(yesterday)) {
             out.println("    <td class=\"inside-highlight\">Due Today</td>");
           } else {
             out.println("    <td class=\"inside-highlight\">Overdue</td>");
@@ -3488,7 +3487,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    function enableForm" + formName + "()");
     out.println("    {");
     out.println("      var form = document.forms['" + SAVE_PROJECT_ACTION_FORM + formName + "'];");
-    out.println("      form." + PARAM_NEXT_DUE + ".disabled = false;");
+    out.println("      form." + PARAM_NEXT_ACTION_DATE + ".disabled = false;");
     out.println("      form." + PARAM_NEXT_DESCRIPTION + ".disabled = false;");
     out.println("      form." + PARAM_NEXT_CONTACT_ID + ".disabled = false;");
     out.println("      form." + PARAM_START_SENTANCE + ".disabled = false;");
@@ -3497,9 +3496,9 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
     out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
     out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
-    out.println("      if (form." + PARAM_NEXT_DUE + ".value == \"\")");
+    out.println("      if (form." + PARAM_NEXT_ACTION_DATE + ".value == \"\")");
     out.println("      {");
-    out.println("       document.projectAction" + formName + "." + PARAM_NEXT_DUE + ".value = '"
+    out.println("       document.projectAction" + formName + "." + PARAM_NEXT_ACTION_DATE + ".value = '"
         + sdf.format(new Date()) + "';");
     out.println("      }");
     out.println("    }");
@@ -3619,3 +3618,6 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 }
+
+
+

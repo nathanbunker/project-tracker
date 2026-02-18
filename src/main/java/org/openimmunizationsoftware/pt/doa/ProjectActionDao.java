@@ -33,7 +33,7 @@ public class ProjectActionDao {
 
     public List<ProjectActionNext> listNextActionsForProject(String providerId, int projectId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId order by pan.priorityLevel desc, pan.nextDue");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId order by pan.priorityLevel desc, pan.nextActionDate");
         query.setInteger("projectId", projectId);
         query.setString("providerId", providerId);
         @SuppressWarnings("unchecked")
@@ -51,7 +51,7 @@ public class ProjectActionDao {
                         + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :nextActionStatus "
-                        + "order by pan.nextDue, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                        + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
         query.setParameter("provider", provider);
         query.setParameter("contactId", contactId);
         query.setParameter("nextContactId", contactId);
@@ -64,7 +64,7 @@ public class ProjectActionDao {
     public List<ProjectActionNext> listNextActionsForProjectAndContact(String providerId, int projectId,
             int contactId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.contactId = :contactId and pan.provider.providerId = :providerId order by pan.nextDue");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.contactId = :contactId and pan.provider.providerId = :providerId order by pan.nextActionDate");
         query.setInteger("projectId", projectId);
         query.setInteger("contactId", contactId);
         query.setString("providerId", providerId);
@@ -189,7 +189,7 @@ public class ProjectActionDao {
                         + "left join fetch pan.project "
                         + "where pan.nextDescription <> '' "
                         + "and pan.nextActionType = :nextActionType "
-                        + "order by pan.priorityLevel desc, pan.projectId, pan.nextDue asc");
+                        + "order by pan.priorityLevel desc, pan.projectId, pan.nextActionDate asc");
         query.setString("nextActionType", org.openimmunizationsoftware.pt.model.ProjectNextActionType.GOAL);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
@@ -207,10 +207,10 @@ public class ProjectActionDao {
 
     public List<ProjectActionNext> findNextActionsDueBetween(int projectId, Date start, Date end) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.nextDue between :start and :end order by pan.nextDue");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionDate between :start and :end order by pan.nextActionDate");
         query.setInteger("projectId", projectId);
-        query.setTimestamp("start", start);
-        query.setTimestamp("end", end);
+        query.setDate("start", start);
+        query.setDate("end", end);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
         return results;

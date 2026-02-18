@@ -101,7 +101,7 @@ public class TemplateScheduleServlet extends ClientServlet {
               "from ProjectActionNext where projectId = :projectId and nextDescription <> '' "
                   + "and templateTypeString is NOT NULL and templateTypeString <> '' "
                   + "and nextActionStatusString = :nextActionStatus "
-                  + "order by nextDue asc, nextDescription");
+                  + "order by nextActionDate asc, nextDescription");
           query.setParameter(PROJECT_ID, project.getProjectId());
           query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
           @SuppressWarnings("unchecked")
@@ -111,16 +111,16 @@ public class TemplateScheduleServlet extends ClientServlet {
             Map<Calendar, ProjectActionNext> projectActionMap = new HashMap<Calendar, ProjectActionNext>();
             projectActionDayMap.put(projectActionTemplate, projectActionMap);
             query = dataSession.createQuery("from ProjectActionNext where "
-                + "templateActionNextId = :templateActionNextId and nextDue >= :nextDue ");
+                + "templateActionNextId = :templateActionNextId and nextActionDate >= :nextActionDate ");
             query.setParameter("templateActionNextId", projectActionTemplate.getActionNextId());
-            query.setParameter("nextDue", dayList.get(0).getTime());
+            query.setParameter("nextActionDate", dayList.get(0).getTime());
             @SuppressWarnings("unchecked")
             List<ProjectActionNext> pal = query.list();
             for (ProjectActionNext pa : pal) {
 
               Calendar calendar = null;
               for (Calendar c : dayList) {
-                if (c.getTime().equals(pa.getNextDue())) {
+                if (c.getTime().equals(pa.getNextActionDate())) {
                   calendar = c;
                   break;
                 }
@@ -154,7 +154,7 @@ public class TemplateScheduleServlet extends ClientServlet {
               } catch (NumberFormatException nfe) {
                 // just ignore and keep going
               }
-              templateAction.setNextDue(endOfYear);
+              templateAction.setNextActionDate(endOfYear);
               dataSession.update(templateAction);
             }
             for (Calendar day : dayList) {
@@ -176,7 +176,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                   projectAction.setContact(webUser.getProjectContact());
                   projectAction.setNextChangeDate(new Date());
                   projectAction.setNextDescription(templateAction.getNextDescription());
-                  projectAction.setNextDue(day.getTime());
+                  projectAction.setNextActionDate(day.getTime());
                   projectAction.setBillable(projectBillable);
                   String nextActionType = request.getParameter("na" + templateAction.getActionNextId());
                   projectAction.setNextActionType(nextActionType);
@@ -220,7 +220,7 @@ public class TemplateScheduleServlet extends ClientServlet {
             templateAction.setNextChangeDate(new Date());
 
             templateAction.setProjectId(Integer.parseInt(projectIdString));
-            templateAction.setNextDue(endOfYear);
+            templateAction.setNextActionDate(endOfYear);
             templateAction.setNextActionType(ProjectNextActionType.WILL);
             templateAction.setNextContactId(templateActionPrevious.getNextContactId());
             templateAction
@@ -426,3 +426,5 @@ public class TemplateScheduleServlet extends ClientServlet {
   }
 
 }
+
+

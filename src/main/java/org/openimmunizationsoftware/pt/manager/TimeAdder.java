@@ -95,7 +95,7 @@ public class TimeAdder {
         mightEst = 0;
         otherEst = 0;
         for (ProjectActionNext pa : projectActionList) {
-            if (isToday && !webUser.sameDay(cIndicated, pa.getNextDue())) {
+            if (isToday && !webUser.sameDay(cIndicated, pa.getNextActionDate())) {
                 continue;
             }
             if (!pa.isBillable()) {

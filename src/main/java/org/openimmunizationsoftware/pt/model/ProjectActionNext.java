@@ -28,7 +28,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private TemplateType templateType;
     private ProjectNextActionStatus nextActionStatus;
     private Date nextChangeDate;
-    private Date nextDue;
+    private Date nextActionDate;
     private Date nextDeadline;
     private String nextDescription;
     private boolean billable;
@@ -301,16 +301,16 @@ public class ProjectActionNext implements java.io.Serializable {
         this.nextChangeDate = nextChangeDate;
     }
 
-    public Date getNextDue() {
-        return nextDue;
+    public Date getNextActionDate() {
+        return nextActionDate;
     }
 
-    public boolean hasNextDue() {
-        return nextDue != null;
+    public boolean hasNextActionDate() {
+        return nextActionDate != null;
     }
 
-    public void setNextDue(Date nextDue) {
-        this.nextDue = nextDue;
+    public void setNextActionDate(Date nextActionDate) {
+        this.nextActionDate = nextActionDate;
     }
 
     public Date getNextDeadline() {

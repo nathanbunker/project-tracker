@@ -110,7 +110,7 @@ public class TodoServlet extends MobileBaseServlet {
                     continue;
                 }
 
-                if (isToday && action.getNextDue() != null && action.getNextDue().before(today)) {
+                if (isToday && action.getNextActionDate() != null && action.getNextActionDate().before(today)) {
                     overdueActions.add(action);
                 } else {
                     todayActions.add(action);
@@ -210,10 +210,8 @@ public class TodoServlet extends MobileBaseServlet {
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
-        Date dayStart = cal.getTime();
-
         cal.add(Calendar.DAY_OF_MONTH, 1);
-        Date dayEnd = cal.getTime();
+        Date nextDayStart = cal.getTime();
 
         // Fetch all READY actions for this date OR overdue (if viewing today)
         Query query = dataSession.createQuery(
@@ -225,21 +223,21 @@ public class TodoServlet extends MobileBaseServlet {
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.nextActionStatusString = :status " +
                         "and pan.nextDescription <> '' " +
-                        "and pan.nextDue < :dayEnd " +
-                        "order by pan.nextDue, pan.priorityLevel DESC, pan.nextChangeDate");
+                        "and pan.nextActionDate < :nextDayStart " +
+                        "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate");
 
         query.setParameter("provider", webUser.getProvider());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
-        query.setParameter("dayEnd", dayEnd);
+        query.setParameter("nextDayStart", nextDayStart);
 
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
 
-        // Filter to only include items due on or before selected date
+        // Filter to only include items due before next day (date-only semantics)
         List<ProjectActionNext> filtered = new ArrayList<>();
         for (ProjectActionNext action : results) {
-            if (action.getNextDue() != null && !action.getNextDue().after(dayEnd)) {
+            if (action.getNextActionDate() != null && action.getNextActionDate().before(nextDayStart)) {
                 // Load lazy associations
                 if (action.getProject() == null && action.getProjectId() > 0) {
                     action.setProject((Project) dataSession.get(Project.class, action.getProjectId()));
@@ -373,7 +371,7 @@ public class TodoServlet extends MobileBaseServlet {
             if (!dateParam.isEmpty()) {
                 out.println("      <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
             }
-            out.println("      <button type=\"submit\" class=\"checkbox-btn\">☐</button>");
+            out.println("      <button type=\"submit\" class=\"checkbox-btn\">&#x2610;</button>");
             out.println("    </form>");
 
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
@@ -463,7 +461,7 @@ public class TodoServlet extends MobileBaseServlet {
         Transaction trans = dataSession.beginTransaction();
         try {
             Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
-            action.setNextDue(tomorrow);
+            action.setNextActionDate(tomorrow);
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
             trans.commit();

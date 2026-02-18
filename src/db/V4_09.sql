@@ -22,3 +22,16 @@ WHERE pna.billable IS NULL;
 
 ALTER TABLE project_action_next
     MODIFY COLUMN billable CHAR(1) NOT NULL DEFAULT 'N';
+
+ALTER TABLE project_action_next
+    ADD COLUMN next_action_date DATE NULL;
+
+UPDATE project_action_next
+SET next_action_date = DATE(next_due)
+WHERE next_due IS NOT NULL;
+
+ALTER TABLE project_action_next
+    DROP COLUMN next_due;
+
+ALTER TABLE project_action_next
+    ADD INDEX idx_pan_next_action_date (next_action_date);

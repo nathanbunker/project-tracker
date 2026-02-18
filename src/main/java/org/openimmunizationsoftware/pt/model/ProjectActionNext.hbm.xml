@@ -28,8 +28,8 @@
     <property name="billable" type="yes_no">
       <column name="billable" length="1" not-null="true" />
     </property>
-    <property name="nextDue" type="timestamp">
-      <column name="next_due" length="19" />
+    <property name="nextActionDate" type="date">
+      <column name="next_action_date" />
     </property>
     <property name="nextActionType" type="string">
       <column name="next_action_type" length="16" />
