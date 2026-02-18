@@ -25,6 +25,9 @@
     <property name="nextDescription" type="string">
       <column name="next_description" length="1200" not-null="true" />
     </property>
+    <property name="billable" type="yes_no">
+      <column name="billable" length="1" not-null="true" />
+    </property>
     <property name="nextDue" type="timestamp">
       <column name="next_due" length="19" />
     </property>

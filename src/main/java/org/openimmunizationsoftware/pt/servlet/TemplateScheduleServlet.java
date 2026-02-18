@@ -24,6 +24,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -41,6 +42,14 @@ public class TemplateScheduleServlet extends ClientServlet {
   private static final String TIME_ESTIMATE = "te";
   private static final String NEXT_DESCRIPTION = "nd";
   private static final String PARAM_ACTION_NEXT_ID = "actionNextId";
+
+  private boolean resolveBillable(Session dataSession, Project project) {
+    if (project == null || project.getBillCode() == null || project.getBillCode().equals("")) {
+      return false;
+    }
+    BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
+    return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
+  }
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -130,6 +139,7 @@ public class TemplateScheduleServlet extends ClientServlet {
         Transaction transaction = dataSession.beginTransaction();
         ProjectActionNext templateActionPrevious = null;
         for (Project project : projectList) {
+          boolean projectBillable = resolveBillable(dataSession, project);
           List<ProjectActionNext> templateList = templateMap.get(project);
           for (ProjectActionNext templateAction : templateList) {
             Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(templateAction);
@@ -167,6 +177,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                   projectAction.setNextChangeDate(new Date());
                   projectAction.setNextDescription(templateAction.getNextDescription());
                   projectAction.setNextDue(day.getTime());
+                  projectAction.setBillable(projectBillable);
                   String nextActionType = request.getParameter("na" + templateAction.getActionNextId());
                   projectAction.setNextActionType(nextActionType);
                   int priorityLevel = project.getPriorityLevel();
@@ -216,6 +227,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                 .setNextProjectContact(templateActionPrevious.getNextProjectContact());
             templateAction.setNextDescription(trim(nextDescription, 12000));
             templateAction.setProvider(templateActionPrevious.getProvider());
+            templateAction.setBillable(templateActionPrevious.isBillable());
             try {
               templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
             } catch (NumberFormatException nfe) {

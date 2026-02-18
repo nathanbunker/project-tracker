@@ -31,6 +31,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private Date nextDue;
     private Date nextDeadline;
     private String nextDescription;
+    private boolean billable;
 
     public int getActionNextId() {
         return actionNextId;
@@ -402,6 +403,14 @@ public class ProjectActionNext implements java.io.Serializable {
 
     public void setNextDescription(String nextDescription) {
         this.nextDescription = nextDescription;
+    }
+
+    public boolean isBillable() {
+        return billable;
+    }
+
+    public void setBillable(boolean billable) {
+        this.billable = billable;
     }
 
     public String getNextTimeEstimateMinsForDisplay() {

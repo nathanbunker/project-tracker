@@ -52,7 +52,7 @@ public class ClientServlet extends HttpServlet {
     ClientServlet.systemWideMessage = systemWideMessage;
   }
 
-  protected static void printHtmlHead(AppReq appReq) {
+  protected void printHtmlHead(AppReq appReq) {
     HttpServletResponse response = appReq.getResponse();
     response.setContentType("text/html;charset=UTF-8");
     PrintWriter out = appReq.getOut();
@@ -333,7 +333,7 @@ public class ClientServlet extends HttpServlet {
         + SoftwareVersion.VERSION + "</p>");
   }
 
-  public static void printHtmlFoot(AppReq appReq) {
+  protected void printHtmlFoot(AppReq appReq) {
     PrintWriter out = appReq.getOut();
     switch (appReq.getAppType()) {
       case SENTIMENT:

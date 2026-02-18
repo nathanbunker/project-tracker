@@ -98,6 +98,14 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.LoginServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>MobileServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.MobileServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>TodoServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.TodoServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>BillEntryEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillEntryEditServlet</servlet-class>
   </servlet>
@@ -140,6 +148,14 @@
   <servlet-mapping>
     <servlet-name>LoginServlet</servlet-name>
     <url-pattern>/LoginServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>MobileServlet</servlet-name>
+    <url-pattern>/m/mobile</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>TodoServlet</servlet-name>
+    <url-pattern>/m/todo</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>HomeServlet</servlet-name>

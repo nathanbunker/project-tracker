@@ -6,9 +6,11 @@ import java.util.List;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 
 /**
@@ -100,6 +102,7 @@ public class ProjectActionDao {
 
     public ProjectActionNext saveNextAction(ProjectActionNext action) {
         validateNextActionStatus(action);
+        action.setBillable(resolveBillable(action));
         session.save(action);
         return action;
     }
@@ -111,7 +114,23 @@ public class ProjectActionDao {
 
     public void updateNextAction(ProjectActionNext action) {
         validateNextActionStatus(action);
+        action.setBillable(resolveBillable(action));
         session.update(action);
+    }
+
+    private boolean resolveBillable(ProjectActionNext action) {
+        if (action == null) {
+            return false;
+        }
+        Project project = action.getProject();
+        if (project == null && action.getProjectId() > 0) {
+            project = (Project) session.get(Project.class, action.getProjectId());
+        }
+        if (project == null || project.getBillCode() == null || project.getBillCode().equals("")) {
+            return false;
+        }
+        BillCode billCode = (BillCode) session.get(BillCode.class, project.getBillCode());
+        return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 
     private void validateNextActionStatus(ProjectActionNext action) {

@@ -68,9 +68,13 @@ public class LoginServlet extends ClientServlet {
         if (password == null) {
           password = "";
         }
+        String uiMode = request.getParameter("uiMode");
+        if (uiMode == null || uiMode.equals("")) {
+          uiMode = "desktop";
+        }
         try {
           printHtmlHead(appReq);
-          printLoginForm(out, username, password);
+          printLoginForm(out, username, password, uiMode);
           printHtmlFoot(appReq);
         } catch (Exception e) {
           e.printStackTrace();
@@ -78,7 +82,12 @@ public class LoginServlet extends ClientServlet {
           appReq.close();
         }
       } else {
-        RequestDispatcher dispatcher = request.getRequestDispatcher("HomeServlet");
+        String uiMode = request.getParameter("uiMode");
+        String target = "HomeServlet";
+        if (uiMode != null && uiMode.equals("mobile")) {
+          target = "m/todo";
+        }
+        RequestDispatcher dispatcher = request.getRequestDispatcher(target);
         dispatcher.forward(request, response);
         return;
       }
@@ -149,7 +158,8 @@ public class LoginServlet extends ClientServlet {
     return loginSuccess;
   }
 
-  private void printLoginForm(PrintWriter out, String username, String password) {
+  private void printLoginForm(PrintWriter out, String username, String password, String uiMode) {
+    boolean mobileSelected = uiMode != null && uiMode.equals("mobile");
     out.println("<form action=\"LoginServlet\" method=\"POST\">");
     out.println("<table>");
     out.println("  <tr>");
@@ -160,6 +170,15 @@ public class LoginServlet extends ClientServlet {
     out.println("    <td>Password</td>");
     out.println(
         "    <td><input type=\"password\" name=\"password\" value=\"" + password + "\"></td>");
+    out.println("  </tr>");
+    out.println("  <tr>");
+    out.println("    <td>Interface</td>");
+    out.println("    <td>");
+    out.println("      <label><input type=\"radio\" name=\"uiMode\" value=\"desktop\""
+        + (mobileSelected ? "" : " checked") + "> Desktop</label>");
+    out.println("      <label><input type=\"radio\" name=\"uiMode\" value=\"mobile\""
+        + (mobileSelected ? " checked" : "") + "> Mobile</label>");
+    out.println("    </td>");
     out.println("  </tr>");
     out.println("  <tr>");
     out.println(

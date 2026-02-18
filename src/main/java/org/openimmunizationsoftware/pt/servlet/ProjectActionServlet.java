@@ -7,6 +7,8 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -15,23 +17,23 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
-import java.time.LocalDate;
-import java.time.ZoneId;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
 import org.openimmunizationsoftware.pt.manager.ChatAgent;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.PrioritySpecial;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -42,7 +44,6 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
 
 import com.fasterxml.jackson.core.exc.StreamWriteException;
 import com.fasterxml.jackson.databind.DatabindException;
@@ -88,6 +89,13 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
   protected static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
   private static final String PARAM_EDIT_ACTION_NEXT_ID = "editActionNextId";
+  private static final String PARAM_SHOW_WORK = "showWork";
+  private static final String PARAM_SHOW_PERSONAL = "showPersonal";
+  private static final String PARAM_FILTER_SUBMITTED = "filterSubmitted";
+  private static final String SESSION_SHOW_WORK = "projectAction.showWork";
+  private static final String SESSION_SHOW_PERSONAL = "projectAction.showPersonal";
+  private static final String REQUEST_SHOW_WORK = "projectAction.requestShowWork";
+  private static final String REQUEST_SHOW_PERSONAL = "projectAction.requestShowPersonal";
   protected static final String PARAM_ACTION = "action";
   protected static final String ACTION_START_TIMER = "StartTimer";
   private static final String ACTION_STOP_TIMER = "StopTimer";
@@ -133,6 +141,8 @@ public class ProjectActionServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
+      boolean showWork = isShowWork(request);
+      boolean showPersonal = isShowPersonal(request);
 
       readCompletingAction(request, appReq, dataSession);
 
@@ -247,7 +257,9 @@ public class ProjectActionServlet extends ClientServlet {
         }
       }
       List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+      projectActionDueTodayList = filterProjectActionList(projectActionDueTodayList, showWork, showPersonal);
       List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
+      projectActionOverdueList = filterProjectActionList(projectActionOverdueList, showWork, showPersonal);
       List<List<ProjectActionNext>> projectActionDueNextWorkingDayListList = new ArrayList<>();
       Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
       planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -256,6 +268,7 @@ public class ProjectActionServlet extends ClientServlet {
       Date planningEndDate = planningCalendar.getTime();
       List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
           planningStartDate, planningEndDate);
+      planningRangeList = filterProjectActionList(planningRangeList, showWork, showPersonal);
       Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
       for (ProjectActionNext projectAction : planningRangeList) {
         Date bucketDate = normalizeDate(projectAction.getNextDue());
@@ -280,6 +293,10 @@ public class ProjectActionServlet extends ClientServlet {
         projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
         daysFound++;
       }
+      if (completingAction != null && !shouldDisplayProjectAction(completingAction, showWork, showPersonal)) {
+        completingAction = null;
+        appReq.setCompletingAction(null);
+      }
       if (completingAction == null && projectActionDueTodayList.size() > 0) {
         completingAction = projectActionDueTodayList.get(0);
         appReq.setCompletingAction(completingAction);
@@ -288,6 +305,7 @@ public class ProjectActionServlet extends ClientServlet {
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
       List<ProjectActionNext> projectActionClosedTodayList = getProjectActionListClosedToday(webUser, dataSession);
+      projectActionClosedTodayList = filterProjectActionList(projectActionClosedTodayList, showWork, showPersonal);
       List<ProjectNarrativeDao.ActionWithMinutes> deletedActionsWithTimeToday = new ArrayList<>();
       List<ProjectNarrativeDao.Action> deletedActionsWithoutTimeToday = new ArrayList<>();
       if (project != null) {
@@ -313,6 +331,7 @@ public class ProjectActionServlet extends ClientServlet {
       appReq.setProjectSelected(project);
       appReq.setCompletingAction(completingAction);
       appReq.setProjectActionSelected(completingAction);
+      projectActionScheduledList = filterProjectActionList(projectActionScheduledList, showWork, showPersonal);
 
       // register project so it shows up in list of projects recently referred to
       if (project != null) {
@@ -478,6 +497,88 @@ public class ProjectActionServlet extends ClientServlet {
     return true;
   }
 
+  private void resolveAndStoreShowPreferences(HttpServletRequest request) {
+    if (request.getAttribute(REQUEST_SHOW_WORK) instanceof Boolean
+        && request.getAttribute(REQUEST_SHOW_PERSONAL) instanceof Boolean) {
+      return;
+    }
+
+    HttpSession session = request.getSession();
+    boolean hasFilterSubmitted = request.getParameter(PARAM_FILTER_SUBMITTED) != null;
+    boolean hasShowWorkParam = request.getParameter(PARAM_SHOW_WORK) != null;
+    boolean hasShowPersonalParam = request.getParameter(PARAM_SHOW_PERSONAL) != null;
+
+    boolean showWork;
+    boolean showPersonal;
+    if (hasFilterSubmitted) {
+      showWork = hasShowWorkParam;
+      showPersonal = hasShowPersonalParam;
+    } else {
+      Boolean sessionShowWork = (Boolean) session.getAttribute(SESSION_SHOW_WORK);
+      Boolean sessionShowPersonal = (Boolean) session.getAttribute(SESSION_SHOW_PERSONAL);
+      if (sessionShowWork == null && sessionShowPersonal == null) {
+        showWork = true;
+        showPersonal = true;
+      } else {
+        showWork = sessionShowWork != null ? sessionShowWork.booleanValue() : true;
+        showPersonal = sessionShowPersonal != null ? sessionShowPersonal.booleanValue() : true;
+      }
+    }
+
+    if (!showWork && !showPersonal) {
+      showWork = true;
+      showPersonal = true;
+    }
+
+    session.setAttribute(SESSION_SHOW_WORK, Boolean.valueOf(showWork));
+    session.setAttribute(SESSION_SHOW_PERSONAL, Boolean.valueOf(showPersonal));
+    request.setAttribute(REQUEST_SHOW_WORK, Boolean.valueOf(showWork));
+    request.setAttribute(REQUEST_SHOW_PERSONAL, Boolean.valueOf(showPersonal));
+  }
+
+  private boolean isShowWork(HttpServletRequest request) {
+    resolveAndStoreShowPreferences(request);
+    return ((Boolean) request.getAttribute(REQUEST_SHOW_WORK)).booleanValue();
+  }
+
+  private boolean isShowPersonal(HttpServletRequest request) {
+    resolveAndStoreShowPreferences(request);
+    return ((Boolean) request.getAttribute(REQUEST_SHOW_PERSONAL)).booleanValue();
+  }
+
+  private boolean shouldDisplayProjectAction(ProjectActionNext projectAction, boolean showWork,
+      boolean showPersonal) {
+    if (projectAction == null) {
+      return false;
+    }
+    if (projectAction.isBillable()) {
+      return showWork;
+    }
+    return showPersonal;
+  }
+
+  private List<ProjectActionNext> filterProjectActionList(List<ProjectActionNext> projectActionList,
+      boolean showWork, boolean showPersonal) {
+    List<ProjectActionNext> filteredList = new ArrayList<ProjectActionNext>();
+    if (projectActionList == null) {
+      return filteredList;
+    }
+    for (ProjectActionNext projectAction : projectActionList) {
+      if (shouldDisplayProjectAction(projectAction, showWork, showPersonal)) {
+        filteredList.add(projectAction);
+      }
+    }
+    return filteredList;
+  }
+
+  private boolean resolveBillable(Session dataSession, Project project) {
+    if (project == null || project.getBillCode() == null || project.getBillCode().equals("")) {
+      return false;
+    }
+    BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
+    return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
+  }
+
   private ProjectActionNext saveNewAction(WebUser webUser, Session dataSession,
       ProjectActionNext completingAction, List<Project> projectList, ProjectActionNext editProjectAction,
       ProjectActionNext nextAction, String sentenceInput) {
@@ -623,6 +724,7 @@ public class ProjectActionServlet extends ClientServlet {
     nextAction.setNextChangeDate(new Date());
     nextAction.setProvider(webUser.getProvider());
     nextAction.setContact(webUser.getProjectContact());
+    nextAction.setBillable(resolveBillable(dataSession, foundProject));
     if (nextAction.getNextActionStatus() == null) {
       if (nextAction.hasNextDescription()) {
         if (nextAction.hasNextDue()) {
@@ -743,7 +845,11 @@ public class ProjectActionServlet extends ClientServlet {
       }
       timeRunningString = TimeTracker.formatTime(billMins);
     }
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    boolean showPersonal = isShowPersonal(request);
     List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+    projectActionDueTodayList = filterProjectActionList(projectActionDueTodayList, showWork, showPersonal);
     TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
     Map<String, String> timeData = new HashMap<>();
     timeData.put(ID_TIME_RUNNING, timeRunningString);
@@ -782,7 +888,7 @@ public class ProjectActionServlet extends ClientServlet {
     printActionNow(appReq, webUser, out, completingAction, projectContactList,
         FORM_ACTION_NOW, projectList);
     printPressEnterScript(out);
-    printFetchAndUpdateTimesScript(out, completingAction);
+    printFetchAndUpdateTimesScript(appReq, out, completingAction);
     out.println("</form>");
 
     printEditProjectActionForm(appReq, completingAction, projectContactList, formName, formNameSet, project,
@@ -917,10 +1023,16 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</script>");
   }
 
-  private void printFetchAndUpdateTimesScript(PrintWriter out, ProjectActionNext completingAction) {
+  private void printFetchAndUpdateTimesScript(AppReq appReq, PrintWriter out,
+      ProjectActionNext completingAction) {
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    boolean showPersonal = isShowPersonal(request);
     String link = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_REFRESH_TIME + "&"
         + PARAM_COMPLETING_ACTION_NEXT_ID
-        + "=" + completingAction.getActionNextId();
+        + "=" + completingAction.getActionNextId()
+        + (showWork ? "&" + PARAM_SHOW_WORK + "=Y" : "")
+        + (showPersonal ? "&" + PARAM_SHOW_PERSONAL + "=Y" : "");
     out.println("<script>");
     out.println("async function fetchAndUpdateTimes() { ");
     out.println("    try { ");
@@ -1078,10 +1190,12 @@ public class ProjectActionServlet extends ClientServlet {
     HttpServletRequest request = appReq.getRequest();
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
-    if (editProjectAction == null) {
+    boolean isNewAction = editProjectAction == null;
+    if (isNewAction) {
       editProjectAction = new ProjectActionNext();
       editProjectAction.setProject(nextProject);
       editProjectAction.setProjectId(nextProject.getProjectId());
+      editProjectAction.setBillable(resolveBillable(dataSession, nextProject));
     }
     editProjectAction.setContactId(webUser.getContactId());
     editProjectAction.setContact(webUser.getProjectContact());
@@ -1643,35 +1757,43 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectActionNext> projectActionOverdueList) {
     PrintWriter out = appReq.getOut();
     out.println("<table class=\"boxed\">");
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    int colspan = showWork ? 4 : 2;
     if (projectActionOverdueList.size() > 0) {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">Overdue</th>");
-      out.println("    <th class=\"boxed\">Est</th>");
-      out.println("    <th class=\"boxed\">Act</th>");
+      if (showWork) {
+        out.println("    <th class=\"boxed\">Est</th>");
+        out.println("    <th class=\"boxed\">Act</th>");
+      }
       out.println("  </tr>");
-      printActionItems(projectActionOverdueList, appReq);
+      printActionItems(projectActionOverdueList, appReq, showWork);
     }
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"4\">All actions scheduled for today</th>");
+    out.println("    <th class=\"title\" colspan=\"" + colspan + "\">All actions scheduled for today</th>");
     out.println("  </tr>");
-    printDueTable(appReq, ProjectNextActionType.OVERDUE_TO, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList);
+    printDueTable(appReq, ProjectNextActionType.OVERDUE_TO, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork);
     out.println("</table><br/>");
   }
 
   private void printActionsScheduledForNextWorkingDay(AppReq appReq,
       List<ProjectActionNext> projectActionList, Date workingDay) {
     PrintWriter out = appReq.getOut();
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    int colspan = showWork ? 4 : 2;
     String title = "All actions scheduled for ";
     // print name of next working day, either "Monday" or "Next Monday". that format
     Calendar nextWorkingDay = Calendar.getInstance();
@@ -1680,36 +1802,41 @@ public class ProjectActionServlet extends ClientServlet {
     title += daynameSdf.format(nextWorkingDay.getTime());
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"4\">" + title + "</th>");
+    out.println("    <th class=\"title\" colspan=\"" + colspan + "\">" + title + "</th>");
     out.println("  </tr>");
-    printDueTable(appReq, ProjectNextActionType.OVERDUE_TO, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList);
-    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList);
+    printDueTable(appReq, ProjectNextActionType.OVERDUE_TO, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork);
+    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork);
     out.println("</table><br/>");
     // print out size of list
   }
 
   private void printActionsCompletedForToday(AppReq appReq, List<ProjectActionNext> projectActionList) {
     PrintWriter out = appReq.getOut();
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    int colspan = showWork ? 4 : 2;
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"4\">All actions completed for today</th>");
+    out.println("    <th class=\"title\" colspan=\"" + colspan + "\">All actions completed for today</th>");
     out.println("  </tr>");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Completed</th>");
-    out.println("    <th class=\"boxed\">Est</th>");
-    out.println("    <th class=\"boxed\">Act</th>");
+    if (showWork) {
+      out.println("    <th class=\"boxed\">Est</th>");
+      out.println("    <th class=\"boxed\">Act</th>");
+    }
     out.println("  </tr>");
-    printActionItems(projectActionList, appReq);
+    printActionItems(projectActionList, appReq, showWork);
     out.println("</table><br/>");
   }
 
@@ -1722,16 +1849,21 @@ public class ProjectActionServlet extends ClientServlet {
     if (project == null) {
       project = appReq.getProject();
     }
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    int colspan = showWork ? 4 : 2;
     PrintWriter out = appReq.getOut();
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
-    out.println("    <th class=\"title\" colspan=\"4\">Deleted actions with time today</th>");
+    out.println("    <th class=\"title\" colspan=\"" + colspan + "\">Deleted actions with time today</th>");
     out.println("  </tr>");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Deleted</th>");
-    out.println("    <th class=\"boxed\">Est</th>");
-    out.println("    <th class=\"boxed\">Act</th>");
+    if (showWork) {
+      out.println("    <th class=\"boxed\">Est</th>");
+      out.println("    <th class=\"boxed\">Act</th>");
+    }
     out.println("  </tr>");
     for (ProjectNarrativeDao.ActionWithMinutes action : deletedActions) {
       String description = action.getDescription() == null ? "" : action.getDescription();
@@ -1745,8 +1877,10 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
           + escapeHtml(description) + "</a></td>");
-      out.println("    <td class=\"boxed\">&nbsp;</td>");
-      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(action.getMinutes()) + "</td>");
+      if (showWork) {
+        out.println("    <td class=\"boxed\">&nbsp;</td>");
+        out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(action.getMinutes()) + "</td>");
+      }
       out.println("  </tr>");
     }
     out.println("</table><br/>");
@@ -1795,10 +1929,29 @@ public class ProjectActionServlet extends ClientServlet {
     } else {
       out.println("<p>Good job! You are on track to finish your day on time. </p>");
     }
-    Random Random = new Random();
-    String quote = QUOTES[Random.nextInt(QUOTES.length)];
-    out.println("<h4>Get Inspired</h4>");
-    out.println("<q>" + quote + "</q>");
+    HttpServletRequest request = appReq.getRequest();
+    boolean showWork = isShowWork(request);
+    boolean showPersonal = isShowPersonal(request);
+    out.println("<h4>Show</h4>");
+    out.println("<form id=\"workPersonalFilterForm\" method=\"GET\" action=\"ProjectActionServlet\">");
+    out.println("  <input type=\"hidden\" name=\"" + PARAM_FILTER_SUBMITTED + "\" value=\"Y\"/>");
+    ProjectActionNext completingAction = appReq.getCompletingAction();
+    if (completingAction != null) {
+      out.println("  <input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
+          + completingAction.getActionNextId() + "\"/>");
+    }
+    Project project = appReq.getProject();
+    if (project != null) {
+      out.println("  <input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\""
+          + project.getProjectId() + "\"/>");
+    }
+    out.println("  <label><input type=\"checkbox\" name=\"" + PARAM_SHOW_WORK
+        + "\" value=\"Y\" onchange=\"this.form.submit()\""
+        + (showWork ? " checked" : "") + "> Work</label>");
+    out.println("  <label><input type=\"checkbox\" name=\"" + PARAM_SHOW_PERSONAL
+        + "\" value=\"Y\" onchange=\"this.form.submit()\""
+        + (showPersonal ? " checked" : "") + "> Personal</label>");
+    out.println("</form>");
   }
 
   private void printTimeManagementBoxForNextWorkingDay(AppReq appReq, List<ProjectActionNext> projectActionList,
@@ -2150,9 +2303,11 @@ public class ProjectActionServlet extends ClientServlet {
     }
     out.println("</p>");
     out.println("<h3>Notes");
-    out.println(
-        "<span class=\"float-right\" style=\"font-size: 14px;\">" + getTimeString(appReq, completingAction)
-            + "</span>");
+    String timeString = getTimeString(appReq, completingAction);
+    if (!timeString.isEmpty()) {
+      out.println(
+          "<span class=\"float-right\" style=\"font-size: 14px;\">" + timeString + "</span>");
+    }
     out.println("</h3>");
     if (completingAction.getNextNotes() != null) {
       out.println(convertToHtmlList(completingAction.getNextNotes()));
@@ -2340,6 +2495,9 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private String getTimeString(AppReq appReq, ProjectActionNext completingAction) {
+    if (!completingAction.isBillable()) {
+      return "";
+    }
     String timeString = TimeTracker.formatTime(completingAction.getNextTimeEstimate()) + " ";
     {
       TimeTracker timeTracker = appReq.getTimeTracker();
@@ -2601,7 +2759,8 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private static void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList) {
+  private static void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
+      boolean showWork) {
     PrintWriter out = appReq.getOut();
 
     List<ProjectActionNext> paList = new ArrayList<ProjectActionNext>();
@@ -2622,14 +2781,16 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project</th>");
       out.println("    <th class=\"boxed\">" + ProjectNextActionType.getLabel(nextActionType) + "</th>");
-      out.println("    <th class=\"boxed\">Est</th>");
-      out.println("    <th class=\"boxed\">Act</th>");
+      if (showWork) {
+        out.println("    <th class=\"boxed\">Est</th>");
+        out.println("    <th class=\"boxed\">Act</th>");
+      }
       out.println("  </tr>");
     }
-    printActionItems(paList, appReq);
+    printActionItems(paList, appReq, showWork);
   }
 
-  private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq) {
+  private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork) {
     PrintWriter out = appReq.getOut();
     WebUser webUser = appReq.getWebUser();
     for (ProjectActionNext projectAction : paList) {
@@ -2647,17 +2808,21 @@ public class ProjectActionServlet extends ClientServlet {
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a> "
           + "<a href=\"" + postponeLink
           + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a></td>");
-      if (projectAction.getNextTimeEstimate() == null || projectAction.getNextTimeEstimate() == 0) {
-        out.println("    <td class=\"boxed\">&nbsp;</a></td>");
-      } else {
-        out.println(
-            "    <td class=\"boxed\">" + projectAction.getNextTimeEstimateForDisplay() + "</a></td>");
-      }
-      if (projectAction.getNextTimeActual() == null || projectAction.getNextTimeActual() == 0) {
-        out.println("    <td class=\"boxed\">&nbsp;</a></td>");
-      } else {
-        out.println(
-            "    <td class=\"boxed\">" + projectAction.getNextTimeActualForDisplay() + "</a></td>");
+      if (showWork) {
+        if (!projectAction.isBillable() || projectAction.getNextTimeEstimate() == null
+            || projectAction.getNextTimeEstimate() == 0) {
+          out.println("    <td class=\"boxed\">&nbsp;</a></td>");
+        } else {
+          out.println(
+              "    <td class=\"boxed\">" + projectAction.getNextTimeEstimateForDisplay() + "</a></td>");
+        }
+        if (!projectAction.isBillable() || projectAction.getNextTimeActual() == null
+            || projectAction.getNextTimeActual() == 0) {
+          out.println("    <td class=\"boxed\">&nbsp;</a></td>");
+        } else {
+          out.println(
+              "    <td class=\"boxed\">" + projectAction.getNextTimeActualForDisplay() + "</a></td>");
+        }
       }
       out.println("  </tr>");
     }
@@ -3439,61 +3604,6 @@ public class ProjectActionServlet extends ClientServlet {
   public String getServletInfo() {
     return "DQA Tester Home Page";
   }// </editor-fold>
-
-  private static final String[] QUOTES = {
-      "Carpe Diem",
-      "Either you run the day or the day runs you",
-      "Everything is hard before it is easy",
-      "Success is the sum of small efforts repeated day in and day out",
-      "The future depends on what you do today",
-      "Don't watch the clock; do what it does. Keep going",
-      "Start where you are, use what you have, do what you can",
-      "Dream big, start small, act now",
-      "It always seems impossible until it's done",
-      "If not now, when?",
-      "Your only limit is you",
-      "Act as if what you do makes a difference. It does",
-      "You don't have to be great to start, but you have to start to be great",
-      "Opportunities don't happen. You create them",
-      "You don't find willpower, you create it",
-      "Great things never come from comfort zones",
-      "Do something today that your future self will thank you for",
-      "The journey of a thousand miles begins with one step",
-      "Don't stop when you're tired. Stop when you're done",
-      "You are never too old to set another goal or to dream a new dream",
-      "Small steps every day",
-      "The way to get started is to quit talking and begin doing",
-      "Wake up with determination, go to bed with satisfaction",
-      "Push yourself, because no one else is going to do it for you",
-      "If you're going through hell, keep going",
-      "The best way out is always through",
-      "Success doesn't just find you. You have to go out and get it",
-      "If you can dream it, you can do it",
-      "Focus on the step in front of you, not the whole staircase",
-      "Stop doubting yourself, work hard, and make it happen",
-      "Success is what comes after you stop making excuses",
-      "Make today so awesome that yesterday gets jealous",
-      "Do one thing every day that scares you",
-      "Success is liking yourself, liking what you do, and liking how you do it",
-      "Stay patient and trust your journey",
-      "Take the risk or lose the chance",
-      "Believe in yourself and all that you are",
-      "You're only one decision away from a totally different life",
-      "Believe you can and you're halfway there",
-      "The secret of getting ahead is getting started",
-      "Don't wish for it, work for it",
-      "Hustle in silence and let your success make the noise",
-      "Don't count the days; make the days count",
-      "Don't wait for opportunity. Create it",
-      "Make yourself proud",
-      "What you do today can improve all your tomorrows",
-      "Rise up and attack the day with enthusiasm",
-      "Hard work beats talent when talent doesn't work hard",
-      "The dream is free; the hustle is sold separately",
-      "Be stronger than your excuses",
-      "A goal without a plan is just a wish",
-      "If you want to fly, give up everything that weighs you down"
-  };
 
   private static List<ProjectActionNext> getProjectActionsScheduledAndCompletedList(Session dataSession,
       int projectId) {

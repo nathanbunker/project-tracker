@@ -98,6 +98,9 @@ public class TimeAdder {
             if (isToday && !webUser.sameDay(cIndicated, pa.getNextDue())) {
                 continue;
             }
+            if (!pa.isBillable()) {
+                continue;
+            }
             if (pa.getNextTimeEstimate() != null) {
                 int nextTimeEstimate = pa.getNextTimeEstimate();
                 int nextTimeActual = pa.getNextTimeActual() == null ? 0 : pa.getNextTimeActual();
