@@ -2856,10 +2856,16 @@ public class ProjectActionServlet extends ClientServlet {
       for (ProjectActionNext projectAction : projectActionList) {
         if (projectAction.getNextActionType() != null
             && projectAction.getNextActionType().equals(nextActionType)) {
-          // Filter out personal items with WAKE, AFTERNOON, or EVENING time slots
-          // These are shown in separate sections
-          TimeSlot timeSlot = projectAction.getTimeSlot();
           boolean isPersonal = !projectAction.isBillable();
+
+          // Skip all personal items if personal toggle is off
+          if (isPersonal && !showPersonal) {
+            continue;
+          }
+
+          // Filter out personal items with WAKE, AFTERNOON, or EVENING time slots
+          // These are shown in separate sections when personal toggle is on
+          TimeSlot timeSlot = projectAction.getTimeSlot();
           boolean isSpecialTimeSlot = timeSlot == TimeSlot.WAKE || timeSlot == TimeSlot.AFTERNOON
               || timeSlot == TimeSlot.EVENING;
           if (isPersonal && isSpecialTimeSlot) {
