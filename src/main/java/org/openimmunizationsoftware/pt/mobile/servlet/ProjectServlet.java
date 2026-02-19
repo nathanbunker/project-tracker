@@ -167,12 +167,22 @@ public class ProjectServlet extends MobileBaseServlet {
 
         for (ProjectActionNext action : actions) {
             String description = action.getNextDescriptionForDisplay(action.getContact());
+
+            // Build todo detail link
+            String viewUrl = "todo?viewActionId=" + action.getActionNextId();
+            if (action.getNextActionDate() != null) {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                viewUrl += "&date=" + sdf.format(action.getNextActionDate());
+            }
+
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">");
             if (action.getNextActionDate() != null) {
                 out.println("      <strong>" + dateFormat.format(action.getNextActionDate()) + ":</strong> ");
             }
-            out.println("      " + (description == null ? "" : description));
+            out.println("      <a href=\"" + viewUrl + "\" style=\"text-decoration: none; color: inherit;\">");
+            out.println("        " + (description == null ? "" : description));
+            out.println("      </a>");
             out.println("    </td>");
 
             // Complete column

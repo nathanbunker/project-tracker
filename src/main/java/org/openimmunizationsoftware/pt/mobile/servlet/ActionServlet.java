@@ -198,7 +198,8 @@ public class ActionServlet extends MobileBaseServlet {
             editProjectAction.setNextNotes(nextNote);
         }
 
-        editProjectAction.setNextActionDate(parseDate(appReq, request.getParameter(PARAM_NEXT_ACTION_DATE)));
+        editProjectAction
+                .setNextActionDate(appReq.getWebUser().parseDate(request.getParameter(PARAM_NEXT_ACTION_DATE)));
         String linkUrl = request.getParameter(PARAM_LINK_URL);
         if (linkUrl == null || linkUrl.equals("")) {
             editProjectAction.setLinkUrl(null);
@@ -229,24 +230,6 @@ public class ActionServlet extends MobileBaseServlet {
         dataSession.saveOrUpdate(editProjectAction);
         trans.commit();
         return editProjectAction;
-    }
-
-    protected static Date parseDate(AppReq appReq, String dateString) {
-        Date date = null;
-        if (dateString != null && dateString.length() > 0) {
-            SimpleDateFormat sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy");
-            try {
-                date = sdf1.parse(dateString);
-            } catch (Exception e) {
-                sdf1 = appReq.getWebUser().getDateFormat("MM/dd/yyyy");
-                try {
-                    date = sdf1.parse(dateString);
-                } catch (Exception e2) {
-                    appReq.setMessageProblem("Unable to read date: " + e2);
-                }
-            }
-        }
-        return date;
     }
 
     private boolean resolveBillable(Session dataSession, Project project) {

@@ -251,11 +251,13 @@ public class TodoServlet extends MobileBaseServlet {
             if (showPersonal) {
                 printActionTable(out, "Wake", wakeActions, selectedDate);
                 printActionTable(out, "Morning", morningActions, selectedDate);
-                printActionTable(out, "Afternoon", afternoonActions, selectedDate);
-                printActionTable(out, "Evening", eveningActions, selectedDate);
             }
             if (showWork) {
                 printActionTable(out, "Work", workActions, selectedDate);
+            }
+            if (showPersonal) {
+                printActionTable(out, "Afternoon", afternoonActions, selectedDate);
+                printActionTable(out, "Evening", eveningActions, selectedDate);
             }
 
             // Date navigation
@@ -458,18 +460,26 @@ public class TodoServlet extends MobileBaseServlet {
         out.println("    <th class=\"boxed\">To Do</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Postpone</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Details</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
         for (ProjectActionNext action : actions) {
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
             String description = action.getNextDescriptionForDisplay(action.getContact());
+
+            // Build details link
+            String viewUrl = "todo?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId();
+            if (!dateParam.isEmpty()) {
+                viewUrl += "&" + PARAM_DATE + "=" + dateParam;
+            }
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">");
             if (!projectName.isEmpty()) {
                 out.println("      <strong>" + escapeHtml(projectName) + ":</strong> ");
             }
-            out.println("      " + (description == null ? "" : description));
+            out.println("      <a href=\"" + viewUrl + "\" style=\"text-decoration: none; color: inherit;\">");
+            out.println("        " + (description == null ? "" : description));
+            out.println("      </a>");
             if (isOverdue) {
                 out.println("      <span class=\"fail\">Overdue</span>");
             }
@@ -495,13 +505,10 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("      <a href=\"" + tomorrowUrl + "\" class=\"action-icon\" title=\"Postpone\">&#8594;</a>");
             out.println("    </td>");
 
-            // View Details column
-            String viewUrl = "todo?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId();
-            if (!dateParam.isEmpty()) {
-                viewUrl += "&" + PARAM_DATE + "=" + dateParam;
-            }
+            // Edit column
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"" + viewUrl + "\" class=\"action-icon\" title=\"Details\">&#8505;</a>");
+            out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
+                    + "\" class=\"action-icon\" title=\"Edit\">&#9998;</a>");
             out.println("    </td>");
             out.println("  </tr>");
         }
@@ -656,6 +663,27 @@ public class TodoServlet extends MobileBaseServlet {
 
         out.println("  </tr>");
         out.println("</table>");
+
+        // Navigation links
+        out.println("<h2>Navigation</h2>");
+        out.println("<p>");
+
+        // Link to todo for this date
+        String todoUrl = "todo";
+        if (!dateParam.isEmpty()) {
+            todoUrl += "?" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("  <a href=\"" + todoUrl + "\" class=\"box\">Todo for " +
+                (dateParam.isEmpty() ? "Today" : new SimpleDateFormat("EEE MM/dd").format(action.getNextActionDate())) +
+                "</a>");
+
+        // Link to project
+        if (action.getProject() != null) {
+            out.println("  <a href=\"project?projectId=" + action.getProject().getProjectId()
+                    + "\" class=\"box\">Project: " + escapeHtml(action.getProject().getProjectName()) + "</a>");
+        }
+
+        out.println("</p>");
     }
 
     private static String convertToHtmlList(String input) {

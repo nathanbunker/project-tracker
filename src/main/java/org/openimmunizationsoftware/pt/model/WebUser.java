@@ -183,6 +183,26 @@ public class WebUser implements java.io.Serializable {
     return sdf;
   }
 
+  public Date parseDate(String dateString) {
+    Date date = null;
+    if (dateString != null && dateString.length() > 0) {
+      SimpleDateFormat sdf1 = this.getDateFormat("MM/dd/yyyy");
+      try {
+        date = sdf1.parse(dateString);
+      } catch (Exception e) {
+        // Try again with fresh SimpleDateFormat
+        sdf1 = this.getDateFormat("MM/dd/yyyy");
+        try {
+          date = sdf1.parse(dateString);
+        } catch (Exception e2) {
+          // Unable to parse date, return null
+          // (calling code is responsible for error handling)
+        }
+      }
+    }
+    return date;
+  }
+
   public WebUser getParentWebUser() {
     return parentWebUser;
   }
