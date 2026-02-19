@@ -2863,12 +2863,11 @@ public class ProjectActionServlet extends ClientServlet {
             continue;
           }
 
-          // Filter out personal items with WAKE, AFTERNOON, or EVENING time slots
-          // These are shown in separate sections when personal toggle is on
+          // Only allow personal items with MORNING time slot to mix with work
+          // All other personal items (null, WAKE, AFTERNOON, EVENING) go in dedicated
+          // sections
           TimeSlot timeSlot = projectAction.getTimeSlot();
-          boolean isSpecialTimeSlot = timeSlot == TimeSlot.WAKE || timeSlot == TimeSlot.AFTERNOON
-              || timeSlot == TimeSlot.EVENING;
-          if (isPersonal && isSpecialTimeSlot) {
+          if (isPersonal && timeSlot != TimeSlot.MORNING) {
             continue; // Skip - will be shown in personal sections
           }
           paList.add(projectAction);
@@ -2935,14 +2934,15 @@ public class ProjectActionServlet extends ClientServlet {
       return; // Don't show personal section if filter is off
     }
 
-    // Collect AFTERNOON and EVENING personal items
+    // Collect personal items: null and AFTERNOON are treated the same (default to
+    // afternoon)
     List<ProjectActionNext> afternoonItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> eveningItems = new ArrayList<ProjectActionNext>();
 
     for (ProjectActionNext projectAction : projectActionList) {
       if (!projectAction.isBillable()) {
         TimeSlot timeSlot = projectAction.getTimeSlot();
-        if (timeSlot == TimeSlot.AFTERNOON) {
+        if (timeSlot == null || timeSlot == TimeSlot.AFTERNOON) {
           afternoonItems.add(projectAction);
         } else if (timeSlot == TimeSlot.EVENING) {
           eveningItems.add(projectAction);
@@ -2965,7 +2965,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     out.println("  </tr>");
 
-    // Print AFTERNOON items first, then EVENING
+    // Print AFTERNOON (including null/unspecified) items first, then EVENING
     printActionItems(afternoonItems, appReq, showWork);
     printActionItems(eveningItems, appReq, showWork);
   }
