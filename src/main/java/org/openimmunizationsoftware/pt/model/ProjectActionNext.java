@@ -33,6 +33,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private Date nextTargetDate;
     private String nextDescription;
     private boolean billable;
+    private TimeSlot timeSlot;
 
     public int getActionNextId() {
         return actionNextId;
