@@ -34,6 +34,7 @@ import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
@@ -70,6 +71,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_SEND_EMAIL_TO = "sendEmailTo";
   private static final String PARAM_START_SENTANCE = "startSentance";
   private static final String PARAM_PROCESS_STAGE = "processStage";
+  private static final String PARAM_TIME_SLOT = "timeSlot";
   private static final String PARAM_NEXT_CONTACT_ID = "nextContactId";
   private static final String PARAM_NEXT_ACTION_TYPE = "nextActionType";
   private static final String PARAM_TEMPLATE_TYPE = "templateType";
@@ -1240,6 +1242,12 @@ public class ProjectActionServlet extends ClientServlet {
       editProjectAction.setProcessStage(null);
     } else {
       editProjectAction.setProcessStage(ProcessStage.getProcessStage(processStageString));
+    }
+    String timeSlotString = request.getParameter(PARAM_TIME_SLOT);
+    if (timeSlotString == null || timeSlotString.equals("")) {
+      editProjectAction.setTimeSlot(null);
+    } else {
+      editProjectAction.setTimeSlot(TimeSlot.getTimeSlot(timeSlotString));
     }
 
     String nextActionType = request.getParameter(PARAM_NEXT_ACTION_TYPE);
@@ -3294,19 +3302,49 @@ public class ProjectActionServlet extends ClientServlet {
             + ">" + templateType.getLabel() + "</option>");
       }
       out.println("            </select>");
-      out.println("            Process Stage: ");
-      out.println("           <select name=\"processStage\" value=\""
-          + n((projectAction == null || projectAction.getProcessStage() == null)
-              ? request.getParameter(PARAM_PROCESS_STAGE)
-              : projectAction.getProcessStage().getId())
-          + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
-      out.println("             <option value=\"\">none</option>");
-      for (ProcessStage processStage : ProcessStage.values()) {
-        out.println("             <option value=\"" + processStage.getId() + "\""
-            + (projectAction != null && projectAction.getProcessStage() == processStage ? " selected" : "")
-            + ">" + processStage.getLabel() + "</option>");
+      // Show Process Stage only for billable projects, Time Slot only for
+      // non-billable
+      if (projectAction != null && projectAction.isBillable()) {
+        out.println("            Process Stage: ");
+        out.println("           <select name=\"processStage\" value=\""
+            + n((projectAction == null || projectAction.getProcessStage() == null)
+                ? request.getParameter(PARAM_PROCESS_STAGE)
+                : projectAction.getProcessStage().getId())
+            + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+        out.println("             <option value=\"\">none</option>");
+        for (ProcessStage processStage : ProcessStage.values()) {
+          out.println("             <option value=\"" + processStage.getId() + "\""
+              + (projectAction != null && projectAction.getProcessStage() == processStage ? " selected" : "")
+              + ">" + processStage.getLabel() + "</option>");
+        }
+        out.println("            </select>");
+        // Hidden variable to carry Time Slot value even though not displayed
+        out.println("            <input type=\"hidden\" name=\"timeSlot\" value=\""
+            + n((projectAction == null || projectAction.getTimeSlot() == null)
+                ? ""
+                : projectAction.getTimeSlot().getId())
+            + "\" />");
+      } else {
+        out.println("            Time Slot: ");
+        out.println("           <select name=\"timeSlot\" value=\""
+            + n((projectAction == null || projectAction.getTimeSlot() == null)
+                ? request.getParameter(PARAM_TIME_SLOT)
+                : projectAction.getTimeSlot().getId())
+            + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+        out.println("             <option value=\"\">none</option>");
+        for (TimeSlot timeSlot : TimeSlot.values()) {
+          out.println("             <option value=\"" + timeSlot.getId() + "\""
+              + (projectAction != null && projectAction.getTimeSlot() == timeSlot ? " selected" : "")
+              + ">" + timeSlot.getLabel() + "</option>");
+        }
+        out.println("            </select>");
+        // Hidden variable to carry Process Stage value even though not displayed
+        out.println("            <input type=\"hidden\" name=\"processStage\" value=\""
+            + n((projectAction == null || projectAction.getProcessStage() == null)
+                ? ""
+                : projectAction.getProcessStage().getId())
+            + "\" />");
       }
-      out.println("            </select>");
       out.println("          </td>");
       out.println("        </tr>");
     }
