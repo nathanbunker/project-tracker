@@ -83,7 +83,7 @@ public class ActionServlet extends MobileBaseServlet {
                     }
                     editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
                     project = editProjectAction.getProject();
-                    
+
                     // Redirect back to the Project page for this project
                     if (project != null) {
                         response.sendRedirect("project?" + PARAM_PROJECT_ID + "=" + project.getProjectId());
@@ -351,7 +351,6 @@ public class ActionServlet extends MobileBaseServlet {
         printEditNextAction(appReq.getRequest(), webUser, out, projectAction, project, formName, disabled,
                 projectContactList, projectList);
         out.println("</table>");
-        out.println("<span class=\"right\">");
         out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE + "\">"
                 + ACTION_SAVE + "</button>");
         out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_START + "\">"
@@ -360,7 +359,6 @@ public class ActionServlet extends MobileBaseServlet {
             out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\">"
                     + ACTION_DELETE + "</button>");
         }
-        out.println("</span>");
 
     }
 

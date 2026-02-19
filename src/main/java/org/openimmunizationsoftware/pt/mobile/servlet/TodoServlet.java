@@ -97,15 +97,36 @@ public class TodoServlet extends MobileBaseServlet {
 
             boolean isToday = isSameDay(selectedDate, today, webUser);
 
+            // Calculate boundaries for selected day
+            Calendar cal = webUser.getCalendar();
+            cal.setTime(selectedDate);
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            Date startOfSelectedDay = cal.getTime();
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+            Date endOfSelectedDay = cal.getTime();
+
             for (ProjectActionNext action : allActions) {
                 if (!shouldShow(action, showPersonal, showWork)) {
                     continue;
                 }
 
-                if (isToday && action.getNextActionDate() != null && action.getNextActionDate().before(today)) {
-                    overdueActions.add(action);
+                if (isToday) {
+                    // Today: show overdue (before today) and today's items
+                    if (action.getNextActionDate() != null && action.getNextActionDate().before(today)) {
+                        overdueActions.add(action);
+                    } else {
+                        todayActions.add(action);
+                    }
                 } else {
-                    todayActions.add(action);
+                    // Other days: only show items for that specific day
+                    if (action.getNextActionDate() != null
+                            && action.getNextActionDate().compareTo(startOfSelectedDay) >= 0
+                            && action.getNextActionDate().before(endOfSelectedDay)) {
+                        todayActions.add(action);
+                    }
                 }
             }
 
@@ -130,14 +151,7 @@ public class TodoServlet extends MobileBaseServlet {
                 printActionList(out, overdueActions, true, selectedDate);
             }
 
-            // Today/selected date section
-            if (!isToday) {
-                out.println("<table class=\"boxed-full\">");
-                out.println("  <tr class=\"boxed\">");
-                out.println("    <th class=\"title\">" + formatDateSection(selectedDate, webUser) + "</th>");
-                out.println("  </tr>");
-                out.println("</table>");
-            }
+            // Action list for today or selected date
             printActionList(out, todayActions, false, selectedDate);
 
             // Date navigation

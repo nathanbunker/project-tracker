@@ -48,7 +48,7 @@ public class ProjectServlet extends MobileBaseServlet {
 
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
-            
+
             // Handle action processing (Complete/Tomorrow) - works for both GET and POST
             String paramAction = request.getParameter(PARAM_ACTION);
             Integer actionId = parseInteger(request.getParameter(PARAM_ACTION_ID));
@@ -71,7 +71,7 @@ public class ProjectServlet extends MobileBaseServlet {
                     e.printStackTrace();
                 }
             }
-            
+
             boolean showWork = isShowWork(request);
             boolean showPersonal = isShowPersonal(request);
 
@@ -156,7 +156,7 @@ public class ProjectServlet extends MobileBaseServlet {
             return;
         }
 
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("ddd MM/dd/yyyy");
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">To Do</th>");
@@ -174,21 +174,21 @@ public class ProjectServlet extends MobileBaseServlet {
             }
             out.println("      " + (description == null ? "" : description));
             out.println("    </td>");
-            
+
             // Complete column
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
             out.println("      <a href=\"project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
                     + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_COMPLETE
                     + "\" class=\"action-icon\" title=\"Complete\">&#10004;</a>");
             out.println("    </td>");
-            
+
             // Postpone column
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
             out.println("      <a href=\"project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
                     + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_TOMORROW
                     + "\" class=\"action-icon\" title=\"Postpone\">&#8594;</a>");
             out.println("    </td>");
-            
+
             // Edit column
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
             out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
