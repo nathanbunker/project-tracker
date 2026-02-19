@@ -156,7 +156,7 @@ public class ProjectServlet extends MobileBaseServlet {
             return;
         }
 
-        SimpleDateFormat dateFormat = new SimpleDateFormat("ddd MM/dd/yyyy");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MM/dd/yyyy");
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">To Do</th>");
