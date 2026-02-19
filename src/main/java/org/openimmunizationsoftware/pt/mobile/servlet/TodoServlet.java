@@ -32,9 +32,12 @@ public class TodoServlet extends MobileBaseServlet {
     private static final String PARAM_DATE = "date";
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_ACTION_ID = "actionId";
+    private static final String PARAM_VIEW_ACTION_ID = "viewActionId";
+    private static final String PARAM_NEXT_NOTE = "nextNote";
 
     private static final String ACTION_COMPLETE = "complete";
     private static final String ACTION_TOMORROW = "tomorrow";
+    private static final String LIST_START = " - ";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -54,6 +57,71 @@ public class TodoServlet extends MobileBaseServlet {
         try {
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
+
+            // Check if we're viewing a detail page
+            String viewActionIdStr = request.getParameter(PARAM_VIEW_ACTION_ID);
+            if (viewActionIdStr != null && !viewActionIdStr.isEmpty()) {
+                try {
+                    int viewActionId = Integer.parseInt(viewActionIdStr);
+                    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(
+                            ProjectActionNext.class, viewActionId);
+
+                    if (projectAction != null) {
+                        // Handle adding a note if submitted
+                        String nextNote = request.getParameter(PARAM_NEXT_NOTE);
+                        if (nextNote != null && nextNote.trim().length() > 0) {
+                            Transaction trans = dataSession.beginTransaction();
+                            try {
+                                String updatedNotes = nextNote;
+                                if (projectAction.getNextNotes() != null
+                                        && projectAction.getNextNotes().trim().length() > 0) {
+                                    updatedNotes = projectAction.getNextNotes() + "\n - " + nextNote;
+                                } else {
+                                    updatedNotes = LIST_START + nextNote;
+                                }
+                                projectAction.setNextNotes(updatedNotes);
+                                projectAction.setNextChangeDate(new Date());
+                                dataSession.saveOrUpdate(projectAction);
+                                trans.commit();
+                            } catch (Exception e) {
+                                trans.rollback();
+                                throw e;
+                            }
+                        }
+
+                        // Handle action processing (Complete/Postpone)
+                        String paramAction = request.getParameter(PARAM_ACTION);
+                        if (paramAction != null) {
+                            try {
+                                if (ACTION_COMPLETE.equals(paramAction)) {
+                                    completeAction(projectAction, dataSession, webUser);
+                                } else if (ACTION_TOMORROW.equals(paramAction)) {
+                                    postponeToTomorrow(projectAction, dataSession, webUser);
+                                }
+                                // Redirect back to todo main page
+                                String redirectUrl = "todo";
+                                String dateParam = request.getParameter(PARAM_DATE);
+                                if (dateParam != null && !dateParam.isEmpty()) {
+                                    redirectUrl += "?" + PARAM_DATE + "=" + dateParam;
+                                }
+                                response.sendRedirect(redirectUrl);
+                                return;
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+
+                    // Display detail page
+                    appReq.setTitle("Todo Details");
+                    printHtmlHead(appReq, "Todo Details");
+                    printActionDetail(appReq, projectAction, webUser);
+                    printHtmlFoot(appReq);
+                    return;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
 
             // Handle action processing (Complete/Tomorrow) - works for both GET and POST
             String paramAction = request.getParameter(PARAM_ACTION);
@@ -390,7 +458,7 @@ public class TodoServlet extends MobileBaseServlet {
         out.println("    <th class=\"boxed\">To Do</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Postpone</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Details</th>");
         out.println("  </tr>");
         for (ProjectActionNext action : actions) {
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
@@ -427,10 +495,13 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("      <a href=\"" + tomorrowUrl + "\" class=\"action-icon\" title=\"Postpone\">&#8594;</a>");
             out.println("    </td>");
 
-            // Edit column
+            // View Details column
+            String viewUrl = "todo?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId();
+            if (!dateParam.isEmpty()) {
+                viewUrl += "&" + PARAM_DATE + "=" + dateParam;
+            }
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
-                    + "\" class=\"action-icon\" title=\"Edit\">&#9998;</a>");
+            out.println("      <a href=\"" + viewUrl + "\" class=\"action-icon\" title=\"Details\">&#8505;</a>");
             out.println("    </td>");
             out.println("  </tr>");
         }
@@ -500,6 +571,121 @@ public class TodoServlet extends MobileBaseServlet {
             return "todo?" + PARAM_DATE + "=" + dateParam;
         }
         return "todo";
+    }
+
+    private void printActionDetail(AppReq appReq, ProjectActionNext action, WebUser webUser) {
+        PrintWriter out = appReq.getOut();
+
+        if (action == null) {
+            out.println("<p>Action not found</p>");
+            return;
+        }
+
+        Date today = TimeTracker.createToday(webUser).getTime();
+        String title = formatTitle(action.getNextActionDate(), today, webUser);
+        out.println("<h1>" + title + "</h1>");
+
+        // Description
+        out.println("<h2>Description</h2>");
+        String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
+        String description = action.getNextDescriptionForDisplay(action.getContact());
+        if (!projectName.isEmpty()) {
+            out.println("<strong>" + escapeHtml(projectName) + ":</strong> ");
+        }
+        out.println("<p>" + (description == null ? "" : description) + "</p>");
+
+        // Link if any
+        if (action.getLinkUrl() != null && !action.getLinkUrl().isEmpty()) {
+            out.println("<p><a href=\"" + escapeHtml(action.getLinkUrl()) + "\" target=\"_blank\">Link</a></p>");
+        }
+
+        // Notes if any
+        if (action.getNextNotes() != null && !action.getNextNotes().trim().isEmpty()) {
+            out.println("<h2>Notes</h2>");
+            out.println(convertToHtmlList(action.getNextNotes()));
+        }
+
+        // Add notes form
+        out.println("<h2>Add Note</h2>");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        String dateParam = action.getNextActionDate() != null ? sdf.format(action.getNextActionDate()) : "";
+
+        out.println("<form method=\"post\" action=\"todo\">");
+        out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\"" + action.getActionNextId()
+                + "\" />");
+        if (!dateParam.isEmpty()) {
+            out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
+        }
+        out.println("  <textarea name=\"" + PARAM_NEXT_NOTE + "\" rows=\"5\" style=\"width:100%;\"></textarea>");
+        out.println("  <br/>");
+        out.println("  <input type=\"submit\" value=\"Add Note\" />");
+        out.println("</form>");
+
+        // Action buttons in small table
+        out.println("<h2>Actions</h2>");
+        out.println("<table class=\"boxed-mobile\">");
+        out.println("  <tr class=\"boxed\">");
+
+        // Complete
+        String completeUrl = "todo?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId() + "&" +
+                PARAM_ACTION + "=" + ACTION_COMPLETE;
+        if (!dateParam.isEmpty()) {
+            completeUrl += "&" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("    <td style=\"text-align:center; padding:10px;\">");
+        out.println(
+                "      <a href=\"" + completeUrl + "\" class=\"action-icon\" title=\"Complete\">&#10004; Complete</a>");
+        out.println("    </td>");
+
+        // Postpone
+        String postponeUrl = "todo?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId() + "&" +
+                PARAM_ACTION + "=" + ACTION_TOMORROW;
+        if (!dateParam.isEmpty()) {
+            postponeUrl += "&" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("    <td style=\"text-align:center; padding:10px;\">");
+        out.println(
+                "      <a href=\"" + postponeUrl + "\" class=\"action-icon\" title=\"Postpone\">&#8594; Postpone</a>");
+        out.println("    </td>");
+
+        // Edit
+        out.println("    <td style=\"text-align:center; padding:10px;\">");
+        out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
+                + "\" class=\"action-icon\" title=\"Edit\">&#9998; Edit</a>");
+        out.println("    </td>");
+
+        out.println("  </tr>");
+        out.println("</table>");
+    }
+
+    private static String convertToHtmlList(String input) {
+        // Use StringBuilder for efficient string manipulation
+        StringBuilder html = new StringBuilder("<ul>\n");
+
+        // Split the input string by new lines
+        String[] lines = input.split("\\r?\\n");
+
+        for (String line : lines) {
+            // Check if the line starts with " - " and trim whitespace
+            if (line.startsWith(" - ")) {
+                // Extract the text after " - " and wrap it in <li> tags
+                html.append("  <li>").append(escapeHtmlStatic(line.substring(3).trim())).append("</li>\n");
+            }
+        }
+
+        html.append("</ul>");
+        return html.toString();
+    }
+
+    private static String escapeHtmlStatic(String text) {
+        // Escape HTML special characters to prevent XSS
+        if (text == null)
+            return "";
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private String escapeHtml(String text) {
