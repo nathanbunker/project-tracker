@@ -98,12 +98,16 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.LoginServlet</servlet-class>
   </servlet>
   <servlet>
-    <servlet-name>MobileServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.MobileServlet</servlet-class>
-  </servlet>
-  <servlet>
     <servlet-name>TodoServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.TodoServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>MobileProjectServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.ProjectServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>MobileActionServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.ActionServlet</servlet-class>
   </servlet>
   <servlet>
     <servlet-name>BillEntryEditServlet</servlet-name>
@@ -150,12 +154,16 @@
     <url-pattern>/LoginServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>MobileServlet</servlet-name>
-    <url-pattern>/m/mobile</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
     <servlet-name>TodoServlet</servlet-name>
     <url-pattern>/m/todo</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>MobileProjectServlet</servlet-name>
+    <url-pattern>/m/project</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>MobileActionServlet</servlet-name>
+    <url-pattern>/m/action</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>HomeServlet</servlet-name>

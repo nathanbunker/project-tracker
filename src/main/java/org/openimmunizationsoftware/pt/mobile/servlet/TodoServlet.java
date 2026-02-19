@@ -10,7 +10,6 @@ import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -32,14 +31,9 @@ public class TodoServlet extends MobileBaseServlet {
     private static final String PARAM_DATE = "date";
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_ACTION_ID = "actionId";
-    private static final String PARAM_SHOW_PERSONAL = "showPersonal";
-    private static final String PARAM_SHOW_WORK = "showWork";
 
     private static final String ACTION_COMPLETE = "complete";
     private static final String ACTION_TOMORROW = "tomorrow";
-
-    private static final String SESSION_SHOW_PERSONAL = "mobile_show_personal";
-    private static final String SESSION_SHOW_WORK = "mobile_show_work";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -50,34 +44,7 @@ public class TodoServlet extends MobileBaseServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        AppReq appReq = new AppReq(request, response);
-        try {
-            String action = request.getParameter(PARAM_ACTION);
-            String actionIdStr = request.getParameter(PARAM_ACTION_ID);
-
-            if (action != null && actionIdStr != null) {
-                int actionId = Integer.parseInt(actionIdStr);
-                Session dataSession = appReq.getDataSession();
-                ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(
-                        ProjectActionNext.class, actionId);
-
-                if (projectAction != null) {
-                    if (ACTION_COMPLETE.equals(action)) {
-                        completeAction(projectAction, dataSession, appReq.getWebUser());
-                    } else if (ACTION_TOMORROW.equals(action)) {
-                        postponeToTomorrow(projectAction, dataSession, appReq.getWebUser());
-                    }
-                }
-            }
-
-            // POST-redirect-GET pattern
-            String redirectUrl = buildRedirectUrl(request);
-            response.sendRedirect(redirectUrl);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            appReq.close();
-        }
+        processRequest(request, response);
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -87,8 +54,33 @@ public class TodoServlet extends MobileBaseServlet {
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
 
-            // Resolve filter preferences
-            resolveFilterPreferences(request);
+            // Handle action processing (Complete/Tomorrow) - works for both GET and POST
+            String paramAction = request.getParameter(PARAM_ACTION);
+            String actionIdStr = request.getParameter(PARAM_ACTION_ID);
+
+            if (paramAction != null && actionIdStr != null) {
+                try {
+                    int actionId = Integer.parseInt(actionIdStr);
+                    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(
+                            ProjectActionNext.class, actionId);
+
+                    if (projectAction != null) {
+                        if (ACTION_COMPLETE.equals(paramAction)) {
+                            completeAction(projectAction, dataSession, webUser);
+                        } else if (ACTION_TOMORROW.equals(paramAction)) {
+                            postponeToTomorrow(projectAction, dataSession, webUser);
+                        }
+                    }
+
+                    // Redirect back to the todo page with the same date
+                    String redirectUrl = buildRedirectUrl(request);
+                    response.sendRedirect(redirectUrl);
+                    return;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
             boolean showPersonal = isShowPersonal(request);
             boolean showWork = isShowWork(request);
 
@@ -123,7 +115,7 @@ public class TodoServlet extends MobileBaseServlet {
 
             // Render page
             appReq.setTitle("Todo");
-            printHtmlHead(appReq);
+            printHtmlHead(appReq, "Todo");
             PrintWriter out = appReq.getOut();
 
             String title = formatTitle(selectedDate, today, webUser);
@@ -134,18 +126,22 @@ public class TodoServlet extends MobileBaseServlet {
 
             // Overdue section (only on today)
             if (isToday && !overdueActions.isEmpty()) {
-                out.println("<h2>Overdue</h2>");
+                out.println("<p class=\"fail\">Overdue items need attention</p>");
                 printActionList(out, overdueActions, true, selectedDate);
             }
 
             // Today/selected date section
             if (!isToday) {
-                out.println("<h2>" + formatDateSection(selectedDate, webUser) + "</h2>");
+                out.println("<table class=\"boxed-full\">");
+                out.println("  <tr class=\"boxed\">");
+                out.println("    <th class=\"title\">" + formatDateSection(selectedDate, webUser) + "</th>");
+                out.println("  </tr>");
+                out.println("</table>");
             }
             printActionList(out, todayActions, false, selectedDate);
 
             // Date navigation
-            printDateNavigation(out, selectedDate, today, showPersonal, showWork, webUser);
+            printDateNavigation(out, selectedDate, today, webUser);
 
             printHtmlFoot(appReq);
         } catch (Exception e) {
@@ -153,41 +149,6 @@ public class TodoServlet extends MobileBaseServlet {
         } finally {
             appReq.close();
         }
-    }
-
-    private void resolveFilterPreferences(HttpServletRequest request) {
-        HttpSession session = request.getSession();
-
-        String personalParam = request.getParameter(PARAM_SHOW_PERSONAL);
-        String workParam = request.getParameter(PARAM_SHOW_WORK);
-
-        if (personalParam != null || workParam != null) {
-            // Explicit filter change
-            boolean personal = "on".equals(personalParam);
-            boolean work = "on".equals(workParam);
-
-            // Ensure at least one is checked
-            if (!personal && !work) {
-                personal = true;
-            }
-
-            session.setAttribute(SESSION_SHOW_PERSONAL, personal);
-            session.setAttribute(SESSION_SHOW_WORK, work);
-        } else if (session.getAttribute(SESSION_SHOW_PERSONAL) == null) {
-            // First time - defaults
-            session.setAttribute(SESSION_SHOW_PERSONAL, true);
-            session.setAttribute(SESSION_SHOW_WORK, false);
-        }
-    }
-
-    private boolean isShowPersonal(HttpServletRequest request) {
-        Boolean val = (Boolean) request.getSession().getAttribute(SESSION_SHOW_PERSONAL);
-        return val != null ? val : true;
-    }
-
-    private boolean isShowWork(HttpServletRequest request) {
-        Boolean val = (Boolean) request.getSession().getAttribute(SESSION_SHOW_WORK);
-        return val != null ? val : false;
     }
 
     private Date getSelectedDate(HttpServletRequest request, WebUser webUser) {
@@ -332,10 +293,11 @@ public class TodoServlet extends MobileBaseServlet {
         String dateParam = selectedDate != null ? sdf.format(selectedDate) : "";
 
         out.println("<form method=\"get\" action=\"todo\">");
+        out.println("  <input type=\"hidden\" name=\"" + PARAM_FILTER_SUBMITTED + "\" value=\"Y\"/>");
         if (!dateParam.isEmpty()) {
             out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
         }
-        out.println("  <div class=\"filters\">");
+        out.println("  <p>");
         out.println("    <label>");
         out.println("      <input type=\"checkbox\" name=\"" + PARAM_SHOW_PERSONAL + "\" value=\"on\" " +
                 (showPersonal ? "checked" : "") + " onchange=\"this.form.submit()\" />");
@@ -346,102 +308,104 @@ public class TodoServlet extends MobileBaseServlet {
                 (showWork ? "checked" : "") + " onchange=\"this.form.submit()\" />");
         out.println("      Work (" + workCount + ")");
         out.println("    </label>");
-        out.println("  </div>");
+        out.println("  </p>");
         out.println("</form>");
     }
 
     private void printActionList(PrintWriter out, List<ProjectActionNext> actions,
             boolean isOverdue, Date selectedDate) {
         if (actions.isEmpty()) {
-            out.println("<p>No items</p>");
+            out.println("<table class=\"boxed-mobile\">");
+            out.println("  <tr class=\"boxed\">");
+            out.println("    <td class=\"boxed\">No items</td>");
+            out.println("  </tr>");
+            out.println("</table>");
             return;
         }
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         String dateParam = selectedDate != null ? sdf.format(selectedDate) : "";
 
-        out.println("<ul class=\"todo-list\">");
+        out.println("<table class=\"boxed-mobile\">");
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">To Do</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Postpone</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
+        out.println("  </tr>");
         for (ProjectActionNext action : actions) {
-            out.println("  <li class=\"todo-item\">");
-            out.println("    <form method=\"post\" action=\"todo\" style=\"display:inline;\">");
-            out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
-                    + action.getActionNextId() + "\" />");
-            out.println(
-                    "      <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETE + "\" />");
-            if (!dateParam.isEmpty()) {
-                out.println("      <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
-            }
-            out.println("      <button type=\"submit\" class=\"checkbox-btn\">&#x2610;</button>");
-            out.println("    </form>");
-
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
             String description = action.getNextDescriptionForDisplay(action.getContact());
-            String badge = action.isBillable() ? "W" : "P";
-            String badgeClass = action.isBillable() ? "badge-work" : "badge-personal";
 
-            out.println("    <div class=\"todo-content\">");
-            out.println("      <div class=\"todo-text\">");
+            out.println("  <tr class=\"boxed\">");
+            out.println("    <td class=\"boxed\">");
             if (!projectName.isEmpty()) {
-                out.println("        <strong>" + escapeHtml(projectName) + ":</strong> ");
+                out.println("      <strong>" + escapeHtml(projectName) + ":</strong> ");
             }
-            out.println(escapeHtml(description));
-            out.println("        <span class=\"badge " + badgeClass + "\">" + badge + "</span>");
+            out.println("      " + (description == null ? "" : description));
             if (isOverdue) {
-                out.println("        <span class=\"badge badge-overdue\">Overdue</span>");
+                out.println("      <span class=\"fail\">Overdue</span>");
             }
-            out.println("      </div>");
-            out.println("      <div class=\"todo-actions\">");
+            out.println("    </td>");
 
-            // Tomorrow button
-            out.println("        <form method=\"post\" action=\"todo\" style=\"display:inline;\">");
-            out.println("          <input type=\"hidden\" name=\"" + PARAM_ACTION_ID + "\" value=\""
-                    + action.getActionNextId() + "\" />");
-            out.println("          <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_TOMORROW
-                    + "\" />");
+            // Complete column
+            String completeUrl = "todo?" + PARAM_ACTION_ID + "=" + action.getActionNextId() + "&"
+                    + PARAM_ACTION + "=" + ACTION_COMPLETE;
             if (!dateParam.isEmpty()) {
-                out.println(
-                        "          <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
+                completeUrl += "&" + PARAM_DATE + "=" + dateParam;
             }
-            out.println("          <button type=\"submit\" class=\"btn-small\">Tomorrow</button>");
-            out.println("        </form>");
+            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
+            out.println("      <a href=\"" + completeUrl + "\" class=\"action-icon\" title=\"Complete\">&#10004;</a>");
+            out.println("    </td>");
 
-            // Edit link (placeholder)
-            out.println("        <a href=\"#\" class=\"btn-small\">Edit</a>");
-            out.println("      </div>");
-            out.println("    </div>");
-            out.println("  </li>");
+            // Postpone column
+            String tomorrowUrl = "todo?" + PARAM_ACTION_ID + "=" + action.getActionNextId() + "&"
+                    + PARAM_ACTION + "=" + ACTION_TOMORROW;
+            if (!dateParam.isEmpty()) {
+                tomorrowUrl += "&" + PARAM_DATE + "=" + dateParam;
+            }
+            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
+            out.println("      <a href=\"" + tomorrowUrl + "\" class=\"action-icon\" title=\"Postpone\">&#8594;</a>");
+            out.println("    </td>");
+
+            // Edit column
+            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
+            out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
+                    + "\" class=\"action-icon\" title=\"Edit\">&#9998;</a>");
+            out.println("    </td>");
+            out.println("  </tr>");
         }
-        out.println("</ul>");
+        out.println("</table>");
     }
 
     private void printDateNavigation(PrintWriter out, Date selectedDate, Date today,
-            boolean showPersonal, boolean showWork, WebUser webUser) {
+            WebUser webUser) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Calendar cal = webUser.getCalendar();
 
         boolean isToday = isSameDay(selectedDate, today, webUser);
 
-        out.println("<div class=\"date-nav\">");
+        out.println("<p>");
 
         // Previous (hidden when viewing today)
         if (!isToday) {
             cal.setTime(selectedDate);
             cal.add(Calendar.DAY_OF_MONTH, -1);
             String prevDate = sdf.format(cal.getTime());
-            out.println("  <a href=\"todo?" + PARAM_DATE + "=" + prevDate + "\" class=\"btn\">Previous</a>");
+            out.println("  <a href=\"todo?" + PARAM_DATE + "=" + prevDate + "\" class=\"box\">Previous</a>");
         }
 
         // Today
         String todayDate = sdf.format(today);
-        out.println("  <a href=\"todo?" + PARAM_DATE + "=" + todayDate + "\" class=\"btn\">Today</a>");
+        out.println("  <a href=\"todo?" + PARAM_DATE + "=" + todayDate + "\" class=\"button\">Today</a>");
 
         // Next
         cal.setTime(selectedDate);
         cal.add(Calendar.DAY_OF_MONTH, 1);
         String nextDate = sdf.format(cal.getTime());
-        out.println("  <a href=\"todo?" + PARAM_DATE + "=" + nextDate + "\" class=\"btn\">Next</a>");
+        out.println("  <a href=\"todo?" + PARAM_DATE + "=" + nextDate + "\" class=\"box\">Next</a>");
 
-        out.println("</div>");
+        out.println("</p>");
     }
 
     private void completeAction(ProjectActionNext action, Session dataSession, WebUser webUser) {

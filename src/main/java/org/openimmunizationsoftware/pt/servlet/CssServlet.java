@@ -155,6 +155,7 @@ public class CssServlet extends ClientServlet {
                 }
 
                 out.println(".main {width:720px; padding:0px; margin:0px; }");
+                out.println(".mainMobile { width: 100%; padding: 8px; margin: 0; }");
                 out.println("#projectNavigation {float: right; width: 270px; }");
                 out.println("#projectInfo {width: 440px; }");
                 if (displaySize.equals(DISPLAY_SIZE_LARGE)) {
@@ -260,6 +261,8 @@ public class CssServlet extends ClientServlet {
                                 ".boxed-fill {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; width: 100%; }");
                 out.println(
                                 ".boxed-submit {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; text-align: right;}");
+                out.println(
+                                ".boxed-mobile {border-collapse: collapse; border-width: 1px; border-style: solid; padding-left:5px; padding-right:5px; border-color: #2B3E42; }");
                 out.println(".right {float: right;}");
                 out.println(".together {white-space:nowrap;}");
                 out.println(
@@ -291,6 +294,11 @@ public class CssServlet extends ClientServlet {
                                 "a:hover.box {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}");
                 out.println(
                                 "a:active.box {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+
+                out.println(
+                                "a.action-icon {display:inline-block; font-size:20pt; text-decoration:none; color:#000000; padding:4px; min-width:40px; text-align:center;}");
+                out.println(
+                                "a:hover.action-icon {background-color:#FFFF99;}");
 
                 out.println(
                                 ".optionBox {position:absolute; border-width: 1px; border-style: solid; padding:5px; border-color: #2B3E42; visibility: hidden; }");
