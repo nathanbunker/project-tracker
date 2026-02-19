@@ -1807,6 +1807,9 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("  </tr>");
       printActionItems(projectActionOverdueList, appReq, showWork);
     }
+    // Add personal WAKE items after overdue (they should be cleared before day
+    // starts)
+    printPersonalItemsByTimeSlot(appReq, projectActionList, TimeSlot.WAKE, showWork, false);
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">All actions scheduled for today</th>");
     out.println("  </tr>");
@@ -1821,6 +1824,8 @@ public class ProjectActionServlet extends ClientServlet {
     printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork);
     printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork);
     printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork);
+    // Add personal AFTERNOON and EVENING items at end
+    printPersonalSection(appReq, projectActionList, showWork, colspan);
     out.println("</table><br/>");
   }
 
@@ -1839,7 +1844,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">" + title + "</th>");
     out.println("  </tr>");
-    printDueTable(appReq, ProjectNextActionType.OVERDUE_TO, projectActionList, showWork);
+    // Add personal WAKE items at top with "Waking" section header
+    printPersonalItemsByTimeSlot(appReq, projectActionList, TimeSlot.WAKE, showWork, true);
     printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork);
     printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork);
     printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork);
@@ -1850,6 +1856,8 @@ public class ProjectActionServlet extends ClientServlet {
     printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork);
     printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork);
     printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork);
+    // Add personal AFTERNOON and EVENING items at end
+    printPersonalSection(appReq, projectActionList, showWork, colspan);
     out.println("</table><br/>");
     // print out size of list
   }
@@ -2835,9 +2843,11 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  </tr>");
   }
 
-  private static void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
+  private void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
       boolean showWork) {
     PrintWriter out = appReq.getOut();
+    HttpServletRequest request = appReq.getRequest();
+    boolean showPersonal = isShowPersonal(request);
 
     List<ProjectActionNext> paList = new ArrayList<ProjectActionNext>();
     if (nextActionType == null) {
@@ -2846,6 +2856,15 @@ public class ProjectActionServlet extends ClientServlet {
       for (ProjectActionNext projectAction : projectActionList) {
         if (projectAction.getNextActionType() != null
             && projectAction.getNextActionType().equals(nextActionType)) {
+          // Filter out personal items with WAKE, AFTERNOON, or EVENING time slots
+          // These are shown in separate sections
+          TimeSlot timeSlot = projectAction.getTimeSlot();
+          boolean isPersonal = !projectAction.isBillable();
+          boolean isSpecialTimeSlot = timeSlot == TimeSlot.WAKE || timeSlot == TimeSlot.AFTERNOON
+              || timeSlot == TimeSlot.EVENING;
+          if (isPersonal && isSpecialTimeSlot) {
+            continue; // Skip - will be shown in personal sections
+          }
           paList.add(projectAction);
         }
       }
@@ -2864,6 +2883,85 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("  </tr>");
     }
     printActionItems(paList, appReq, showWork);
+  }
+
+  private void printPersonalItemsByTimeSlot(AppReq appReq, List<ProjectActionNext> projectActionList,
+      TimeSlot timeSlot, boolean showWork, boolean showSectionHeader) {
+    PrintWriter out = appReq.getOut();
+    HttpServletRequest request = appReq.getRequest();
+    boolean showPersonal = isShowPersonal(request);
+
+    if (!showPersonal) {
+      return; // Don't show personal items if filter is off
+    }
+
+    List<ProjectActionNext> personalItems = new ArrayList<ProjectActionNext>();
+    for (ProjectActionNext projectAction : projectActionList) {
+      if (!projectAction.isBillable() && projectAction.getTimeSlot() == timeSlot) {
+        personalItems.add(projectAction);
+      }
+    }
+
+    if (personalItems.size() == 0) {
+      return; // Don't show section if no items
+    }
+
+    if (showSectionHeader) {
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project</th>");
+      out.println("    <th class=\"boxed\">" + timeSlot.getLabel() + "</th>");
+      if (showWork) {
+        out.println("    <th class=\"boxed\">Est</th>");
+        out.println("    <th class=\"boxed\">Act</th>");
+      }
+      out.println("  </tr>");
+    }
+    printActionItems(personalItems, appReq, showWork);
+  }
+
+  private void printPersonalSection(AppReq appReq, List<ProjectActionNext> projectActionList,
+      boolean showWork, int colspan) {
+    PrintWriter out = appReq.getOut();
+    HttpServletRequest request = appReq.getRequest();
+    boolean showPersonal = isShowPersonal(request);
+
+    if (!showPersonal) {
+      return; // Don't show personal section if filter is off
+    }
+
+    // Collect AFTERNOON and EVENING personal items
+    List<ProjectActionNext> afternoonItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> eveningItems = new ArrayList<ProjectActionNext>();
+
+    for (ProjectActionNext projectAction : projectActionList) {
+      if (!projectAction.isBillable()) {
+        TimeSlot timeSlot = projectAction.getTimeSlot();
+        if (timeSlot == TimeSlot.AFTERNOON) {
+          afternoonItems.add(projectAction);
+        } else if (timeSlot == TimeSlot.EVENING) {
+          eveningItems.add(projectAction);
+        }
+      }
+    }
+
+    // Only show section if there are items
+    if (afternoonItems.size() == 0 && eveningItems.size() == 0) {
+      return;
+    }
+
+    // Print "Personal" section header (same style as "Might")
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Project</th>");
+    out.println("    <th class=\"boxed\">Personal</th>");
+    if (showWork) {
+      out.println("    <th class=\"boxed\">Est</th>");
+      out.println("    <th class=\"boxed\">Act</th>");
+    }
+    out.println("  </tr>");
+
+    // Print AFTERNOON items first, then EVENING
+    printActionItems(afternoonItems, appReq, showWork);
+    printActionItems(eveningItems, appReq, showWork);
   }
 
   private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork) {
