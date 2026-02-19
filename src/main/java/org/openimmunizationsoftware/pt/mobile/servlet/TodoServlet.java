@@ -19,6 +19,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -147,12 +148,47 @@ public class TodoServlet extends MobileBaseServlet {
 
             // Overdue section (only on today)
             if (isToday && !overdueActions.isEmpty()) {
-                out.println("<p class=\"fail\">Overdue items need attention</p>");
+                out.println("<h2>Overdue</h2>");
                 printActionList(out, overdueActions, true, selectedDate);
             }
 
-            // Action list for today or selected date
-            printActionList(out, todayActions, false, selectedDate);
+            // Organize today's actions into categories
+            List<ProjectActionNext> wakeActions = new ArrayList<>();
+            List<ProjectActionNext> morningActions = new ArrayList<>();
+            List<ProjectActionNext> workActions = new ArrayList<>();
+            List<ProjectActionNext> afternoonActions = new ArrayList<>();
+            List<ProjectActionNext> eveningActions = new ArrayList<>();
+
+            for (ProjectActionNext action : todayActions) {
+                if (action.isBillable() && showWork) {
+                    workActions.add(action);
+                } else if (!action.isBillable() && showPersonal) {
+                    TimeSlot ts = action.getTimeSlot();
+                    if (ts == TimeSlot.WAKE) {
+                        wakeActions.add(action);
+                    } else if (ts == TimeSlot.MORNING) {
+                        morningActions.add(action);
+                    } else if (ts == TimeSlot.AFTERNOON) {
+                        afternoonActions.add(action);
+                    } else if (ts == TimeSlot.EVENING) {
+                        eveningActions.add(action);
+                    } else {
+                        // Time slot is null or no category - add to afternoon as default
+                        afternoonActions.add(action);
+                    }
+                }
+            }
+
+            // Print tables for each category (only if there are items)
+            if (showPersonal) {
+                printActionTable(out, "Wake", wakeActions, selectedDate);
+                printActionTable(out, "Morning", morningActions, selectedDate);
+                printActionTable(out, "Afternoon", afternoonActions, selectedDate);
+                printActionTable(out, "Evening", eveningActions, selectedDate);
+            }
+            if (showWork) {
+                printActionTable(out, "Work", workActions, selectedDate);
+            }
 
             // Date navigation
             printDateNavigation(out, selectedDate, today, webUser);
@@ -331,6 +367,20 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("</table>");
             return;
         }
+        printActionTableContent(out, actions, isOverdue, selectedDate);
+    }
+
+    private void printActionTable(PrintWriter out, String title, List<ProjectActionNext> actions,
+            Date selectedDate) {
+        if (actions.isEmpty()) {
+            return; // Don't show header or table if no items
+        }
+        out.println("<h2>" + escapeHtml(title) + "</h2>");
+        printActionTableContent(out, actions, false, selectedDate);
+    }
+
+    private void printActionTableContent(PrintWriter out, List<ProjectActionNext> actions,
+            boolean isOverdue, Date selectedDate) {
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         String dateParam = selectedDate != null ? sdf.format(selectedDate) : "";
