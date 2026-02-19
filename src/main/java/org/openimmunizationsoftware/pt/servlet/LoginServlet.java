@@ -87,8 +87,7 @@ public class LoginServlet extends ClientServlet {
         if (uiMode != null && uiMode.equals("mobile")) {
           target = "m/todo";
         }
-        RequestDispatcher dispatcher = request.getRequestDispatcher(target);
-        dispatcher.forward(request, response);
+        response.sendRedirect(target);
         return;
       }
     } catch (Exception e) {
@@ -159,7 +158,6 @@ public class LoginServlet extends ClientServlet {
   }
 
   private void printLoginForm(PrintWriter out, String username, String password, String uiMode) {
-    boolean mobileSelected = uiMode != null && uiMode.equals("mobile");
     out.println("<form action=\"LoginServlet\" method=\"POST\">");
     out.println("<table>");
     out.println("  <tr>");
@@ -172,12 +170,12 @@ public class LoginServlet extends ClientServlet {
         "    <td><input type=\"password\" name=\"password\" value=\"" + password + "\"></td>");
     out.println("  </tr>");
     out.println("  <tr>");
-    out.println("    <td>Interface</td>");
+    out.println("    <td>Mode</td>");
     out.println("    <td>");
-    out.println("      <label><input type=\"radio\" name=\"uiMode\" value=\"desktop\""
-        + (mobileSelected ? "" : " checked") + "> Desktop</label>");
-    out.println("      <label><input type=\"radio\" name=\"uiMode\" value=\"mobile\""
-        + (mobileSelected ? " checked" : "") + "> Mobile</label>");
+    out.println("      <input type=\"radio\" name=\"uiMode\" value=\"desktop\""
+        + (uiMode.equals("desktop") ? " checked" : "") + "> Desktop");
+    out.println("      <input type=\"radio\" name=\"uiMode\" value=\"mobile\""
+        + (uiMode.equals("mobile") ? " checked" : "") + "> Mobile");
     out.println("    </td>");
     out.println("  </tr>");
     out.println("  <tr>");
@@ -185,9 +183,8 @@ public class LoginServlet extends ClientServlet {
         "    <td colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\"Login\"></td>");
     out.println("  </tr>");
     out.println("</table>");
-    out.println("<p>&nbsp;</p>");
-
     out.println("</form>");
+    out.println("<p>&nbsp;</p>");
   }
 
   // <editor-fold defaultstate="collapsed"
