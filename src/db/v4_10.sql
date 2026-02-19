@@ -14,3 +14,6 @@ Notes
 
 ALTER TABLE project_action_next
     ADD COLUMN time_slot VARCHAR(20) NULL;
+
+ALTER TABLE project_action_next
+    CHANGE COLUMN priority_special process_stage VARCHAR(20) NULL;

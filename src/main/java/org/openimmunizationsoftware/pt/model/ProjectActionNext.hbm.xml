@@ -47,8 +47,8 @@
     <property name="priorityLevel" type="integer">
       <column name="priority_level" not-null="true" />
     </property>
-    <property name="prioritySpecialString" type="string">
-      <column name="priority_special" />
+    <property name="processStageString" type="string">
+      <column name="process_stage" />
     </property>
     <property name="goalStatus" type="string">
       <column name="goal_status" length="1" />

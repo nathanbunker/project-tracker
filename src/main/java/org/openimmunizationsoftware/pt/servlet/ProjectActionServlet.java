@@ -33,7 +33,7 @@ import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
-import org.openimmunizationsoftware.pt.model.PrioritySpecial;
+import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
@@ -69,7 +69,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String FORM_ACTION_NOW = "ActionNow";
   private static final String PARAM_SEND_EMAIL_TO = "sendEmailTo";
   private static final String PARAM_START_SENTANCE = "startSentance";
-  private static final String PARAM_PRIORITY_SPECIAL = "prioritySpecial";
+  private static final String PARAM_PROCESS_STAGE = "processStage";
   private static final String PARAM_NEXT_CONTACT_ID = "nextContactId";
   private static final String PARAM_NEXT_ACTION_TYPE = "nextActionType";
   private static final String PARAM_TEMPLATE_TYPE = "templateType";
@@ -1235,11 +1235,11 @@ public class ProjectActionServlet extends ClientServlet {
     } else {
       editProjectAction.setTemplateType(TemplateType.getTemplateType(templateTypeString));
     }
-    String prioritySpecialString = request.getParameter(PARAM_PRIORITY_SPECIAL);
-    if (prioritySpecialString == null || prioritySpecialString.equals("")) {
-      editProjectAction.setPrioritySpecial(null);
+    String processStageString = request.getParameter(PARAM_PROCESS_STAGE);
+    if (processStageString == null || processStageString.equals("")) {
+      editProjectAction.setProcessStage(null);
     } else {
-      editProjectAction.setPrioritySpecial(PrioritySpecial.getPrioritySpecial(prioritySpecialString));
+      editProjectAction.setProcessStage(ProcessStage.getProcessStage(processStageString));
     }
 
     String nextActionType = request.getParameter(PARAM_NEXT_ACTION_TYPE);
@@ -1497,11 +1497,11 @@ public class ProjectActionServlet extends ClientServlet {
       Date deadlineDate = projectAction.getNextDeadlineDate();
       Date postponedDateOnly = postponedDueDate;
 
-      // At or past deadline date → OVERDUE_TO
+      // At or past deadline date â†’ OVERDUE_TO
       if (postponedDateOnly.equals(deadlineDate) || postponedDateOnly.after(deadlineDate)) {
         projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
       }
-      // At or past target date (but before deadline) → COMMITTED_TO
+      // At or past target date (but before deadline) â†’ COMMITTED_TO
       else if (postponedDateOnly.equals(targetDate) || postponedDateOnly.after(targetDate)) {
         projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
       }
@@ -1511,7 +1511,7 @@ public class ProjectActionServlet extends ClientServlet {
       Date targetDate = projectAction.getNextTargetDate();
       Date postponedDateOnly = postponedDueDate;
 
-      // At or past target date → COMMITTED_TO
+      // At or past target date â†’ COMMITTED_TO
       if (postponedDateOnly.equals(targetDate) || postponedDateOnly.after(targetDate)) {
         projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
       }
@@ -1750,7 +1750,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      form." + PARAM_NEXT_DEADLINE_DATE + ".disabled = false;");
     out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
     out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
-    out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
+    out.println("      form." + PARAM_PROCESS_STAGE + ".disabled = false;");
     out.println("      if (form." + PARAM_NEXT_ACTION_DATE + ".value == \"\")");
     out.println("      {");
     out.println("       document.projectAction" + formName + "." + PARAM_NEXT_ACTION_DATE + ".value = '"
@@ -2322,20 +2322,19 @@ public class ProjectActionServlet extends ClientServlet {
             + ">" + templateType.getLabel() + "</option>");
       }
       out.println("            </select>");
-      // now do Priority Special
-      out.println("            Priority: ");
-      out.println("           <select name=\"prioritySpecial\" value=\""
-          + n((projectAction == null || projectAction.getPrioritySpecial() == null)
-              ? request.getParameter(PARAM_PRIORITY_SPECIAL)
-              : projectAction.getPrioritySpecial().getId())
+      out.println("            Process Stage: ");
+      out.println("           <select name=\"processStage\" value=\""
+          + n((projectAction == null || projectAction.getProcessStage() == null)
+              ? request.getParameter(PARAM_PROCESS_STAGE)
+              : projectAction.getProcessStage().getId())
           + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
       // default empty option for no template
       out.println("             <option value=\"\">none</option>");
-      for (PrioritySpecial prioritySpecial : PrioritySpecial.values()) {
-        out.println("             <option value=\"" + prioritySpecial.getId() + "\""
-            + (projectAction != null && projectAction.getPrioritySpecial() == prioritySpecial ? " selected"
+      for (ProcessStage processStage : ProcessStage.values()) {
+        out.println("             <option value=\"" + processStage.getId() + "\""
+            + (projectAction != null && projectAction.getProcessStage() == processStage ? " selected"
                 : "")
-            + ">" + prioritySpecial.getLabel() + "</option>");
+            + ">" + processStage.getLabel() + "</option>");
       }
       out.println("            </select>");
       out.println("          </td>");
@@ -2739,38 +2738,38 @@ public class ProjectActionServlet extends ClientServlet {
     // sort the projectActionList first by the defaultPriority from the
     // ProjectNextActionType and then by the priority_level
     projectActionList.sort((pa1, pa2) -> {
-      PrioritySpecial ps1 = pa1.getPrioritySpecial();
-      PrioritySpecial ps2 = pa2.getPrioritySpecial();
+      ProcessStage ps1 = pa1.getProcessStage();
+      ProcessStage ps2 = pa2.getProcessStage();
       // If one of the priorities is special, then we need to sort by the special
       // priority, unless they are the same
       if ((ps1 != null || ps2 != null) && ps1 != ps2) {
         // very complicated logic to sort by priority special
         // FIRST must go first before any SECOND, or any other priority without a
         // special priority
-        if (ps1 == PrioritySpecial.FIRST) {
+        if (ps1 == ProcessStage.FIRST) {
           return -1;
-        } else if (ps2 == PrioritySpecial.FIRST) {
+        } else if (ps2 == ProcessStage.FIRST) {
           return 1;
         }
         // SECOND must go after any FIRST, but before any other priority without a
         // special priority
-        if (ps1 == PrioritySpecial.SECOND) {
+        if (ps1 == ProcessStage.SECOND) {
           return -1;
-        } else if (ps2 == PrioritySpecial.SECOND) {
+        } else if (ps2 == ProcessStage.SECOND) {
           return 1;
         }
         // LAST must go last after any other priority without a special priority and
         // PENULTIMATE
-        if (ps1 == PrioritySpecial.LAST) {
+        if (ps1 == ProcessStage.LAST) {
           return 1;
-        } else if (ps2 == PrioritySpecial.LAST) {
+        } else if (ps2 == ProcessStage.LAST) {
           return -1;
         }
         // PENUlTIMATE must go last after any other priority without a special priority,
         // but before any LAST
-        if (ps1 == PrioritySpecial.PENULTIMATE) {
+        if (ps1 == ProcessStage.PENULTIMATE) {
           return 1;
-        } else if (ps2 == PrioritySpecial.PENULTIMATE) {
+        } else if (ps2 == ProcessStage.PENULTIMATE) {
           return -1;
         }
       }
@@ -3295,17 +3294,17 @@ public class ProjectActionServlet extends ClientServlet {
             + ">" + templateType.getLabel() + "</option>");
       }
       out.println("            </select>");
-      out.println("            Priority: ");
-      out.println("           <select name=\"prioritySpecial\" value=\""
-          + n((projectAction == null || projectAction.getPrioritySpecial() == null)
-              ? request.getParameter(PARAM_PRIORITY_SPECIAL)
-              : projectAction.getPrioritySpecial().getId())
+      out.println("            Process Stage: ");
+      out.println("           <select name=\"processStage\" value=\""
+          + n((projectAction == null || projectAction.getProcessStage() == null)
+              ? request.getParameter(PARAM_PROCESS_STAGE)
+              : projectAction.getProcessStage().getId())
           + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
       out.println("             <option value=\"\">none</option>");
-      for (PrioritySpecial prioritySpecial : PrioritySpecial.values()) {
-        out.println("             <option value=\"" + prioritySpecial.getId() + "\""
-            + (projectAction != null && projectAction.getPrioritySpecial() == prioritySpecial ? " selected" : "")
-            + ">" + prioritySpecial.getLabel() + "</option>");
+      for (ProcessStage processStage : ProcessStage.values()) {
+        out.println("             <option value=\"" + processStage.getId() + "\""
+            + (projectAction != null && projectAction.getProcessStage() == processStage ? " selected" : "")
+            + ">" + processStage.getLabel() + "</option>");
       }
       out.println("            </select>");
       out.println("          </td>");
@@ -3557,11 +3556,12 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      form." + PARAM_NEXT_DEADLINE_DATE + ".disabled = false;");
     out.println("      form." + PARAM_LINK_URL + ".disabled = false;");
     out.println("      form." + PARAM_TEMPLATE_TYPE + ".disabled = false;");
-    out.println("      form." + PARAM_PRIORITY_SPECIAL + ".disabled = false;");
+    out.println("      form." + PARAM_PROCESS_STAGE + ".disabled = false;");
     out.println("      if (form." + PARAM_NEXT_ACTION_DATE + ".value == \"\")");
     out.println("      {");
     out.println("       document.projectAction" + formName + "." + PARAM_NEXT_ACTION_DATE + ".value = '"
         + sdf.format(new Date()) + "';");
+    ;
     out.println("      }");
     out.println("    }");
     out.println("    ");

@@ -1,6 +1,3 @@
-**Filename:**
-`time-slot-domain-model.md`
-
 # Time Slot — Domain Definition and Usage
 
 ## Purpose

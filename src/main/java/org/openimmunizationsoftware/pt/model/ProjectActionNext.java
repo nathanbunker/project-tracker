@@ -18,7 +18,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private Integer nextTimeActual;
     private Integer nextContactId;
     private int priorityLevel = 0;
-    private PrioritySpecial prioritySpecial;
+    private ProcessStage processStage;
     private String goalStatus;
     private Integer templateActionNextId;
     private String linkUrl = "";
@@ -186,23 +186,42 @@ public class ProjectActionNext implements java.io.Serializable {
         this.priorityLevel = priorityLevel;
     }
 
-    public PrioritySpecial getPrioritySpecial() {
-        return prioritySpecial;
+    public ProcessStage getProcessStage() {
+        return processStage;
     }
 
-    public void setPrioritySpecial(PrioritySpecial prioritySpecial) {
-        this.prioritySpecial = prioritySpecial;
+    public void setProcessStage(ProcessStage processStage) {
+        this.processStage = processStage;
     }
 
-    public String getPrioritySpecialString() {
-        if (prioritySpecial == null) {
+    public String getProcessStageString() {
+        if (processStage == null) {
             return "";
         }
-        return prioritySpecial.getId();
+        return processStage.getId();
     }
 
-    public void setPrioritySpecialString(String prioritySpecialString) {
-        this.prioritySpecial = PrioritySpecial.getPrioritySpecial(prioritySpecialString);
+    public void setProcessStageString(String processStageString) {
+        this.processStage = ProcessStage.getProcessStage(processStageString);
+    }
+
+    public TimeSlot getTimeSlot() {
+        return timeSlot;
+    }
+
+    public void setTimeSlot(TimeSlot timeSlot) {
+        this.timeSlot = timeSlot;
+    }
+
+    public String getTimeSlotString() {
+        if (timeSlot == null) {
+            return "";
+        }
+        return timeSlot.getId();
+    }
+
+    public void setTimeSlotString(String timeSlotString) {
+        this.timeSlot = TimeSlot.getTimeSlot(timeSlotString);
     }
 
     public String getGoalStatus() {

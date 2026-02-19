@@ -296,11 +296,6 @@ public class TodoServlet extends MobileBaseServlet {
         }
     }
 
-    private String formatDateSection(Date date, WebUser webUser) {
-        SimpleDateFormat sdf = webUser.getDateFormat();
-        return sdf.format(date);
-    }
-
     private void printFilters(PrintWriter out, boolean showPersonal, boolean showWork,
             int personalCount, int workCount, Date selectedDate) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");

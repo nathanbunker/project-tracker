@@ -8,10 +8,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.TimeZone;
-import javax.servlet.RequestDispatcher;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;

@@ -195,7 +195,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                   projectAction.setProvider(webUser.getProvider());
                   projectAction.setNextTimeEstimate(templateAction.getNextTimeEstimate());
                   projectAction.setTemplateActionNextId(templateAction.getActionNextId());
-                  projectAction.setPrioritySpecial(templateAction.getPrioritySpecial());
+                  projectAction.setProcessStage(templateAction.getProcessStage());
                   projectAction.setNextActionStatus(ProjectNextActionStatus.READY);
                   dataSession.save(projectAction);
                 } else {
