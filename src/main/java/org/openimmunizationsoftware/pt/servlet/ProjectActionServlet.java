@@ -202,7 +202,12 @@ public class ProjectActionServlet extends ClientServlet {
         } else if (action.equals(ACTION_STOP_TIMER)) {
           stopTimer(appReq, dataSession);
         } else if (action.equals(ACTION_POSTPONE_NEXT_WORKING_DAY)) {
-          postponeActionToNextWorkingDay(appReq, dataSession);
+          ProjectActionNext postponedAction = postponeActionToNextWorkingDay(appReq, dataSession);
+          if (postponedAction != null && completingAction != null
+              && postponedAction.getActionNextId() == completingAction.getActionNextId()) {
+            completingAction = null;
+            appReq.setCompletingAction(null);
+          }
         } else if (action.equals(ACTION_PROPOSE)) {
           chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else if (action.equals(ACTION_FEEDBACK)) {
