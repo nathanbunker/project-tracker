@@ -109,6 +109,8 @@ public class TrackServlet extends ClientServlet {
                     + URLEncoder.encode(webUser.getParentWebUser().getUsername(), "UTF-8"));
             return;
           }
+          response.sendRedirect("BillEntriesServlet?billDate=" + sdf.format(new Date()));
+          return;
         }
       }
 
@@ -314,6 +316,7 @@ public class TrackServlet extends ClientServlet {
     if (type.equals(TYPE_MONTH) || type.equals(TYPE_YEAR)) {
       printTotalWorkingTime(out, type, billableMins, targetHours);
       List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
+      Collections.sort(timeEntryList);
       List<ProjectActionTaken> projectActionTakenList = getProjectActionTakenList(webUser, dataSession, timeTracker);
       List<ProjectActionNext> projectActionCompletedList = getProjectActionNextCompletedList(webUser, dataSession,
           timeTracker);
@@ -336,6 +339,7 @@ public class TrackServlet extends ClientServlet {
       }
     } else {
       List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
+      Collections.sort(timeEntryList);
       if (type.equals(TYPE_WEEK)) {
         int totalTimeInMinutes = 0;
         for (TimeEntry timeEntry : timeEntryList) {
@@ -350,13 +354,6 @@ public class TrackServlet extends ClientServlet {
           timeTracker);
 
       if (timeEntryList.size() > 0 || projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
-        {
-          out.println("<h2>Notes for " + type + "</h2>");
-          for (TimeEntry timeEntry : timeEntryList) {
-            printProjectNarrative(webUser, out, dataSession, timeTracker, type,
-                projectActionTakenList, timeEntry);
-          }
-        }
         out.println("<table class=\"boxed\">");
         out.println("  <tr>");
         out.println("    <th class=\"title\" colspan=\"3\">Time Tracked by Project</th>");
@@ -378,99 +375,7 @@ public class TrackServlet extends ClientServlet {
         out.println("<br/> ");
       }
     }
-    {
-      setupTimeEntryList(dataSession, timeTracker);
-    }
-
-    out.println("<h2>Additional Information</h2>");
-
-    Map<String, Integer> billCodeMap = timeTracker.getTotalMinsForBillCodeMap();
-    List<TimeEntry> timeEntryList = timeTracker.createTimeEntryList();
-
-    if (timeEntryList.size() > 0) {
-      out.println("<table class=\"boxed\">");
-      out.println("  <tr>");
-      out.println("    <th class=\"title\" colspan=\"3\">Time Tracked by Funding Source</th>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Bill Code</th>");
-      out.println("    <th class=\"boxed\">Actual</th>");
-      out.println("    <th class=\"boxed\">Rounded</th>");
-      // out.println(" <th class=\"boxed\">Billable</th>");
-      out.println("  </tr>");
-      int totalTime = 0;
-      int totalBillable = 0;
-      for (TimeEntry timeEntry : timeEntryList) {
-        String billCodeString = timeEntry.getId();
-        BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
-        int billable;
-        if (type.equals(TYPE_DAY)) {
-          billable = TimeTracker.roundTime(billCodeMap.get(billCodeString), billCode);
-        } else {
-          Query query = dataSession.createQuery(
-              "from BillDay where billCode = ? and bill_date >= ? and bill_date < ?");
-          query.setParameter(0, billCode);
-          query.setParameter(1, timeTracker.getStartDate());
-          query.setParameter(2, timeTracker.getEndDate());
-          billable = 0;
-          List<BillDay> billDayList = query.list();
-          for (BillDay billDay : billDayList) {
-            billable += billDay.getBillMins();
-          }
-        }
-        totalTime += billCodeMap.get(billCodeString);
-        totalBillable += billable;
-        out.println("  <tr class=\"boxed\">");
-        if (showLinks) {
-          out.println(
-              "    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode="
-                  + billCode.getBillCode()
-                  + "\" class=\"button\">"
-                  + billCode.getBillLabel()
-                  + "</a></td>");
-        } else {
-          out.println("    <td class=\"boxed\">" + billCode.getBillLabel() + "</td>");
-        }
-        out.println(
-            "    <td class=\"boxed\">"
-                + TimeTracker.formatTime(billCodeMap.get(billCodeString))
-                + "</td>");
-        out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(billable) + "</td>");
-        // if (billCode.getBillRate() > 0)
-        // {
-        // out.println(" <td class=\"boxed\">" + formatMoney(billableMoney) + "</td>");
-        // } else
-        // {
-        // out.println(" <td class=\"boxed\">&nbsp;</td>");
-        // }
-        out.println("  </tr>");
-      }
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Total</th>");
-      out.println("    <th class=\"boxed\">Actual</th>");
-      out.println("    <th class=\"boxed\">Rounded</th>");
-      // out.println(" <th class=\"boxed\">Billable</th>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed\">Total</td>");
-      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(totalTime) + "</td>");
-      out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(totalBillable) + "</td>");
-      // out.println(" <td class=\"boxed\">" + formatMoney(totalBillableMoney) +
-      // "</td>");
-      out.println("  </tr>");
-      out.println("</table> ");
-      if (!showLinks) {
-        out.println("<br/>");
-      }
-    }
-    if (showLinks) {
-      out.println(
-          "<p><a href=\"BillEntriesServlet\" class=\"button\">See all Bill Entries</a></p>");
-      out.println("<p><a href=\"BillCodesServlet\" class=\"button\">See all Bill Codes</a></p>");
-      out.println(
-          "<p><a href=\"BillBudgetsServlet\" class=\"button\">See all Bill Budgets</a></p>");
-    }
-    timeEntryList = new ArrayList<TimeEntry>();
+    List<TimeEntry> timeEntryList = new ArrayList<TimeEntry>();
     Map<String, Integer> clientMap = timeTracker.getTotalMinsForClientMap();
     for (String categoryCode : clientMap.keySet()) {
       ProjectCategory projectCategory = getClient(dataSession, categoryCode, webUser.getProvider());
@@ -704,8 +609,15 @@ public class TrackServlet extends ClientServlet {
     for (Integer projectId : projectMap.keySet()) {
       Project project = (Project) dataSession.get(Project.class, projectId);
       if (project != null) {
-        TimeEntry timeEntry = new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId);
-        timeEntryList.add(timeEntry);
+        // Filter out non-billable projects
+        String billCodeString = project.getBillCode();
+        if (billCodeString != null) {
+          BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+          if (billCode != null && "Y".equals(billCode.getBillable())) {
+            TimeEntry timeEntry = new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId);
+            timeEntryList.add(timeEntry);
+          }
+        }
       }
     }
     return timeEntryList;

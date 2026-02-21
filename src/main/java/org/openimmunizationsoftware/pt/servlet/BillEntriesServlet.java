@@ -121,6 +121,8 @@ public class BillEntriesServlet extends ClientServlet {
         printBillEntriesSection(out, dataSession, billEntryList, lockedBillEntryId, billDateString,
             timeFormat);
       }
+      out.println("<p><a href=\"BillCodesServlet\" class=\"button\">See all Bill Codes</a></p>");
+      out.println("<p><a href=\"BillBudgetsServlet\" class=\"button\">See all Bill Budgets</a></p>");
       printHtmlFoot(appReq);
 
     } catch (Exception e) {
