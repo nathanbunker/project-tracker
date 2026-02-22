@@ -177,7 +177,7 @@ public class ProjectServlet extends MobileBaseServlet {
             String description = action.getNextDescriptionForDisplay(action.getContact());
 
             // Build todo detail link
-            String viewUrl = "todo?viewActionId=" + action.getActionNextId();
+            String viewUrl = "action?viewActionId=" + action.getActionNextId();
             if (action.getNextActionDate() != null) {
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                 viewUrl += "&date=" + sdf.format(action.getNextActionDate());

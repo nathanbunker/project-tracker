@@ -301,7 +301,6 @@ public class TrackServlet extends ClientServlet {
     return targetHours;
   }
 
-  @SuppressWarnings("unchecked")
   public static String makeTimeTrackReport(
       WebUser webUser,
       PrintWriter out,
@@ -543,49 +542,6 @@ public class TrackServlet extends ClientServlet {
       }
     }
     out.println("  </tr>");
-  }
-
-  private static void printProjectNarrative(WebUser webUser, PrintWriter out, Session dataSession,
-      TimeTracker timeTracker, String type, List<ProjectActionTaken> projectActionTakenList, TimeEntry timeEntry) {
-    // if displaying for week then time needs to be rounded to 30 minutes.
-    // The rounding rule is anything under 7 minutes is rounded down, and everything
-    // 7 minutes
-    // or over is rounded to the next 30 minutes
-    int timeInMinutes = timeEntry.getMinutes();
-    if (type.equals(TYPE_WEEK)) {
-      timeInMinutes = timeEntry.getMinutesAdjusted();
-    }
-    Query query = dataSession.createQuery(
-        "from ProjectActionTaken where contactId = ? and projectId = ? and"
-            + " actionDescription <> '' and actionDate >= ? and actionDate < ? order"
-            + " by actionDate asc");
-    query.setParameter(0, webUser.getContactId());
-    query.setParameter(1, Integer.parseInt(timeEntry.getId()));
-    query.setParameter(2, timeTracker.getStartDate());
-    query.setParameter(3, timeTracker.getEndDate());
-    @SuppressWarnings("unchecked")
-    List<ProjectActionTaken> projectActionList = query.list();
-    timeEntry.setProjectActionList(projectActionList);
-    if (timeInMinutes <= 0 && projectActionList.size() <= 0) {
-      return;
-    }
-    out.println("    <h3>Project: " + timeEntry.getLabel() + "</h3>");
-    Project project = (Project) dataSession.get(Project.class, Integer.parseInt(timeEntry.getId()));
-    if (project.getDescription() != null && project.getDescription().length() > 0) {
-      out.println("    <p>Project Description: " + project.getDescription() + "</p>");
-    }
-    out.println("    <p>Time spent: " + TimeTracker.formatTime(timeInMinutes) + "</p>");
-
-    if (projectActionList.size() > 0) {
-      out.println("<p>Actions Taken: ");
-      for (ProjectActionTaken projectAction : projectActionList) {
-        out.println(" " + projectAction.getActionDescription());
-      }
-      out.println("    </p>");
-    } else {
-      out.println("    <p>No actions recorded.</p>");
-    }
-    return;
   }
 
   private static void printProjectLineWithTimeEntrySummaryOnly(WebUser webUser, PrintWriter out, Session dataSession,

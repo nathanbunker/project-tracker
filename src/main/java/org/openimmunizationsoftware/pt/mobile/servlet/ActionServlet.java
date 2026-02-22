@@ -46,11 +46,16 @@ public class ActionServlet extends MobileBaseServlet {
     private static final String PARAM_PROJECT_ID = "projectId";
     private static final String PARAM_EDIT_ACTION_NEXT_ID = "editActionNextId";
     private static final String PARAM_ACTION_NEXT_ID = "actionNextId";
+    private static final String PARAM_VIEW_ACTION_ID = "viewActionId";
+    private static final String PARAM_DATE = "date";
     private static final String PARAM_ACTION = "action";
 
     private static final String ACTION_SAVE = "Save";
     private static final String ACTION_START = "Start";
     private static final String ACTION_DELETE = "Delete";
+    private static final String ACTION_COMPLETE = "complete";
+    private static final String ACTION_TOMORROW = "tomorrow";
+    private static final String LIST_START = " - ";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -64,6 +69,13 @@ public class ActionServlet extends MobileBaseServlet {
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
             String action = request.getParameter(PARAM_ACTION);
+
+            Integer viewActionId = parseInteger(request.getParameter(PARAM_VIEW_ACTION_ID));
+            if (viewActionId != null) {
+                processSummaryView(appReq, webUser, dataSession, action, viewActionId);
+                return;
+            }
+
             boolean showWork = isShowWork(request);
             boolean showPersonal = isShowPersonal(request);
 
@@ -123,6 +135,273 @@ public class ActionServlet extends MobileBaseServlet {
         } finally {
             appReq.close();
         }
+    }
+
+    private void processSummaryView(AppReq appReq, WebUser webUser, Session dataSession,
+            String action, Integer viewActionId) throws IOException {
+        HttpServletRequest request = appReq.getRequest();
+        HttpServletResponse response = appReq.getResponse();
+
+        ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, viewActionId);
+
+        if (projectAction == null) {
+            appReq.setTitle("Action");
+            printHtmlHead(appReq, "Action");
+            appReq.getOut().println("<p class=\"fail\">Action not found</p>");
+            printHtmlFoot(appReq);
+            return;
+        }
+
+        String nextNote = request.getParameter(PARAM_NEXT_NOTE);
+        if (nextNote != null && nextNote.trim().length() > 0) {
+            Transaction trans = dataSession.beginTransaction();
+            try {
+                String updatedNotes = nextNote;
+                if (projectAction.getNextNotes() != null && projectAction.getNextNotes().trim().length() > 0) {
+                    updatedNotes = projectAction.getNextNotes() + "\n - " + nextNote;
+                } else {
+                    updatedNotes = LIST_START + nextNote;
+                }
+                projectAction.setNextNotes(updatedNotes);
+                projectAction.setNextChangeDate(new Date());
+                dataSession.saveOrUpdate(projectAction);
+                trans.commit();
+            } catch (Exception e) {
+                trans.rollback();
+                throw e;
+            }
+        }
+
+        if (ACTION_COMPLETE.equals(action)) {
+            completeAction(projectAction, dataSession);
+            response.sendRedirect(buildTodoRedirectUrl(request));
+            return;
+        }
+        if (ACTION_TOMORROW.equals(action)) {
+            postponeToTomorrow(projectAction, dataSession, webUser);
+            response.sendRedirect(buildTodoRedirectUrl(request));
+            return;
+        }
+
+        appReq.setTitle("Action");
+        printHtmlHead(appReq, "Action");
+        printActionSummary(appReq, projectAction, webUser);
+        printHtmlFoot(appReq);
+    }
+
+    private void printActionSummary(AppReq appReq, ProjectActionNext action, WebUser webUser) {
+        PrintWriter out = appReq.getOut();
+
+        Date today = webUser.getToday();
+        String title = formatTitle(action.getNextActionDate(), today, webUser);
+        out.println("<h1>" + title + "</h1>");
+
+        out.println("<h2>Description</h2>");
+        String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
+        String description = action.getNextDescriptionForDisplay(action.getContact());
+        if (!projectName.isEmpty()) {
+            out.println("<strong><a href=\"project?projectId=" + action.getProjectId()
+                    + "\" style=\"text-decoration: none;\">" + escapeHtml(projectName)
+                    + "</a>:</strong> ");
+        }
+        out.println("<p>" + (description == null ? "" : description) + "</p>");
+
+        if (action.getLinkUrl() != null && !action.getLinkUrl().isEmpty()) {
+            out.println("<p><a href=\"" + escapeHtml(action.getLinkUrl()) + "\" target=\"_blank\">Link</a></p>");
+        }
+
+        if (action.getNextNotes() != null && !action.getNextNotes().trim().isEmpty()) {
+            out.println("<h2>Notes</h2>");
+            out.println(convertToHtmlList(action.getNextNotes()));
+        }
+
+        out.println("<h2>Add Note</h2>");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        String dateParam = action.getNextActionDate() != null ? sdf.format(action.getNextActionDate()) : "";
+
+        out.println("<form method=\"post\" action=\"action\">");
+        out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\""
+                + action.getActionNextId() + "\" />");
+        if (!dateParam.isEmpty()) {
+            out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
+        }
+        out.println("  <textarea name=\"" + PARAM_NEXT_NOTE + "\" rows=\"5\" style=\"width:100%;\"></textarea>");
+        out.println("  <br/>");
+        out.println("  <input type=\"submit\" value=\"Add Note\" />");
+        out.println("</form>");
+
+        out.println("<h2>Actions</h2>");
+        out.println("<table class=\"boxed-mobile\">");
+        out.println("  <tr class=\"boxed\">");
+
+        String completeUrl = "action?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId() + "&" +
+                PARAM_ACTION + "=" + ACTION_COMPLETE;
+        if (!dateParam.isEmpty()) {
+            completeUrl += "&" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("    <td style=\"text-align:center; padding:10px;\">");
+        out.println("      <a href=\"" + completeUrl
+                + "\" class=\"action-icon\" title=\"Complete\">&#10004; Complete</a>");
+        out.println("    </td>");
+
+        String postponeUrl = "action?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId() + "&" +
+                PARAM_ACTION + "=" + ACTION_TOMORROW;
+        if (!dateParam.isEmpty()) {
+            postponeUrl += "&" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("    <td style=\"text-align:center; padding:10px;\">");
+        out.println("      <a href=\"" + postponeUrl
+                + "\" class=\"action-icon\" title=\"Postpone\">&#8594; Postpone</a>");
+        out.println("    </td>");
+
+        out.println("    <td style=\"text-align:center; padding:10px;\">");
+        out.println("      <a href=\"action?" + PARAM_ACTION_NEXT_ID + "=" + action.getActionNextId()
+                + "\" class=\"action-icon\" title=\"Edit\">&#9998; Edit</a>");
+        out.println("    </td>");
+
+        out.println("  </tr>");
+        out.println("</table>");
+
+        out.println("<h2>Navigation</h2>");
+        out.println("<p>");
+
+        String todoUrl = "todo";
+        if (!dateParam.isEmpty()) {
+            todoUrl += "?" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("  <a href=\"" + todoUrl + "\" class=\"box\">Todo for " +
+                (dateParam.isEmpty() ? "Today" : new SimpleDateFormat("EEE MM/dd").format(action.getNextActionDate())) +
+                "</a>");
+
+        if (action.getProject() != null) {
+            out.println("  <a href=\"project?projectId=" + action.getProject().getProjectId()
+                    + "\" class=\"box\">Project: " + escapeHtml(action.getProject().getProjectName()) + "</a>");
+        }
+
+        out.println("</p>");
+    }
+
+    private String formatTitle(Date selectedDate, Date today, WebUser webUser) {
+        if (isSameDay(selectedDate, today, webUser)) {
+            return "Action Today";
+        }
+
+        Calendar cal = webUser.getCalendar();
+        cal.setTime(selectedDate);
+        Calendar todayCal = webUser.getCalendar();
+        todayCal.setTime(today);
+
+        long daysDiff = (cal.getTimeInMillis() - todayCal.getTimeInMillis()) / (1000 * 60 * 60 * 24);
+
+        if (daysDiff >= 1 && daysDiff <= 7) {
+            SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE");
+            return "Action " + dayFormat.format(selectedDate);
+        } else if (daysDiff >= 8 && daysDiff <= 14) {
+            SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE");
+            return "Action Next " + dayFormat.format(selectedDate);
+        } else {
+            SimpleDateFormat dateFormat = webUser.getDateFormat();
+            return "Action " + dateFormat.format(selectedDate);
+        }
+    }
+
+    private boolean isSameDay(Date date1, Date date2, WebUser webUser) {
+        if (date1 == null || date2 == null) {
+            return false;
+        }
+        Calendar cal1 = webUser.getCalendar();
+        cal1.setTime(date1);
+        Calendar cal2 = webUser.getCalendar();
+        cal2.setTime(date2);
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR)
+                && cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
+    }
+
+    private void postponeToTomorrow(ProjectActionNext action, Session dataSession, WebUser webUser) {
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            Calendar calendar = webUser.getCalendar();
+            calendar.set(Calendar.HOUR_OF_DAY, 0);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+            calendar.add(Calendar.DAY_OF_MONTH, 1);
+            action.setNextActionDate(calendar.getTime());
+            action.setNextChangeDate(new Date());
+            dataSession.saveOrUpdate(action);
+            trans.commit();
+        } catch (Exception e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
+    private void completeAction(ProjectActionNext action, Session dataSession) {
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
+            action.setNextChangeDate(new Date());
+            dataSession.saveOrUpdate(action);
+            trans.commit();
+        } catch (Exception e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
+    private String buildTodoRedirectUrl(HttpServletRequest request) {
+        String dateParam = request.getParameter(PARAM_DATE);
+        if (dateParam != null && !dateParam.isEmpty()) {
+            return "todo?" + PARAM_DATE + "=" + dateParam;
+        }
+        return "todo";
+    }
+
+    private Integer parseInteger(String value) {
+        if (value == null || value.length() == 0) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException nfe) {
+            return null;
+        }
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    private static String convertToHtmlList(String input) {
+        StringBuilder html = new StringBuilder("<ul>\n");
+        String[] lines = input.split("\\r?\\n");
+
+        for (String line : lines) {
+            if (line.startsWith(" - ")) {
+                html.append("  <li>").append(escapeHtmlStatic(line.substring(3).trim())).append("</li>\n");
+            }
+        }
+
+        html.append("</ul>");
+        return html.toString();
+    }
+
+    private static String escapeHtmlStatic(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private void handleUnexpectedError(HttpServletResponse response, Exception e) throws IOException {
