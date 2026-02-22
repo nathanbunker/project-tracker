@@ -165,6 +165,7 @@ public class ProjectServlet extends MobileBaseServlet {
         }
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MM/dd/yyyy");
+        SimpleDateFormat dateParamFormat = new SimpleDateFormat("yyyy-MM-dd");
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">To Do</th>");
@@ -179,14 +180,15 @@ public class ProjectServlet extends MobileBaseServlet {
             // Build todo detail link
             String viewUrl = "action?viewActionId=" + action.getActionNextId();
             if (action.getNextActionDate() != null) {
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                viewUrl += "&date=" + sdf.format(action.getNextActionDate());
+                viewUrl += "&date=" + dateParamFormat.format(action.getNextActionDate());
             }
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">");
             if (action.getNextActionDate() != null) {
-                out.println("      <strong>" + dateFormat.format(action.getNextActionDate()) + ":</strong> ");
+                String todoDateUrl = "todo?date=" + dateParamFormat.format(action.getNextActionDate());
+                out.println("      <strong><a href=\"" + todoDateUrl + "\" style=\"text-decoration: none;\">"
+                        + dateFormat.format(action.getNextActionDate()) + "</a>:</strong> ");
             }
             out.println("      <a href=\"" + viewUrl + "\" style=\"text-decoration: none; color: inherit;\">");
             out.println("        " + (description == null ? "" : description));
