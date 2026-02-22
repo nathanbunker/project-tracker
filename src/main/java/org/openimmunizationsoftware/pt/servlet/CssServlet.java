@@ -147,15 +147,17 @@ public class CssServlet extends ClientServlet {
                 out.println("}");
 
                 if (displaySize.equals(DISPLAY_SIZE_LARGE)) {
-                        out.println(".menu {width:100%; padding:0px; background-color:" + backgroundColor
+                        out.println(".menu {width:100%; box-sizing: border-box; border-collapse: collapse; padding:0px; background-color:"
+                                        + backgroundColor
                                         + "; color: #DDDDDD;margin: 0px; border-color: #2B3E42; border-width: 1px; border-style: solid}");
                 } else {
-                        out.println(".menu {width:720px; padding:0px; background-color:" + backgroundColor
+                        out.println(".menu {width:720px; box-sizing: border-box; border-collapse: collapse; padding:0px; background-color:"
+                                        + backgroundColor
                                         + "; color: #DDDDDD; margin: 0px; border-color: #2B3E42; border-width: 1px; border-style: solid}");
                 }
 
                 out.println(".main {width:720px; padding:0px; margin:0px; }");
-                out.println(".mainMobile { width: 100%; padding: 8px; margin: 0; }");
+                out.println(".mainMobile { width: 100%; box-sizing: border-box; padding: 8px; margin: 0; }");
                 out.println("#projectNavigation {float: right; width: 270px; }");
                 out.println("#projectInfo {width: 440px; }");
                 if (displaySize.equals(DISPLAY_SIZE_LARGE)) {
