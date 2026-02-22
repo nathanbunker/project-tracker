@@ -282,6 +282,9 @@ public class ActionServlet extends MobileBaseServlet {
     }
 
     private String formatTitle(Date selectedDate, Date today, WebUser webUser) {
+        if (selectedDate == null) {
+            return "Action";
+        }
         if (isSameDay(selectedDate, today, webUser)) {
             return "Action Today";
         }
