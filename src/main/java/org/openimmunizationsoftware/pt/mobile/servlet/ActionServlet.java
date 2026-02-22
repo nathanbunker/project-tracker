@@ -119,9 +119,16 @@ public class ActionServlet extends MobileBaseServlet {
 
             printHtmlFoot(appReq);
         } catch (Exception e) {
-            e.printStackTrace();
+            handleUnexpectedError(response, e);
         } finally {
             appReq.close();
+        }
+    }
+
+    private void handleUnexpectedError(HttpServletResponse response, Exception e) throws IOException {
+        e.printStackTrace();
+        if (!response.isCommitted()) {
+            response.sendRedirect("oops");
         }
     }
 

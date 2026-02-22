@@ -55,6 +55,11 @@ public class TodoServlet extends MobileBaseServlet {
             throws ServletException, IOException {
         AppReq appReq = new AppReq(request, response);
         try {
+            if (appReq.isLoggedOut()) {
+                response.sendRedirect("../LoginServlet?uiMode=mobile");
+                return;
+            }
+
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
 
@@ -107,7 +112,8 @@ public class TodoServlet extends MobileBaseServlet {
                                 response.sendRedirect(redirectUrl);
                                 return;
                             } catch (Exception e) {
-                                e.printStackTrace();
+                                handleUnexpectedError(request, response, e);
+                                return;
                             }
                         }
                     }
@@ -119,7 +125,8 @@ public class TodoServlet extends MobileBaseServlet {
                     printHtmlFoot(appReq);
                     return;
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    handleUnexpectedError(request, response, e);
+                    return;
                 }
             }
 
@@ -146,7 +153,8 @@ public class TodoServlet extends MobileBaseServlet {
                     response.sendRedirect(redirectUrl);
                     return;
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    handleUnexpectedError(request, response, e);
+                    return;
                 }
             }
 
@@ -265,9 +273,17 @@ public class TodoServlet extends MobileBaseServlet {
 
             printHtmlFoot(appReq);
         } catch (Exception e) {
-            e.printStackTrace();
+            handleUnexpectedError(request, response, e);
         } finally {
             appReq.close();
+        }
+    }
+
+    private void handleUnexpectedError(HttpServletRequest request, HttpServletResponse response, Exception e)
+            throws IOException {
+        e.printStackTrace();
+        if (!response.isCommitted()) {
+            response.sendRedirect("oops");
         }
     }
 

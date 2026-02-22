@@ -110,6 +110,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.ActionServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>MobileOopsServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.OopsServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>BillEntryEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillEntryEditServlet</servlet-class>
   </servlet>
@@ -164,6 +168,10 @@
   <servlet-mapping>
     <servlet-name>MobileActionServlet</servlet-name>
     <url-pattern>/m/action</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>MobileOopsServlet</servlet-name>
+    <url-pattern>/m/oops</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>HomeServlet</servlet-name>
