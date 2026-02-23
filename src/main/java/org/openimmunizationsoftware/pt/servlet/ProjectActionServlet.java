@@ -178,6 +178,11 @@ public class ProjectActionServlet extends ClientServlet {
           }
           if (action.equals(ACTION_SCHEDULE_AND_START)) {
             completingAction = nextAction;
+          } else if (action.equals(ACTION_SCHEDULE)
+              && completingAction != null
+              && completingAction.getNextActionStatus() == ProjectNextActionStatus.COMPLETED) {
+            completingAction = null;
+            appReq.setCompletingAction(null);
           }
         }
         if (completingAction != null) {
