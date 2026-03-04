@@ -871,7 +871,8 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("          <th class=\"inside\"></th>");
         out.println("          <td class=\"inside\" colspan=\"3\"> ");
         out.println(
-                "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION + "\" rows=\"1\" onkeydown=\"resetRefresh()\""
+            "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION
+                + "\" rows=\"1\" onkeydown=\"resetRefresh()\" autocapitalize=\"none\" autocorrect=\"off\""
                         + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
                         + "</textarea>");
         out.println("          </td>");
