@@ -170,14 +170,18 @@ public class ProjectActionServlet extends ClientServlet {
       String emailBody = null;
       String sentenceInput = request.getParameter(PARAM_SENTENCE_INPUT);
       ProjectActionNext nextAction = null;
+      ProjectActionNext unblockedAction = null;
       ProjectActionNext editProjectAction = readEditProjectAction(appReq);
       if (sentenceInput != null && !sentenceInput.trim().isEmpty()) {
         boolean completeCurrentActionWhenSummary = !ACTION_SCHEDULE_AND_BLOCK.equals(action);
-        nextAction = saveNewAction(webUser, dataSession, completingAction, projectList, editProjectAction,
+        SaveNewActionResult saveNewActionResult = saveNewAction(webUser, dataSession, completingAction, projectList,
+            editProjectAction,
             nextAction,
             sentenceInput, completeCurrentActionWhenSummary);
+        nextAction = saveNewActionResult.getNextAction();
+        unblockedAction = saveNewActionResult.getUnblockedAction();
         if (nextAction != null) {
-          if (nextAction.getProjectId() != project.getProjectId()) {
+          if (project != null && nextAction.getProjectId() != project.getProjectId()) {
             project = nextAction.getProject();
           }
           if (action.equals(ACTION_SCHEDULE_AND_START)) {
@@ -190,13 +194,18 @@ public class ProjectActionServlet extends ClientServlet {
             actionToBlock.setNextChangeDate(new Date());
             dataSession.update(actionToBlock);
             blockTrans.commit();
-            completingAction = null;
-            appReq.setCompletingAction(null);
+            completingAction = nextAction;
+            appReq.setCompletingAction(completingAction);
           } else if (action.equals(ACTION_SCHEDULE)
               && completingAction != null
               && completingAction.getNextActionStatus() == ProjectNextActionStatus.COMPLETED) {
-            completingAction = null;
-            appReq.setCompletingAction(null);
+            if (unblockedAction != null) {
+              completingAction = unblockedAction;
+              appReq.setCompletingAction(completingAction);
+            } else {
+              completingAction = null;
+              appReq.setCompletingAction(null);
+            }
           }
         }
         if (completingAction != null) {
@@ -241,9 +250,9 @@ public class ProjectActionServlet extends ClientServlet {
           if (action.equals(ACTION_COMPLETED) && nextAction == null) {
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.COMPLETED;
             String nextDescription = completingAction.getNextSummary();
-            closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
+            unblockedAction = closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
             emailBody = sendEmail(request, appReq, webUser, dataSession, project, editProjectAction, emailBody);
-            completingAction = null;
+            completingAction = unblockedAction != null ? unblockedAction : null;
           } else if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
             Project nextProject = project;
             Date originalNextActionDate = null;
@@ -273,9 +282,9 @@ public class ProjectActionServlet extends ClientServlet {
           } else if (action.equals(ACTION_DELETE)) {
             String nextDescription = "";
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.CANCELLED;
-            closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
+            unblockedAction = closeAction(appReq, editProjectAction, project, nextDescription, nextActionStatus);
             if (appReq.getCompletingAction() != null && appReq.getCompletingAction().equals(editProjectAction)) {
-              completingAction = null;
+              completingAction = unblockedAction != null ? unblockedAction : null;
             }
           }
           // refresh the project actions taken and scheduled lists
@@ -606,9 +615,10 @@ public class ProjectActionServlet extends ClientServlet {
     return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
   }
 
-  private ProjectActionNext saveNewAction(WebUser webUser, Session dataSession,
+  private SaveNewActionResult saveNewAction(WebUser webUser, Session dataSession,
       ProjectActionNext completingAction, List<Project> projectList, ProjectActionNext editProjectAction,
       ProjectActionNext nextAction, String sentenceInput, boolean completeCurrentActionWhenSummary) {
+    SaveNewActionResult saveNewActionResult = new SaveNewActionResult();
     String projectName = "";
     String actionPart = sentenceInput;
     String[] parts = sentenceInput.split(":", 2);
@@ -627,7 +637,7 @@ public class ProjectActionServlet extends ClientServlet {
     if (foundProject == null) {
       ProjectActionNext sourceAction = editProjectAction != null ? editProjectAction : completingAction;
       if (sourceAction == null || sourceAction.getProject() == null) {
-        return null;
+        return saveNewActionResult;
       }
       // deafulting to current project
       foundProject = sourceAction.getProject();
@@ -791,12 +801,15 @@ public class ProjectActionServlet extends ClientServlet {
         actionToClose.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
         actionToClose.setNextChangeDate(new Date());
         dataSession.update(actionToClose);
-        ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, actionToClose);
+        ProjectActionNext unblockedAction = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser,
+            actionToClose);
+        saveNewActionResult.setUnblockedAction(unblockedAction);
       }
     }
     trans.commit();
 
-    return nextAction;
+    saveNewActionResult.setNextAction(nextAction);
+    return saveNewActionResult;
   }
 
   private Date parseWhenToTakeAction(WebUser webUser, String whenToTakeAction) {
@@ -1344,10 +1357,11 @@ public class ProjectActionServlet extends ClientServlet {
     return editProjectAction;
   }
 
-  private void closeAction(AppReq appReq, ProjectActionNext projectAction, Project project,
+  private ProjectActionNext closeAction(AppReq appReq, ProjectActionNext projectAction, Project project,
       String nextDescription, ProjectNextActionStatus nextActionStatus) {
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
+    ProjectActionNext unblockedAction = null;
     Transaction trans = dataSession.beginTransaction();
     if (nextDescription != null && !nextDescription.trim().isEmpty()) {
       ProjectActionTaken actionTaken = new ProjectActionTaken();
@@ -1365,9 +1379,31 @@ public class ProjectActionServlet extends ClientServlet {
     dataSession.update(projectAction);
     if (nextActionStatus == ProjectNextActionStatus.COMPLETED
         || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
-      ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, projectAction);
+      unblockedAction = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, projectAction);
     }
     trans.commit();
+    return unblockedAction;
+  }
+
+  private static class SaveNewActionResult {
+    private ProjectActionNext nextAction;
+    private ProjectActionNext unblockedAction;
+
+    public ProjectActionNext getNextAction() {
+      return nextAction;
+    }
+
+    public void setNextAction(ProjectActionNext nextAction) {
+      this.nextAction = nextAction;
+    }
+
+    public ProjectActionNext getUnblockedAction() {
+      return unblockedAction;
+    }
+
+    public void setUnblockedAction(ProjectActionNext unblockedAction) {
+      this.unblockedAction = unblockedAction;
+    }
   }
 
   private String sendEmail(HttpServletRequest request, AppReq appReq, WebUser webUser, Session dataSession,

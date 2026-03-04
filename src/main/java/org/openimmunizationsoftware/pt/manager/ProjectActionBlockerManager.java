@@ -15,9 +15,10 @@ public class ProjectActionBlockerManager {
         // utility class
     }
 
-    public static void unblockActionsBlockedBy(Session dataSession, WebUser webUser, ProjectActionNext blockerAction) {
+    public static ProjectActionNext unblockActionsBlockedBy(Session dataSession, WebUser webUser,
+            ProjectActionNext blockerAction) {
         if (dataSession == null || webUser == null || blockerAction == null || blockerAction.getActionNextId() <= 0) {
-            return;
+            return null;
         }
 
         Calendar calendar = webUser.getCalendar();
@@ -29,15 +30,21 @@ public class ProjectActionBlockerManager {
         Date today = calendar.getTime();
 
         Query query = dataSession
-                .createQuery("from ProjectActionNext where blockedBy.actionNextId = :blockedByActionNextId");
+                .createQuery(
+                        "from ProjectActionNext where blockedBy.actionNextId = :blockedByActionNextId order by priorityLevel desc, nextChangeDate asc");
         query.setParameter("blockedByActionNextId", blockerAction.getActionNextId());
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> blockedActions = query.list();
+        ProjectActionNext firstUnblockedAction = null;
         for (ProjectActionNext blockedAction : blockedActions) {
             blockedAction.setBlockedBy(null);
             blockedAction.setNextActionDate(today);
             blockedAction.setNextChangeDate(new Date());
             dataSession.update(blockedAction);
+            if (firstUnblockedAction == null) {
+                firstUnblockedAction = blockedAction;
+            }
         }
+        return firstUnblockedAction;
     }
 }
