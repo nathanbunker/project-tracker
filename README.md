@@ -84,6 +84,10 @@ Produces `target/tracker.war` for Tomcat deployment.
 
 Schema files are in `src/db/`. Migration scripts follow the pattern `v{major}_{minor}.sql`.
 
+### Documentation
+
+- Project action blocking flow: [docs/project-action-block-logic.md](docs/project-action-block-logic.md)
+
 ### Configuration
 
 - Hibernate config: `src/main/resources/hibernate.cfg.xml` (dev/prod variants available)
