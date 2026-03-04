@@ -30,6 +30,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -146,7 +147,6 @@ public class TemplateScheduleServlet extends ClientServlet {
         SimpleDateFormat sdfField = webUser.getDateFormat("yyyyMMdd");
         Date endOfYear = calculateEndOfYear(webUser);
         Transaction transaction = dataSession.beginTransaction();
-        ProjectActionNext templateActionPrevious = null;
         for (Project project : projectList) {
           boolean projectBillable = resolveBillable(dataSession, project);
           if (!shouldIncludeProject(projectBillable, showWork, showPersonal)) {
@@ -155,7 +155,6 @@ public class TemplateScheduleServlet extends ClientServlet {
           List<ProjectActionNext> templateList = templateMap.get(project);
           for (ProjectActionNext templateAction : templateList) {
             Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(templateAction);
-            templateActionPrevious = templateAction;
             String nextDescription = request.getParameter(NEXT_DESCRIPTION + templateAction.getActionNextId());
             String timeEstimate = request.getParameter(TIME_ESTIMATE + templateAction.getActionNextId());
             if (!templateAction.getNextDescription().equals(nextDescription)
@@ -220,41 +219,37 @@ public class TemplateScheduleServlet extends ClientServlet {
           }
 
         }
-        if (templateActionPrevious != null) {
-          String projectIdString = request.getParameter(PROJECT_ID);
-          String nextDescription = request.getParameter(NEXT_DESCRIPTION);
-          String timeEstimate = request.getParameter(TIME_ESTIMATE);
-          if (projectIdString != null && !projectIdString.equals("")
-              && nextDescription != null && !nextDescription.equals("")) {
-            Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
-            boolean projectBillable = resolveBillable(dataSession, project);
-            if (shouldIncludeProject(projectBillable, showWork, showPersonal)) {
-              ProjectActionNext templateAction = new ProjectActionNext();
-              templateAction.setContactId(webUser.getContactId());
-              templateAction.setContact(webUser.getProjectContact());
-              templateAction.setNextChangeDate(new Date());
+        String[] addTemplateRequest = readAddTemplateRequest(request);
+        if (addTemplateRequest != null) {
+          String projectIdString = addTemplateRequest[0];
+          String nextDescription = addTemplateRequest[1];
+          String timeEstimate = addTemplateRequest[2];
+          Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
+          boolean projectBillable = resolveBillable(dataSession, project);
+          if (shouldIncludeProject(projectBillable, showWork, showPersonal)) {
+            ProjectActionNext templateAction = new ProjectActionNext();
+            templateAction.setContactId(webUser.getContactId());
+            templateAction.setContact(webUser.getProjectContact());
+            templateAction.setNextChangeDate(new Date());
 
-              templateAction.setProjectId(Integer.parseInt(projectIdString));
-              templateAction.setNextActionDate(endOfYear);
-              templateAction.setNextActionType(ProjectNextActionType.WILL);
-              templateAction.setNextContactId(templateActionPrevious.getNextContactId());
-              templateAction
-                  .setNextProjectContact(templateActionPrevious.getNextProjectContact());
-              templateAction.setNextDescription(trim(nextDescription, 12000));
-              templateAction.setProvider(templateActionPrevious.getProvider());
-              templateAction.setBillable(templateActionPrevious.isBillable());
-              try {
-                templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
-              } catch (NumberFormatException nfe) {
-                // just ignore and keep going
-              }
-              templateAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
-              templateAction.setPriorityLevel(project.getPriorityLevel());
-              dataSession.save(templateAction);
-              List<ProjectActionNext> templateList = templateMap.get(project);
-              if (templateList != null) {
-                templateList.add(templateAction);
-              }
+            templateAction.setProjectId(Integer.parseInt(projectIdString));
+            templateAction.setNextActionDate(endOfYear);
+            templateAction.setNextActionType(ProjectNextActionType.WILL);
+            templateAction.setTemplateType(TemplateType.DAILY);
+            templateAction.setNextDescription(trim(nextDescription, 12000));
+            templateAction.setProvider(webUser.getProvider());
+            templateAction.setBillable(projectBillable);
+            try {
+              templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
+            } catch (NumberFormatException nfe) {
+              // just ignore and keep going
+            }
+            templateAction.setNextActionStatus(ProjectNextActionStatus.READY);
+            templateAction.setPriorityLevel(project.getPriorityLevel());
+            dataSession.save(templateAction);
+            List<ProjectActionNext> templateList = templateMap.get(project);
+            if (templateList != null) {
+              templateList.add(templateAction);
             }
           }
         }
@@ -276,11 +271,12 @@ public class TemplateScheduleServlet extends ClientServlet {
 
       out.println("<form action=\"TemplateScheduleServlet\" method=\"POST\">");
       if (showWork) {
-        printTemplateTable(out, webUser, dayList, workProjectList, templateMap, projectActionDayMap, sdf, "Work");
+        printTemplateTable(out, webUser, dayList, workProjectList, templateMap, projectActionDayMap, sdf, "Work",
+            "Work");
       }
       if (showPersonal) {
         printTemplateTable(out, webUser, dayList, personalProjectList, templateMap, projectActionDayMap, sdf,
-            "Personal");
+            "Personal", "Personal");
       }
 
       out.println("<br/>");
@@ -366,7 +362,8 @@ public class TemplateScheduleServlet extends ClientServlet {
       Map<Project, List<ProjectActionNext>> templateMap,
       Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap,
       SimpleDateFormat sdf,
-      String heading) {
+      String heading,
+      String addFieldSuffix) {
     if (filteredProjectList == null || filteredProjectList.isEmpty()) {
       return;
     }
@@ -454,7 +451,7 @@ public class TemplateScheduleServlet extends ClientServlet {
 
     out.println("  <tr>");
     out.println("    <td class=\"boxed\">");
-    out.println("<select name=\"" + PROJECT_ID + "\">");
+    out.println("<select name=\"" + PROJECT_ID + addFieldSuffix + "\">");
     for (Project project : filteredProjectList) {
       out.println("  <option value=\"" + project.getProjectId() + "\">" + project.getProjectName()
           + "</option>");
@@ -462,10 +459,12 @@ public class TemplateScheduleServlet extends ClientServlet {
     out.println("      </select>");
     out.println("    </td>");
     out.println("    <td class=\"boxed\">");
-    out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + "\" value=\"\" size=\"30\"/>");
+    out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + addFieldSuffix
+        + "\" value=\"\" size=\"30\"/>");
     out.println("    </td>");
     out.println("    <td class=\"boxed\">");
-    out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE + "\" value=\"\" size=\"3\"/>");
+    out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE + addFieldSuffix
+        + "\" value=\"\" size=\"3\"/>");
     out.println("    </td>");
     for (Calendar day : dayList) {
       out.println("    <td class=\"boxed\">");
@@ -474,6 +473,25 @@ public class TemplateScheduleServlet extends ClientServlet {
     }
     out.println("  </tr>");
     out.println("</table>");
+  }
+
+  private String[] readAddTemplateRequest(HttpServletRequest request) {
+    for (String suffix : new String[] { "Work", "Personal", "" }) {
+      String projectIdParam = suffix.equals("") ? PROJECT_ID : PROJECT_ID + suffix;
+      String descriptionParam = suffix.equals("") ? NEXT_DESCRIPTION : NEXT_DESCRIPTION + suffix;
+      String timeEstimateParam = suffix.equals("") ? TIME_ESTIMATE : TIME_ESTIMATE + suffix;
+      String projectId = request.getParameter(projectIdParam);
+      String description = request.getParameter(descriptionParam);
+      String timeEstimate = request.getParameter(timeEstimateParam);
+      if (projectId != null && !projectId.equals("")
+          && description != null && !description.trim().equals("")) {
+        if (timeEstimate == null) {
+          timeEstimate = "";
+        }
+        return new String[] { projectId, description.trim(), timeEstimate.trim() };
+      }
+    }
+    return null;
   }
 
   /**
