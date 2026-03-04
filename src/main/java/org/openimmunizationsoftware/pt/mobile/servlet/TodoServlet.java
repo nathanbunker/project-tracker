@@ -14,6 +14,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -504,6 +505,7 @@ public class TodoServlet extends MobileBaseServlet {
             action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
+            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, action);
             trans.commit();
         } catch (Exception e) {
             trans.rollback();

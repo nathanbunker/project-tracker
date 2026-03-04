@@ -17,6 +17,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -49,12 +50,14 @@ public class ActionServlet extends MobileBaseServlet {
     private static final String PARAM_VIEW_ACTION_ID = "viewActionId";
     private static final String PARAM_DATE = "date";
     private static final String PARAM_ACTION = "action";
+    private static final String PARAM_BLOCKING_DESCRIPTION = "blockingDescription";
 
     private static final String ACTION_SAVE = "Save";
     private static final String ACTION_START = "Start";
     private static final String ACTION_DELETE = "Delete";
     private static final String ACTION_COMPLETE = "complete";
     private static final String ACTION_TOMORROW = "tomorrow";
+    private static final String ACTION_SCHEDULE_AND_BLOCK = "scheduleAndBlock";
     private static final String LIST_START = " - ";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -173,8 +176,14 @@ public class ActionServlet extends MobileBaseServlet {
         }
 
         if (ACTION_COMPLETE.equals(action)) {
-            completeAction(projectAction, dataSession);
+            completeAction(projectAction, dataSession, webUser);
             response.sendRedirect(buildTodoRedirectUrl(request));
+            return;
+        }
+        if (ACTION_SCHEDULE_AND_BLOCK.equals(action)) {
+            String blockingDescription = request.getParameter(PARAM_BLOCKING_DESCRIPTION);
+            scheduleAndBlock(projectAction, blockingDescription, dataSession, webUser);
+            response.sendRedirect(buildActionViewRedirectUrl(request, projectAction));
             return;
         }
         if (ACTION_TOMORROW.equals(action)) {
@@ -228,6 +237,20 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("  <textarea name=\"" + PARAM_NEXT_NOTE + "\" rows=\"5\" style=\"width:100%;\"></textarea>");
         out.println("  <br/>");
         out.println("  <input type=\"submit\" value=\"Add Note\" />");
+        out.println("</form>");
+
+        out.println("<h2>Blocking action</h2>");
+        out.println("<form method=\"post\" action=\"action\">");
+        out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\""
+                + action.getActionNextId() + "\" />");
+        if (!dateParam.isEmpty()) {
+            out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
+        }
+        out.println("  <input type=\"text\" name=\"" + PARAM_BLOCKING_DESCRIPTION
+                + "\" style=\"width:100%;\" placeholder=\"Describe blocker action\" />");
+        out.println("  <br/>");
+        out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
+                + ACTION_SCHEDULE_AND_BLOCK + "\">Schedule and Block</button>");
         out.println("</form>");
 
         out.println("<h2>Actions</h2>");
@@ -339,12 +362,13 @@ public class ActionServlet extends MobileBaseServlet {
         }
     }
 
-    private void completeAction(ProjectActionNext action, Session dataSession) {
+    private void completeAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
             action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
+            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, action);
             trans.commit();
         } catch (Exception e) {
             trans.rollback();
@@ -358,6 +382,62 @@ public class ActionServlet extends MobileBaseServlet {
             return "todo?" + PARAM_DATE + "=" + dateParam;
         }
         return "todo";
+    }
+
+    private String buildActionViewRedirectUrl(HttpServletRequest request, ProjectActionNext action) {
+        StringBuilder redirect = new StringBuilder();
+        redirect.append("action?").append(PARAM_VIEW_ACTION_ID).append("=").append(action.getActionNextId());
+        String dateParam = request.getParameter(PARAM_DATE);
+        if (dateParam != null && !dateParam.isEmpty()) {
+            redirect.append("&").append(PARAM_DATE).append("=").append(dateParam);
+        }
+        return redirect.toString();
+    }
+
+    private void scheduleAndBlock(ProjectActionNext actionToBlock, String blockingDescription, Session dataSession,
+            WebUser webUser) {
+        if (actionToBlock == null || blockingDescription == null || blockingDescription.trim().isEmpty()) {
+            return;
+        }
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            Calendar calendar = webUser.getCalendar();
+            calendar.setTime(new Date());
+            calendar.set(Calendar.HOUR_OF_DAY, 0);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+            Date today = calendar.getTime();
+
+            Project project = actionToBlock.getProject();
+            if (project == null) {
+                project = (Project) dataSession.get(Project.class, actionToBlock.getProjectId());
+            }
+
+            ProjectActionNext blockingAction = new ProjectActionNext();
+            blockingAction.setProject(project);
+            blockingAction.setProjectId(actionToBlock.getProjectId());
+            blockingAction.setContact(webUser.getProjectContact());
+            blockingAction.setContactId(webUser.getContactId());
+            blockingAction.setProvider(webUser.getProvider());
+            blockingAction.setNextDescription(blockingDescription.trim());
+            blockingAction.setNextActionDate(today);
+            blockingAction.setNextActionStatus(ProjectNextActionStatus.READY);
+            blockingAction.setNextActionType(ProjectNextActionType.WILL);
+            blockingAction.setBillable(resolveBillable(dataSession, project));
+            blockingAction.setNextChangeDate(new Date());
+            dataSession.saveOrUpdate(blockingAction);
+
+            actionToBlock.setBlockedBy(blockingAction);
+            actionToBlock.setNextActionDate(null);
+            actionToBlock.setNextChangeDate(new Date());
+            dataSession.update(actionToBlock);
+
+            trans.commit();
+        } catch (Exception e) {
+            trans.rollback();
+            throw e;
+        }
     }
 
     private Integer parseInteger(String value) {
@@ -531,11 +611,16 @@ public class ActionServlet extends MobileBaseServlet {
 
     private void closeAction(AppReq appReq, ProjectActionNext projectAction, Project project,
             String nextDescription, ProjectNextActionStatus nextActionStatus) {
+        WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         Transaction trans = dataSession.beginTransaction();
         projectAction.setNextActionStatus(nextActionStatus);
         projectAction.setNextChangeDate(new Date());
         dataSession.update(projectAction);
+        if (nextActionStatus == ProjectNextActionStatus.COMPLETED
+                || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
+            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, projectAction);
+        }
         trans.commit();
     }
 

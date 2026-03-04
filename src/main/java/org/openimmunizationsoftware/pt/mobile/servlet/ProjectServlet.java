@@ -16,6 +16,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -58,7 +59,7 @@ public class ProjectServlet extends MobileBaseServlet {
                             actionId);
                     if (projectAction != null) {
                         if (ACTION_COMPLETE.equals(paramAction)) {
-                            completeAction(projectAction, dataSession);
+                            completeAction(projectAction, dataSession, webUser);
                         } else if (ACTION_TOMORROW.equals(paramAction)) {
                             postponeToTomorrow(projectAction, dataSession, webUser);
                         }
@@ -317,12 +318,13 @@ public class ProjectServlet extends MobileBaseServlet {
         return countMap;
     }
 
-    private void completeAction(ProjectActionNext action, Session dataSession) {
+    private void completeAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
             action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
+            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, action);
             trans.commit();
         } catch (Exception e) {
             trans.rollback();

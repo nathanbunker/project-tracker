@@ -29,6 +29,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
 import org.openimmunizationsoftware.pt.manager.ChatAgent;
 import org.openimmunizationsoftware.pt.manager.MailManager;
+import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -106,6 +107,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_COMPLETED = "Completed";
   private static final String ACTION_SCHEDULE = "Schedule";
   private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
+  private static final String ACTION_SCHEDULE_AND_BLOCK = "Schedule and Block";
   private static final String ACTION_SAVE = "Save";
   private static final String ACTION_DELETE = "Delete";
   private static final String ACTION_START = "Start";
@@ -170,15 +172,26 @@ public class ProjectActionServlet extends ClientServlet {
       ProjectActionNext nextAction = null;
       ProjectActionNext editProjectAction = readEditProjectAction(appReq);
       if (sentenceInput != null && !sentenceInput.trim().isEmpty()) {
+        boolean completeCurrentActionWhenSummary = !ACTION_SCHEDULE_AND_BLOCK.equals(action);
         nextAction = saveNewAction(webUser, dataSession, completingAction, projectList, editProjectAction,
             nextAction,
-            sentenceInput);
+            sentenceInput, completeCurrentActionWhenSummary);
         if (nextAction != null) {
           if (nextAction.getProjectId() != project.getProjectId()) {
             project = nextAction.getProject();
           }
           if (action.equals(ACTION_SCHEDULE_AND_START)) {
             completingAction = nextAction;
+          } else if (action.equals(ACTION_SCHEDULE_AND_BLOCK) && completingAction != null) {
+            ProjectActionNext actionToBlock = editProjectAction != null ? editProjectAction : completingAction;
+            Transaction blockTrans = dataSession.beginTransaction();
+            actionToBlock.setBlockedBy(nextAction);
+            actionToBlock.setNextActionDate(null);
+            actionToBlock.setNextChangeDate(new Date());
+            dataSession.update(actionToBlock);
+            blockTrans.commit();
+            completingAction = null;
+            appReq.setCompletingAction(null);
           } else if (action.equals(ACTION_SCHEDULE)
               && completingAction != null
               && completingAction.getNextActionStatus() == ProjectNextActionStatus.COMPLETED) {
@@ -595,7 +608,7 @@ public class ProjectActionServlet extends ClientServlet {
 
   private ProjectActionNext saveNewAction(WebUser webUser, Session dataSession,
       ProjectActionNext completingAction, List<Project> projectList, ProjectActionNext editProjectAction,
-      ProjectActionNext nextAction, String sentenceInput) {
+      ProjectActionNext nextAction, String sentenceInput, boolean completeCurrentActionWhenSummary) {
     String projectName = "";
     String actionPart = sentenceInput;
     String[] parts = sentenceInput.split(":", 2);
@@ -760,7 +773,8 @@ public class ProjectActionServlet extends ClientServlet {
     }
     Transaction trans = dataSession.beginTransaction();
     dataSession.saveOrUpdate(nextAction);
-    if (completingAction != null && completingAction.getNextSummary() != null
+    if (completeCurrentActionWhenSummary
+        && completingAction != null && completingAction.getNextSummary() != null
         && !completingAction.getNextSummary().trim().isEmpty()) {
       ProjectActionTaken actionTaken = new ProjectActionTaken();
       ProjectActionNext actionToClose = editProjectAction != null ? editProjectAction : completingAction;
@@ -777,6 +791,7 @@ public class ProjectActionServlet extends ClientServlet {
         actionToClose.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
         actionToClose.setNextChangeDate(new Date());
         dataSession.update(actionToClose);
+        ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, actionToClose);
       }
     }
     trans.commit();
@@ -960,6 +975,8 @@ public class ProjectActionServlet extends ClientServlet {
     List<String> dateLabelList = new ArrayList<String>();
     Map<String, List<ProjectActionNext>> projectActionMap = new HashMap<String, List<ProjectActionNext>>();
     setupListAndMap(webUser, projectActionScheduledList, dateLabelList, projectActionMap);
+    List<ProjectActionNext> blockedActionList = projectActionMap.get("Blocked");
+    boolean blockedPrinted = false;
 
     // Go through dateLabelList and print out actions for each entry, as a list
     for (String label : dateLabelList) {
@@ -977,6 +994,21 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("</li>");
         }
         out.println("</ul>");
+      }
+      if (!blockedPrinted && label.equals("Today") && blockedActionList != null && blockedActionList.size() > 0) {
+        out.println("<h4>Blocked</h4>");
+        out.println("<ul>");
+        for (ProjectActionNext pa : blockedActionList) {
+          out.println("<li>");
+          out.println(
+              "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + pa.getActionNextId() + "\">"
+                  + pa.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>");
+          out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
+              + pa.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
+          out.println("</li>");
+        }
+        out.println("</ul>");
+        blockedPrinted = true;
       }
     }
     printEditProjectActionForm(appReq, null, projectContactList, "" +
@@ -1021,6 +1053,23 @@ public class ProjectActionServlet extends ClientServlet {
     @SuppressWarnings("unchecked")
     List<ProjectActionNext> allProjectActionsList = query.list();
     return allProjectActionsList;
+  }
+
+  private List<ProjectActionNext> getActionsBlockedBy(ProjectActionNext blockingAction, Session dataSession) {
+    Query query = dataSession.createQuery(
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.blockedBy.actionNextId = :blockedByActionNextId "
+            + "and pan.nextDescription <> '' "
+            + "and pan.nextActionStatusString = :nextActionStatus "
+            + "order by pan.nextActionDate asc");
+    query.setParameter("blockedByActionNextId", blockingAction.getActionNextId());
+    query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
+    @SuppressWarnings("unchecked")
+    List<ProjectActionNext> blockedActionList = query.list();
+    return blockedActionList;
   }
 
   private void printPressEnterScript(PrintWriter out) {
@@ -1125,7 +1174,9 @@ public class ProjectActionServlet extends ClientServlet {
     dateLabelList.add("Templates");
 
     for (ProjectActionNext pa : allProjectActionsList) {
-      if (pa.getNextActionType().equals(ProjectNextActionType.GOAL)) {
+      if (pa.getBlockedBy() != null) {
+        addToMap(projectActionMap, pa, "Blocked");
+      } else if (pa.getNextActionType().equals(ProjectNextActionType.GOAL)) {
         addToMap(projectActionMap, pa, "Goals");
       } else if (pa.isTemplate()) {
         addToMap(projectActionMap, pa, "Templates");
@@ -1312,6 +1363,10 @@ public class ProjectActionServlet extends ClientServlet {
     projectAction.setNextActionStatus(nextActionStatus);
     projectAction.setNextChangeDate(new Date());
     dataSession.update(projectAction);
+    if (nextActionStatus == ProjectNextActionStatus.COMPLETED
+        || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
+      ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, projectAction);
+    }
     trans.commit();
   }
 
@@ -2464,6 +2519,22 @@ public class ProjectActionServlet extends ClientServlet {
       }
     }
     out.println("</p>");
+    List<ProjectActionNext> blockedActionList = getActionsBlockedBy(completingAction, appReq.getDataSession());
+    if (blockedActionList.size() > 0) {
+      out.println("<h3>Blocks</h3>");
+      out.println("<ul>");
+      for (ProjectActionNext blockedAction : blockedActionList) {
+        out.println("<li>");
+        out.println(
+            "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "="
+                + blockedAction.getActionNextId() + "\">"
+                + blockedAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>");
+        out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
+            + blockedAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
+        out.println("</li>");
+      }
+      out.println("</ul>");
+    }
     out.println("<h3>Notes");
     String timeString = getTimeString(appReq, completingAction);
     if (!timeString.isEmpty()) {
@@ -2508,6 +2579,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_START + "\"/>");
+    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_BLOCK + "\"/>");
     out.println("</span>");
   }
 
