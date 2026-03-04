@@ -123,7 +123,7 @@ public class TimeTracker {
   }
 
   public int getTotalMinsBillable() {
-    if (hasRunningEntry() && billEntryBillable != null && billEntryBillable.equals("Y")) {
+    if (hasRunningEntry() && isBillable(billEntryBillable)) {
       return totalMins + (billEntryBillMins == null ? 0 : billEntryBillMins);
     }
     return totalMins;
@@ -231,7 +231,7 @@ public class TimeTracker {
   }
 
   private void addToTotals(BillEntry billEntry) {
-    if (billEntry.getBillable() != null && billEntry.getBillable().equals("Y")) {
+    if (isBillable(billEntry.getBillable())) {
       totalMins += billEntry.getBillMins();
     }
     if (billEntry.getProjectId() > 0) {
@@ -252,7 +252,7 @@ public class TimeTracker {
       m += billEntry.getBillMins();
       totalMinsForClientMap.put(billEntry.getCategoryCode(), m);
     }
-    if (billEntry.getBillCode() != null && billEntry.getBillable().equals("Y")) {
+    if (billEntry.getBillCode() != null && isBillable(billEntry.getBillable())) {
       Integer mins = totalMinsForBillCodeMap.get(billEntry.getBillCode());
       int m = 0;
       if (mins != null) {
@@ -476,7 +476,7 @@ public class TimeTracker {
       return;
     }
     int runningMins = billEntryBillMins == null ? 0 : billEntryBillMins;
-    if (billEntryBillable != null && billEntryBillable.equals("Y")) {
+    if (isBillable(billEntryBillable)) {
       totalMins += runningMins;
     }
     if (billEntryProjectId > 0) {
@@ -497,7 +497,7 @@ public class TimeTracker {
       m += runningMins;
       totalMinsForClientMap.put(billEntryCategoryCode, m);
     }
-    if (billEntryBillCode != null && billEntryBillable != null && billEntryBillable.equals("Y")) {
+    if (billEntryBillCode != null && isBillable(billEntryBillable)) {
       Integer mins = totalMinsForBillCodeMap.get(billEntryBillCode);
       int m = 0;
       if (mins != null) {
@@ -506,5 +506,9 @@ public class TimeTracker {
       m += runningMins;
       totalMinsForBillCodeMap.put(billEntryBillCode, m);
     }
+  }
+
+  private static boolean isBillable(String billableFlag) {
+    return "Y".equalsIgnoreCase(billableFlag);
   }
 }

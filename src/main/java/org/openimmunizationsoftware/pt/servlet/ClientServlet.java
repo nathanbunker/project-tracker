@@ -13,7 +13,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
@@ -234,6 +233,7 @@ public class ClientServlet extends HttpServlet {
       }
       menuList.add(new String[] { "trackerNarrative", "Narrative" });
       menuList.add(new String[] { "SettingsServlet", "Settings" });
+      menuList.add(new String[] { "m/todo?filterSubmitted=Y&showPersonal=Y", "Mobile" });
     } else {
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
       menuList.add(new String[] { "LoginServlet", "Login" });
@@ -276,10 +276,7 @@ public class ClientServlet extends HttpServlet {
               Session dataSession = appReq.getDataSession();
               Date today = new Date();
               TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
-              Map<Integer, Integer> projectMap = timeTrackerForWeek.getTotalMinsForProjectMap();
-              for (Integer projectId : projectMap.keySet()) {
-                minsForWeek += TimeEntry.adjustMinutes(projectMap.get(projectId));
-              }
+              minsForWeek = TimeEntry.adjustMinutes(timeTrackerForWeek.getTotalMinsBillable());
             }
             if (minsForWeek > 0) {
               time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";

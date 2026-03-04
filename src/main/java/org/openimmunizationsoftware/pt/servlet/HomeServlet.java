@@ -220,7 +220,7 @@ public class HomeServlet extends ClientServlet {
           }
         }
         out.println("</table>");
-        out.println("<p><a href=\"m/todo\">Switch to Mobile</a></p>");
+        out.println("<p><a href=\"m/todo?filterSubmitted=Y&showPersonal=Y\">Switch to Mobile</a></p>");
         out.println("<h2>Logout</h2>");
         out.println(
             "<p>If you are finished you can <a href=\"LoginServlet?action=Logout\">logout</a>.</p>");
@@ -864,7 +864,3 @@ public class HomeServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 }
-
-
-
-

@@ -112,6 +112,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_REFRESH_TIME = "RefreshTime";
   private static final String ACTION_SUGGEST = "Suggest";
   private static final String ACTION_POSTPONE_NEXT_WORKING_DAY = "PostponeNextWorkingDay";
+  private static final String ACTION_MOVE_TO_CURRENT_WORKING_DAY = "MoveToCurrentWorkingDay";
 
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
@@ -214,6 +215,8 @@ public class ProjectActionServlet extends ClientServlet {
             completingAction = null;
             appReq.setCompletingAction(null);
           }
+        } else if (action.equals(ACTION_MOVE_TO_CURRENT_WORKING_DAY)) {
+          moveActionToCurrentWorkingDay(appReq, dataSession);
         } else if (action.equals(ACTION_PROPOSE)) {
           chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else if (action.equals(ACTION_FEEDBACK)) {
@@ -638,6 +641,14 @@ public class ProjectActionServlet extends ClientServlet {
     } else if (actionPart.startsWith("I have set goal to")) {
       actionVerb = "I have set goal to";
       actionToTake = actionPart.substring("I have set goal to".length()).trim();
+    } else if (actionPart.startsWith("I am waiting ") || actionPart.equals("I am waiting")
+        || actionPart.startsWith("I am waiting:")) {
+      actionVerb = "I am waiting";
+      actionToTake = actionPart.substring("I am waiting".length()).trim();
+      if (actionToTake.startsWith(":")) {
+        actionToTake = actionToTake.substring(1).trim();
+      }
+      nextTimeEstimate = 5; // default to 5 minutes for waiting actions
     }
     // Parse the action description to extract time estimates and due dates (e.g.,
     // "for 2 hours", "today", "next Monday")
@@ -726,6 +737,8 @@ public class ProjectActionServlet extends ClientServlet {
       nextAction.setNextActionType(ProjectNextActionType.WILL_MEET);
     } else if (actionVerb.equals("I have set goal to")) {
       nextAction.setNextActionType(ProjectNextActionType.GOAL);
+    } else if (actionVerb.equals("I am waiting")) {
+      nextAction.setNextActionType(ProjectNextActionType.WAITING);
     } else {
       nextAction.setNextActionType(ProjectNextActionType.WILL);
     }
@@ -1477,16 +1490,20 @@ public class ProjectActionServlet extends ClientServlet {
     }
     Calendar todayCalendar = getCalendarForTodayNoTime(appReq.getWebUser());
     Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
+    boolean isOverdue = projectAction.getNextActionDate() != null
+        && projectAction.getNextActionDate().before(todayCalendar.getTime());
     if (projectAction.getNextActionDate() != null && projectAction.getNextActionDate().after(todayCalendar.getTime())) {
       calendar.setTime(projectAction.getNextActionDate());
     }
-    int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-    if (dayOfWeek == Calendar.FRIDAY) {
-      calendar.add(Calendar.DAY_OF_MONTH, 3);
-    } else if (dayOfWeek == Calendar.SATURDAY) {
-      calendar.add(Calendar.DAY_OF_MONTH, 2);
-    } else {
-      calendar.add(Calendar.DAY_OF_MONTH, 1);
+    if (!isOverdue) {
+      int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+      if (dayOfWeek == Calendar.FRIDAY) {
+        calendar.add(Calendar.DAY_OF_MONTH, 3);
+      } else if (dayOfWeek == Calendar.SATURDAY) {
+        calendar.add(Calendar.DAY_OF_MONTH, 2);
+      } else {
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+      }
     }
     Date postponedDueDate = calendar.getTime();
     projectAction.setNextActionDate(postponedDueDate);
@@ -1529,6 +1546,33 @@ public class ProjectActionServlet extends ClientServlet {
         projectAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
       }
     }
+    projectAction.setNextChangeDate(new Date());
+    Transaction transaction = dataSession.beginTransaction();
+    dataSession.update(projectAction);
+    transaction.commit();
+    return projectAction;
+  }
+
+  private ProjectActionNext moveActionToCurrentWorkingDay(AppReq appReq, Session dataSession) {
+    HttpServletRequest request = appReq.getRequest();
+    String actionNextIdString = request.getParameter(PARAM_POSTPONE_ACTION_NEXT_ID);
+    if (actionNextIdString == null) {
+      return null;
+    }
+    int actionNextId;
+    try {
+      actionNextId = Integer.parseInt(actionNextIdString);
+    } catch (NumberFormatException nfe) {
+      return null;
+    }
+    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+        actionNextId);
+    if (projectAction == null) {
+      return null;
+    }
+
+    Calendar today = getCalendarForTodayNoTime(appReq.getWebUser());
+    projectAction.setNextActionDate(today.getTime());
     projectAction.setNextChangeDate(new Date());
     Transaction transaction = dataSession.beginTransaction();
     dataSession.update(projectAction);
@@ -1843,6 +1887,8 @@ public class ProjectActionServlet extends ClientServlet {
     String title = "All actions scheduled for ";
     // print name of next working day, either "Monday" or "Next Monday". that format
     Calendar nextWorkingDay = appReq.getWebUser().getCalendar(workingDay);
+    SimpleDateFormat weekdaySdf = new SimpleDateFormat("EEEE");
+    out.println("<h2>" + weekdaySdf.format(nextWorkingDay.getTime()) + "</h2>");
     SimpleDateFormat daynameSdf = new SimpleDateFormat("EEEE dd MMMM yyyy");
     title += daynameSdf.format(nextWorkingDay.getTime());
     out.println("<table class=\"boxed\">");
@@ -1850,19 +1896,19 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">" + title + "</th>");
     out.println("  </tr>");
     // Add personal WAKE items at top with "Waking" section header
-    printPersonalItemsByTimeSlot(appReq, projectActionList, TimeSlot.WAKE, showWork, true);
-    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork);
+    printPersonalItemsByTimeSlot(appReq, projectActionList, TimeSlot.WAKE, showWork, true, true);
+    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork, true);
+    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork, true);
     // Add personal AFTERNOON and EVENING items at end
-    printPersonalSection(appReq, projectActionList, showWork, colspan);
+    printPersonalSection(appReq, projectActionList, showWork, colspan, true);
     out.println("</table><br/>");
     // print out size of list
   }
@@ -2477,7 +2523,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     out.println("];");
     out.println(
-        "const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\"];");
+        "const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
     out.println("const dateSuggestions = [\"today\", \"tomorrow\", \"Monday\", \"next Monday\", \"10/05/2025\"];");
     out.println("");
     out.println("const input = document.getElementById(\"sentenceInput\");");
@@ -2850,6 +2896,11 @@ public class ProjectActionServlet extends ClientServlet {
 
   private void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
       boolean showWork) {
+    printDueTable(appReq, nextActionType, projectActionList, showWork, false);
+  }
+
+  private void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
+      boolean showWork, boolean showMoveToCurrentWorkingDayLink) {
     PrintWriter out = appReq.getOut();
     HttpServletRequest request = appReq.getRequest();
     boolean showPersonal = isShowPersonal(request);
@@ -2892,11 +2943,16 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("  </tr>");
     }
-    printActionItems(paList, appReq, showWork);
+    printActionItems(paList, appReq, showWork, showMoveToCurrentWorkingDayLink);
   }
 
   private void printPersonalItemsByTimeSlot(AppReq appReq, List<ProjectActionNext> projectActionList,
       TimeSlot timeSlot, boolean showWork, boolean showSectionHeader) {
+    printPersonalItemsByTimeSlot(appReq, projectActionList, timeSlot, showWork, showSectionHeader, false);
+  }
+
+  private void printPersonalItemsByTimeSlot(AppReq appReq, List<ProjectActionNext> projectActionList,
+      TimeSlot timeSlot, boolean showWork, boolean showSectionHeader, boolean showMoveToCurrentWorkingDayLink) {
     PrintWriter out = appReq.getOut();
     HttpServletRequest request = appReq.getRequest();
     boolean showPersonal = isShowPersonal(request);
@@ -2926,11 +2982,16 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("  </tr>");
     }
-    printActionItems(personalItems, appReq, showWork);
+    printActionItems(personalItems, appReq, showWork, showMoveToCurrentWorkingDayLink);
   }
 
   private void printPersonalSection(AppReq appReq, List<ProjectActionNext> projectActionList,
       boolean showWork, int colspan) {
+    printPersonalSection(appReq, projectActionList, showWork, colspan, false);
+  }
+
+  private void printPersonalSection(AppReq appReq, List<ProjectActionNext> projectActionList,
+      boolean showWork, int colspan, boolean showMoveToCurrentWorkingDayLink) {
     PrintWriter out = appReq.getOut();
     HttpServletRequest request = appReq.getRequest();
     boolean showPersonal = isShowPersonal(request);
@@ -2971,17 +3032,39 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  </tr>");
 
     // Print AFTERNOON (including null/unspecified) items first, then EVENING
-    printActionItems(afternoonItems, appReq, showWork);
-    printActionItems(eveningItems, appReq, showWork);
+    printActionItems(afternoonItems, appReq, showWork, showMoveToCurrentWorkingDayLink);
+    printActionItems(eveningItems, appReq, showWork, showMoveToCurrentWorkingDayLink);
   }
 
   private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork) {
+    printActionItems(paList, appReq, showWork, false);
+  }
+
+  private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork,
+      boolean showMoveToCurrentWorkingDayLink) {
     PrintWriter out = appReq.getOut();
     WebUser webUser = appReq.getWebUser();
+    Calendar todayCalendar = webUser.getCalendar();
+    todayCalendar.setTime(new Date());
+    todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
+    todayCalendar.set(Calendar.MINUTE, 0);
+    todayCalendar.set(Calendar.SECOND, 0);
+    todayCalendar.set(Calendar.MILLISECOND, 0);
     for (ProjectActionNext projectAction : paList) {
       String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String moveToCurrentWorkingDayLink = "ProjectActionServlet?" + PARAM_ACTION + "="
+          + ACTION_MOVE_TO_CURRENT_WORKING_DAY
+          + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
       String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
           + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      boolean canMoveToCurrentWorkingDay = showMoveToCurrentWorkingDayLink
+          && projectAction.getNextActionDate() != null
+          && projectAction.getNextActionDate().after(todayCalendar.getTime());
+      String moveToCurrentWorkingDayButton = "";
+      if (canMoveToCurrentWorkingDay) {
+        moveToCurrentWorkingDayButton = "<a href=\"" + moveToCurrentWorkingDayLink
+            + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Move to today\">&#8617;</a> ";
+      }
       out.println("  <tr class=\"boxed\">");
       if (projectAction.getProject() == null) {
         out.println("    <td class=\"boxed\">&nbsp;</td>");
@@ -2991,6 +3074,7 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a> "
+          + moveToCurrentWorkingDayButton
           + "<a href=\"" + postponeLink
           + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a></td>");
       if (showWork) {

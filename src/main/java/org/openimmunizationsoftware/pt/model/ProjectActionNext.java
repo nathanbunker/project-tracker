@@ -12,6 +12,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private ProjectProvider provider;
     private ProjectContact contact;
     private Project project;
+    private ProjectActionNext blockedBy;
     private ProjectContact nextProjectContact;
     private String nextActionType;
     private Integer nextTimeEstimate;
@@ -87,6 +88,14 @@ public class ProjectActionNext implements java.io.Serializable {
         if (project != null) {
             this.projectId = project.getProjectId();
         }
+    }
+
+    public ProjectActionNext getBlockedBy() {
+        return blockedBy;
+    }
+
+    public void setBlockedBy(ProjectActionNext blockedBy) {
+        this.blockedBy = blockedBy;
     }
 
     public ProjectContact getNextProjectContact() {
