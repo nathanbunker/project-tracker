@@ -2098,8 +2098,6 @@ public class ProjectActionServlet extends ClientServlet {
     printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
     printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
     printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
-    printTimeTotal(out, "Might", ID_TIME_MIGHT, timeAdder.getMightEst(), timeAdder.getMightAct());
-    printTimeTotal(out, "Other", ID_TIME_OTHER, timeAdder.getOtherEst(), timeAdder.getOtherAct());
     out.println("</table>");
     out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime() + "</h3>");
     if ((timeAdder.getCommittedEst() + timeAdder.getWillMeetEst() + timeAdder.getWillEst()) == 0) {
