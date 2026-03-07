@@ -516,8 +516,15 @@ public class TodoServlet extends MobileBaseServlet {
     private void postponeToTomorrow(ProjectActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
-            Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
-            action.setNextActionDate(tomorrow);
+            Date today = webUser.getToday();
+            Date tomorrow = webUser.getTomorrow();
+            Date nextActionDate = action.getNextActionDate();
+
+            if (nextActionDate != null && nextActionDate.before(today)) {
+                action.setNextActionDate(today);
+            } else {
+                action.setNextActionDate(tomorrow);
+            }
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
             trans.commit();

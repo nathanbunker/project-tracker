@@ -585,14 +585,12 @@ public class ActionServlet extends MobileBaseServlet {
             editProjectAction.setNextContactId(Integer.parseInt(nextContactIdString));
         }
         editProjectAction.setProvider(webUser.getProvider());
-        if (editProjectAction.getNextActionStatus() == null) {
-            if (editProjectAction.hasNextDescription()) {
-                if (editProjectAction.hasNextActionDate()) {
-                    editProjectAction.setNextActionStatus(ProjectNextActionStatus.READY);
-                } else {
-                    editProjectAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
-                }
-            }
+        if (editProjectAction.hasNextDescription()
+                && (editProjectAction.getNextActionStatus() == null
+                        || editProjectAction.getNextActionStatus() == ProjectNextActionStatus.PROPOSED)) {
+            // Mobile action entry is user-authored; no-date actions are still ready to
+            // work.
+            editProjectAction.setNextActionStatus(ProjectNextActionStatus.READY);
         }
 
         Transaction trans = dataSession.beginTransaction();
@@ -871,8 +869,8 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("          <th class=\"inside\"></th>");
         out.println("          <td class=\"inside\" colspan=\"3\"> ");
         out.println(
-            "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION
-                + "\" rows=\"1\" onkeydown=\"resetRefresh()\" autocapitalize=\"none\" autocorrect=\"off\""
+                "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION
+                        + "\" rows=\"1\" onkeydown=\"resetRefresh()\" autocapitalize=\"none\" autocorrect=\"off\""
                         + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
                         + "</textarea>");
         out.println("          </td>");

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -17,7 +16,6 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
-import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -36,6 +34,7 @@ public class ProjectServlet extends MobileBaseServlet {
     private static final String PARAM_ACTION_ID = "actionId";
 
     private static final String ACTION_COMPLETE = "complete";
+    private static final String ACTION_RESCHEDULE = "reschedule";
     private static final String ACTION_TOMORROW = "tomorrow";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -60,8 +59,8 @@ public class ProjectServlet extends MobileBaseServlet {
                     if (projectAction != null) {
                         if (ACTION_COMPLETE.equals(paramAction)) {
                             completeAction(projectAction, dataSession, webUser);
-                        } else if (ACTION_TOMORROW.equals(paramAction)) {
-                            postponeToTomorrow(projectAction, dataSession, webUser);
+                        } else if (ACTION_RESCHEDULE.equals(paramAction) || ACTION_TOMORROW.equals(paramAction)) {
+                            rescheduleAction(projectAction, dataSession, webUser);
                         }
                     }
 
@@ -91,7 +90,7 @@ public class ProjectServlet extends MobileBaseServlet {
                 printProjectList(out, projectList, todoCountMap);
             } else {
                 printProjectDetail(out, selectedProject, fetchOpenActionsForProject(webUser, dataSession,
-                        selectedProject.getProjectId()));
+                        selectedProject.getProjectId()), webUser);
             }
             printHtmlFoot(appReq);
         } catch (Exception e) {
@@ -147,15 +146,17 @@ public class ProjectServlet extends MobileBaseServlet {
         out.println("</table>");
     }
 
-    private void printProjectDetail(PrintWriter out, Project project, List<ProjectActionNext> actions) {
+    private void printProjectDetail(PrintWriter out, Project project, List<ProjectActionNext> actions,
+            WebUser webUser) {
         out.println("<h1>" + escapeHtml(project.getProjectName()) + "</h1>");
         out.println("<p><a href=\"project\" class=\"box\">All Projects</a> ");
         out.println("<a href=\"action?" + PARAM_PROJECT_ID + "=" + project.getProjectId()
                 + "\" class=\"button\">Add Action</a></p>");
-        printProjectActionList(out, actions, project.getProjectId());
+        printProjectActionList(out, actions, project.getProjectId(), webUser);
     }
 
-    private void printProjectActionList(PrintWriter out, List<ProjectActionNext> actions, int projectId) {
+    private void printProjectActionList(PrintWriter out, List<ProjectActionNext> actions, int projectId,
+            WebUser webUser) {
         if (actions.isEmpty()) {
             out.println("<table class=\"boxed-mobile\">");
             out.println("  <tr class=\"boxed\">");
@@ -165,13 +166,52 @@ public class ProjectServlet extends MobileBaseServlet {
             return;
         }
 
+        Date todayStart = webUser.getToday();
+        Date tomorrowStart = webUser.getTomorrow();
+
+        List<ProjectActionNext> overdueActions = new ArrayList<ProjectActionNext>();
+        List<ProjectActionNext> dueTodayActions = new ArrayList<ProjectActionNext>();
+        List<ProjectActionNext> dueLaterActions = new ArrayList<ProjectActionNext>();
+        List<ProjectActionNext> unscheduledActions = new ArrayList<ProjectActionNext>();
+
+        for (ProjectActionNext action : actions) {
+            Date nextActionDate = action.getNextActionDate();
+            if (nextActionDate == null) {
+                unscheduledActions.add(action);
+            } else if (nextActionDate.before(todayStart)) {
+                overdueActions.add(action);
+            } else if (nextActionDate.before(tomorrowStart)) {
+                dueTodayActions.add(action);
+            } else {
+                dueLaterActions.add(action);
+            }
+        }
+
+        printProjectActionTable(out, "Overdue", overdueActions, projectId, webUser);
+        printProjectActionTable(out, "Due Today", dueTodayActions, projectId, webUser);
+        printProjectActionTable(out, "Due Later", dueLaterActions, projectId, webUser);
+        printProjectActionTable(out, "Unscheduled", unscheduledActions, projectId, webUser);
+    }
+
+    private void printProjectActionTable(PrintWriter out, String tableTitle, List<ProjectActionNext> actions,
+            int projectId, WebUser webUser) {
+        if (actions.isEmpty()) {
+            return;
+        }
+
+        Date todayStart = webUser.getToday();
+        Date tomorrowStart = webUser.getTomorrow();
+        boolean unscheduledTable = "Unscheduled".equals(tableTitle);
+
         SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MM/dd/yyyy");
         SimpleDateFormat dateParamFormat = new SimpleDateFormat("yyyy-MM-dd");
+        out.println("<h2>" + tableTitle + "</h2>");
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">To Do</th>");
+        out.println("    <th class=\"boxed\">" + tableTitle + "</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Postpone</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">"
+                + (unscheduledTable ? "Do Today" : "Postpone") + "</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
 
@@ -204,10 +244,33 @@ public class ProjectServlet extends MobileBaseServlet {
             out.println("    </td>");
 
             // Postpone column
+            Date nextActionDate = action.getNextActionDate();
+            boolean isUnscheduled = nextActionDate == null;
+            boolean isOverdue = !isUnscheduled && nextActionDate.before(todayStart);
+            boolean isDueToday = !isUnscheduled && nextActionDate.before(tomorrowStart);
+
+            String rescheduleTitle;
+            String rescheduleIcon;
+            if (isUnscheduled) {
+                rescheduleTitle = "Do Today";
+                // Distinct shape to indicate scheduling for today.
+                rescheduleIcon = "&#9673;";
+            } else if (isOverdue) {
+                rescheduleTitle = "Move To Today";
+                rescheduleIcon = "&#8593;";
+            } else if (isDueToday) {
+                rescheduleTitle = "Postpone To Tomorrow";
+                rescheduleIcon = "&#8594;";
+            } else {
+                rescheduleTitle = "Unschedule";
+                rescheduleIcon = "&#9633;";
+            }
+
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
             out.println("      <a href=\"project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
-                    + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_TOMORROW
-                    + "\" class=\"action-icon\" title=\"Postpone\">&#8594;</a>");
+                    + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_RESCHEDULE
+                    + "\" class=\"action-icon\" title=\"" + rescheduleTitle + "\">" + rescheduleIcon
+                    + "</a>");
             out.println("    </td>");
 
             // Edit column
@@ -242,6 +305,7 @@ public class ProjectServlet extends MobileBaseServlet {
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.projectId = :projectId " +
                         "and pan.nextActionStatusString = :status " +
+                        "and (pan.templateTypeString is null or pan.templateTypeString = '') " +
                         "and pan.nextDescription <> '' " +
                         "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate");
         query.setParameter("provider", webUser.getProvider());
@@ -275,15 +339,8 @@ public class ProjectServlet extends MobileBaseServlet {
 
     private Map<Integer, Integer> getTodayTodoCountByProject(WebUser webUser, Session dataSession, boolean showWork,
             boolean showPersonal) {
-        Calendar cal = webUser.getCalendar();
-        cal.setTime(new Date());
-        cal.set(Calendar.HOUR_OF_DAY, 0);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        Date today = cal.getTime();
-        cal.add(Calendar.DAY_OF_MONTH, 1);
-        Date tomorrow = cal.getTime();
+        Date today = webUser.getToday();
+        Date tomorrow = webUser.getTomorrow();
 
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan " +
@@ -291,6 +348,7 @@ public class ProjectServlet extends MobileBaseServlet {
                         "where pan.provider = :provider " +
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.nextActionStatusString = :status " +
+                        "and (pan.templateTypeString is null or pan.templateTypeString = '') " +
                         "and pan.nextDescription <> '' " +
                         "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow");
         query.setParameter("provider", webUser.getProvider());
@@ -332,11 +390,20 @@ public class ProjectServlet extends MobileBaseServlet {
         }
     }
 
-    private void postponeToTomorrow(ProjectActionNext action, Session dataSession, WebUser webUser) {
+    private void rescheduleAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
-            Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
-            action.setNextActionDate(tomorrow);
+            Date today = webUser.getToday();
+            Date tomorrow = webUser.getTomorrow();
+            Date nextActionDate = action.getNextActionDate();
+
+            if (nextActionDate == null || nextActionDate.before(today)) {
+                action.setNextActionDate(today);
+            } else if (nextActionDate.before(tomorrow)) {
+                action.setNextActionDate(tomorrow);
+            } else {
+                action.setNextActionDate(null);
+            }
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
             trans.commit();
