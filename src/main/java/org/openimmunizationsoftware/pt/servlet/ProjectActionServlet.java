@@ -115,6 +115,11 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_SUGGEST = "Suggest";
   private static final String ACTION_POSTPONE_NEXT_WORKING_DAY = "PostponeNextWorkingDay";
   private static final String ACTION_MOVE_TO_CURRENT_WORKING_DAY = "MoveToCurrentWorkingDay";
+  private static final String ACTION_SET_TIME_SLOT_MORNING = "SetTimeSlotMorning";
+  private static final String ACTION_SET_TIME_SLOT_AFTERNOON = "SetTimeSlotAfternoon";
+  private static final String ACTION_SET_TIME_SLOT_EVENING = "SetTimeSlotEvening";
+  private static final String ACTION_MOVE_COMPLETION_UP = "MoveCompletionUp";
+  private static final String ACTION_MOVE_COMPLETION_DOWN = "MoveCompletionDown";
 
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
@@ -239,6 +244,36 @@ public class ProjectActionServlet extends ClientServlet {
           }
         } else if (action.equals(ACTION_MOVE_TO_CURRENT_WORKING_DAY)) {
           moveActionToCurrentWorkingDay(appReq, dataSession);
+        } else if (action.equals(ACTION_SET_TIME_SLOT_MORNING)) {
+          ProjectActionNext updatedAction = setCompletingActionTimeSlot(appReq, dataSession, TimeSlot.MORNING);
+          if (updatedAction != null) {
+            completingAction = null;
+            appReq.setCompletingAction(null);
+          }
+        } else if (action.equals(ACTION_SET_TIME_SLOT_AFTERNOON)) {
+          ProjectActionNext updatedAction = setCompletingActionTimeSlot(appReq, dataSession, TimeSlot.AFTERNOON);
+          if (updatedAction != null) {
+            completingAction = null;
+            appReq.setCompletingAction(null);
+          }
+        } else if (action.equals(ACTION_SET_TIME_SLOT_EVENING)) {
+          ProjectActionNext updatedAction = setCompletingActionTimeSlot(appReq, dataSession, TimeSlot.EVENING);
+          if (updatedAction != null) {
+            completingAction = null;
+            appReq.setCompletingAction(null);
+          }
+        } else if (action.equals(ACTION_MOVE_COMPLETION_UP)) {
+          ProjectActionNext movedAction = moveCompletingActionWithinBucket(appReq, dataSession, -1);
+          if (movedAction != null) {
+            completingAction = movedAction;
+            appReq.setCompletingAction(completingAction);
+          }
+        } else if (action.equals(ACTION_MOVE_COMPLETION_DOWN)) {
+          ProjectActionNext movedAction = moveCompletingActionWithinBucket(appReq, dataSession, 1);
+          if (movedAction != null) {
+            completingAction = movedAction;
+            appReq.setCompletingAction(completingAction);
+          }
         } else if (action.equals(ACTION_PROPOSE)) {
           chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
         } else if (action.equals(ACTION_FEEDBACK)) {
@@ -292,10 +327,15 @@ public class ProjectActionServlet extends ClientServlet {
           projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
         }
       }
+      // Keep completion ordering synchronized for today + overdue before rendering.
+      rationalizeCompletionOrderForCurrentDate(webUser, dataSession);
+
       List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
       projectActionDueTodayList = filterProjectActionList(projectActionDueTodayList, showWork, showPersonal);
       List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
       projectActionOverdueList = filterProjectActionList(projectActionOverdueList, showWork, showPersonal);
+      sortProjectActionListByCompletionOrder(projectActionOverdueList);
+      sortProjectActionListByCompletionOrder(projectActionDueTodayList);
       List<List<ProjectActionNext>> projectActionDueNextWorkingDayListList = new ArrayList<>();
       Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
       planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -333,8 +373,10 @@ public class ProjectActionServlet extends ClientServlet {
         completingAction = null;
         appReq.setCompletingAction(null);
       }
-      if (completingAction == null && projectActionDueTodayList.size() > 0) {
-        completingAction = projectActionDueTodayList.get(0);
+      if (completingAction == null) {
+        completingAction = selectNextAction(projectActionOverdueList, projectActionDueTodayList);
+      }
+      if (completingAction != null) {
         appReq.setCompletingAction(completingAction);
         project = completingAction.getProject();
         projectActionTakenList = getProjectActionsTakenList(dataSession, project);
@@ -772,6 +814,7 @@ public class ProjectActionServlet extends ClientServlet {
     nextAction.setProvider(webUser.getProvider());
     nextAction.setContact(webUser.getProjectContact());
     nextAction.setBillable(resolveBillable(dataSession, foundProject));
+    defaultPersonalTimeSlot(nextAction);
     if (nextAction.getNextActionStatus() == null) {
       if (nextAction.hasNextDescription()) {
         if (nextAction.hasNextActionDate()) {
@@ -810,6 +853,12 @@ public class ProjectActionServlet extends ClientServlet {
 
     saveNewActionResult.setNextAction(nextAction);
     return saveNewActionResult;
+  }
+
+  private void defaultPersonalTimeSlot(ProjectActionNext projectAction) {
+    if (projectAction != null && !projectAction.isBillable() && projectAction.getTimeSlot() == null) {
+      projectAction.setTimeSlot(TimeSlot.AFTERNOON);
+    }
   }
 
   private Date parseWhenToTakeAction(WebUser webUser, String whenToTakeAction) {
@@ -1272,6 +1321,7 @@ public class ProjectActionServlet extends ClientServlet {
     WebUser webUser = appReq.getWebUser();
     Session dataSession = appReq.getDataSession();
     boolean isNewAction = editProjectAction == null;
+    Date originalNextActionDate = isNewAction ? null : editProjectAction.getNextActionDate();
     if (isNewAction) {
       editProjectAction = new ProjectActionNext();
       editProjectAction.setProject(nextProject);
@@ -1304,6 +1354,14 @@ public class ProjectActionServlet extends ClientServlet {
     }
 
     editProjectAction.setNextActionDate(appReq.getWebUser().parseDate(request.getParameter(PARAM_NEXT_ACTION_DATE)));
+    if (!isNewAction) {
+      Date currentNextActionDate = editProjectAction.getNextActionDate();
+      boolean dateChanged = (originalNextActionDate == null && currentNextActionDate != null)
+          || (originalNextActionDate != null && !originalNextActionDate.equals(currentNextActionDate));
+      if (dateChanged) {
+        editProjectAction.setCompletionOrder(0);
+      }
+    }
     editProjectAction.setNextTargetDate(appReq.getWebUser().parseDate(request.getParameter(PARAM_NEXT_TARGET_DATE)));
     editProjectAction
         .setNextDeadlineDate(appReq.getWebUser().parseDate(request.getParameter(PARAM_NEXT_DEADLINE_DATE)));
@@ -1330,6 +1388,9 @@ public class ProjectActionServlet extends ClientServlet {
       editProjectAction.setTimeSlot(null);
     } else {
       editProjectAction.setTimeSlot(TimeSlot.getTimeSlot(timeSlotString));
+    }
+    if (isNewAction) {
+      defaultPersonalTimeSlot(editProjectAction);
     }
 
     String nextActionType = request.getParameter(PARAM_NEXT_ACTION_TYPE);
@@ -1375,6 +1436,7 @@ public class ProjectActionServlet extends ClientServlet {
       dataSession.saveOrUpdate(actionTaken);
     }
     projectAction.setNextActionStatus(nextActionStatus);
+    projectAction.setCompletionOrder(0);
     projectAction.setNextChangeDate(new Date());
     dataSession.update(projectAction);
     if (nextActionStatus == ProjectNextActionStatus.COMPLETED
@@ -1587,17 +1649,22 @@ public class ProjectActionServlet extends ClientServlet {
       calendar.setTime(projectAction.getNextActionDate());
     }
     if (!isOverdue) {
-      int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-      if (dayOfWeek == Calendar.FRIDAY) {
-        calendar.add(Calendar.DAY_OF_MONTH, 3);
-      } else if (dayOfWeek == Calendar.SATURDAY) {
-        calendar.add(Calendar.DAY_OF_MONTH, 2);
-      } else {
+      if (!projectAction.isBillable()) {
         calendar.add(Calendar.DAY_OF_MONTH, 1);
+      } else {
+        int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+        if (dayOfWeek == Calendar.FRIDAY) {
+          calendar.add(Calendar.DAY_OF_MONTH, 3);
+        } else if (dayOfWeek == Calendar.SATURDAY) {
+          calendar.add(Calendar.DAY_OF_MONTH, 2);
+        } else {
+          calendar.add(Calendar.DAY_OF_MONTH, 1);
+        }
       }
     }
     Date postponedDueDate = calendar.getTime();
     projectAction.setNextActionDate(postponedDueDate);
+    projectAction.setCompletionOrder(0);
     if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())) {
       projectAction.setNextActionType(ProjectNextActionType.OVERDUE_TO);
     }
@@ -1664,11 +1731,140 @@ public class ProjectActionServlet extends ClientServlet {
 
     Calendar today = getCalendarForTodayNoTime(appReq.getWebUser());
     projectAction.setNextActionDate(today.getTime());
+    projectAction.setCompletionOrder(0);
     projectAction.setNextChangeDate(new Date());
     Transaction transaction = dataSession.beginTransaction();
     dataSession.update(projectAction);
     transaction.commit();
     return projectAction;
+  }
+
+  private ProjectActionNext setCompletingActionTimeSlot(AppReq appReq, Session dataSession, TimeSlot timeSlot) {
+    HttpServletRequest request = appReq.getRequest();
+    String actionNextIdString = request.getParameter(PARAM_COMPLETING_ACTION_NEXT_ID);
+    if (actionNextIdString == null || timeSlot == null) {
+      return null;
+    }
+    int actionNextId;
+    try {
+      actionNextId = Integer.parseInt(actionNextIdString);
+    } catch (NumberFormatException nfe) {
+      return null;
+    }
+    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+    if (projectAction == null || projectAction.isBillable()) {
+      return null;
+    }
+
+    projectAction.setTimeSlot(timeSlot);
+    projectAction.setCompletionOrder(0);
+    projectAction.setNextChangeDate(new Date());
+    Transaction transaction = dataSession.beginTransaction();
+    dataSession.update(projectAction);
+    transaction.commit();
+    return projectAction;
+  }
+
+  private ProjectActionNext moveCompletingActionWithinBucket(AppReq appReq, Session dataSession, int direction) {
+    HttpServletRequest request = appReq.getRequest();
+    String actionNextIdString = request.getParameter(PARAM_COMPLETING_ACTION_NEXT_ID);
+    if (actionNextIdString == null || (direction != -1 && direction != 1)) {
+      return null;
+    }
+    int actionNextId;
+    try {
+      actionNextId = Integer.parseInt(actionNextIdString);
+    } catch (NumberFormatException nfe) {
+      return null;
+    }
+
+    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+    if (projectAction == null) {
+      return null;
+    }
+    int bucket = getCompletionBucket(projectAction);
+    if (!isManualReorderBucket(bucket)) {
+      return projectAction;
+    }
+
+    WebUser webUser = appReq.getWebUser();
+    rationalizeCompletionOrderForCurrentDate(webUser, dataSession);
+
+    List<ProjectActionNext> candidateList = getProjectActionListForTodayOrEarlier(webUser, dataSession);
+    List<ProjectActionNext> bucketItems = new ArrayList<ProjectActionNext>();
+    for (ProjectActionNext candidate : candidateList) {
+      if (getCompletionBucket(candidate) == bucket) {
+        bucketItems.add(candidate);
+      }
+    }
+    if (bucketItems.size() <= 1) {
+      return projectAction;
+    }
+    sortProjectActionListByCompletionOrder(bucketItems);
+
+    int currentIndex = -1;
+    for (int i = 0; i < bucketItems.size(); i++) {
+      if (bucketItems.get(i).getActionNextId() == actionNextId) {
+        currentIndex = i;
+        break;
+      }
+    }
+    if (currentIndex < 0) {
+      return projectAction;
+    }
+
+    int targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= bucketItems.size()) {
+      return projectAction;
+    }
+
+    ProjectActionNext targetAction = bucketItems.get(targetIndex);
+    int currentOrder = bucketItems.get(currentIndex).getCompletionOrder();
+    int targetOrder = targetAction.getCompletionOrder();
+
+    Transaction transaction = dataSession.beginTransaction();
+    bucketItems.get(currentIndex).setCompletionOrder(targetOrder);
+    bucketItems.get(currentIndex).setNextChangeDate(new Date());
+    targetAction.setCompletionOrder(currentOrder);
+    targetAction.setNextChangeDate(new Date());
+    dataSession.update(bucketItems.get(currentIndex));
+    dataSession.update(targetAction);
+    transaction.commit();
+
+    return (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+  }
+
+  private boolean canMoveCompletionOrder(AppReq appReq, ProjectActionNext completingAction, int direction) {
+    if (completingAction == null || (direction != -1 && direction != 1)) {
+      return false;
+    }
+    int bucket = getCompletionBucket(completingAction);
+    if (!isManualReorderBucket(bucket)) {
+      return false;
+    }
+    List<ProjectActionNext> candidateList = getProjectActionListForTodayOrEarlier(appReq.getWebUser(),
+        appReq.getDataSession());
+    List<ProjectActionNext> bucketItems = new ArrayList<ProjectActionNext>();
+    for (ProjectActionNext candidate : candidateList) {
+      if (getCompletionBucket(candidate) == bucket) {
+        bucketItems.add(candidate);
+      }
+    }
+    if (bucketItems.size() <= 1) {
+      return false;
+    }
+    sortProjectActionListByCompletionOrder(bucketItems);
+    for (int i = 0; i < bucketItems.size(); i++) {
+      if (bucketItems.get(i).getActionNextId() == completingAction.getActionNextId()) {
+        int targetIndex = i + direction;
+        return targetIndex >= 0 && targetIndex < bucketItems.size();
+      }
+    }
+    return false;
+  }
+
+  private static boolean isManualReorderBucket(int bucket) {
+    return bucket == 2 || bucket == 3 || bucket == 4 || bucket == 5;
   }
 
   private void chatPropose(AppReq appReq, ProjectActionNext completingAction, List<ChatAgent> chatAgentList,
@@ -1936,37 +2132,93 @@ public class ProjectActionServlet extends ClientServlet {
     HttpServletRequest request = appReq.getRequest();
     boolean showWork = isShowWork(request);
     int colspan = showWork ? 4 : 2;
-    if (projectActionOverdueList.size() > 0) {
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Project</th>");
-      out.println("    <th class=\"boxed\">Overdue</th>");
-      if (showWork) {
-        out.println("    <th class=\"boxed\">Est</th>");
-        out.println("    <th class=\"boxed\">Act</th>");
-      }
-      out.println("  </tr>");
-      printActionItems(projectActionOverdueList, appReq, showWork);
-    }
-    // Add personal WAKE items after overdue (they should be cleared before day
-    // starts)
-    printPersonalItemsByTimeSlot(appReq, projectActionList, TimeSlot.WAKE, showWork, false);
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">All actions scheduled for today</th>");
     out.println("  </tr>");
-    printDueTable(appReq, ProjectNextActionType.OVERDUE_TO, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_MEET, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.MIGHT, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.GOAL, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_FOLLOW_UP, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WAITING, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_REVIEW, projectActionList, showWork);
-    printDueTable(appReq, ProjectNextActionType.WILL_DOCUMENT, projectActionList, showWork);
-    // Add personal AFTERNOON and EVENING items at end
-    printPersonalSection(appReq, projectActionList, showWork, colspan);
+
+    List<ProjectActionNext> overdueItems = new ArrayList<ProjectActionNext>();
+    overdueItems.addAll(projectActionOverdueList);
+    List<ProjectActionNext> wakeItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> committedItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> willItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> morningItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> mightItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> waitingItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> willMeetItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> otherItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> personalLateItems = new ArrayList<ProjectActionNext>();
+
+    for (ProjectActionNext projectAction : projectActionList) {
+      int bucket = getCompletionBucket(projectAction);
+      if (bucket == 0) {
+        overdueItems.add(projectAction);
+      } else if (bucket == 1) {
+        wakeItems.add(projectAction);
+      } else if (bucket == 2) {
+        committedItems.add(projectAction);
+      } else if (bucket == 3) {
+        willItems.add(projectAction);
+      } else if (bucket == 4) {
+        morningItems.add(projectAction);
+      } else if (bucket == 5) {
+        mightItems.add(projectAction);
+      } else if (bucket == 6) {
+        waitingItems.add(projectAction);
+      } else if (bucket == 7) {
+        willMeetItems.add(projectAction);
+      } else if (bucket == 8) {
+        personalLateItems.add(projectAction);
+      } else {
+        otherItems.add(projectAction);
+      }
+    }
+
+    sortProjectActionListByCompletionOrder(overdueItems);
+    sortProjectActionListByCompletionOrder(wakeItems);
+    sortProjectActionListByCompletionOrder(committedItems);
+    sortProjectActionListByCompletionOrder(willItems);
+    sortProjectActionListByCompletionOrder(morningItems);
+    sortProjectActionListByCompletionOrder(mightItems);
+    sortProjectActionListByCompletionOrder(waitingItems);
+    sortProjectActionListByCompletionOrder(willMeetItems);
+    sortProjectActionListByCompletionOrder(otherItems);
+    sortProjectActionListByCompletionOrder(personalLateItems);
+
+    printScheduleSection(out, appReq, "Overdue", overdueItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Personal (Wake)", wakeItems, showWork, true, TimeSlot.WAKE.getLabel());
+    printScheduleSection(out, appReq, "Committed", committedItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Will", willItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Personal (Morning)", morningItems, showWork, true, TimeSlot.MORNING.getLabel());
+    printScheduleSection(out, appReq, "Might", mightItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Waiting", waitingItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Will Meet", willMeetItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Other", otherItems, showWork, false, null);
+    printScheduleSection(out, appReq, "Personal (Afternoon & Evening)", personalLateItems, showWork, true, null);
     out.println("</table><br/>");
+  }
+
+  private void printScheduleSection(PrintWriter out, AppReq appReq, String sectionLabel,
+      List<ProjectActionNext> sectionItems, boolean showWork, boolean personalSection, String timeSlotLabel) {
+    if (sectionItems == null || sectionItems.isEmpty()) {
+      return;
+    }
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <th class=\"boxed\">Project</th>");
+    out.println("    <th class=\"boxed\">" + sectionLabel + "</th>");
+    if (showWork) {
+      if (personalSection) {
+        out.println("    <th class=\"boxed\" colspan=\"2\">Time</th>");
+      } else {
+        out.println("    <th class=\"boxed\">Est</th>");
+        out.println("    <th class=\"boxed\">Act</th>");
+      }
+    }
+    out.println("  </tr>");
+    if (personalSection) {
+      printPersonalActionItems(sectionItems, appReq, showWork, false, timeSlotLabel);
+    } else {
+      printActionItems(sectionItems, appReq, showWork, false);
+    }
   }
 
   private void printActionsScheduledForNextWorkingDay(AppReq appReq,
@@ -1986,8 +2238,6 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">" + title + "</th>");
     out.println("  </tr>");
-    // Add personal WAKE items at top with "Waking" section header
-    printPersonalItemsByTimeSlot(appReq, projectActionList, TimeSlot.WAKE, showWork, true, true);
     printDueTable(appReq, ProjectNextActionType.COMMITTED_TO, projectActionList, showWork, true);
     printDueTable(appReq, ProjectNextActionType.WILL, projectActionList, showWork, true);
     printDueTable(appReq, ProjectNextActionType.WILL_CONTACT, projectActionList, showWork, true);
@@ -2534,8 +2784,34 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectContact> projectContactList,
       String formName, List<Project> projectList) {
     SimpleDateFormat sdf11 = webUser.getDateFormat();
+    String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
+        + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
+    String morningLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_SET_TIME_SLOT_MORNING
+        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
+    String afternoonLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_SET_TIME_SLOT_AFTERNOON
+        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
+    String eveningLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_SET_TIME_SLOT_EVENING
+        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
+    String moveUpLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_UP
+        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
+    String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
+        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
+    boolean canMoveUp = canMoveCompletionOrder(appReq, completingAction, -1);
+    boolean canMoveDown = canMoveCompletionOrder(appReq, completingAction, 1);
     out.println("<h3>" + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</h3>");
     out.println("<p>" + getNextActionTitle(completingAction));
+    out.println(" <a href=\"" + postponeLink + "\" class=\"edit-link\">Postpone</a>");
+    if (canMoveUp) {
+      out.println(" <a href=\"" + moveUpLink + "\" class=\"edit-link\" title=\"Move up\">&uarr;</a>");
+    }
+    if (canMoveDown) {
+      out.println(" <a href=\"" + moveDownLink + "\" class=\"edit-link\" title=\"Move down\">&darr;</a>");
+    }
+    if (!completingAction.isBillable()) {
+      out.println(" <a href=\"" + morningLink + "\" class=\"edit-link\">Morning</a>");
+      out.println(" <a href=\"" + afternoonLink + "\" class=\"edit-link\">Afternoon</a>");
+      out.println(" <a href=\"" + eveningLink + "\" class=\"edit-link\">Evening</a>");
+    }
     out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
         + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
     if (completingAction.getLinkUrl() != null && completingAction.getLinkUrl().length() > 0) {
@@ -2911,6 +3187,107 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 
+  private List<ProjectActionNext> getProjectActionListForTodayOrEarlier(WebUser webUser, Session dataSession) {
+    Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
+    Query query = dataSession.createQuery(
+        "select distinct pan from ProjectActionNext pan "
+            + "left join fetch pan.project "
+            + "left join fetch pan.contact "
+            + "left join fetch pan.nextProjectContact "
+            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+            + "and pan.nextDescription <> '' "
+            + "and pan.nextActionStatusString = :nextActionStatus "
+            + "and pan.nextActionDate is not null and pan.nextActionDate < :tomorrow ");
+    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("contactId", webUser.getContactId());
+    query.setParameter(PARAM_NEXT_CONTACT_ID, webUser.getContactId());
+    query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
+    query.setParameter("tomorrow", tomorrow);
+    @SuppressWarnings("unchecked")
+    List<ProjectActionNext> projectActionList = query.list();
+    return projectActionList;
+  }
+
+  private void rationalizeCompletionOrderForCurrentDate(WebUser webUser, Session dataSession) {
+    List<ProjectActionNext> candidateList = getProjectActionListForTodayOrEarlier(webUser, dataSession);
+    if (candidateList.isEmpty()) {
+      return;
+    }
+    boolean needsRationalization = false;
+    for (ProjectActionNext projectAction : candidateList) {
+      if (projectAction.getCompletionOrder() <= 0) {
+        needsRationalization = true;
+        break;
+      }
+    }
+    if (!needsRationalization) {
+      return;
+    }
+
+    Map<Integer, List<ProjectActionNext>> existingByBucket = new HashMap<Integer, List<ProjectActionNext>>();
+    Map<Integer, List<ProjectActionNext>> newByBucket = new HashMap<Integer, List<ProjectActionNext>>();
+    for (ProjectActionNext projectAction : candidateList) {
+      int bucket = getCompletionBucket(projectAction);
+      if (projectAction.getCompletionOrder() > 0) {
+        List<ProjectActionNext> existing = existingByBucket.get(bucket);
+        if (existing == null) {
+          existing = new ArrayList<ProjectActionNext>();
+          existingByBucket.put(bucket, existing);
+        }
+        existing.add(projectAction);
+      } else {
+        List<ProjectActionNext> pending = newByBucket.get(bucket);
+        if (pending == null) {
+          pending = new ArrayList<ProjectActionNext>();
+          newByBucket.put(bucket, pending);
+        }
+        pending.add(projectAction);
+      }
+    }
+
+    List<ProjectActionNext> orderedList = new ArrayList<ProjectActionNext>();
+    for (int bucket = 0; bucket <= 9; bucket++) {
+      List<ProjectActionNext> existing = existingByBucket.get(bucket);
+      if (existing != null && !existing.isEmpty()) {
+        existing.sort((pa1, pa2) -> pa1.getCompletionOrder() - pa2.getCompletionOrder());
+        orderedList.addAll(existing);
+      }
+      List<ProjectActionNext> pending = newByBucket.get(bucket);
+      if (pending != null && !pending.isEmpty()) {
+        pending.sort((pa1, pa2) -> compareInsideBucket(pa1, pa2));
+        orderedList.addAll(pending);
+      }
+    }
+
+    Transaction trans = dataSession.beginTransaction();
+    int completionOrder = 1;
+    for (ProjectActionNext projectAction : orderedList) {
+      if (projectAction.getCompletionOrder() != completionOrder) {
+        projectAction.setCompletionOrder(completionOrder);
+        projectAction.setNextChangeDate(new Date());
+        dataSession.update(projectAction);
+      }
+      completionOrder++;
+    }
+    trans.commit();
+  }
+
+  private ProjectActionNext selectNextAction(List<ProjectActionNext> projectActionOverdueList,
+      List<ProjectActionNext> projectActionDueTodayList) {
+    List<ProjectActionNext> orderedList = new ArrayList<ProjectActionNext>();
+    if (projectActionOverdueList != null) {
+      orderedList.addAll(projectActionOverdueList);
+    }
+    if (projectActionDueTodayList != null) {
+      orderedList.addAll(projectActionDueTodayList);
+    }
+    if (orderedList.isEmpty()) {
+      return null;
+    }
+    sortProjectActionListByCompletionOrder(orderedList);
+    return orderedList.get(0);
+  }
+
   private static List<ProjectActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
       Date startDate, Date endDate) {
     Query query = dataSession.createQuery(
@@ -2937,51 +3314,145 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {
-    // sort the projectActionList first by the defaultPriority from the
-    // ProjectNextActionType and then by the priority_level
+    // Fallback ranking used when completion order is not yet assigned.
     projectActionList.sort((pa1, pa2) -> {
-      ProcessStage ps1 = pa1.getProcessStage();
-      ProcessStage ps2 = pa2.getProcessStage();
-      // If one of the priorities is special, then we need to sort by the special
-      // priority, unless they are the same
-      if ((ps1 != null || ps2 != null) && ps1 != ps2) {
-        // very complicated logic to sort by priority special
-        // FIRST must go first before any SECOND, or any other priority without a
-        // special priority
-        if (ps1 == ProcessStage.FIRST) {
-          return -1;
-        } else if (ps2 == ProcessStage.FIRST) {
-          return 1;
-        }
-        // SECOND must go after any FIRST, but before any other priority without a
-        // special priority
-        if (ps1 == ProcessStage.SECOND) {
-          return -1;
-        } else if (ps2 == ProcessStage.SECOND) {
-          return 1;
-        }
-        // LAST must go last after any other priority without a special priority and
-        // PENULTIMATE
-        if (ps1 == ProcessStage.LAST) {
-          return 1;
-        } else if (ps2 == ProcessStage.LAST) {
-          return -1;
-        }
-        // PENUlTIMATE must go last after any other priority without a special priority,
-        // but before any LAST
-        if (ps1 == ProcessStage.PENULTIMATE) {
-          return 1;
-        } else if (ps2 == ProcessStage.PENULTIMATE) {
-          return -1;
-        }
+      int bucket1 = getCompletionBucket(pa1);
+      int bucket2 = getCompletionBucket(pa2);
+      if (bucket1 != bucket2) {
+        return bucket1 - bucket2;
       }
-      int p1 = ProjectNextActionType.defaultPriority(pa1.getNextActionType());
-      int p2 = ProjectNextActionType.defaultPriority(pa2.getNextActionType());
-      if (p1 != p2) {
-        return p2 - p1;
-      }
-      return pa2.getPriorityLevel() - pa1.getPriorityLevel();
+      return compareInsideBucket(pa1, pa2);
     });
+  }
+
+  private static void sortProjectActionListByCompletionOrder(List<ProjectActionNext> projectActionList) {
+    projectActionList.sort((pa1, pa2) -> {
+      int c1 = pa1 == null ? 0 : pa1.getCompletionOrder();
+      int c2 = pa2 == null ? 0 : pa2.getCompletionOrder();
+      if (c1 > 0 && c2 > 0 && c1 != c2) {
+        return c1 - c2;
+      }
+      if (c1 > 0 && c2 <= 0) {
+        return -1;
+      }
+      if (c2 > 0 && c1 <= 0) {
+        return 1;
+      }
+      int bucket1 = getCompletionBucket(pa1);
+      int bucket2 = getCompletionBucket(pa2);
+      if (bucket1 != bucket2) {
+        return bucket1 - bucket2;
+      }
+      return compareInsideBucket(pa1, pa2);
+    });
+  }
+
+  private static int compareInsideBucket(ProjectActionNext pa1, ProjectActionNext pa2) {
+    ProcessStage ps1 = pa1.getProcessStage();
+    ProcessStage ps2 = pa2.getProcessStage();
+    // If one of the priorities is special, then we need to sort by the special
+    // priority, unless they are the same
+    if ((ps1 != null || ps2 != null) && ps1 != ps2) {
+      // very complicated logic to sort by priority special
+      // FIRST must go first before any SECOND, or any other priority without a
+      // special priority
+      if (ps1 == ProcessStage.FIRST) {
+        return -1;
+      } else if (ps2 == ProcessStage.FIRST) {
+        return 1;
+      }
+      // SECOND must go after any FIRST, but before any other priority without a
+      // special priority
+      if (ps1 == ProcessStage.SECOND) {
+        return -1;
+      } else if (ps2 == ProcessStage.SECOND) {
+        return 1;
+      }
+      // LAST must go last after any other priority without a special priority and
+      // PENULTIMATE
+      if (ps1 == ProcessStage.LAST) {
+        return 1;
+      } else if (ps2 == ProcessStage.LAST) {
+        return -1;
+      }
+      // PENUlTIMATE must go last after any other priority without a special priority,
+      // but before any LAST
+      if (ps1 == ProcessStage.PENULTIMATE) {
+        return 1;
+      } else if (ps2 == ProcessStage.PENULTIMATE) {
+        return -1;
+      }
+    }
+    int p1 = ProjectNextActionType.defaultPriority(pa1.getNextActionType());
+    int p2 = ProjectNextActionType.defaultPriority(pa2.getNextActionType());
+    if (p1 != p2) {
+      return p2 - p1;
+    }
+    if (pa2.getPriorityLevel() != pa1.getPriorityLevel()) {
+      return pa2.getPriorityLevel() - pa1.getPriorityLevel();
+    }
+    Date d1 = pa1.getNextChangeDate();
+    Date d2 = pa2.getNextChangeDate();
+    if (d1 != null && d2 != null) {
+      int compare = d1.compareTo(d2);
+      if (compare != 0) {
+        return compare;
+      }
+    }
+    return pa1.getActionNextId() - pa2.getActionNextId();
+  }
+
+  private static int getCompletionBucket(ProjectActionNext projectAction) {
+    if (projectAction == null) {
+      return 99;
+    }
+    Calendar todayCalendar = Calendar.getInstance();
+    todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
+    todayCalendar.set(Calendar.MINUTE, 0);
+    todayCalendar.set(Calendar.SECOND, 0);
+    todayCalendar.set(Calendar.MILLISECOND, 0);
+    if (projectAction.getNextActionDate() != null
+        && projectAction.getNextActionDate().before(todayCalendar.getTime())) {
+      return 0;
+    }
+    if (!projectAction.isBillable()) {
+      TimeSlot timeSlot = projectAction.getTimeSlot();
+      if (timeSlot == TimeSlot.WAKE) {
+        return 1;
+      }
+      if (timeSlot == TimeSlot.AFTERNOON || timeSlot == TimeSlot.EVENING || timeSlot == null) {
+        return 8;
+      }
+      if (timeSlot == TimeSlot.MORNING) {
+        return 4;
+      }
+      return 8;
+    }
+    String nextActionType = projectAction.getNextActionType();
+    if (ProjectNextActionType.OVERDUE_TO.equals(nextActionType)) {
+      return 0;
+    }
+    if (ProjectNextActionType.COMMITTED_TO.equals(nextActionType)) {
+      return 2;
+    }
+    if (ProjectNextActionType.WILL.equals(nextActionType)
+        || ProjectNextActionType.WILL_CONTACT.equals(nextActionType)
+        || ProjectNextActionType.WILL_REVIEW.equals(nextActionType)
+        || ProjectNextActionType.WILL_DOCUMENT.equals(nextActionType)
+        || ProjectNextActionType.WILL_FOLLOW_UP.equals(nextActionType)) {
+      return 3;
+    }
+    if (ProjectNextActionType.MIGHT.equals(nextActionType)
+        || ProjectNextActionType.GOAL.equals(nextActionType)) {
+      return 5;
+    }
+    if (ProjectNextActionType.WAITING.equals(nextActionType)) {
+      return 6;
+    }
+    if (ProjectNextActionType.WILL_MEET.equals(nextActionType)) {
+      return 7;
+    }
+    return 9;
   }
 
   private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {
@@ -2998,11 +3469,6 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    <td class=\"boxed\" id=\"" + idBaseEst + "\">" + timeEstString + "</th>");
     out.println("    <td class=\"boxed\" id=\"" + idBaseAct + "\">" + timeActString + "</th>");
     out.println("  </tr>");
-  }
-
-  private void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
-      boolean showWork) {
-    printDueTable(appReq, nextActionType, projectActionList, showWork, false);
   }
 
   private void printDueTable(AppReq appReq, String nextActionType, List<ProjectActionNext> projectActionList,
@@ -3025,12 +3491,9 @@ public class ProjectActionServlet extends ClientServlet {
             continue;
           }
 
-          // Only allow personal items with MORNING time slot to mix with work
-          // All other personal items (null, WAKE, AFTERNOON, EVENING) go in dedicated
-          // sections
-          TimeSlot timeSlot = projectAction.getTimeSlot();
-          if (isPersonal && timeSlot != TimeSlot.MORNING) {
-            continue; // Skip - will be shown in personal sections
+          // Keep all personal items in one dedicated personal section.
+          if (isPersonal) {
+            continue;
           }
           paList.add(projectAction);
         }
@@ -3052,50 +3515,6 @@ public class ProjectActionServlet extends ClientServlet {
     printActionItems(paList, appReq, showWork, showMoveToCurrentWorkingDayLink);
   }
 
-  private void printPersonalItemsByTimeSlot(AppReq appReq, List<ProjectActionNext> projectActionList,
-      TimeSlot timeSlot, boolean showWork, boolean showSectionHeader) {
-    printPersonalItemsByTimeSlot(appReq, projectActionList, timeSlot, showWork, showSectionHeader, false);
-  }
-
-  private void printPersonalItemsByTimeSlot(AppReq appReq, List<ProjectActionNext> projectActionList,
-      TimeSlot timeSlot, boolean showWork, boolean showSectionHeader, boolean showMoveToCurrentWorkingDayLink) {
-    PrintWriter out = appReq.getOut();
-    HttpServletRequest request = appReq.getRequest();
-    boolean showPersonal = isShowPersonal(request);
-
-    if (!showPersonal) {
-      return; // Don't show personal items if filter is off
-    }
-
-    List<ProjectActionNext> personalItems = new ArrayList<ProjectActionNext>();
-    for (ProjectActionNext projectAction : projectActionList) {
-      if (!projectAction.isBillable() && projectAction.getTimeSlot() == timeSlot) {
-        personalItems.add(projectAction);
-      }
-    }
-
-    if (personalItems.size() == 0) {
-      return; // Don't show section if no items
-    }
-
-    if (showSectionHeader) {
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Project</th>");
-      out.println("    <th class=\"boxed\">" + timeSlot.getLabel() + "</th>");
-      if (showWork) {
-        out.println("    <th class=\"boxed\">Est</th>");
-        out.println("    <th class=\"boxed\">Act</th>");
-      }
-      out.println("  </tr>");
-    }
-    printActionItems(personalItems, appReq, showWork, showMoveToCurrentWorkingDayLink);
-  }
-
-  private void printPersonalSection(AppReq appReq, List<ProjectActionNext> projectActionList,
-      boolean showWork, int colspan) {
-    printPersonalSection(appReq, projectActionList, showWork, colspan, false);
-  }
-
   private void printPersonalSection(AppReq appReq, List<ProjectActionNext> projectActionList,
       boolean showWork, int colspan, boolean showMoveToCurrentWorkingDayLink) {
     PrintWriter out = appReq.getOut();
@@ -3106,47 +3525,139 @@ public class ProjectActionServlet extends ClientServlet {
       return; // Don't show personal section if filter is off
     }
 
-    // Collect personal items: null and AFTERNOON are treated the same (default to
-    // afternoon)
+    // Collect personal items in TimeSlot enum order.
+    List<ProjectActionNext> wakeItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> morningItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> afternoonItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> eveningItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> unspecifiedItems = new ArrayList<ProjectActionNext>();
 
     for (ProjectActionNext projectAction : projectActionList) {
       if (!projectAction.isBillable()) {
         TimeSlot timeSlot = projectAction.getTimeSlot();
-        if (timeSlot == null || timeSlot == TimeSlot.AFTERNOON) {
+        if (timeSlot == TimeSlot.WAKE) {
+          wakeItems.add(projectAction);
+        } else if (timeSlot == TimeSlot.MORNING) {
+          morningItems.add(projectAction);
+        } else if (timeSlot == TimeSlot.AFTERNOON) {
           afternoonItems.add(projectAction);
         } else if (timeSlot == TimeSlot.EVENING) {
           eveningItems.add(projectAction);
+        } else {
+          unspecifiedItems.add(projectAction);
         }
       }
     }
 
     // Only show section if there are items
-    if (afternoonItems.size() == 0 && eveningItems.size() == 0) {
+    if (wakeItems.size() == 0
+        && morningItems.size() == 0
+        && afternoonItems.size() == 0
+        && eveningItems.size() == 0
+        && unspecifiedItems.size() == 0) {
       return;
     }
 
-    // Print "Personal" section header (same style as "Might")
+    // Print "Personal" section header with merged Time Slot column for personal
+    // rows.
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Personal</th>");
     if (showWork) {
-      out.println("    <th class=\"boxed\">Est</th>");
-      out.println("    <th class=\"boxed\">Act</th>");
+      out.println("    <th class=\"boxed\" colspan=\"2\">Time</th>");
     }
     out.println("  </tr>");
 
-    // Print AFTERNOON (including null/unspecified) items first, then EVENING
-    printActionItems(afternoonItems, appReq, showWork, showMoveToCurrentWorkingDayLink);
-    printActionItems(eveningItems, appReq, showWork, showMoveToCurrentWorkingDayLink);
+    printPersonalActionItems(wakeItems, appReq, showWork, showMoveToCurrentWorkingDayLink, TimeSlot.WAKE.getLabel());
+    printPersonalActionItems(morningItems, appReq, showWork, showMoveToCurrentWorkingDayLink,
+        TimeSlot.MORNING.getLabel());
+    printPersonalActionItems(afternoonItems, appReq, showWork, showMoveToCurrentWorkingDayLink,
+        TimeSlot.AFTERNOON.getLabel());
+    printPersonalActionItems(eveningItems, appReq, showWork, showMoveToCurrentWorkingDayLink,
+        TimeSlot.EVENING.getLabel());
+    printPersonalActionItems(unspecifiedItems, appReq, showWork, showMoveToCurrentWorkingDayLink, null);
   }
 
-  private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork) {
+  private void printPersonalActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork,
+      boolean showMoveToCurrentWorkingDayLink, String timeSlotLabel) {
+    PrintWriter out = appReq.getOut();
+    WebUser webUser = appReq.getWebUser();
+    Calendar todayCalendar = webUser.getCalendar();
+    todayCalendar.setTime(new Date());
+    todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
+    todayCalendar.set(Calendar.MINUTE, 0);
+    todayCalendar.set(Calendar.SECOND, 0);
+    todayCalendar.set(Calendar.MILLISECOND, 0);
+
+    for (ProjectActionNext projectAction : paList) {
+      String link = "ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String moveToCurrentWorkingDayLink = "ProjectActionServlet?" + PARAM_ACTION + "="
+          + ACTION_MOVE_TO_CURRENT_WORKING_DAY
+          + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
+          + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String moveUpLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_UP
+          + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
+          + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      boolean canMoveUp = canMoveCompletionOrder(appReq, projectAction, -1);
+      boolean canMoveDown = canMoveCompletionOrder(appReq, projectAction, 1);
+      boolean canMoveToCurrentWorkingDay = showMoveToCurrentWorkingDayLink
+          && projectAction.getNextActionDate() != null
+          && projectAction.getNextActionDate().after(todayCalendar.getTime());
+      String moveToCurrentWorkingDayButton = "";
+      if (canMoveToCurrentWorkingDay) {
+        moveToCurrentWorkingDayButton = "<a href=\"" + moveToCurrentWorkingDayLink
+            + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Move to today\">&#8617;</a> ";
+      }
+
+      out.println("  <tr class=\"boxed\">");
+      if (projectAction.getProject() == null) {
+        out.println("    <td class=\"boxed\">&nbsp;</td>");
+      } else {
+        out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
+            + projectAction.getProject().getProjectName() + "</a></td>");
+      }
+      String timeSlotInline = timeSlotLabel == null || showWork
+          ? ""
+          : " <span style=\"opacity: 0.75;\">(" + timeSlotLabel + ")</span>";
+      String moveControls = "";
+      if (canMoveUp || canMoveDown) {
+        moveControls = "<span style=\"float: right; white-space: nowrap;\">"
+            + (canMoveUp
+                ? "<a href=\"" + moveUpLink
+                    + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Move up\">&uarr;</a> "
+                : "")
+            + (canMoveDown
+                ? "<a href=\"" + moveDownLink
+                    + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Move down\">&darr;</a>"
+                : "")
+            + "</span>";
+      }
+      out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
+          + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>"
+          + timeSlotInline
+          + " " + moveToCurrentWorkingDayButton
+          + "<a href=\"" + postponeLink
+          + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a>"
+          + moveControls + "</td>");
+
+      if (showWork) {
+        if (timeSlotLabel == null || timeSlotLabel.length() == 0) {
+          out.println("    <td class=\"boxed\" colspan=\"2\">&nbsp;</td>");
+        } else {
+          out.println("    <td class=\"boxed\" colspan=\"2\">" + timeSlotLabel + "</td>");
+        }
+      }
+      out.println("  </tr>");
+    }
+  }
+
+  private void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork) {
     printActionItems(paList, appReq, showWork, false);
   }
 
-  private static void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork,
+  private void printActionItems(List<ProjectActionNext> paList, AppReq appReq, boolean showWork,
       boolean showMoveToCurrentWorkingDayLink) {
     PrintWriter out = appReq.getOut();
     WebUser webUser = appReq.getWebUser();
@@ -3163,6 +3674,12 @@ public class ProjectActionServlet extends ClientServlet {
           + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
       String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
           + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String moveUpLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_UP
+          + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
+          + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      boolean canMoveUp = canMoveCompletionOrder(appReq, projectAction, -1);
+      boolean canMoveDown = canMoveCompletionOrder(appReq, projectAction, 1);
       boolean canMoveToCurrentWorkingDay = showMoveToCurrentWorkingDayLink
           && projectAction.getNextActionDate() != null
           && projectAction.getNextActionDate().after(todayCalendar.getTime());
@@ -3178,11 +3695,25 @@ public class ProjectActionServlet extends ClientServlet {
         out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
             + projectAction.getProject().getProjectName() + "</a></td>");
       }
+      String moveControls = "";
+      if (canMoveUp || canMoveDown) {
+        moveControls = "<span style=\"float: right; white-space: nowrap;\">"
+            + (canMoveUp
+                ? "<a href=\"" + moveUpLink
+                    + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Move up\">&uarr;</a> "
+                : "")
+            + (canMoveDown
+                ? "<a href=\"" + moveDownLink
+                    + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Move down\">&darr;</a>"
+                : "")
+            + "</span>";
+      }
       out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a> "
           + moveToCurrentWorkingDayButton
           + "<a href=\"" + postponeLink
-          + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a></td>");
+          + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a>"
+          + moveControls + "</td>");
       if (showWork) {
         if (!projectAction.isBillable() || projectAction.getNextTimeEstimate() == null
             || projectAction.getNextTimeEstimate() == 0) {

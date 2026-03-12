@@ -19,6 +19,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private Integer nextTimeActual;
     private Integer nextContactId;
     private int priorityLevel = 0;
+    private int completionOrder = 0;
     private ProcessStage processStage;
     private String goalStatus;
     private Integer templateActionNextId;
@@ -193,6 +194,14 @@ public class ProjectActionNext implements java.io.Serializable {
 
     public void setPriorityLevel(int priorityLevel) {
         this.priorityLevel = priorityLevel;
+    }
+
+    public int getCompletionOrder() {
+        return completionOrder;
+    }
+
+    public void setCompletionOrder(int completionOrder) {
+        this.completionOrder = completionOrder;
     }
 
     public ProcessStage getProcessStage() {

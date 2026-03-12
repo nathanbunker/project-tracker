@@ -47,6 +47,9 @@
     <property name="priorityLevel" type="integer">
       <column name="priority_level" not-null="true" />
     </property>
+    <property name="completionOrder" type="integer">
+      <column name="completion_order" not-null="true" />
+    </property>
     <property name="processStageString" type="string">
       <column name="process_stage" />
     </property>
