@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.SoftwareVersion;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
@@ -276,7 +277,7 @@ public class ClientServlet extends HttpServlet {
               Session dataSession = appReq.getDataSession();
               Date today = new Date();
               TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
-              minsForWeek = TimeEntry.adjustMinutes(timeTrackerForWeek.getTotalMinsBillable());
+              minsForWeek = calculateWeeklyRoundedMinutesLikeTrackServlet(dataSession, timeTrackerForWeek);
             }
             if (minsForWeek > 0) {
               time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";
@@ -328,6 +329,31 @@ public class ClientServlet extends HttpServlet {
   public static void printFooter(PrintWriter out) {
     out.println("    <p>Open Immunization Software - Project Tracker - Version "
         + SoftwareVersion.VERSION + "</p>");
+  }
+
+  private static int calculateWeeklyRoundedMinutesLikeTrackServlet(Session dataSession,
+      TimeTracker timeTrackerForWeek) {
+    int totalTimeInMinutes = 0;
+    HashMap<Integer, Integer> projectMap = timeTrackerForWeek.getTotalMinsForProjectMap();
+    for (Integer projectId : projectMap.keySet()) {
+      Project project = (Project) dataSession.get(Project.class, projectId);
+      if (project == null) {
+        continue;
+      }
+      String billCodeString = project.getBillCode();
+      if (billCodeString == null) {
+        continue;
+      }
+      BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+      if (billCode == null || !"Y".equals(billCode.getBillable())) {
+        continue;
+      }
+      Integer projectMinutes = projectMap.get(projectId);
+      if (projectMinutes != null) {
+        totalTimeInMinutes += TimeEntry.adjustMinutes(projectMinutes);
+      }
+    }
+    return totalTimeInMinutes;
   }
 
   protected void printHtmlFoot(AppReq appReq) {
