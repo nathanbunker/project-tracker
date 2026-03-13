@@ -121,6 +121,19 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_MOVE_COMPLETION_UP = "MoveCompletionUp";
   private static final String ACTION_MOVE_COMPLETION_DOWN = "MoveCompletionDown";
 
+  private static final int BUCKET_START_OF_WORK_DAY = 0;
+  private static final int BUCKET_OVERDUE = 1;
+  private static final int BUCKET_PERSONAL_WAKE = 2;
+  private static final int BUCKET_COMMITTED = 3;
+  private static final int BUCKET_WILL = 4;
+  private static final int BUCKET_PERSONAL_MORNING = 5;
+  private static final int BUCKET_MIGHT = 6;
+  private static final int BUCKET_WAITING = 7;
+  private static final int BUCKET_WILL_MEET = 8;
+  private static final int BUCKET_END_OF_WORK_DAY = 9;
+  private static final int BUCKET_PERSONAL_LATE = 10;
+  private static final int BUCKET_OTHER = 11;
+
   private static final String LIST_START = " - ";
   private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
 
@@ -1864,7 +1877,10 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private static boolean isManualReorderBucket(int bucket) {
-    return bucket == 2 || bucket == 3 || bucket == 4 || bucket == 5;
+    return bucket == BUCKET_COMMITTED
+        || bucket == BUCKET_WILL
+        || bucket == BUCKET_PERSONAL_MORNING
+        || bucket == BUCKET_MIGHT;
   }
 
   private void chatPropose(AppReq appReq, ProjectActionNext completingAction, List<ChatAgent> chatAgentList,
@@ -2136,6 +2152,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">All actions scheduled for today</th>");
     out.println("  </tr>");
 
+    List<ProjectActionNext> startOfWorkDayItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> overdueItems = new ArrayList<ProjectActionNext>();
     overdueItems.addAll(projectActionOverdueList);
     List<ProjectActionNext> wakeItems = new ArrayList<ProjectActionNext>();
@@ -2145,34 +2162,40 @@ public class ProjectActionServlet extends ClientServlet {
     List<ProjectActionNext> mightItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> waitingItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> willMeetItems = new ArrayList<ProjectActionNext>();
+    List<ProjectActionNext> endOfWorkDayItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> otherItems = new ArrayList<ProjectActionNext>();
     List<ProjectActionNext> personalLateItems = new ArrayList<ProjectActionNext>();
 
     for (ProjectActionNext projectAction : projectActionList) {
       int bucket = getCompletionBucket(projectAction);
-      if (bucket == 0) {
+      if (bucket == BUCKET_START_OF_WORK_DAY) {
+        startOfWorkDayItems.add(projectAction);
+      } else if (bucket == BUCKET_OVERDUE) {
         overdueItems.add(projectAction);
-      } else if (bucket == 1) {
+      } else if (bucket == BUCKET_PERSONAL_WAKE) {
         wakeItems.add(projectAction);
-      } else if (bucket == 2) {
+      } else if (bucket == BUCKET_COMMITTED) {
         committedItems.add(projectAction);
-      } else if (bucket == 3) {
+      } else if (bucket == BUCKET_WILL) {
         willItems.add(projectAction);
-      } else if (bucket == 4) {
+      } else if (bucket == BUCKET_PERSONAL_MORNING) {
         morningItems.add(projectAction);
-      } else if (bucket == 5) {
+      } else if (bucket == BUCKET_MIGHT) {
         mightItems.add(projectAction);
-      } else if (bucket == 6) {
+      } else if (bucket == BUCKET_WAITING) {
         waitingItems.add(projectAction);
-      } else if (bucket == 7) {
+      } else if (bucket == BUCKET_WILL_MEET) {
         willMeetItems.add(projectAction);
-      } else if (bucket == 8) {
+      } else if (bucket == BUCKET_END_OF_WORK_DAY) {
+        endOfWorkDayItems.add(projectAction);
+      } else if (bucket == BUCKET_PERSONAL_LATE) {
         personalLateItems.add(projectAction);
       } else {
         otherItems.add(projectAction);
       }
     }
 
+    sortProjectActionListByCompletionOrder(startOfWorkDayItems);
     sortProjectActionListByCompletionOrder(overdueItems);
     sortProjectActionListByCompletionOrder(wakeItems);
     sortProjectActionListByCompletionOrder(committedItems);
@@ -2181,9 +2204,11 @@ public class ProjectActionServlet extends ClientServlet {
     sortProjectActionListByCompletionOrder(mightItems);
     sortProjectActionListByCompletionOrder(waitingItems);
     sortProjectActionListByCompletionOrder(willMeetItems);
+    sortProjectActionListByCompletionOrder(endOfWorkDayItems);
     sortProjectActionListByCompletionOrder(otherItems);
     sortProjectActionListByCompletionOrder(personalLateItems);
 
+    printScheduleSection(out, appReq, "Start of Work Day", startOfWorkDayItems, showWork, false, null);
     printScheduleSection(out, appReq, "Overdue", overdueItems, showWork, false, null);
     printScheduleSection(out, appReq, "Personal (Wake)", wakeItems, showWork, true, TimeSlot.WAKE.getLabel());
     printScheduleSection(out, appReq, "Committed", committedItems, showWork, false, null);
@@ -2192,6 +2217,7 @@ public class ProjectActionServlet extends ClientServlet {
     printScheduleSection(out, appReq, "Might", mightItems, showWork, false, null);
     printScheduleSection(out, appReq, "Waiting", waitingItems, showWork, false, null);
     printScheduleSection(out, appReq, "Will Meet", willMeetItems, showWork, false, null);
+    printScheduleSection(out, appReq, "End of Work Day", endOfWorkDayItems, showWork, false, null);
     printScheduleSection(out, appReq, "Other", otherItems, showWork, false, null);
     printScheduleSection(out, appReq, "Personal (Afternoon & Evening)", personalLateItems, showWork, true, null);
     out.println("</table><br/>");
@@ -3246,7 +3272,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
 
     List<ProjectActionNext> orderedList = new ArrayList<ProjectActionNext>();
-    for (int bucket = 0; bucket <= 9; bucket++) {
+    for (int bucket = BUCKET_START_OF_WORK_DAY; bucket <= BUCKET_OTHER; bucket++) {
       List<ProjectActionNext> existing = existingByBucket.get(bucket);
       if (existing != null && !existing.isEmpty()) {
         existing.sort((pa1, pa2) -> pa1.getCompletionOrder() - pa2.getCompletionOrder());
@@ -3406,6 +3432,15 @@ public class ProjectActionServlet extends ClientServlet {
     if (projectAction == null) {
       return 99;
     }
+    if (projectAction.isBillable()) {
+      ProcessStage processStage = projectAction.getProcessStage();
+      if (processStage == ProcessStage.FIRST || processStage == ProcessStage.SECOND) {
+        return BUCKET_START_OF_WORK_DAY;
+      }
+      if (processStage == ProcessStage.PENULTIMATE || processStage == ProcessStage.LAST) {
+        return BUCKET_END_OF_WORK_DAY;
+      }
+    }
     Calendar todayCalendar = Calendar.getInstance();
     todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
     todayCalendar.set(Calendar.MINUTE, 0);
@@ -3413,46 +3448,46 @@ public class ProjectActionServlet extends ClientServlet {
     todayCalendar.set(Calendar.MILLISECOND, 0);
     if (projectAction.getNextActionDate() != null
         && projectAction.getNextActionDate().before(todayCalendar.getTime())) {
-      return 0;
+      return BUCKET_OVERDUE;
     }
     if (!projectAction.isBillable()) {
       TimeSlot timeSlot = projectAction.getTimeSlot();
       if (timeSlot == TimeSlot.WAKE) {
-        return 1;
+        return BUCKET_PERSONAL_WAKE;
       }
       if (timeSlot == TimeSlot.AFTERNOON || timeSlot == TimeSlot.EVENING || timeSlot == null) {
-        return 8;
+        return BUCKET_PERSONAL_LATE;
       }
       if (timeSlot == TimeSlot.MORNING) {
-        return 4;
+        return BUCKET_PERSONAL_MORNING;
       }
-      return 8;
+      return BUCKET_PERSONAL_LATE;
     }
     String nextActionType = projectAction.getNextActionType();
     if (ProjectNextActionType.OVERDUE_TO.equals(nextActionType)) {
-      return 0;
+      return BUCKET_OVERDUE;
     }
     if (ProjectNextActionType.COMMITTED_TO.equals(nextActionType)) {
-      return 2;
+      return BUCKET_COMMITTED;
     }
     if (ProjectNextActionType.WILL.equals(nextActionType)
         || ProjectNextActionType.WILL_CONTACT.equals(nextActionType)
         || ProjectNextActionType.WILL_REVIEW.equals(nextActionType)
         || ProjectNextActionType.WILL_DOCUMENT.equals(nextActionType)
         || ProjectNextActionType.WILL_FOLLOW_UP.equals(nextActionType)) {
-      return 3;
+      return BUCKET_WILL;
     }
     if (ProjectNextActionType.MIGHT.equals(nextActionType)
         || ProjectNextActionType.GOAL.equals(nextActionType)) {
-      return 5;
+      return BUCKET_MIGHT;
     }
     if (ProjectNextActionType.WAITING.equals(nextActionType)) {
-      return 6;
+      return BUCKET_WAITING;
     }
     if (ProjectNextActionType.WILL_MEET.equals(nextActionType)) {
-      return 7;
+      return BUCKET_WILL_MEET;
     }
-    return 9;
+    return BUCKET_OTHER;
   }
 
   private static void printTimeTotal(PrintWriter out, String title, String idBase, int timeEst, int timeAct) {
