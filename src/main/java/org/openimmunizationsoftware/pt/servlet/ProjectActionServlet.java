@@ -925,6 +925,12 @@ public class ProjectActionServlet extends ClientServlet {
           calendar.setTime(new Date());
         }
       }
+      // Normalize to midnight in user's timezone so the stored DATE value is
+      // always the correct calendar date regardless of time-of-day when entered.
+      calendar.set(Calendar.HOUR_OF_DAY, 0);
+      calendar.set(Calendar.MINUTE, 0);
+      calendar.set(Calendar.SECOND, 0);
+      calendar.set(Calendar.MILLISECOND, 0);
       actionDate = calendar.getTime();
     }
     return actionDate;
