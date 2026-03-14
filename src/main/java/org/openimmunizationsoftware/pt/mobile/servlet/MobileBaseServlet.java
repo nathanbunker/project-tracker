@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -18,13 +17,6 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
  */
 public abstract class MobileBaseServlet extends ClientServlet {
 
-    protected static final String PARAM_SHOW_WORK = "showWork";
-    protected static final String PARAM_SHOW_PERSONAL = "showPersonal";
-    protected static final String PARAM_FILTER_SUBMITTED = "filterSubmitted";
-    protected static final String SESSION_SHOW_WORK = "projectAction.showWork";
-    protected static final String SESSION_SHOW_PERSONAL = "projectAction.showPersonal";
-    protected static final String REQUEST_SHOW_WORK = "projectAction.requestShowWork";
-    protected static final String REQUEST_SHOW_PERSONAL = "projectAction.requestShowPersonal";
 
     protected void printHtmlHead(AppReq appReq) {
         printHtmlHead(appReq, "Project");
@@ -92,52 +84,11 @@ public abstract class MobileBaseServlet extends ClientServlet {
         out.println("</html>");
     }
 
-    protected void resolveAndStoreShowPreferences(HttpServletRequest request) {
-        if (request.getAttribute(REQUEST_SHOW_WORK) instanceof Boolean
-                && request.getAttribute(REQUEST_SHOW_PERSONAL) instanceof Boolean) {
-            return;
-        }
-
-        HttpSession session = request.getSession();
-        boolean hasFilterSubmitted = request.getParameter(PARAM_FILTER_SUBMITTED) != null;
-        boolean hasShowWorkParam = request.getParameter(PARAM_SHOW_WORK) != null;
-        boolean hasShowPersonalParam = request.getParameter(PARAM_SHOW_PERSONAL) != null;
-
-        boolean showWork;
-        boolean showPersonal;
-        if (hasFilterSubmitted) {
-            showWork = hasShowWorkParam;
-            showPersonal = hasShowPersonalParam;
-        } else {
-            Boolean sessionShowWork = (Boolean) session.getAttribute(SESSION_SHOW_WORK);
-            Boolean sessionShowPersonal = (Boolean) session.getAttribute(SESSION_SHOW_PERSONAL);
-            if (sessionShowWork == null && sessionShowPersonal == null) {
-                showWork = true;
-                showPersonal = true;
-            } else {
-                showWork = sessionShowWork != null ? sessionShowWork.booleanValue() : true;
-                showPersonal = sessionShowPersonal != null ? sessionShowPersonal.booleanValue() : true;
-            }
-        }
-
-        if (!showWork && !showPersonal) {
-            showWork = true;
-            showPersonal = true;
-        }
-
-        session.setAttribute(SESSION_SHOW_WORK, Boolean.valueOf(showWork));
-        session.setAttribute(SESSION_SHOW_PERSONAL, Boolean.valueOf(showPersonal));
-        request.setAttribute(REQUEST_SHOW_WORK, Boolean.valueOf(showWork));
-        request.setAttribute(REQUEST_SHOW_PERSONAL, Boolean.valueOf(showPersonal));
-    }
-
     protected boolean isShowWork(HttpServletRequest request) {
-        resolveAndStoreShowPreferences(request);
-        return ((Boolean) request.getAttribute(REQUEST_SHOW_WORK)).booleanValue();
+        return false;
     }
 
     protected boolean isShowPersonal(HttpServletRequest request) {
-        resolveAndStoreShowPreferences(request);
-        return ((Boolean) request.getAttribute(REQUEST_SHOW_PERSONAL)).booleanValue();
+        return true;
     }
 }

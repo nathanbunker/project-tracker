@@ -29,6 +29,9 @@
         <property name="billCode" type="string">
             <column name="bill_code" length="15" />
         </property>
+        <property name="projectIcon" type="string">
+            <column name="project_icon" length="8" />
+        </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
         <property name="username" type="string">
             <column name="username" length="30" not-null="true" />

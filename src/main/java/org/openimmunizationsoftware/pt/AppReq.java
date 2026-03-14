@@ -20,26 +20,39 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 /**
- * Central request handler providing access to WebUser and other session-scoped objects.
+ * Central request handler providing access to WebUser and other session-scoped
+ * objects.
  * 
- * <p><b>IMPORTANT - Date/Time Handling:</b></p>
- * <p>All date and time operations in servlet code MUST use WebUser timezone-aware helper methods
- * instead of Calendar.getInstance() or LocalDate.now(systemDefault). This ensures:
+ * <p>
+ * <b>IMPORTANT - Date/Time Handling:</b>
+ * </p>
+ * <p>
+ * All date and time operations in servlet code MUST use WebUser timezone-aware
+ * helper methods
+ * instead of Calendar.getInstance() or LocalDate.now(systemDefault). This
+ * ensures:
  * <ul>
- * <li>Dates are interpreted in the user's configured timezone, not the server's</li>
+ * <li>Dates are interpreted in the user's configured timezone, not the
+ * server's</li>
  * <li>"Today" matches the user's wall clock</li>
  * <li>Day boundaries and date comparisons work correctly across timezones</li>
  * </ul>
  * 
- * <p><b>Usage Pattern:</b></p>
+ * <p>
+ * <b>Usage Pattern:</b>
+ * </p>
+ * 
  * <pre>
  * WebUser webUser = appReq.getWebUser();
- * Date today = webUser.getToday();           // Start of today in user timezone
- * Calendar cal = webUser.getCalendar(date);  // Calendar for date in user timezone
- * LocalDate localDate = webUser.getLocalDateToday();  // Today as LocalDate
+ * Date today = webUser.getToday(); // Start of today in user timezone
+ * Calendar cal = webUser.getCalendar(date); // Calendar for date in user timezone
+ * LocalDate localDate = webUser.getLocalDateToday(); // Today as LocalDate
  * </pre>
  * 
- * <p>See {@link WebUser} class documentation for complete list of timezone-aware helpers.</p>
+ * <p>
+ * See {@link WebUser} class documentation for complete list of timezone-aware
+ * helpers.
+ * </p>
  * 
  * @see WebUser WebUser class with comprehensive date/time helper methods
  */
@@ -189,7 +202,8 @@ public class AppReq {
 
   @SuppressWarnings("unchecked")
   public AppReq(HttpServletRequest request, HttpServletResponse response) throws IOException {
-    out = new PrintWriter(response.getOutputStream());
+    response.setCharacterEncoding("UTF-8");
+    out = response.getWriter();
     this.request = request;
     this.response = response;
     webSession = request.getSession(true);

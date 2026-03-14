@@ -46,6 +46,8 @@ public class ProjectEditServlet extends ClientServlet {
    */
   protected void processRequest(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
+    request.setCharacterEncoding("UTF-8");
+    response.setCharacterEncoding("UTF-8");
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
@@ -82,6 +84,11 @@ public class ProjectEditServlet extends ClientServlet {
           project.setPriorityLevel(Integer.parseInt(request.getParameter("priorityLevel")));
           project.setUsername(webUser.getUsername());
           project.setProjectName(trim(request.getParameter("projectName"), 100));
+          String projectIcon = trim(request.getParameter("projectIcon"), 8);
+          if (projectIcon.equals("")) {
+            projectIcon = null;
+          }
+          project.setProjectIcon(projectIcon);
           if (webUser.isTrackTime()) {
             project.setBillCode(request.getParameter("billCode"));
           }
@@ -118,7 +125,7 @@ public class ProjectEditServlet extends ClientServlet {
       }
 
       out.println("<div class=\"main\">");
-      out.println("<form action=\"ProjectEditServlet\" method=\"POST\">");
+      out.println("<form action=\"ProjectEditServlet\" method=\"POST\" accept-charset=\"UTF-8\">");
       out.println(
           "<input type=\"hidden\" name=\"projectId\" value=\"" + project.getProjectId() + "\">");
       out.println("<table class=\"boxed-full\">");
@@ -161,6 +168,11 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Priority Level</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"priorityLevel\" value=\""
           + project.getPriorityLevel() + "\" size=\"3\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project Icon</th>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"projectIcon\" value=\""
+          + n(project.getProjectIcon()) + "\" size=\"8\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Description</th>");

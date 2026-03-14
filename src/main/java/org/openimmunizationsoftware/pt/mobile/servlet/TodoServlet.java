@@ -36,6 +36,10 @@ public class TodoServlet extends MobileBaseServlet {
 
     private static final String ACTION_COMPLETE = "complete";
     private static final String ACTION_TOMORROW = "tomorrow";
+    private static final String ACTION_SLOT_WAKE = "slotWake";
+    private static final String ACTION_SLOT_MORNING = "slotMorning";
+    private static final String ACTION_SLOT_AFTERNOON = "slotAfternoon";
+    private static final String ACTION_SLOT_EVENING = "slotEvening";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -76,6 +80,14 @@ public class TodoServlet extends MobileBaseServlet {
                             completeAction(projectAction, dataSession, webUser);
                         } else if (ACTION_TOMORROW.equals(paramAction)) {
                             postponeToTomorrow(projectAction, dataSession, webUser);
+                        } else if (ACTION_SLOT_WAKE.equals(paramAction)) {
+                            updateTimeSlot(projectAction, dataSession, TimeSlot.WAKE);
+                        } else if (ACTION_SLOT_MORNING.equals(paramAction)) {
+                            updateTimeSlot(projectAction, dataSession, TimeSlot.MORNING);
+                        } else if (ACTION_SLOT_AFTERNOON.equals(paramAction)) {
+                            updateTimeSlot(projectAction, dataSession, TimeSlot.AFTERNOON);
+                        } else if (ACTION_SLOT_EVENING.equals(paramAction)) {
+                            updateTimeSlot(projectAction, dataSession, TimeSlot.EVENING);
                         }
                     }
 
@@ -88,9 +100,6 @@ public class TodoServlet extends MobileBaseServlet {
                     return;
                 }
             }
-
-            boolean showPersonal = isShowPersonal(request);
-            boolean showWork = isShowWork(request);
 
             // Get selected date (default to today)
             Date selectedDate = getSelectedDate(request, webUser);
@@ -117,7 +126,7 @@ public class TodoServlet extends MobileBaseServlet {
             Date endOfSelectedDay = cal.getTime();
 
             for (ProjectActionNext action : allActions) {
-                if (!shouldShow(action, showPersonal, showWork)) {
+                if (action.isBillable()) {
                     continue;
                 }
 
@@ -138,10 +147,6 @@ public class TodoServlet extends MobileBaseServlet {
                 }
             }
 
-            // Count for filter labels
-            int personalCount = countPersonal(allActions);
-            int workCount = countWork(allActions);
-
             // Render page
             appReq.setTitle("Todo");
             printHtmlHead(appReq, "Todo");
@@ -149,9 +154,6 @@ public class TodoServlet extends MobileBaseServlet {
 
             String title = formatTitle(selectedDate, today, webUser);
             out.println("<h1>" + title + "</h1>");
-
-            // Filter checkboxes
-            printFilters(out, showPersonal, showWork, personalCount, workCount, selectedDate);
 
             // Overdue section (only on today)
             if (isToday && !overdueActions.isEmpty()) {
@@ -162,42 +164,30 @@ public class TodoServlet extends MobileBaseServlet {
             // Organize today's actions into categories
             List<ProjectActionNext> wakeActions = new ArrayList<>();
             List<ProjectActionNext> morningActions = new ArrayList<>();
-            List<ProjectActionNext> workActions = new ArrayList<>();
             List<ProjectActionNext> afternoonActions = new ArrayList<>();
             List<ProjectActionNext> eveningActions = new ArrayList<>();
 
             for (ProjectActionNext action : todayActions) {
-                if (action.isBillable() && showWork) {
-                    workActions.add(action);
-                } else if (!action.isBillable() && showPersonal) {
-                    TimeSlot ts = action.getTimeSlot();
-                    if (ts == TimeSlot.WAKE) {
-                        wakeActions.add(action);
-                    } else if (ts == TimeSlot.MORNING) {
-                        morningActions.add(action);
-                    } else if (ts == TimeSlot.AFTERNOON) {
-                        afternoonActions.add(action);
-                    } else if (ts == TimeSlot.EVENING) {
-                        eveningActions.add(action);
-                    } else {
-                        // Time slot is null or no category - add to afternoon as default
-                        afternoonActions.add(action);
-                    }
+                TimeSlot ts = action.getTimeSlot();
+                if (ts == TimeSlot.WAKE) {
+                    wakeActions.add(action);
+                } else if (ts == TimeSlot.MORNING) {
+                    morningActions.add(action);
+                } else if (ts == TimeSlot.AFTERNOON) {
+                    afternoonActions.add(action);
+                } else if (ts == TimeSlot.EVENING) {
+                    eveningActions.add(action);
+                } else {
+                    // Time slot is null or no category - add to afternoon as default
+                    afternoonActions.add(action);
                 }
             }
 
             // Print tables for each category (only if there are items)
-            if (showPersonal) {
-                printActionTable(out, "Wake", wakeActions, selectedDate);
-                printActionTable(out, "Morning", morningActions, selectedDate);
-            }
-            if (showWork) {
-                printActionTable(out, "Work", workActions, selectedDate);
-            }
-            if (showPersonal) {
-                printActionTable(out, "Afternoon", afternoonActions, selectedDate);
-                printActionTable(out, "Evening", eveningActions, selectedDate);
-            }
+            printActionTable(out, "Wake", wakeActions, selectedDate);
+            printActionTable(out, "Morning", morningActions, selectedDate);
+            printActionTable(out, "Afternoon", afternoonActions, selectedDate);
+            printActionTable(out, "Evening", eveningActions, selectedDate);
 
             // Date navigation
             printDateNavigation(out, selectedDate, today, webUser);
@@ -285,35 +275,6 @@ public class TodoServlet extends MobileBaseServlet {
         return filtered;
     }
 
-    private boolean shouldShow(ProjectActionNext action, boolean showPersonal, boolean showWork) {
-        boolean isWork = action.isBillable();
-        if (isWork) {
-            return showWork;
-        } else {
-            return showPersonal;
-        }
-    }
-
-    private int countPersonal(List<ProjectActionNext> actions) {
-        int count = 0;
-        for (ProjectActionNext action : actions) {
-            if (!action.isBillable()) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private int countWork(List<ProjectActionNext> actions) {
-        int count = 0;
-        for (ProjectActionNext action : actions) {
-            if (action.isBillable()) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     private boolean isSameDay(Date date1, Date date2, WebUser webUser) {
         if (date1 == null || date2 == null)
             return false;
@@ -349,31 +310,6 @@ public class TodoServlet extends MobileBaseServlet {
         }
     }
 
-    private void printFilters(PrintWriter out, boolean showPersonal, boolean showWork,
-            int personalCount, int workCount, Date selectedDate) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String dateParam = selectedDate != null ? sdf.format(selectedDate) : "";
-
-        out.println("<form method=\"get\" action=\"todo\">");
-        out.println("  <input type=\"hidden\" name=\"" + PARAM_FILTER_SUBMITTED + "\" value=\"Y\"/>");
-        if (!dateParam.isEmpty()) {
-            out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
-        }
-        out.println("  <p>");
-        out.println("    <label>");
-        out.println("      <input type=\"checkbox\" name=\"" + PARAM_SHOW_PERSONAL + "\" value=\"on\" " +
-                (showPersonal ? "checked" : "") + " onchange=\"this.form.submit()\" />");
-        out.println("      Personal (" + personalCount + ")");
-        out.println("    </label>");
-        out.println("    <label>");
-        out.println("      <input type=\"checkbox\" name=\"" + PARAM_SHOW_WORK + "\" value=\"on\" " +
-                (showWork ? "checked" : "") + " onchange=\"this.form.submit()\" />");
-        out.println("      Work (" + workCount + ")");
-        out.println("    </label>");
-        out.println("  </p>");
-        out.println("</form>");
-    }
-
     private void printActionList(PrintWriter out, List<ProjectActionNext> actions,
             boolean isOverdue, Date selectedDate) {
         if (actions.isEmpty()) {
@@ -406,11 +342,15 @@ public class TodoServlet extends MobileBaseServlet {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">To Do</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Postpone</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
+        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Edit</th>");
         out.println("  </tr>");
         for (ProjectActionNext action : actions) {
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
+            String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
+            boolean hasProjectIcon = projectIcon != null && projectIcon.trim().length() > 0;
+            String projectLabel = hasProjectIcon ? projectIcon.trim() : projectName;
+            String projectLabelSuffix = hasProjectIcon ? "" : ":";
             String description = action.getNextDescriptionForDisplay(action.getContact());
             Integer projectId = action.getProjectId();
 
@@ -422,13 +362,13 @@ public class TodoServlet extends MobileBaseServlet {
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">");
-            if (!projectName.isEmpty()) {
+            if (!projectLabel.isEmpty()) {
                 if (projectId != null && projectId.intValue() > 0) {
                     out.println("      <strong><a href=\"project?projectId=" + projectId
-                            + "\" style=\"text-decoration: none;\">" + escapeHtml(projectName)
-                            + "</a>:</strong> ");
+                            + "\" style=\"text-decoration: none;\">" + escapeHtml(projectLabel)
+                            + "</a>" + projectLabelSuffix + "</strong> ");
                 } else {
-                    out.println("      <strong>" + escapeHtml(projectName) + ":</strong> ");
+                    out.println("      <strong>" + escapeHtml(projectLabel) + projectLabelSuffix + "</strong> ");
                 }
             }
             out.println("      <a href=\"" + viewUrl + "\" style=\"text-decoration: none; color: inherit;\">");
@@ -449,14 +389,29 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("      <a href=\"" + completeUrl + "\" class=\"action-icon\" title=\"Complete\">&#10004;</a>");
             out.println("    </td>");
 
-            // Postpone column
+            // Action column (3 alternate time slots + postpone)
+            TimeSlot currentTimeSlot = action.getTimeSlot();
+            if (currentTimeSlot == null) {
+                currentTimeSlot = TimeSlot.AFTERNOON;
+            }
             String tomorrowUrl = "todo?" + PARAM_ACTION_ID + "=" + action.getActionNextId() + "&"
                     + PARAM_ACTION + "=" + ACTION_TOMORROW;
             if (!dateParam.isEmpty()) {
                 tomorrowUrl += "&" + PARAM_DATE + "=" + dateParam;
             }
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"" + tomorrowUrl + "\" class=\"action-icon\" title=\"Postpone\">&#8594;</a>");
+            out.println("      <span style=\"white-space: nowrap;\">");
+            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.WAKE,
+                    ACTION_SLOT_WAKE, "&#9200;", "Wake", currentTimeSlot);
+            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.MORNING,
+                    ACTION_SLOT_MORNING, "&#127749;", "Morning", currentTimeSlot);
+            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.AFTERNOON,
+                    ACTION_SLOT_AFTERNOON, "&#127774;", "Afternoon", currentTimeSlot);
+            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.EVENING,
+                    ACTION_SLOT_EVENING, "&#127769;", "Evening", currentTimeSlot);
+            out.println("        <a href=\"" + tomorrowUrl
+                    + "\" class=\"action-icon\" title=\"Postpone\" style=\"margin-right: 8px;\">&#8594;</a>");
+            out.println("      </span>");
             out.println("    </td>");
 
             // Edit column
@@ -532,6 +487,35 @@ public class TodoServlet extends MobileBaseServlet {
             trans.rollback();
             throw e;
         }
+    }
+
+    private void updateTimeSlot(ProjectActionNext action, Session dataSession, TimeSlot timeSlot) {
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            action.setTimeSlot(timeSlot);
+            action.setNextChangeDate(new Date());
+            dataSession.saveOrUpdate(action);
+            trans.commit();
+        } catch (Exception e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
+    private void printTimeSlotActionLink(PrintWriter out, int actionNextId, String dateParam,
+            TimeSlot targetSlot, String targetAction, String iconEntity, String title,
+            TimeSlot currentTimeSlot) {
+        if (targetSlot == currentTimeSlot) {
+            return;
+        }
+        String slotUrl = "todo?" + PARAM_ACTION_ID + "=" + actionNextId + "&"
+                + PARAM_ACTION + "=" + targetAction;
+        if (!dateParam.isEmpty()) {
+            slotUrl += "&" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("        <a href=\"" + slotUrl
+                + "\" class=\"action-icon\" title=\"" + title + "\" style=\"margin-right: 8px;\">"
+                + iconEntity + "</a>");
     }
 
     private String buildRedirectUrl(HttpServletRequest request) {

@@ -79,10 +79,7 @@ public class ActionServlet extends MobileBaseServlet {
                 return;
             }
 
-            boolean showWork = isShowWork(request);
-            boolean showPersonal = isShowPersonal(request);
-
-            List<Project> projectList = getProjectList(webUser, dataSession, showWork, showPersonal);
+            List<Project> projectList = getProjectList(webUser, dataSession);
             ProjectActionNext editProjectAction = readEditProjectAction(appReq);
             Project project = resolveProject(request, dataSession, projectList, editProjectAction);
 
@@ -622,8 +619,7 @@ public class ActionServlet extends MobileBaseServlet {
         trans.commit();
     }
 
-    private List<Project> getProjectList(WebUser webUser, Session dataSession, boolean showWork,
-            boolean showPersonal) {
+    private List<Project> getProjectList(WebUser webUser, Session dataSession) {
         String queryString = "from Project where provider = ?";
         queryString += " and phaseCode <> 'Clos'";
         queryString += " order by projectName";
@@ -633,8 +629,7 @@ public class ActionServlet extends MobileBaseServlet {
         List<Project> allProjects = query.list();
         List<Project> filteredProjects = new ArrayList<Project>();
         for (Project project : allProjects) {
-            boolean billable = resolveBillable(dataSession, project);
-            if ((billable && showWork) || (!billable && showPersonal)) {
+            if (!resolveBillable(dataSession, project)) {
                 filteredProjects.add(project);
             }
         }

@@ -18,6 +18,7 @@ public class Project implements java.io.Serializable {
   private String phaseCode;
   private Integer profileId;
   private String billCode;
+  private String projectIcon;
   private ProjectProvider provider;
   private String username;
   private ProjectCategory projectCategory = null;
@@ -131,6 +132,14 @@ public class Project implements java.io.Serializable {
 
   public void setBillCode(String billCode) {
     this.billCode = billCode;
+  }
+
+  public String getProjectIcon() {
+    return this.projectIcon;
+  }
+
+  public void setProjectIcon(String projectIcon) {
+    this.projectIcon = projectIcon;
   }
 
   public String getUsername() {

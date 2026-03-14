@@ -73,10 +73,7 @@ public class ProjectServlet extends MobileBaseServlet {
                 }
             }
 
-            boolean showWork = isShowWork(request);
-            boolean showPersonal = isShowPersonal(request);
-
-            List<Project> projectList = getProjectList(webUser, dataSession, showWork, showPersonal);
+            List<Project> projectList = getProjectList(webUser, dataSession);
             Integer selectedProjectId = parseInteger(request.getParameter(PARAM_PROJECT_ID));
             Project selectedProject = findProjectById(projectList, selectedProjectId);
 
@@ -85,8 +82,7 @@ public class ProjectServlet extends MobileBaseServlet {
             PrintWriter out = appReq.getOut();
             if (selectedProject == null) {
                 out.println("<h1>Project</h1>");
-                Map<Integer, Integer> todoCountMap = getTodayTodoCountByProject(webUser, dataSession, showWork,
-                        showPersonal);
+                Map<Integer, Integer> todoCountMap = getTodayTodoCountByProject(webUser, dataSession);
                 printProjectList(out, projectList, todoCountMap);
             } else {
                 printProjectDetail(out, selectedProject, fetchOpenActionsForProject(webUser, dataSession,
@@ -317,8 +313,7 @@ public class ProjectServlet extends MobileBaseServlet {
         return results;
     }
 
-    private List<Project> getProjectList(WebUser webUser, Session dataSession, boolean showWork,
-            boolean showPersonal) {
+    private List<Project> getProjectList(WebUser webUser, Session dataSession) {
         String queryString = "from Project where provider = ?";
         queryString += " and phaseCode <> 'Clos'";
         queryString += " order by projectName";
@@ -329,16 +324,14 @@ public class ProjectServlet extends MobileBaseServlet {
 
         List<Project> filteredProjects = new ArrayList<Project>();
         for (Project project : allProjects) {
-            boolean billable = resolveBillable(dataSession, project);
-            if ((billable && showWork) || (!billable && showPersonal)) {
+            if (!resolveBillable(dataSession, project)) {
                 filteredProjects.add(project);
             }
         }
         return filteredProjects;
     }
 
-    private Map<Integer, Integer> getTodayTodoCountByProject(WebUser webUser, Session dataSession, boolean showWork,
-            boolean showPersonal) {
+    private Map<Integer, Integer> getTodayTodoCountByProject(WebUser webUser, Session dataSession) {
         Date today = webUser.getToday();
         Date tomorrow = webUser.getTomorrow();
 
@@ -362,8 +355,7 @@ public class ProjectServlet extends MobileBaseServlet {
 
         Map<Integer, Integer> countMap = new HashMap<Integer, Integer>();
         for (ProjectActionNext action : actions) {
-            boolean isWork = action.isBillable();
-            if ((isWork && !showWork) || (!isWork && !showPersonal)) {
+            if (action.isBillable()) {
                 continue;
             }
             Integer projectId = action.getProjectId();
