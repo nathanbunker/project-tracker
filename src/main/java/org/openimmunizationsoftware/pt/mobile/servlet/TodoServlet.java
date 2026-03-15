@@ -413,7 +413,7 @@ public class TodoServlet extends MobileBaseServlet {
             String actionDay = action.getNextActionDate() == null ? sdf.format(webUser.getToday())
                     : sdf.format(action.getNextActionDate());
             String currentSlotId = currentTimeSlot.getId();
-                String popupTitle = description == null ? "" : description;
+            String popupTitle = description == null ? "" : description;
             if (!projectLabel.isEmpty()) {
                 popupTitle = escapeHtml(projectLabel) + " " + popupTitle;
             }
