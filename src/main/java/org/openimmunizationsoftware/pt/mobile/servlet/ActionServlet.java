@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
@@ -41,6 +42,7 @@ public class ActionServlet extends MobileBaseServlet {
     private static final String PARAM_NEXT_ACTION_TYPE = "nextActionType";
     private static final String PARAM_LINK_URL = "linkUrl";
     private static final String PARAM_NEXT_ACTION_DATE = "nextActionDate";
+    private static final String PARAM_TIME_SLOT = "timeSlotString";
     private static final String PARAM_NEXT_DESCRIPTION = "nextDescription";
     private static final String PARAM_NEXT_NOTE = "nextNote";
     private static final String PARAM_NEXT_PROJECT_ID = "nextProjectId";
@@ -566,6 +568,11 @@ public class ActionServlet extends MobileBaseServlet {
 
         editProjectAction
                 .setNextActionDate(appReq.getWebUser().parseDate(request.getParameter(PARAM_NEXT_ACTION_DATE)));
+        String timeSlotString = request.getParameter(PARAM_TIME_SLOT);
+        if (timeSlotString == null || timeSlotString.equals("")) {
+            timeSlotString = TimeSlot.AFTERNOON.getId();
+        }
+        editProjectAction.setTimeSlotString(timeSlotString);
         String linkUrl = request.getParameter(PARAM_LINK_URL);
         if (linkUrl == null || linkUrl.equals("")) {
             editProjectAction.setLinkUrl(null);
@@ -790,6 +797,32 @@ public class ActionServlet extends MobileBaseServlet {
                     + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
             out.println("</font>");
 
+            out.println("          </td>");
+            out.println("        </tr>");
+            out.println("        <tr>");
+            out.println("          <th class=\"inside\">Time Slot</th>");
+            out.println("          <td class=\"inside\" colspan=\"3\">");
+            String timeSlotString = projectAction == null ? request.getParameter(PARAM_TIME_SLOT)
+                    : projectAction.getTimeSlotString();
+            if (timeSlotString == null || timeSlotString.equals("")) {
+                timeSlotString = TimeSlot.AFTERNOON.getId();
+            }
+            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
+                    + TimeSlot.WAKE.getId() + "\""
+                    + (TimeSlot.WAKE.getId().equals(timeSlotString) ? " checked" : "")
+                    + disabled + "> Wake</label>");
+            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
+                    + TimeSlot.MORNING.getId() + "\""
+                    + (TimeSlot.MORNING.getId().equals(timeSlotString) ? " checked" : "")
+                    + disabled + "> Morning</label>");
+            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
+                    + TimeSlot.AFTERNOON.getId() + "\""
+                    + (TimeSlot.AFTERNOON.getId().equals(timeSlotString) ? " checked" : "")
+                    + disabled + "> Afternoon</label>");
+            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
+                    + TimeSlot.EVENING.getId() + "\""
+                    + (TimeSlot.EVENING.getId().equals(timeSlotString) ? " checked" : "")
+                    + disabled + "> Evening</label>");
             out.println("          </td>");
             out.println("        </tr>");
         }

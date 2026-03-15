@@ -31,15 +31,15 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class TodoServlet extends MobileBaseServlet {
 
     private static final String PARAM_DATE = "date";
+    private static final String PARAM_TARGET_DATE = "targetDate";
+    private static final String PARAM_TIME_SLOT = "timeSlotString";
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_ACTION_ID = "actionId";
 
     private static final String ACTION_COMPLETE = "complete";
+    private static final String ACTION_CANCEL = "cancel";
     private static final String ACTION_TOMORROW = "tomorrow";
-    private static final String ACTION_SLOT_WAKE = "slotWake";
-    private static final String ACTION_SLOT_MORNING = "slotMorning";
-    private static final String ACTION_SLOT_AFTERNOON = "slotAfternoon";
-    private static final String ACTION_SLOT_EVENING = "slotEvening";
+    private static final String ACTION_RESCHEDULE = "reschedule";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -78,16 +78,12 @@ public class TodoServlet extends MobileBaseServlet {
                     if (projectAction != null) {
                         if (ACTION_COMPLETE.equals(paramAction)) {
                             completeAction(projectAction, dataSession, webUser);
+                        } else if (ACTION_CANCEL.equals(paramAction)) {
+                            cancelAction(projectAction, dataSession, webUser);
                         } else if (ACTION_TOMORROW.equals(paramAction)) {
                             postponeToTomorrow(projectAction, dataSession, webUser);
-                        } else if (ACTION_SLOT_WAKE.equals(paramAction)) {
-                            updateTimeSlot(projectAction, dataSession, TimeSlot.WAKE);
-                        } else if (ACTION_SLOT_MORNING.equals(paramAction)) {
-                            updateTimeSlot(projectAction, dataSession, TimeSlot.MORNING);
-                        } else if (ACTION_SLOT_AFTERNOON.equals(paramAction)) {
-                            updateTimeSlot(projectAction, dataSession, TimeSlot.AFTERNOON);
-                        } else if (ACTION_SLOT_EVENING.equals(paramAction)) {
-                            updateTimeSlot(projectAction, dataSession, TimeSlot.EVENING);
+                        } else if (ACTION_RESCHEDULE.equals(paramAction)) {
+                            rescheduleAction(projectAction, request, webUser, dataSession);
                         }
                     }
 
@@ -158,7 +154,7 @@ public class TodoServlet extends MobileBaseServlet {
             // Overdue section (only on today)
             if (isToday && !overdueActions.isEmpty()) {
                 out.println("<h2>Overdue</h2>");
-                printActionList(out, overdueActions, true, selectedDate);
+                printActionList(out, overdueActions, true, selectedDate, webUser);
             }
 
             // Organize today's actions into categories
@@ -184,10 +180,10 @@ public class TodoServlet extends MobileBaseServlet {
             }
 
             // Print tables for each category (only if there are items)
-            printActionTable(out, "Wake", wakeActions, selectedDate);
-            printActionTable(out, "Morning", morningActions, selectedDate);
-            printActionTable(out, "Afternoon", afternoonActions, selectedDate);
-            printActionTable(out, "Evening", eveningActions, selectedDate);
+            printActionTable(out, "Wake", wakeActions, selectedDate, webUser);
+            printActionTable(out, "Morning", morningActions, selectedDate, webUser);
+            printActionTable(out, "Afternoon", afternoonActions, selectedDate, webUser);
+            printActionTable(out, "Evening", eveningActions, selectedDate, webUser);
 
             // Date navigation
             printDateNavigation(out, selectedDate, today, webUser);
@@ -311,7 +307,7 @@ public class TodoServlet extends MobileBaseServlet {
     }
 
     private void printActionList(PrintWriter out, List<ProjectActionNext> actions,
-            boolean isOverdue, Date selectedDate) {
+            boolean isOverdue, Date selectedDate, WebUser webUser) {
         if (actions.isEmpty()) {
             out.println("<table class=\"boxed-mobile\">");
             out.println("  <tr class=\"boxed\">");
@@ -320,30 +316,40 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("</table>");
             return;
         }
-        printActionTableContent(out, actions, isOverdue, selectedDate);
+        printActionTableContent(out, actions, isOverdue, selectedDate, webUser);
     }
 
     private void printActionTable(PrintWriter out, String title, List<ProjectActionNext> actions,
-            Date selectedDate) {
+            Date selectedDate, WebUser webUser) {
         if (actions.isEmpty()) {
             return; // Don't show header or table if no items
         }
         out.println("<h2>" + escapeHtml(title) + "</h2>");
-        printActionTableContent(out, actions, false, selectedDate);
+        printActionTableContent(out, actions, false, selectedDate, webUser);
     }
 
     private void printActionTableContent(PrintWriter out, List<ProjectActionNext> actions,
-            boolean isOverdue, Date selectedDate) {
+            boolean isOverdue, Date selectedDate, WebUser webUser) {
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat daySdf = new SimpleDateFormat("EEE");
         String dateParam = selectedDate != null ? sdf.format(selectedDate) : "";
+
+        out.println("<script>");
+        out.println("function showPostponeMenu(actionId){");
+        out.println("  var menu = document.getElementById('postpone-menu-' + actionId);");
+        out.println("  if (menu) { menu.style.display = 'block'; }");
+        out.println("}");
+        out.println("function hidePostponeMenu(actionId){");
+        out.println("  var menu = document.getElementById('postpone-menu-' + actionId);");
+        out.println("  if (menu) { menu.style.display = 'none'; }");
+        out.println("}");
+        out.println("</script>");
 
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">To Do</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Edit</th>");
         out.println("  </tr>");
         for (ProjectActionNext action : actions) {
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
@@ -379,45 +385,69 @@ public class TodoServlet extends MobileBaseServlet {
             }
             out.println("    </td>");
 
-            // Complete column
+            // Action column (complete + alternate time slots + postpone + edit)
             String completeUrl = "todo?" + PARAM_ACTION_ID + "=" + action.getActionNextId() + "&"
                     + PARAM_ACTION + "=" + ACTION_COMPLETE;
             if (!dateParam.isEmpty()) {
                 completeUrl += "&" + PARAM_DATE + "=" + dateParam;
             }
-            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"" + completeUrl + "\" class=\"action-icon\" title=\"Complete\">&#10004;</a>");
-            out.println("    </td>");
-
-            // Action column (3 alternate time slots + postpone)
             TimeSlot currentTimeSlot = action.getTimeSlot();
             if (currentTimeSlot == null) {
                 currentTimeSlot = TimeSlot.AFTERNOON;
             }
-            String tomorrowUrl = "todo?" + PARAM_ACTION_ID + "=" + action.getActionNextId() + "&"
-                    + PARAM_ACTION + "=" + ACTION_TOMORROW;
+            String cancelUrl = "todo?" + PARAM_ACTION_ID + "=" + action.getActionNextId() + "&"
+                    + PARAM_ACTION + "=" + ACTION_CANCEL;
             if (!dateParam.isEmpty()) {
-                tomorrowUrl += "&" + PARAM_DATE + "=" + dateParam;
+                cancelUrl += "&" + PARAM_DATE + "=" + dateParam;
             }
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
             out.println("      <span style=\"white-space: nowrap;\">");
-            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.WAKE,
-                    ACTION_SLOT_WAKE, "&#9200;", "Wake", currentTimeSlot);
-            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.MORNING,
-                    ACTION_SLOT_MORNING, "&#127749;", "Morning", currentTimeSlot);
-            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.AFTERNOON,
-                    ACTION_SLOT_AFTERNOON, "&#127774;", "Afternoon", currentTimeSlot);
-            printTimeSlotActionLink(out, action.getActionNextId(), dateParam, TimeSlot.EVENING,
-                    ACTION_SLOT_EVENING, "&#127769;", "Evening", currentTimeSlot);
-            out.println("        <a href=\"" + tomorrowUrl
-                    + "\" class=\"action-icon\" title=\"Postpone\" style=\"margin-right: 8px;\">&#8594;</a>");
+            out.println("        <a href=\"" + completeUrl
+                    + "\" class=\"action-icon\" title=\"Complete\" style=\"margin-right: 8px;\">&#10004;</a>");
+            out.println("        <a href=\"javascript:void(0);\" onclick=\"showPostponeMenu(" + action.getActionNextId()
+                    + "); return false;\" class=\"action-icon\" title=\"Postpone/Reschedule\" style=\"margin-right: 8px;\">&#8594;</a>");
+            out.println("        <a href=\"" + cancelUrl
+                    + "\" class=\"action-icon\" title=\"Cancel\" style=\"margin-right: 8px;\">&#10006;</a>");
             out.println("      </span>");
-            out.println("    </td>");
 
-            // Edit column
-            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
-                    + "\" class=\"action-icon\" title=\"Edit\">&#9998;</a>");
+            String actionDay = action.getNextActionDate() == null ? sdf.format(webUser.getToday())
+                    : sdf.format(action.getNextActionDate());
+            String currentSlotId = currentTimeSlot.getId();
+            String popupTitle = description == null ? "" : description;
+            if (!projectLabel.isEmpty()) {
+                popupTitle = projectLabel + " " + popupTitle;
+            }
+            out.println("      <div id=\"postpone-menu-" + action.getActionNextId()
+                    + "\" style=\"display:none; position:fixed; left:10px; right:10px; top:20%; z-index:9999; background:#fff; border:1px solid #666; padding:10px; text-align:left;\">");
+            out.println(
+                    "        <div style=\"margin-bottom: 8px;\"><strong>Reschedule: " + escapeHtml(popupTitle)
+                            + "</strong> <a href=\"javascript:void(0);\" onclick=\"hidePostponeMenu("
+                            + action.getActionNextId()
+                            + "); return false;\" style=\"float:right; text-decoration:none;\">&#10005;</a></div>");
+            out.println("        <div style=\"margin-bottom: 8px;\">\n");
+            printPostponeMenuSlotOption(out, action.getActionNextId(), dateParam, actionDay,
+                    TimeSlot.WAKE, "&#9200; Wake", currentSlotId);
+            printPostponeMenuSlotOption(out, action.getActionNextId(), dateParam, actionDay,
+                    TimeSlot.MORNING, "&#127749; Morning", currentSlotId);
+            printPostponeMenuSlotOption(out, action.getActionNextId(), dateParam, actionDay,
+                    TimeSlot.AFTERNOON, "&#127774; Afternoon", currentSlotId);
+            printPostponeMenuSlotOption(out, action.getActionNextId(), dateParam, actionDay,
+                    TimeSlot.EVENING, "&#127769; Evening", currentSlotId);
+            out.println("        </div>");
+            out.println("        <div>");
+            Calendar dayCal = webUser.getCalendar();
+            dayCal.setTime(webUser.getToday());
+            printPostponeMenuDayOption(out, action.getActionNextId(), dateParam, currentSlotId,
+                    actionDay,
+                    sdf.format(dayCal.getTime()), "Today");
+            for (int i = 0; i < 7; i++) {
+                dayCal.add(Calendar.DAY_OF_MONTH, 1);
+                printPostponeMenuDayOption(out, action.getActionNextId(), dateParam, currentSlotId,
+                        actionDay,
+                        sdf.format(dayCal.getTime()), daySdf.format(dayCal.getTime()));
+            }
+            out.println("        </div>");
+            out.println("      </div>");
             out.println("    </td>");
             out.println("  </tr>");
         }
@@ -489,10 +519,31 @@ public class TodoServlet extends MobileBaseServlet {
         }
     }
 
-    private void updateTimeSlot(ProjectActionNext action, Session dataSession, TimeSlot timeSlot) {
+    private void rescheduleAction(ProjectActionNext action, HttpServletRequest request,
+            WebUser webUser, Session dataSession) {
         Transaction trans = dataSession.beginTransaction();
         try {
-            action.setTimeSlot(timeSlot);
+            String targetDateString = request.getParameter(PARAM_TARGET_DATE);
+            Date targetDate = action.getNextActionDate();
+            if (targetDateString != null && !targetDateString.isEmpty()) {
+                try {
+                    targetDate = new SimpleDateFormat("yyyy-MM-dd").parse(targetDateString);
+                } catch (Exception e) {
+                    targetDate = action.getNextActionDate();
+                }
+            }
+            if (targetDate == null) {
+                targetDate = webUser.getToday();
+            }
+
+            String slotString = request.getParameter(PARAM_TIME_SLOT);
+            TimeSlot slot = TimeSlot.getTimeSlot(slotString);
+            if (slot == null) {
+                slot = action.getTimeSlot() == null ? TimeSlot.AFTERNOON : action.getTimeSlot();
+            }
+
+            action.setNextActionDate(targetDate);
+            action.setTimeSlot(slot);
             action.setNextChangeDate(new Date());
             dataSession.saveOrUpdate(action);
             trans.commit();
@@ -502,20 +553,57 @@ public class TodoServlet extends MobileBaseServlet {
         }
     }
 
-    private void printTimeSlotActionLink(PrintWriter out, int actionNextId, String dateParam,
-            TimeSlot targetSlot, String targetAction, String iconEntity, String title,
-            TimeSlot currentTimeSlot) {
-        if (targetSlot == currentTimeSlot) {
+    private void cancelAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+            action.setNextChangeDate(new Date());
+            dataSession.saveOrUpdate(action);
+            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, action);
+            trans.commit();
+        } catch (Exception e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
+    private void printPostponeMenuSlotOption(PrintWriter out, int actionNextId,
+            String dateParam, String targetDate, TimeSlot slot, String label,
+            String currentSlotId) {
+        boolean isCurrent = slot.getId().equals(currentSlotId);
+        String style = "display:inline-block; margin-right:6px; margin-bottom:6px; padding:4px 6px; text-decoration:none;";
+        if (isCurrent) {
+            out.println("          <span style=\"" + style + " border:1px solid #666;\">" + label + "</span>");
             return;
         }
-        String slotUrl = "todo?" + PARAM_ACTION_ID + "=" + actionNextId + "&"
-                + PARAM_ACTION + "=" + targetAction;
+        String url = "todo?" + PARAM_ACTION_ID + "=" + actionNextId
+                + "&" + PARAM_ACTION + "=" + ACTION_RESCHEDULE
+                + "&" + PARAM_TARGET_DATE + "=" + targetDate
+                + "&" + PARAM_TIME_SLOT + "=" + slot.getId();
         if (!dateParam.isEmpty()) {
-            slotUrl += "&" + PARAM_DATE + "=" + dateParam;
+            url += "&" + PARAM_DATE + "=" + dateParam;
         }
-        out.println("        <a href=\"" + slotUrl
-                + "\" class=\"action-icon\" title=\"" + title + "\" style=\"margin-right: 8px;\">"
-                + iconEntity + "</a>");
+        out.println("          <a href=\"" + url + "\" class=\"box\" style=\"" + style + "\">"
+                + label + "</a>");
+    }
+
+    private void printPostponeMenuDayOption(PrintWriter out, int actionNextId,
+            String dateParam, String slotId, String currentDate, String targetDate, String label) {
+        boolean isCurrent = targetDate.equals(currentDate);
+        String style = "display:inline-block; margin-right:6px; margin-bottom:6px; padding:4px 6px; text-decoration:none;";
+        if (isCurrent) {
+            out.println("          <span style=\"" + style + " border:1px solid #666;\">" + label + "</span>");
+            return;
+        }
+        String url = "todo?" + PARAM_ACTION_ID + "=" + actionNextId
+                + "&" + PARAM_ACTION + "=" + ACTION_RESCHEDULE
+                + "&" + PARAM_TARGET_DATE + "=" + targetDate
+                + "&" + PARAM_TIME_SLOT + "=" + slotId;
+        if (!dateParam.isEmpty()) {
+            url += "&" + PARAM_DATE + "=" + dateParam;
+        }
+        out.println("          <a href=\"" + url + "\" class=\"box\" style=\"" + style + "\">"
+                + label + "</a>");
     }
 
     private String buildRedirectUrl(HttpServletRequest request) {
