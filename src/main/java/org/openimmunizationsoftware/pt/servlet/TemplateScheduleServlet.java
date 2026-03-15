@@ -31,6 +31,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -42,6 +43,7 @@ public class TemplateScheduleServlet extends ClientServlet {
   private static final String TEMPLATE_SELECTED = "s";
   private static final String PROJECT_ID = "projectId";
   private static final String TIME_ESTIMATE = "te";
+  private static final String TIME_SLOT = "ts";
   private static final String NEXT_DESCRIPTION = "nd";
   private static final String PARAM_SHOW_WORK = "showWork";
   private static final String PARAM_SHOW_PERSONAL = "showPersonal";
@@ -157,13 +159,30 @@ public class TemplateScheduleServlet extends ClientServlet {
             Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(templateAction);
             String nextDescription = request.getParameter(NEXT_DESCRIPTION + templateAction.getActionNextId());
             String timeEstimate = request.getParameter(TIME_ESTIMATE + templateAction.getActionNextId());
-            if (!templateAction.getNextDescription().equals(nextDescription)
-                || !templateAction.getNextTimeEstimateForDisplay().equals(timeEstimate)) {
+            String timeSlotString = request.getParameter(TIME_SLOT + templateAction.getActionNextId());
+            TimeSlot currentTimeSlot = templateAction.getTimeSlot() == null ? TimeSlot.AFTERNOON
+                : templateAction.getTimeSlot();
+            TimeSlot requestedTimeSlot = TimeSlot.getTimeSlot(timeSlotString);
+            if (requestedTimeSlot == null) {
+              requestedTimeSlot = TimeSlot.AFTERNOON;
+            }
+            boolean templateChanged = !templateAction.getNextDescription().equals(nextDescription);
+            if (projectBillable) {
+              templateChanged = templateChanged
+                  || !templateAction.getNextTimeEstimateForDisplay().equals(timeEstimate);
+            } else {
+              templateChanged = templateChanged || currentTimeSlot != requestedTimeSlot;
+            }
+            if (templateChanged) {
               templateAction.setNextDescription(trim(nextDescription, 12000));
-              try {
-                templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
-              } catch (NumberFormatException nfe) {
-                // just ignore and keep going
+              if (projectBillable) {
+                try {
+                  templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
+                } catch (NumberFormatException nfe) {
+                  // just ignore and keep going
+                }
+              } else {
+                templateAction.setTimeSlot(requestedTimeSlot);
               }
               templateAction.setNextActionDate(endOfYear);
               dataSession.update(templateAction);
@@ -205,6 +224,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                   projectAction.setNextProjectContact(templateAction.getNextProjectContact());
                   projectAction.setProvider(webUser.getProvider());
                   projectAction.setNextTimeEstimate(templateAction.getNextTimeEstimate());
+                  projectAction.setTimeSlot(templateAction.getTimeSlot());
                   projectAction.setTemplateActionNextId(templateAction.getActionNextId());
                   projectAction.setProcessStage(templateAction.getProcessStage());
                   projectAction.setNextActionStatus(ProjectNextActionStatus.READY);
@@ -212,6 +232,7 @@ public class TemplateScheduleServlet extends ClientServlet {
                 } else {
                   projectAction.setNextDescription(templateAction.getNextDescription());
                   projectAction.setNextTimeEstimate(templateAction.getNextTimeEstimate());
+                  projectAction.setTimeSlot(templateAction.getTimeSlot());
                   dataSession.update(projectAction);
                 }
               }
@@ -224,6 +245,7 @@ public class TemplateScheduleServlet extends ClientServlet {
           String projectIdString = addTemplateRequest[0];
           String nextDescription = addTemplateRequest[1];
           String timeEstimate = addTemplateRequest[2];
+          String timeSlotString = addTemplateRequest[3];
           Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
           boolean projectBillable = resolveBillable(dataSession, project);
           if (shouldIncludeProject(projectBillable, showWork, showPersonal)) {
@@ -239,10 +261,18 @@ public class TemplateScheduleServlet extends ClientServlet {
             templateAction.setNextDescription(trim(nextDescription, 12000));
             templateAction.setProvider(webUser.getProvider());
             templateAction.setBillable(projectBillable);
-            try {
-              templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
-            } catch (NumberFormatException nfe) {
-              // just ignore and keep going
+            if (projectBillable) {
+              try {
+                templateAction.setNextTimeEstimate(Integer.parseInt(timeEstimate));
+              } catch (NumberFormatException nfe) {
+                // just ignore and keep going
+              }
+            } else {
+              TimeSlot timeSlot = TimeSlot.getTimeSlot(timeSlotString);
+              if (timeSlot == null) {
+                timeSlot = TimeSlot.AFTERNOON;
+              }
+              templateAction.setTimeSlot(timeSlot);
             }
             templateAction.setNextActionStatus(ProjectNextActionStatus.READY);
             templateAction.setPriorityLevel(project.getPriorityLevel());
@@ -272,11 +302,11 @@ public class TemplateScheduleServlet extends ClientServlet {
       out.println("<form action=\"TemplateScheduleServlet\" method=\"POST\">");
       if (showWork) {
         printTemplateTable(out, webUser, dayList, workProjectList, templateMap, projectActionDayMap, sdf, "Work",
-            "Work");
+            "Work", false);
       }
       if (showPersonal) {
         printTemplateTable(out, webUser, dayList, personalProjectList, templateMap, projectActionDayMap, sdf,
-            "Personal", "Personal");
+            "Personal", "Personal", true);
       }
 
       out.println("<br/>");
@@ -363,7 +393,8 @@ public class TemplateScheduleServlet extends ClientServlet {
       Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap,
       SimpleDateFormat sdf,
       String heading,
-      String addFieldSuffix) {
+      String addFieldSuffix,
+      boolean personalTable) {
     if (filteredProjectList == null || filteredProjectList.isEmpty()) {
       return;
     }
@@ -373,7 +404,7 @@ public class TemplateScheduleServlet extends ClientServlet {
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
     out.println("    <th class=\"boxed\">Template</th>");
-    out.println("    <th class=\"boxed\">Time<br/>(mins)</th>");
+    out.println("    <th class=\"boxed\">" + (personalTable ? "Time Slot" : "Time<br/>(mins)") + "</th>");
 
     Set<Calendar> onWeekend = new HashSet<Calendar>();
     Map<Calendar, Integer> timeMap = new HashMap<Calendar, Integer>();
@@ -414,9 +445,14 @@ public class TemplateScheduleServlet extends ClientServlet {
         out.println("      <a href=\"" + link + "\" class=\"button\" title=\"Edit action\">&#9998;</a>");
         out.println("    </td>");
         out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE
-            + projectActionTemplate.getActionNextId() + "\" value=\""
-            + projectActionTemplate.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
+        if (personalTable) {
+          printTimeSlotSelect(out, TIME_SLOT + projectActionTemplate.getActionNextId(),
+              projectActionTemplate.getTimeSlot());
+        } else {
+          out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE
+              + projectActionTemplate.getActionNextId() + "\" value=\""
+              + projectActionTemplate.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
+        }
         out.println("    </td>");
         for (Calendar day : dayList) {
           ProjectActionNext projectAction = projectActionMap == null ? null : projectActionMap.get(day);
@@ -463,12 +499,18 @@ public class TemplateScheduleServlet extends ClientServlet {
         + "\" value=\"\" size=\"30\"/>");
     out.println("    </td>");
     out.println("    <td class=\"boxed\">");
-    out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE + addFieldSuffix
-        + "\" value=\"\" size=\"3\"/>");
+    if (personalTable) {
+      printTimeSlotSelect(out, TIME_SLOT + addFieldSuffix, TimeSlot.AFTERNOON);
+    } else {
+      out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE + addFieldSuffix
+          + "\" value=\"\" size=\"3\"/>");
+    }
     out.println("    </td>");
     for (Calendar day : dayList) {
       out.println("    <td class=\"boxed\">");
-      out.println(ProjectActionNext.getTimeForDisplay(timeMap.get(day)));
+      if (!personalTable) {
+        out.println(ProjectActionNext.getTimeForDisplay(timeMap.get(day)));
+      }
       out.println("    </td>");
     }
     out.println("  </tr>");
@@ -480,18 +522,34 @@ public class TemplateScheduleServlet extends ClientServlet {
       String projectIdParam = suffix.equals("") ? PROJECT_ID : PROJECT_ID + suffix;
       String descriptionParam = suffix.equals("") ? NEXT_DESCRIPTION : NEXT_DESCRIPTION + suffix;
       String timeEstimateParam = suffix.equals("") ? TIME_ESTIMATE : TIME_ESTIMATE + suffix;
+      String timeSlotParam = suffix.equals("") ? TIME_SLOT : TIME_SLOT + suffix;
       String projectId = request.getParameter(projectIdParam);
       String description = request.getParameter(descriptionParam);
       String timeEstimate = request.getParameter(timeEstimateParam);
+      String timeSlot = request.getParameter(timeSlotParam);
       if (projectId != null && !projectId.equals("")
           && description != null && !description.trim().equals("")) {
         if (timeEstimate == null) {
           timeEstimate = "";
         }
-        return new String[] { projectId, description.trim(), timeEstimate.trim() };
+        if (timeSlot == null) {
+          timeSlot = "";
+        }
+        return new String[] { projectId, description.trim(), timeEstimate.trim(), timeSlot.trim() };
       }
     }
     return null;
+  }
+
+  private void printTimeSlotSelect(PrintWriter out, String name, TimeSlot selectedTimeSlot) {
+    TimeSlot effectiveTimeSlot = selectedTimeSlot == null ? TimeSlot.AFTERNOON : selectedTimeSlot;
+    out.println("      <select name=\"" + name + "\">");
+    for (TimeSlot timeSlot : TimeSlot.values()) {
+      out.println("        <option value=\"" + timeSlot.getId() + "\""
+          + (timeSlot == effectiveTimeSlot ? " selected" : "") + ">"
+          + timeSlot.getLabel() + "</option>");
+    }
+    out.println("      </select>");
   }
 
   /**
