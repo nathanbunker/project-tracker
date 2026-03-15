@@ -413,14 +413,14 @@ public class TodoServlet extends MobileBaseServlet {
             String actionDay = action.getNextActionDate() == null ? sdf.format(webUser.getToday())
                     : sdf.format(action.getNextActionDate());
             String currentSlotId = currentTimeSlot.getId();
-            String popupTitle = description == null ? "" : description;
+                String popupTitle = description == null ? "" : description;
             if (!projectLabel.isEmpty()) {
-                popupTitle = projectLabel + " " + popupTitle;
+                popupTitle = escapeHtml(projectLabel) + " " + popupTitle;
             }
             out.println("      <div id=\"postpone-menu-" + action.getActionNextId()
                     + "\" style=\"display:none; position:fixed; left:10px; right:10px; top:20%; z-index:9999; background:#fff; border:1px solid #666; padding:10px; text-align:left;\">");
             out.println(
-                    "        <div style=\"margin-bottom: 8px;\"><strong>Reschedule: " + escapeHtml(popupTitle)
+                    "        <div style=\"margin-bottom: 8px;\"><strong>Reschedule: " + popupTitle
                             + "</strong> <a href=\"javascript:void(0);\" onclick=\"hidePostponeMenu("
                             + action.getActionNextId()
                             + "); return false;\" style=\"float:right; text-decoration:none;\">&#10005;</a></div>");
@@ -583,7 +583,7 @@ public class TodoServlet extends MobileBaseServlet {
         if (!dateParam.isEmpty()) {
             url += "&" + PARAM_DATE + "=" + dateParam;
         }
-        out.println("          <a href=\"" + url + "\" class=\"box\" style=\"" + style + "\">"
+        out.println("          <a href=\"" + url + "\" style=\"" + style + " color: inherit;\">"
                 + label + "</a>");
     }
 
@@ -602,7 +602,7 @@ public class TodoServlet extends MobileBaseServlet {
         if (!dateParam.isEmpty()) {
             url += "&" + PARAM_DATE + "=" + dateParam;
         }
-        out.println("          <a href=\"" + url + "\" class=\"box\" style=\"" + style + "\">"
+        out.println("          <a href=\"" + url + "\" style=\"" + style + " color: inherit;\">"
                 + label + "</a>");
     }
 
