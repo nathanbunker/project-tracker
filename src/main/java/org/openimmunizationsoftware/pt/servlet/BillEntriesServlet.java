@@ -78,20 +78,6 @@ public class BillEntriesServlet extends ClientServlet {
       }
 
       appReq.setTitle("Time");
-      printHtmlHead(appReq);
-
-      Date previousBillDate = getPreviousBillDate(webUser, dataSession, billDate);
-
-      out.println("<form action=\"BillEntriesServlet\" method=\"GET\">");
-      out.println("Date");
-      out.println(
-          "<input type=\"text\" name=\"billDate\" value=\"" + billDateString + "\" size=\"10\">");
-      out.println("<input type=\"submit\" name=\"action\" value=\"Refresh\">");
-      if (previousBillDate != null) {
-        out.println("<a class=\"button\" href=\"BillEntriesServlet?billDate="
-            + sdf.format(previousBillDate) + "\">Previous Day</a>");
-      }
-      out.println("</form>");
 
       Query query;
 
@@ -110,13 +96,33 @@ public class BillEntriesServlet extends ClientServlet {
       @SuppressWarnings("unchecked")
       List<BillEntry> billEntryList = query.list();
       TimeTracker timeTracker = appReq.getTimeTracker();
+      if (!billEntryList.isEmpty()) {
+        normalizeBillEntriesForDay(webUser, dataSession, billEntryList, today, tomorrow);
+      }
+      if (timeTracker != null && webUser.isSameDay(today, webUser.getToday())) {
+        timeTracker.init(webUser, dataSession);
+      }
       Integer lockedBillEntryId = timeTracker == null ? null : timeTracker.getBillEntryId();
+
+      printHtmlHead(appReq);
+
+      Date previousBillDate = getPreviousBillDate(webUser, dataSession, billDate);
+
+      out.println("<form action=\"BillEntriesServlet\" method=\"GET\">");
+      out.println("Date");
+      out.println(
+          "<input type=\"text\" name=\"billDate\" value=\"" + billDateString + "\" size=\"10\">");
+      out.println("<input type=\"submit\" name=\"action\" value=\"Refresh\">");
+      if (previousBillDate != null) {
+        out.println("<a class=\"button\" href=\"BillEntriesServlet?billDate="
+            + sdf.format(previousBillDate) + "\">Previous Day</a>");
+      }
+      out.println("</form>");
 
       SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
       if (billEntryList.isEmpty()) {
         out.println("<p>No bill entries.</p>");
       } else {
-        normalizeBillEntriesForDay(webUser, dataSession, billEntryList, today, tomorrow);
         out.println("<h2>" + webUser.getDateFormat("EEEE MM-dd-yyyy").format(today) + "</h2>");
         printBillEntriesSection(out, dataSession, billEntryList, lockedBillEntryId, billDateString,
             timeFormat);

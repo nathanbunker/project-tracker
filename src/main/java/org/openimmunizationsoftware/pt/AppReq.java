@@ -202,6 +202,7 @@ public class AppReq {
 
   @SuppressWarnings("unchecked")
   public AppReq(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    request.setCharacterEncoding("UTF-8");
     response.setCharacterEncoding("UTF-8");
     out = response.getWriter();
     this.request = request;

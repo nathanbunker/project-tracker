@@ -4,6 +4,10 @@
 
   <display-name>Project Tracker</display-name>
 
+  <filter>
+    <filter-name>CharacterEncodingFilter</filter-name>
+    <filter-class>org.openimmunizationsoftware.pt.servlet.CharacterEncodingFilter</filter-class>
+  </filter>
   <servlet>
     <servlet-name>HomeServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.HomeServlet</servlet-class>
@@ -289,6 +293,10 @@
     <servlet-name>BillCodesServlet</servlet-name>
     <url-pattern>/BillCodesServlet</url-pattern>
   </servlet-mapping>
+  <filter-mapping>
+    <filter-name>CharacterEncodingFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
   <filter-mapping>
     <filter-name>HibernateSessionFilter</filter-name>
     <url-pattern>/api/*</url-pattern>
