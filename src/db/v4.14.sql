@@ -60,6 +60,34 @@ ALTER TABLE project
     ADD UNIQUE KEY uk_web_user_username (username),
     DROP COLUMN parent_username;
 
+  -- Add account lifecycle/auth fields needed for email-first onboarding.
+  ALTER TABLE web_user
+    ADD COLUMN email_address VARCHAR(254) NULL AFTER username,
+    ADD COLUMN email_verified VARCHAR(1) NOT NULL DEFAULT 'N' AFTER email_address,
+    ADD COLUMN registration_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' AFTER user_type,
+    ADD COLUMN created_date DATETIME NULL AFTER registration_status,
+    ADD COLUMN verified_date DATETIME NULL AFTER created_date,
+    ADD COLUMN last_login_date DATETIME NULL AFTER verified_date,
+    ADD COLUMN magic_link_token_hash VARCHAR(128) NULL AFTER last_login_date,
+    ADD COLUMN magic_link_expiry DATETIME NULL AFTER magic_link_token_hash,
+    ADD UNIQUE KEY uk_web_user_email_address (email_address),
+    ADD INDEX idx_web_user_registration_status (registration_status),
+    ADD INDEX idx_web_user_magic_link_expiry (magic_link_expiry);
+
+  UPDATE web_user wu
+    JOIN project_contact pc ON pc.contact_id = wu.contact_id
+    SET wu.email_address = pc.email_address,
+      wu.email_verified = CASE WHEN pc.email_confirmed = 'Y' THEN 'Y' ELSE 'N' END,
+      wu.verified_date = CASE WHEN pc.email_confirmed = 'Y' THEN NOW() ELSE NULL END
+    WHERE wu.email_address IS NULL;
+
+  UPDATE web_user
+    SET created_date = NOW()
+    WHERE created_date IS NULL;
+
+  ALTER TABLE web_user
+    MODIFY COLUMN created_date DATETIME NOT NULL;
+
   -- bill_entry
   ALTER TABLE bill_entry
     ADD COLUMN web_user_id INT NULL AFTER username;

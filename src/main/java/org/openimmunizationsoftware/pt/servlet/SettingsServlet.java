@@ -21,6 +21,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.format.DateFormatService;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebApiClient;
@@ -46,7 +47,11 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_CLIENT_NAME_PREFIX = "clientName_";
   private static final String PARAM_DISPLAY_COLOR = "displayColor";
   private static final String PARAM_DISPLAY_SIZE = "displaySize";
+  private static final String PARAM_EMAIL_ENABLE = "emailEnable";
+  private static final String PARAM_EMAIL_DEBUG = "emailDebug";
   private static final String PARAM_EMAIL_REPLY = "emailReply";
+  private static final String PARAM_SEND_TEST_EMAIL = "sendTestEmail";
+  private static final String PARAM_TEST_EMAIL_TO = "testEmailTo";
   private static final String PARAM_EMAIL_SMTPS_PORT = "emailSmtpsPort";
   private static final String PARAM_EMAIL_SMTPS_USERNAME = "emailSmtpsUsername";
   private static final String PARAM_EXTERNAL_URL = "externalUrl";
@@ -147,6 +152,10 @@ public class SettingsServlet extends ClientServlet {
               request.getParameter(PARAM_EXTERNAL_URL), dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
               request.getParameter(PARAM_SMTP_ADDRESS), dataSession);
+            TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE,
+              request.getParameter(PARAM_EMAIL_ENABLE) != null ? "Y" : "N", dataSession);
+            TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG,
+              request.getParameter(PARAM_EMAIL_DEBUG) != null ? "Y" : "N", dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS,
               request.getParameter(PARAM_USE_SMTPS) != null ? "Y" : "N", dataSession);
           TrackerKeysManager.saveApplicationKeyValue(
@@ -159,6 +168,36 @@ public class SettingsServlet extends ClientServlet {
               request.getParameter(PARAM_EMAIL_SMTPS_PORT), dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY,
               request.getParameter(PARAM_EMAIL_REPLY), dataSession);
+
+          if (request.getParameter(PARAM_SEND_TEST_EMAIL) != null) {
+            String testEmailTo = trim(request.getParameter(PARAM_TEST_EMAIL_TO), 254);
+            if (testEmailTo.equals("")) {
+              testEmailTo = trim(request.getParameter(PARAM_EMAIL_REPLY), 254);
+            }
+            if (testEmailTo.equals("")) {
+              testEmailTo = trim(request.getParameter(PARAM_EMAIL_SMTPS_USERNAME), 254);
+            }
+            if (testEmailTo.equals("") && webUser.getEmailAddress() != null) {
+              testEmailTo = webUser.getEmailAddress();
+            }
+            if (testEmailTo.equals("")) {
+              appReq.setMessageProblem(
+                  "Unable to send test email: no recipient address provided. ");
+            } else {
+              try {
+                MailManager mailManager = new MailManager(dataSession);
+                StringBuilder body = new StringBuilder();
+                body.append("<html><body>");
+                body.append("<p>This is a test email from Project Tracker settings.</p>");
+                body.append("<p>Time: ").append(new Date()).append("</p>");
+                body.append("</body></html>");
+                mailManager.sendEmail("Project Tracker Test Email", body.toString(), testEmailTo);
+                appReq.setMessageConfirmation("Test email sent to " + testEmailTo + ".");
+              } catch (Exception e) {
+                appReq.setMessageProblem("Unable to send test email: " + e.getMessage());
+              }
+            }
+          }
         } else if (action.equals(ACTION_SAVE_SYSTEM_WIDE_MESSAGE) && webUser.isUserTypeAdmin()) {
           setSystemWideMessage(request.getParameter(PARAM_SYSTEM_WIDE_MESSAGE));
         } else if (action.equals(ACTION_SAVE_CATEGORIES) && webUser.isUserTypeAdmin()) {
@@ -515,6 +554,28 @@ public class SettingsServlet extends ClientServlet {
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Email enabled</th>");
+          out.println("    <td class=\"boxed\">");
+          out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_ENABLE
+            + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
+              TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, dataSession)).equals("Y")
+                ? " checked"
+                : "")
+            + ">");
+          out.println("    </td>");
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Email debug logging</th>");
+          out.println("    <td class=\"boxed\">");
+          out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_DEBUG
+            + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
+              TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG, dataSession)).equals("Y")
+                ? " checked"
+                : "")
+            + ">");
+          out.println("    </td>");
+          out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email server use SMTPS</th>");
         out.println("    <td class=\"boxed\">");
@@ -565,6 +626,18 @@ public class SettingsServlet extends ClientServlet {
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Gmail setup hint</th>");
+          out.println("    <td class=\"boxed\">Use smtp.gmail.com, App Password as email server password, and port 587 with SMTPS unchecked (or port 465 with SMTPS checked).</td>");
+          out.println("  </tr>");
+          out.println("  <tr class=\"boxed\">");
+          out.println("    <th class=\"boxed\">Send test email now</th>");
+          out.println("    <td class=\"boxed\">");
+          out.println("      <input type=\"checkbox\" name=\"" + PARAM_SEND_TEST_EMAIL + "\" value=\"Y\"> ");
+          out.println("      To: <input type=\"text\" name=\"" + PARAM_TEST_EMAIL_TO + "\" size=\"40\" value=\"\"> ");
+          out.println("      <span class=\"small\">(optional: defaults to reply address, then SMTP username)</span>");
+          out.println("    </td>");
+          out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Daily Report Run Time</th>");
         out.println("    <td class=\"boxed\">");

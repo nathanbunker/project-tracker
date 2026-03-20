@@ -45,11 +45,19 @@ public class WebUser implements java.io.Serializable {
   private int webUserId;
 
   private String username;
+  private String emailAddress;
+  private boolean emailVerified = false;
   private int contactId;
   private String password;
   private ProjectProvider provider = null;
   private boolean trackTime = false;
   private String userType;
+  private String registrationStatus = "ACTIVE";
+  private Date createdDate;
+  private Date verifiedDate;
+  private Date lastLoginDate;
+  private String magicLinkTokenHash;
+  private Date magicLinkExpiry;
 
   public int getWebUserId() {
     return webUserId;
@@ -309,6 +317,22 @@ public class WebUser implements java.io.Serializable {
     this.username = username;
   }
 
+  public String getEmailAddress() {
+    return emailAddress;
+  }
+
+  public void setEmailAddress(String emailAddress) {
+    this.emailAddress = emailAddress;
+  }
+
+  public boolean isEmailVerified() {
+    return emailVerified;
+  }
+
+  public void setEmailVerified(boolean emailVerified) {
+    this.emailVerified = emailVerified;
+  }
+
   public int getContactId() {
     return this.contactId;
   }
@@ -339,6 +363,54 @@ public class WebUser implements java.io.Serializable {
 
   public void setProvider(ProjectProvider provider) {
     this.provider = provider;
+  }
+
+  public String getRegistrationStatus() {
+    return registrationStatus;
+  }
+
+  public void setRegistrationStatus(String registrationStatus) {
+    this.registrationStatus = registrationStatus;
+  }
+
+  public Date getCreatedDate() {
+    return createdDate;
+  }
+
+  public void setCreatedDate(Date createdDate) {
+    this.createdDate = createdDate;
+  }
+
+  public Date getVerifiedDate() {
+    return verifiedDate;
+  }
+
+  public void setVerifiedDate(Date verifiedDate) {
+    this.verifiedDate = verifiedDate;
+  }
+
+  public Date getLastLoginDate() {
+    return lastLoginDate;
+  }
+
+  public void setLastLoginDate(Date lastLoginDate) {
+    this.lastLoginDate = lastLoginDate;
+  }
+
+  public String getMagicLinkTokenHash() {
+    return magicLinkTokenHash;
+  }
+
+  public void setMagicLinkTokenHash(String magicLinkTokenHash) {
+    this.magicLinkTokenHash = magicLinkTokenHash;
+  }
+
+  public Date getMagicLinkExpiry() {
+    return magicLinkExpiry;
+  }
+
+  public void setMagicLinkExpiry(Date magicLinkExpiry) {
+    this.magicLinkExpiry = magicLinkExpiry;
   }
 
   private String normalizeDatePattern(String datePattern) {

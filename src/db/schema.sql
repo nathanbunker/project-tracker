@@ -665,12 +665,23 @@ DROP TABLE IF EXISTS `web_user`;
 CREATE TABLE `web_user` (
   `web_user_id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(30) NOT NULL,
+  `email_address` varchar(254) DEFAULT NULL,
+  `email_verified` varchar(1) NOT NULL DEFAULT 'N',
   `contact_id` int NOT NULL,
   `password` varchar(30) DEFAULT NULL,
   `provider_id` varchar(30) NOT NULL DEFAULT '1',
   `user_type` varchar(30) NOT NULL DEFAULT 'user',
+  `registration_status` varchar(16) NOT NULL DEFAULT 'ACTIVE',
+  `created_date` datetime NOT NULL,
+  `verified_date` datetime DEFAULT NULL,
+  `last_login_date` datetime DEFAULT NULL,
+  `magic_link_token_hash` varchar(128) DEFAULT NULL,
+  `magic_link_expiry` datetime DEFAULT NULL,
   PRIMARY KEY (`web_user_id`),
-  UNIQUE KEY `uk_web_user_username` (`username`)
+  UNIQUE KEY `uk_web_user_username` (`username`),
+  UNIQUE KEY `uk_web_user_email_address` (`email_address`),
+  KEY `idx_web_user_registration_status` (`registration_status`),
+  KEY `idx_web_user_magic_link_expiry` (`magic_link_expiry`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

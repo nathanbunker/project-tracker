@@ -11,6 +11,12 @@
         <property name="username" type="string">
             <column name="username" length="30" not-null="true" />
         </property>
+        <property name="emailAddress" type="string">
+            <column name="email_address" length="254" />
+        </property>
+        <property name="emailVerified" type="yes_no">
+            <column name="email_verified" length="1" not-null="true" />
+        </property>
         <property name="contactId" type="int">
             <column name="contact_id" not-null="true" />
         </property>
@@ -19,6 +25,24 @@
         </property>
         <property name="userType" type="string">
             <column name="user_type" length="30" not-null="true" />
+        </property>
+        <property name="registrationStatus" type="string">
+            <column name="registration_status" length="16" not-null="true" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" length="19" not-null="true" />
+        </property>
+        <property name="verifiedDate" type="timestamp">
+            <column name="verified_date" length="19" />
+        </property>
+        <property name="lastLoginDate" type="timestamp">
+            <column name="last_login_date" length="19" />
+        </property>
+        <property name="magicLinkTokenHash" type="string">
+            <column name="magic_link_token_hash" length="128" />
+        </property>
+        <property name="magicLinkExpiry" type="timestamp">
+            <column name="magic_link_expiry" length="19" />
         </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
     </class>
