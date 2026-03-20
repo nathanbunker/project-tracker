@@ -432,6 +432,9 @@ public class TrackServlet extends ClientServlet {
       return;
     }
     Project project = (Project) dataSession.get(Project.class, projectId);
+    if (!isBillableProject(dataSession, project)) {
+      return;
+    }
     out.println("  <tr class=\"boxed\">");
     String link = "<a href=\"ProjectServlet?projectId="
         + project.getProjectId()
@@ -572,16 +575,9 @@ public class TrackServlet extends ClientServlet {
     Map<Integer, Integer> projectMap = timeTracker.getTotalMinsForProjectMap();
     for (Integer projectId : projectMap.keySet()) {
       Project project = (Project) dataSession.get(Project.class, projectId);
-      if (project != null) {
-        // Filter out non-billable projects
-        String billCodeString = project.getBillCode();
-        if (billCodeString != null) {
-          BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
-          if (billCode != null && "Y".equals(billCode.getBillable())) {
-            TimeEntry timeEntry = new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId);
-            timeEntryList.add(timeEntry);
-          }
-        }
+      if (isBillableProject(dataSession, project)) {
+        TimeEntry timeEntry = new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId);
+        timeEntryList.add(timeEntry);
       }
     }
     return timeEntryList;
@@ -597,6 +593,13 @@ public class TrackServlet extends ClientServlet {
     query.setParameter(2, timeTracker.getEndDate());
     @SuppressWarnings("unchecked")
     List<ProjectActionTaken> projectActionListComplete = query.list();
+    for (Iterator<ProjectActionTaken> it = projectActionListComplete.iterator(); it.hasNext();) {
+      ProjectActionTaken actionTaken = it.next();
+      Project project = (Project) dataSession.get(Project.class, actionTaken.getProjectId());
+      if (!isBillableProject(dataSession, project)) {
+        it.remove();
+      }
+    }
     return projectActionListComplete;
   }
 
@@ -612,7 +615,22 @@ public class TrackServlet extends ClientServlet {
     query.setParameter(3, timeTracker.getEndDate());
     @SuppressWarnings("unchecked")
     List<ProjectActionNext> projectActionCompletedList = query.list();
+    for (Iterator<ProjectActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+      ProjectActionNext actionNext = it.next();
+      Project project = (Project) dataSession.get(Project.class, actionNext.getProjectId());
+      if (!isBillableProject(dataSession, project)) {
+        it.remove();
+      }
+    }
     return projectActionCompletedList;
+  }
+
+  private static boolean isBillableProject(Session dataSession, Project project) {
+    if (project == null || project.getBillCode() == null) {
+      return false;
+    }
+    BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
+    return billCode != null && "Y".equals(billCode.getBillable());
   }
 
   private static void printTotalWorkingTime(PrintWriter out, String type, int billableMins, float targetHours) {
