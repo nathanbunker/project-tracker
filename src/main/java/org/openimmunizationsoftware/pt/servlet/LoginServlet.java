@@ -125,6 +125,18 @@ public class LoginServlet extends ClientServlet {
 
         webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
             TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
+        webUser.setDateDisplayPattern(TrackerKeysManager.getKeyValue(
+            TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT,
+            webUser.getDateDisplayPattern(), webUser, dataSession));
+        webUser.setDateEntryPattern(TrackerKeysManager.getKeyValue(
+            TrackerKeysManager.KEY_DATE_ENTRY_FORMAT,
+            webUser.getDateEntryPattern(), webUser, dataSession));
+        webUser.setTimeDisplayPattern(TrackerKeysManager.getKeyValue(
+            TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT,
+            webUser.getTimeDisplayPattern(), webUser, dataSession));
+        webUser.setTimeEntryPattern(TrackerKeysManager.getKeyValue(
+            TrackerKeysManager.KEY_TIME_ENTRY_FORMAT,
+            webUser.getTimeEntryPattern(), webUser, dataSession));
 
         query = dataSession.createQuery("from WebUser where parentWebUser = ? order by username");
         query.setParameter(0, webUser);

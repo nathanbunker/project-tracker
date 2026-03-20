@@ -1,7 +1,6 @@
 package org.openimmunizationsoftware.pt.report;
 
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
@@ -44,10 +43,12 @@ public class GenerateReport {
 
   public static void doFooter(PrintWriter out, ReportProfile reportProfile, String method,
       WebUser webUser) {
-    SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a");
     out.println("    <cite>");
     out.println("      " + reportProfile.getProfileLabel());
-    out.println("      - " + method + " " + sdf.format(new Date()) + " ");
+    out.println("      - " + method + " "
+        + webUser.getDateFormatService().formatPattern(new Date(), webUser.getDateTimeDisplayPatternWithSeconds(),
+            webUser.getTimeZone())
+        + " ");
     out.println("    </cite>");
     out.println("  </body>");
     out.println("</html>");
@@ -56,12 +57,10 @@ public class GenerateReport {
 
   public static void populateStartEndDates(ReportBatch reportBatch, WebUser webUser)
       throws Exception {
-    SimpleDateFormat sdf = webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a");
-    SimpleDateFormat sdfDate = webUser.getDateFormat();
-    SimpleDateFormat sdfMonth = webUser.getMonthFormat();
-    SimpleDateFormat sdfYear = webUser.getDateFormat("yyyy");
-
-    Date runDate = sdf.parse(reportBatch.getRunDate());
+    Date runDate = webUser.parseDateTime(reportBatch.getRunDate());
+    if (runDate == null) {
+      throw new Exception("Unable to parse run date: " + reportBatch.getRunDate());
+    }
     Calendar startDate = webUser.getCalendar();
     startDate.setTime(runDate);
     Calendar endDate = webUser.getCalendar();
@@ -74,35 +73,47 @@ public class GenerateReport {
     endDate.set(Calendar.SECOND, 0);
     if (reportBatch.isPeriodDaily()) {
       startDate.add(Calendar.DAY_OF_MONTH, -1);
-      reportBatch.setDateRangeLabel(sdfDate.format(startDate.getTime()));
+      reportBatch.setDateRangeLabel(
+          webUser.getDateFormatService().formatDate(startDate.getTime(), webUser.getTimeZone()));
     } else if (reportBatch.isPeriodWeekly()) {
       startDate.add(Calendar.DAY_OF_MONTH, -7);
       Calendar tempEndDate = webUser.getCalendar();
       tempEndDate.setTime(endDate.getTime());
       tempEndDate.add(Calendar.DAY_OF_MONTH, -1);
       reportBatch.setDateRangeLabel(
-          sdfDate.format(startDate.getTime()) + " - " + sdfDate.format(tempEndDate.getTime()));
+          webUser.getDateFormatService().formatDate(startDate.getTime(), webUser.getTimeZone())
+              + " - "
+              + webUser.getDateFormatService().formatDate(tempEndDate.getTime(), webUser.getTimeZone()));
     } else if (reportBatch.isPeriodMonthly()) {
       endDate.set(Calendar.DAY_OF_MONTH, 1);
       startDate.add(Calendar.MONTH, -1);
       startDate.set(Calendar.DAY_OF_MONTH, 1);
-      reportBatch.setDateRangeLabel(sdfMonth.format(startDate.getTime()));
+      reportBatch.setDateRangeLabel(
+          webUser.getDateFormatService().formatPattern(startDate.getTime(), "MMMM yyyy",
+              webUser.getTimeZone()));
     } else if (reportBatch.isPeriodYearly()) {
       endDate.set(Calendar.DAY_OF_MONTH, 1);
       startDate.add(Calendar.YEAR, -1);
       startDate.set(Calendar.DAY_OF_MONTH, 1);
       if (endDate.get(Calendar.MONTH) == Calendar.JANUARY) {
-        reportBatch.setDateRangeLabel(sdfYear.format(startDate.getTime()));
+        reportBatch.setDateRangeLabel(
+            webUser.getDateFormatService().formatPattern(startDate.getTime(), "yyyy",
+                webUser.getTimeZone()));
       } else {
         Calendar tempEndDate = webUser.getCalendar();
         tempEndDate.setTime(endDate.getTime());
         tempEndDate.add(Calendar.DAY_OF_MONTH, -1);
         reportBatch.setDateRangeLabel(
-            sdfMonth.format(startDate.getTime()) + " - " + sdfMonth.format(tempEndDate.getTime()));
+            webUser.getDateFormatService().formatPattern(startDate.getTime(), "MMMM yyyy",
+                webUser.getTimeZone()) + " - "
+                + webUser.getDateFormatService().formatPattern(tempEndDate.getTime(), "MMMM yyyy",
+                    webUser.getTimeZone()));
       }
     }
-    reportBatch.setStartDate(sdfDate.format(startDate.getTime()));
-    reportBatch.setEndDate(sdfDate.format(endDate.getTime()));
+    reportBatch.setStartDate(
+        webUser.getDateFormatService().formatDate(startDate.getTime(), webUser.getTimeZone()));
+    reportBatch.setEndDate(
+        webUser.getDateFormatService().formatDate(endDate.getTime(), webUser.getTimeZone()));
 
   }
 

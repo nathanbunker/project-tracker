@@ -2,15 +2,16 @@ package org.openimmunizationsoftware.pt.mobile.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -199,8 +200,6 @@ public class ProjectServlet extends MobileBaseServlet {
         Date tomorrowStart = webUser.getTomorrow();
         boolean unscheduledTable = "Unscheduled".equals(tableTitle);
 
-        SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MM/dd/yyyy");
-        SimpleDateFormat dateParamFormat = new SimpleDateFormat("yyyy-MM-dd");
         out.println("<h2>" + tableTitle + "</h2>");
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
@@ -217,15 +216,20 @@ public class ProjectServlet extends MobileBaseServlet {
             // Build todo detail link
             String viewUrl = "action?viewActionId=" + action.getActionNextId();
             if (action.getNextActionDate() != null) {
-                viewUrl += "&date=" + dateParamFormat.format(action.getNextActionDate());
+                viewUrl += "&date="
+                        + webUser.getDateFormatService().formatTransportDate(action.getNextActionDate(),
+                                webUser.getTimeZone());
             }
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">");
             if (action.getNextActionDate() != null) {
-                String todoDateUrl = "todo?date=" + dateParamFormat.format(action.getNextActionDate());
+                String todoDateUrl = "todo?date=" + webUser.getDateFormatService()
+                        .formatTransportDate(action.getNextActionDate(), webUser.getTimeZone());
                 out.println("      <strong><a href=\"" + todoDateUrl + "\" style=\"text-decoration: none;\">"
-                        + dateFormat.format(action.getNextActionDate()) + "</a>:</strong> ");
+                        + webUser.getDateFormatService().formatPattern(action.getNextActionDate(),
+                                webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone())
+                        + "</a>:</strong> ");
             }
             out.println("      <a href=\"" + viewUrl + "\" style=\"text-decoration: none; color: inherit;\">");
             out.println("        " + (description == null ? "" : description));

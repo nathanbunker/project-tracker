@@ -367,7 +367,7 @@ public class TrackServlet extends ClientServlet {
               projectActionTakenList, projectActionCompletedList, timeEntry);
         }
         while (projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
-          printProjectLineNoTimeEntered(out, dataSession, type, showLinks, projectActionTakenList,
+          printProjectLineNoTimeEntered(webUser, out, dataSession, type, showLinks, projectActionTakenList,
               projectActionCompletedList);
         }
         out.println("</table> ");
@@ -419,7 +419,7 @@ public class TrackServlet extends ClientServlet {
     return TimeTracker.formatTime(billableMins);
   }
 
-  private static void printProjectLineNoTimeEntered(PrintWriter out, Session dataSession, String type,
+  private static void printProjectLineNoTimeEntered(WebUser webUser, PrintWriter out, Session dataSession, String type,
       boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
       List<ProjectActionNext> projectActionCompletedList) {
     Integer projectId = null;
@@ -445,7 +445,7 @@ public class TrackServlet extends ClientServlet {
 
     out.println("    <td class=\"boxed\">");
     boolean first = true;
-    SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
+    String actionDatePattern = type.equals(TYPE_WEEK) ? "EEE" : webUser.getTimeDisplayPattern();
     for (Iterator<ProjectActionTaken> it = projectActionTakenList.iterator(); it.hasNext();) {
       ProjectActionTaken actionTaken = it.next();
       if (actionTaken.getProjectId() == project.getProjectId()) {
@@ -454,7 +454,9 @@ public class TrackServlet extends ClientServlet {
           out.println("    <br/>");
         }
         first = false;
-        String dateLabel = actionTaken.getActionDate() == null ? "" : sdf.format(actionTaken.getActionDate());
+        String dateLabel = actionTaken.getActionDate() == null ? ""
+            : webUser.getDateFormatService().formatPattern(actionTaken.getActionDate(), actionDatePattern,
+                webUser.getTimeZone());
         out.println("    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + actionTaken.getActionDescription());
       }
     }
@@ -466,7 +468,9 @@ public class TrackServlet extends ClientServlet {
           out.println("    <br/>");
         }
         first = false;
-        String dateLabel = actionNext.getNextChangeDate() == null ? "" : sdf.format(actionNext.getNextChangeDate());
+        String dateLabel = actionNext.getNextChangeDate() == null ? ""
+            : webUser.getDateFormatService().formatPattern(actionNext.getNextChangeDate(), actionDatePattern,
+                webUser.getTimeZone());
         out.println(
             "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + "Completed " + actionNext.getNextDescription());
       }
@@ -506,7 +510,7 @@ public class TrackServlet extends ClientServlet {
     }
     if ((projectActionList != null && projectActionList.size() > 0) || hasCompletedNext) {
       out.println("    <td class=\"boxed\">");
-      SimpleDateFormat sdf = new SimpleDateFormat(type.equals(TYPE_WEEK) ? "EEE" : "h:mm aaa");
+      String actionDatePattern = type.equals(TYPE_WEEK) ? "EEE" : webUser.getTimeDisplayPattern();
       boolean first = true;
       if (projectActionList != null) {
         for (ProjectActionTaken projectAction : projectActionList) {
@@ -515,7 +519,9 @@ public class TrackServlet extends ClientServlet {
             out.println("    <br/>");
           }
           first = false;
-          String dateLabel = projectAction.getActionDate() == null ? "" : sdf.format(projectAction.getActionDate());
+          String dateLabel = projectAction.getActionDate() == null ? ""
+              : webUser.getDateFormatService().formatPattern(projectAction.getActionDate(), actionDatePattern,
+                  webUser.getTimeZone());
           out.println(
               "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + projectAction.getActionDescription());
         }
@@ -528,7 +534,9 @@ public class TrackServlet extends ClientServlet {
             out.println("    <br/>");
           }
           first = false;
-          String dateLabel = actionNext.getNextChangeDate() == null ? "" : sdf.format(actionNext.getNextChangeDate());
+          String dateLabel = actionNext.getNextChangeDate() == null ? ""
+              : webUser.getDateFormatService().formatPattern(actionNext.getNextChangeDate(), actionDatePattern,
+                  webUser.getTimeZone());
           out.println(
               "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + "Completed " + actionNext.getNextDescription());
         }

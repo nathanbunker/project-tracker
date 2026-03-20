@@ -224,8 +224,9 @@ public class ActionServlet extends MobileBaseServlet {
         }
 
         out.println("<h2>Add Note</h2>");
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String dateParam = action.getNextActionDate() != null ? sdf.format(action.getNextActionDate()) : "";
+        String dateParam = action.getNextActionDate() != null
+                ? webUser.getDateFormatService().formatTransportDate(action.getNextActionDate(), webUser.getTimeZone())
+                : "";
 
         out.println("<form method=\"post\" action=\"action\">");
         out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\""
@@ -292,7 +293,10 @@ public class ActionServlet extends MobileBaseServlet {
             todoUrl += "?" + PARAM_DATE + "=" + dateParam;
         }
         out.println("  <a href=\"" + todoUrl + "\" class=\"box\">Todo for " +
-                (dateParam.isEmpty() ? "Today" : new SimpleDateFormat("EEE MM/dd").format(action.getNextActionDate())) +
+                (dateParam.isEmpty() ? "Today"
+                        : webUser.getDateFormatService().formatPattern(action.getNextActionDate(),
+                                webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()))
+                +
                 "</a>");
 
         if (action.getProject() != null) {
@@ -319,14 +323,12 @@ public class ActionServlet extends MobileBaseServlet {
         long daysDiff = (cal.getTimeInMillis() - todayCal.getTimeInMillis()) / (1000 * 60 * 60 * 24);
 
         if (daysDiff >= 1 && daysDiff <= 7) {
-            SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE");
-            return "Action " + dayFormat.format(selectedDate);
+            return "Action " + webUser.getDateFormatService().formatWeekdayLong(selectedDate, webUser.getTimeZone());
         } else if (daysDiff >= 8 && daysDiff <= 14) {
-            SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE");
-            return "Action Next " + dayFormat.format(selectedDate);
+            return "Action Next "
+                    + webUser.getDateFormatService().formatWeekdayLong(selectedDate, webUser.getTimeZone());
         } else {
-            SimpleDateFormat dateFormat = webUser.getDateFormat();
-            return "Action " + dateFormat.format(selectedDate);
+            return "Action " + webUser.getDateFormatService().formatDate(selectedDate, webUser.getTimeZone());
         }
     }
 
@@ -727,7 +729,7 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("  <tr>");
         out.println("    <td class=\"outside\">");
         out.println("      <table class=\"inside\">");
-        SimpleDateFormat sdf2 = webUser.getDateFormat("MM/dd/yyyy");
+        SimpleDateFormat sdf2 = webUser.getDateFormat();
         {
             sdf1 = webUser.getDateFormat();
             out.println("        <tr>");

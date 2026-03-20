@@ -398,7 +398,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         try {
             return LocalDate.parse(dateParam.trim());
         } catch (DateTimeParseException e) {
-            appReq.setMessageProblem("Invalid date format. Use YYYY-MM-DD.");
+            appReq.setMessageProblem("Invalid date format. Use yyyy-MM-dd.");
             return webUser.getLocalDateToday();
         }
     }

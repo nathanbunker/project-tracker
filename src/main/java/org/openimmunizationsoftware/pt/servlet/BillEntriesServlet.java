@@ -6,7 +6,6 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -14,9 +13,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -63,18 +64,17 @@ public class BillEntriesServlet extends ClientServlet {
       }
       Session dataSession = appReq.getDataSession();
       PrintWriter out = appReq.getOut();
-      SimpleDateFormat sdf = webUser.getDateFormat();
 
       String billDateString = request.getParameter("billDate");
       Date billDate = null;
       if ((billDateString != null && billDateString.length() > 0)) {
         try {
-          billDate = sdf.parse(billDateString);
-        } catch (ParseException pe) {
+          billDate = webUser.parseDate(billDateString);
+        } catch (Exception pe) {
           appReq.setMessageProblem("Unable to parse date: " + pe.getMessage());
         }
       } else {
-        billDateString = sdf.format(new Date());
+        billDateString = webUser.getDateFormatService().formatDate(new Date(), webUser.getTimeZone());
       }
 
       appReq.setTitle("Time");
@@ -115,15 +115,17 @@ public class BillEntriesServlet extends ClientServlet {
       out.println("<input type=\"submit\" name=\"action\" value=\"Refresh\">");
       if (previousBillDate != null) {
         out.println("<a class=\"button\" href=\"BillEntriesServlet?billDate="
-            + sdf.format(previousBillDate) + "\">Previous Day</a>");
+            + webUser.getDateFormatService().formatDate(previousBillDate, webUser.getTimeZone())
+            + "\">Previous Day</a>");
       }
       out.println("</form>");
 
-      SimpleDateFormat timeFormat = webUser.getDateFormat("h:mm aaa");
+      SimpleDateFormat timeFormat = webUser.getDateFormat(webUser.getTimeDisplayPattern());
       if (billEntryList.isEmpty()) {
         out.println("<p>No bill entries.</p>");
       } else {
-        out.println("<h2>" + webUser.getDateFormat("EEEE MM-dd-yyyy").format(today) + "</h2>");
+        out.println("<h2>" + webUser.getDateFormatService().formatPattern(today, "EEEE MM-dd-yyyy",
+            webUser.getTimeZone()) + "</h2>");
         printBillEntriesSection(out, dataSession, billEntryList, lockedBillEntryId, billDateString,
             timeFormat);
       }

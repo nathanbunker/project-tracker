@@ -11,8 +11,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -224,7 +222,6 @@ public class ReportRunServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
-      SimpleDateFormat sdf = webUser.getDateFormat();
 
       if (action == null) {
         action = "Show All";
@@ -236,8 +233,11 @@ public class ReportRunServlet extends ClientServlet {
         String message = null;
         if (!runDateString.equals("")) {
           try {
-            runDate = webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").parse(runDateString);
-          } catch (ParseException pe) {
+            runDate = webUser.parseDateTime(runDateString);
+            if (runDate == null) {
+              message = "Unable to parse run date: value does not match expected date/time format";
+            }
+          } catch (Exception pe) {
             message = "Unable to parse run date: " + pe.getMessage();
           }
         }
@@ -263,8 +263,11 @@ public class ReportRunServlet extends ClientServlet {
         Date runDate = null;
         String message = null;
         try {
-          runDate = webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").parse(runDateString);
-        } catch (ParseException pe) {
+          runDate = webUser.parseDateTime(runDateString);
+          if (runDate == null) {
+            message = "Unable to parse run date: value does not match expected date/time format";
+          }
+        } catch (Exception pe) {
           message = "Unable to parse run date: " + pe.getMessage();
         }
 
@@ -367,7 +370,9 @@ public class ReportRunServlet extends ClientServlet {
 
           DailyReportDetails dailyReportDetails = dailyReportDetailsMap.get(reportProfile.getProfileId());
 
-          out.println("    <td class=\"boxed\">" + sdf.format(dailyReportDetails.getSentAttempted())
+          out.println("    <td class=\"boxed\">"
+              + webUser.getDateFormatService().formatDate(dailyReportDetails.getSentAttempted(),
+                  webUser.getTimeZone())
               + "</td>");
           if (reportSchedule != null) {
             out.println("    <td class=\"boxed\">"
@@ -389,12 +394,17 @@ public class ReportRunServlet extends ClientServlet {
         out.println("</table>");
         out.println("<h2>Run All</h2>");
         out.println("<p>The automatic report runner is set to run daily reports at "
-            + sdf.format(dailyReportRunner.getNextRunTime()) + ". ");
+            + webUser.getDateFormatService().formatDate(dailyReportRunner.getNextRunTime(),
+                webUser.getTimeZone())
+            + ". ");
         out.println(
             "The last status message was: " + dailyReportRunner.getStatusMessage() + ". </p>");
         out.println("<form name=\"runAll\" method=\"post\" action=\"ReportRunServlet\">");
         out.println("<input type=\"text\" name=\"runDate\" value=\""
-            + webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(new Date()) + "\"/>");
+            + webUser.getDateFormatService().formatPattern(new Date(),
+                webUser.getDateTimeDisplayPatternWithSeconds(),
+                webUser.getTimeZone())
+            + "\"/>");
         out.println("<input type=\"submit\" name=\"action\" value=\"Run All\"/>");
         out.println("<form>");
 
@@ -522,6 +532,18 @@ public class ReportRunServlet extends ClientServlet {
           webUser = webUserList.get(0);
           webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
               TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
+          webUser.setDateDisplayPattern(TrackerKeysManager.getKeyValue(
+              TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT,
+              webUser.getDateDisplayPattern(), webUser, dataSession));
+          webUser.setDateEntryPattern(TrackerKeysManager.getKeyValue(
+              TrackerKeysManager.KEY_DATE_ENTRY_FORMAT,
+              webUser.getDateEntryPattern(), webUser, dataSession));
+          webUser.setTimeDisplayPattern(TrackerKeysManager.getKeyValue(
+              TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT,
+              webUser.getTimeDisplayPattern(), webUser, dataSession));
+          webUser.setTimeEntryPattern(TrackerKeysManager.getKeyValue(
+              TrackerKeysManager.KEY_TIME_ENTRY_FORMAT,
+              webUser.getTimeEntryPattern(), webUser, dataSession));
         } else {
           webUser = new WebUser();
           webUser.setTimeZone(TimeZone.getDefault());
@@ -538,7 +560,9 @@ public class ReportRunServlet extends ClientServlet {
           try {
             ReportBatch reportBatch = new ReportBatch(webUser);
             reportBatch.setProfileId(reportProfile.getProfileId());
-            reportBatch.setRunDate(webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(runDate));
+            reportBatch.setRunDate(webUser.getDateFormatService().formatPattern(runDate,
+                webUser.getDateTimeDisplayPatternWithSeconds(),
+                webUser.getTimeZone()));
             reportBatch.setPeriod(
                 reportSchedule.getPeriod().length() > 1 ? reportSchedule.getPeriod().substring(0, 1)
                     : "");
@@ -610,8 +634,9 @@ public class ReportRunServlet extends ClientServlet {
       TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Week",
           false, TrackServlet.WEEKLY_HOURS);
 
-      SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM yyyy");
-      printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
+      printWriter.println("    <h1>"
+          + webUser.getDateFormatService().formatPattern(billDate, "MMM yyyy", webUser.getTimeZone())
+          + "</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
       TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month",
           false, TrackServlet.MONTHLY_HOURS);
@@ -637,8 +662,9 @@ public class ReportRunServlet extends ClientServlet {
       hoursWorked = TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker,
           "Week", false, TrackServlet.YEARLY_HOURS);
 
-      SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM yyyy");
-      printWriter.println("    <h1>" + sdfMonth.format(billDate) + "</h1>");
+      printWriter.println("    <h1>"
+          + webUser.getDateFormatService().formatPattern(billDate, "MMM yyyy", webUser.getTimeZone())
+          + "</h1>");
       timeTracker = new TimeTracker(webUser, billDate, Calendar.MONTH, dataSession);
       TrackServlet.makeTimeTrackReport(webUser, printWriter, dataSession, timeTracker, "Month",
           false, TrackServlet.MONTHLY_HOURS);

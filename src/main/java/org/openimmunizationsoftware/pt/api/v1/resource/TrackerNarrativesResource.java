@@ -3,16 +3,10 @@ package org.openimmunizationsoftware.pt.api.v1.resource;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -24,6 +18,8 @@ import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.TrackerNarrativeDto;
 import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
+import org.openimmunizationsoftware.pt.format.DateFormatService;
+import org.openimmunizationsoftware.pt.format.DefaultDateFormatService;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 
 @Path("/v1/tracker-narratives")
@@ -35,6 +31,7 @@ public class TrackerNarrativesResource extends BaseApiResource {
             + "yyyy-MM-dd HH:mm:ss, yyyy-MM-dd HH:mm, or yyyy-MM-dd";
 
     private final TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao();
+    private static final DateFormatService DATE_FORMAT_SERVICE = new DefaultDateFormatService();
 
     @GET
     @Operation(summary = "List tracker narratives updated after a timestamp")
@@ -69,68 +66,13 @@ public class TrackerNarrativesResource extends BaseApiResource {
                     .build());
         }
         String trimmed = value.trim();
-        Date parsed = parseInstant(trimmed);
-        if (parsed != null) {
-            return parsed;
-        }
-        parsed = parseOffsetDateTime(trimmed);
-        if (parsed != null) {
-            return parsed;
-        }
-        parsed = parseLocalDateTime(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        if (parsed != null) {
-            return parsed;
-        }
-        parsed = parseLocalDateTime(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        if (parsed != null) {
-            return parsed;
-        }
-        parsed = parseLocalDateTime(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        if (parsed != null) {
-            return parsed;
-        }
-        parsed = parseLocalDate(trimmed);
-        if (parsed != null) {
-            return parsed;
-        }
-        throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ApiErrorResponse("bad_request",
-                        "lastUpdatedAfter must match one of: " + LAST_UPDATED_FORMATS + ".", null))
-                .build());
-    }
-
-    private Date parseInstant(String value) {
         try {
-            return Date.from(Instant.parse(value));
-        } catch (DateTimeParseException ex) {
-            return null;
-        }
-    }
-
-    private Date parseOffsetDateTime(String value) {
-        try {
-            OffsetDateTime parsed = OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            return Date.from(parsed.toInstant());
-        } catch (DateTimeParseException ex) {
-            return null;
-        }
-    }
-
-    private Date parseLocalDateTime(String value, DateTimeFormatter formatter) {
-        try {
-            LocalDateTime parsed = LocalDateTime.parse(value, formatter);
-            return Date.from(parsed.atZone(ZoneId.systemDefault()).toInstant());
-        } catch (DateTimeParseException ex) {
-            return null;
-        }
-    }
-
-    private Date parseLocalDate(String value) {
-        try {
-            LocalDate parsed = LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE);
-            return Date.from(parsed.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        } catch (DateTimeParseException ex) {
-            return null;
+            return DATE_FORMAT_SERVICE.parseApiDateTimeLenient(trimmed, TimeZone.getDefault());
+        } catch (IllegalArgumentException ex) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ApiErrorResponse("bad_request",
+                            "lastUpdatedAfter must match one of: " + LAST_UPDATED_FORMATS + ".", null))
+                    .build());
         }
     }
 }

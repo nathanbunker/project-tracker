@@ -26,7 +26,8 @@ public class ReportBatch {
   public ReportBatch(WebUser webUser) {
     this.webUser = webUser;
     parameterValues.put(PARAMETER_RUN_DATE,
-        webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(new Date()));
+        webUser.getDateFormatService().formatPattern(new Date(), webUser.getDateTimeDisplayPatternWithSeconds(),
+            webUser.getTimeZone()));
   }
 
   public void setReportProfile(ReportProfile reportProfile) {
@@ -89,7 +90,8 @@ public class ReportBatch {
   }
 
   public void setPreviousRunDate(Date previousRunDate) {
-    setPreviousRunDate(webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(previousRunDate));
+    setPreviousRunDate(webUser.getDateFormatService().formatPattern(previousRunDate,
+        webUser.getDateTimeDisplayPatternWithSeconds(), webUser.getTimeZone()));
   }
 
   public void setPreviousRunDate(String previousRunDate) {

@@ -408,11 +408,10 @@ public class TemplateScheduleServlet extends ClientServlet {
 
     Set<Calendar> onWeekend = new HashSet<Calendar>();
     Map<Calendar, Integer> timeMap = new HashMap<Calendar, Integer>();
-    SimpleDateFormat sdf1 = new SimpleDateFormat("EEE");
-    SimpleDateFormat sdf2 = new SimpleDateFormat("M/d");
     for (Calendar day : dayList) {
-      out.println("    <th class=\"boxed\">" + sdf1.format(day.getTime()) + "<br/>"
-          + sdf2.format(day.getTime()) + "</th>");
+      out.println("    <th class=\"boxed\">"
+          + webUser.getDateFormatService().formatWeekdayShort(day.getTime(), webUser.getTimeZone()) + "<br/>"
+          + webUser.getDateFormatService().formatPattern(day.getTime(), "M/d", webUser.getTimeZone()) + "</th>");
       timeMap.put(day, 0);
       if (day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY
           || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {

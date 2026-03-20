@@ -2,14 +2,15 @@ package org.openimmunizationsoftware.pt.mobile.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -208,8 +209,7 @@ public class TodoServlet extends MobileBaseServlet {
         String dateParam = request.getParameter(PARAM_DATE);
         if (dateParam != null && !dateParam.isEmpty()) {
             try {
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                return sdf.parse(dateParam);
+                return webUser.getDateFormatService().parseTransportDate(dateParam, webUser.getTimeZone());
             } catch (Exception e) {
                 // Fall through to today
             }
@@ -295,14 +295,11 @@ public class TodoServlet extends MobileBaseServlet {
         long daysDiff = (cal.getTimeInMillis() - todayCal.getTimeInMillis()) / (1000 * 60 * 60 * 24);
 
         if (daysDiff >= 1 && daysDiff <= 7) {
-            SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE");
-            return "Todo " + dayFormat.format(selectedDate);
+            return "Todo " + webUser.getDateFormatService().formatWeekdayLong(selectedDate, webUser.getTimeZone());
         } else if (daysDiff >= 8 && daysDiff <= 14) {
-            SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE");
-            return "Todo Next " + dayFormat.format(selectedDate);
+            return "Todo Next " + webUser.getDateFormatService().formatWeekdayLong(selectedDate, webUser.getTimeZone());
         } else {
-            SimpleDateFormat dateFormat = webUser.getDateFormat();
-            return "Todo " + dateFormat.format(selectedDate);
+            return "Todo " + webUser.getDateFormatService().formatDate(selectedDate, webUser.getTimeZone());
         }
     }
 
@@ -331,9 +328,9 @@ public class TodoServlet extends MobileBaseServlet {
     private void printActionTableContent(PrintWriter out, List<ProjectActionNext> actions,
             boolean isOverdue, Date selectedDate, WebUser webUser) {
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        SimpleDateFormat daySdf = new SimpleDateFormat("EEE");
-        String dateParam = selectedDate != null ? sdf.format(selectedDate) : "";
+        String dateParam = selectedDate != null
+                ? webUser.getDateFormatService().formatTransportDate(selectedDate, webUser.getTimeZone())
+                : "";
 
         out.println("<script>");
         out.println("function showPostponeMenu(actionId){");
@@ -410,8 +407,10 @@ public class TodoServlet extends MobileBaseServlet {
                     + "\" class=\"action-icon\" title=\"Cancel\" style=\"margin-right: 8px;\">&#10006;</a>");
             out.println("      </span>");
 
-            String actionDay = action.getNextActionDate() == null ? sdf.format(webUser.getToday())
-                    : sdf.format(action.getNextActionDate());
+            String actionDay = action.getNextActionDate() == null
+                    ? webUser.getDateFormatService().formatTransportDate(webUser.getToday(), webUser.getTimeZone())
+                    : webUser.getDateFormatService().formatTransportDate(action.getNextActionDate(),
+                            webUser.getTimeZone());
             String currentSlotId = currentTimeSlot.getId();
             String popupTitle = description == null ? "" : description;
             if (!projectLabel.isEmpty()) {
@@ -439,12 +438,14 @@ public class TodoServlet extends MobileBaseServlet {
             dayCal.setTime(webUser.getToday());
             printPostponeMenuDayOption(out, action.getActionNextId(), dateParam, currentSlotId,
                     actionDay,
-                    sdf.format(dayCal.getTime()), "Today");
+                    webUser.getDateFormatService().formatTransportDate(dayCal.getTime(), webUser.getTimeZone()),
+                    "Today");
             for (int i = 0; i < 7; i++) {
                 dayCal.add(Calendar.DAY_OF_MONTH, 1);
                 printPostponeMenuDayOption(out, action.getActionNextId(), dateParam, currentSlotId,
                         actionDay,
-                        sdf.format(dayCal.getTime()), daySdf.format(dayCal.getTime()));
+                        webUser.getDateFormatService().formatTransportDate(dayCal.getTime(), webUser.getTimeZone()),
+                        webUser.getDateFormatService().formatWeekdayShort(dayCal.getTime(), webUser.getTimeZone()));
             }
             out.println("        </div>");
             out.println("      </div>");
@@ -456,7 +457,6 @@ public class TodoServlet extends MobileBaseServlet {
 
     private void printDateNavigation(PrintWriter out, Date selectedDate, Date today,
             WebUser webUser) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Calendar cal = webUser.getCalendar();
 
         boolean isToday = isSameDay(selectedDate, today, webUser);
@@ -467,18 +467,18 @@ public class TodoServlet extends MobileBaseServlet {
         if (!isToday) {
             cal.setTime(selectedDate);
             cal.add(Calendar.DAY_OF_MONTH, -1);
-            String prevDate = sdf.format(cal.getTime());
+            String prevDate = webUser.getDateFormatService().formatTransportDate(cal.getTime(), webUser.getTimeZone());
             out.println("  <a href=\"todo?" + PARAM_DATE + "=" + prevDate + "\" class=\"box\">Previous</a>");
         }
 
         // Today
-        String todayDate = sdf.format(today);
+        String todayDate = webUser.getDateFormatService().formatTransportDate(today, webUser.getTimeZone());
         out.println("  <a href=\"todo?" + PARAM_DATE + "=" + todayDate + "\" class=\"button\">Today</a>");
 
         // Next
         cal.setTime(selectedDate);
         cal.add(Calendar.DAY_OF_MONTH, 1);
-        String nextDate = sdf.format(cal.getTime());
+        String nextDate = webUser.getDateFormatService().formatTransportDate(cal.getTime(), webUser.getTimeZone());
         out.println("  <a href=\"todo?" + PARAM_DATE + "=" + nextDate + "\" class=\"box\">Next</a>");
 
         out.println("</p>");
@@ -527,7 +527,8 @@ public class TodoServlet extends MobileBaseServlet {
             Date targetDate = action.getNextActionDate();
             if (targetDateString != null && !targetDateString.isEmpty()) {
                 try {
-                    targetDate = new SimpleDateFormat("yyyy-MM-dd").parse(targetDateString);
+                    targetDate = webUser.getDateFormatService().parseTransportDate(targetDateString,
+                            webUser.getTimeZone());
                 } catch (Exception e) {
                     targetDate = action.getNextActionDate();
                 }

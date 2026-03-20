@@ -6,15 +6,16 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -22,8 +23,8 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -62,8 +63,6 @@ public class HomeServlet extends ClientServlet {
         out.println("<h1>Project Tracker</h1>");
         printHtmlFoot(appReq);
       } else {
-        SimpleDateFormat sdf = webUser.getDateFormat();
-
         String date = request.getParameter("date");
         String nextActionType = request.getParameter("nextActionType");
         if (nextActionType == null) {
@@ -74,8 +73,8 @@ public class HomeServlet extends ClientServlet {
           nextActionDate = new Date();
         } else {
           try {
-            nextActionDate = sdf.parse(date);
-          } catch (ParseException pe) {
+            nextActionDate = webUser.parseDate(date);
+          } catch (Exception pe) {
             nextActionDate = new Date();
           }
         }
@@ -106,8 +105,9 @@ public class HomeServlet extends ClientServlet {
             try {
               Date oldDateDue = projectActionNext.getNextActionDate();
               try {
-                projectActionNext.setNextActionDate(sdf.parse(request.getParameter("changeNextActionDate")));
-              } catch (ParseException pe) {
+                projectActionNext.setNextActionDate(webUser.parseDate(
+                    request.getParameter("changeNextActionDate")));
+              } catch (Exception pe) {
                 message = "Unable to parse next due date: " + pe.getMessage();
               }
               projectActionNext.setNextActionType(request.getParameter("changeNextActionType"));
@@ -419,7 +419,6 @@ public class HomeServlet extends ClientServlet {
         + sdf1.format(nextActionDate) + "\" size=\"10\" onchange=\"this.form.submit()\">");
     out.println("            <font size=\"-1\">");
     Calendar calendar = webUser.getCalendar();
-    SimpleDateFormat day = webUser.getDateFormat("EEE");
     out.println("              <a href=\"javascript: void setNextAction('"
         + sdf1.format(calendar.getTime()) + "');\" class=\""
         + (sameDay(calendar, nextActionDate, webUser) ? "box" : "button") + "\">Today</a>");
@@ -427,7 +426,8 @@ public class HomeServlet extends ClientServlet {
     out.println(
         "              <a href=\"javascript: void setNextAction('" + sdf1.format(calendar.getTime())
             + "');\" class=\"" + (sameDay(calendar, nextActionDate, webUser) ? "box" : "button") + "\">"
-            + day.format(calendar.getTime()) + "</a>");
+            + webUser.getDateFormatService().formatWeekdayShort(calendar.getTime(), webUser.getTimeZone())
+            + "</a>");
     boolean nextWeek = false;
     for (int i = 0; i < 6; i++) {
       calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -435,12 +435,14 @@ public class HomeServlet extends ClientServlet {
         out.println("              <a href=\"javascript: void setNextAction('"
             + sdf1.format(calendar.getTime()) + "');\" class=\""
             + (sameDay(calendar, nextActionDate, webUser) ? "box" : "button") + "\">Next-"
-            + day.format(calendar.getTime()) + "</a>");
+            + webUser.getDateFormatService().formatWeekdayShort(calendar.getTime(), webUser.getTimeZone())
+            + "</a>");
       } else {
         out.println("              <a href=\"javascript: void setNextAction('"
             + sdf1.format(calendar.getTime()) + "');\" class=\""
             + (sameDay(calendar, nextActionDate, webUser) ? "box" : "button") + "\">"
-            + day.format(calendar.getTime()) + "</a>");
+            + webUser.getDateFormatService().formatWeekdayShort(calendar.getTime(), webUser.getTimeZone())
+            + "</a>");
 
       }
       if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
@@ -733,7 +735,6 @@ public class HomeServlet extends ClientServlet {
           + "\" size=\"10\" onchange=\"this.form.submit()\">");
       out.println("            <font size=\"-1\">");
       Calendar calendar = webUser.getCalendar();
-      SimpleDateFormat day = webUser.getDateFormat("EEE");
       out.println("              <a href=\"javascript: void changeNextAction('"
           + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
           + (sameDay(calendar, projectAction.getNextActionDate(), webUser) ? "box" : "button")
@@ -742,7 +743,8 @@ public class HomeServlet extends ClientServlet {
       out.println("              <a href=\"javascript: void changeNextAction('"
           + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
           + (sameDay(calendar, projectAction.getNextActionDate(), webUser) ? "box" : "button") + "\">"
-          + day.format(calendar.getTime()) + "</a>");
+          + webUser.getDateFormatService().formatWeekdayShort(calendar.getTime(), webUser.getTimeZone())
+          + "</a>");
       boolean nextWeek = false;
       for (int i = 0; i < 6; i++) {
         calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -750,12 +752,15 @@ public class HomeServlet extends ClientServlet {
           out.println("              <a href=\"javascript: void changeNextAction('"
               + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
               + (sameDay(calendar, projectAction.getNextActionDate(), webUser) ? "box" : "button")
-              + "\">Next-" + day.format(calendar.getTime()) + "</a>");
+              + "\">Next-"
+              + webUser.getDateFormatService().formatWeekdayShort(calendar.getTime(), webUser.getTimeZone())
+              + "</a>");
         } else {
           out.println("              <a href=\"javascript: void changeNextAction('"
               + sdf1.format(calendar.getTime()) + "', '" + changeFormId + "');\" class=\""
               + (sameDay(calendar, projectAction.getNextActionDate(), webUser) ? "box" : "button") + "\">"
-              + day.format(calendar.getTime()) + "</a>");
+              + webUser.getDateFormatService().formatWeekdayShort(calendar.getTime(), webUser.getTimeZone())
+              + "</a>");
 
         }
         if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {

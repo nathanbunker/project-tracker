@@ -181,7 +181,8 @@ public class ReportServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Run Date</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"runDate\" value=\""
-          + webUser.getDateFormat("MM/dd/yyyy hh:mm:ss a").format(new Date())
+          + webUser.getDateFormatService().formatPattern(new Date(),
+              webUser.getDateTimeDisplayPatternWithSeconds(), webUser.getTimeZone())
           + "\" size=\"20\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");

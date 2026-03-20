@@ -493,8 +493,10 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("    <th class=\"title\">Planning</th>");
           for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
             Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
-            SimpleDateFormat sdf = new SimpleDateFormat("EEE MM/dd");
-            out.println("    <th class=\"boxed\">" + sdf.format(workingDayDate) + "</th>");
+            String workingDayLabel = webUser.getDateFormatService().formatPattern(workingDayDate,
+                webUser.getDateDisplayPatternWithWeekdayShort(),
+                webUser.getTimeZone());
+            out.println("    <th class=\"boxed\">" + workingDayLabel + "</th>");
           }
           out.println("  </tr>");
           out.println("  <tr class=\"boxed\">");
@@ -973,7 +975,7 @@ public class ProjectActionServlet extends ClientServlet {
     TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
     Map<String, String> timeData = new HashMap<>();
     timeData.put(ID_TIME_RUNNING, timeRunningString);
-    timeData.put(ID_TIME_TODAY, getFullDayAndTime());
+    timeData.put(ID_TIME_TODAY, getFullDayAndTime(webUser));
     timeData.put(ID_TIME_OTHER + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getOtherEst()));
     timeData.put(ID_TIME_OTHER + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getOtherAct()));
     timeData.put(ID_TIME_MIGHT + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getMightEst()));
@@ -1103,11 +1105,12 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("<h4>Recent Past Actions</h4>");
       out.println("<ul>");
       int maxCount = 12;
-      SimpleDateFormat sdf = new SimpleDateFormat("EEE dd MMM yyyy");
       for (ProjectActionTaken pa : projectActionTakenList) {
         out.println("<li>");
         out.println(pa.getActionDescription());
-        out.println(" (" + sdf.format(pa.getActionDate()) + ")");
+        out.println(" (" + webUser.getDateFormatService().formatPattern(pa.getActionDate(),
+            webUser.getDateDisplayPatternWithWeekdayShort(),
+            webUser.getTimeZone()) + ")");
         out.println("</li>");
         maxCount--;
         if (maxCount == 0) {
@@ -1232,9 +1235,8 @@ public class ProjectActionServlet extends ClientServlet {
     int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
     int count = 0;
     boolean nextWeek = false;
-    SimpleDateFormat daynameSdf = new SimpleDateFormat("EEEE");
     while (count < 7 || dayOfWeek != Calendar.SATURDAY) {
-      String label = daynameSdf.format(c.getTime());
+      String label = webUser.getDateFormatService().formatWeekdayLong(c.getTime(), webUser.getTimeZone());
       if (count > 1 && dayOfWeek == Calendar.MONDAY) {
         nextWeek = true;
       }
@@ -1901,8 +1903,8 @@ public class ProjectActionServlet extends ClientServlet {
     chatAgentList.add(chatAgent);
 
     if (chatAgent.hasResponse()) {
-      SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-      String likelyDatePrefix1 = sdf.format(new Date());
+      WebUser webUser = appReq.getWebUser();
+      String likelyDatePrefix1 = webUser.getDateFormatService().formatTransportDate(new Date(), webUser.getTimeZone());
       String likelyDatePrefix2 = "- " + likelyDatePrefix1;
       String chatGPTResponse = chatAgent.getResponseText();
       String nextSummary;
@@ -1977,7 +1979,7 @@ public class ProjectActionServlet extends ClientServlet {
 
   private String getProposePrompt(ProjectActionNext completingAction, AppReq appReq,
       List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    WebUser webUser = appReq.getWebUser();
 
     String proposePrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     proposePrompt += "The recent actions taken are previously generated summaries of actions taken for this project. "
@@ -1986,7 +1988,7 @@ public class ProjectActionServlet extends ClientServlet {
         + "Keep in mind that this summary will be added to the list of recent actions taken, so should be in the same format as the other summaries. "
         + "Be careful to only document what has occured and do not mention what is planned to happen next. \n";
     proposePrompt += "I will report this and the list of completed actions to my supervisor and other contacts as this action having been completed on today's date "
-        + sdf.format(new Date())
+        + webUser.getDateFormatService().formatTransportDate(new Date(), webUser.getTimeZone())
         + ". Please give me only the text of the update, as it would appear after the date and no other commentary. Thanks!";
 
     return proposePrompt;
@@ -2026,7 +2028,6 @@ public class ProjectActionServlet extends ClientServlet {
     Project project = completingAction.getProject();
     WebUser webUser = appReq.getWebUser();
     String basePrompt = "";
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
     basePrompt = "I have taken action on a recent project and need to provide an update to be included in reporting to my "
         + "supervisor and other project participants.  \n\n"
@@ -2035,7 +2036,9 @@ public class ProjectActionServlet extends ClientServlet {
         + "Recent actions taken: \n";
     int limit = 12;
     for (ProjectActionTaken pa : projectActionTakenList) {
-      basePrompt += LIST_START + sdf.format(pa.getActionDate()) + " " + pa.getActionDescription() + " \n";
+      basePrompt += LIST_START
+          + webUser.getDateFormatService().formatTransportDate(pa.getActionDate(), webUser.getTimeZone())
+          + " " + pa.getActionDescription() + " \n";
       limit--;
       if (limit == 0) {
         break;
@@ -2047,7 +2050,10 @@ public class ProjectActionServlet extends ClientServlet {
         if (projectAction.equals(completingAction)) {
           continue;
         }
-        basePrompt += LIST_START + sdf.format(projectAction.getNextActionDate()) + " "
+        basePrompt += LIST_START
+            + webUser.getDateFormatService().formatTransportDate(projectAction.getNextActionDate(),
+                webUser.getTimeZone())
+            + " "
             + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + " \n";
       }
     }
@@ -2257,15 +2263,16 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectActionNext> projectActionList, Date workingDay) {
     PrintWriter out = appReq.getOut();
     HttpServletRequest request = appReq.getRequest();
+    WebUser webUser = appReq.getWebUser();
     boolean showWork = isShowWork(request);
     int colspan = showWork ? 4 : 2;
     String title = "All actions scheduled for ";
     // print name of next working day, either "Monday" or "Next Monday". that format
-    Calendar nextWorkingDay = appReq.getWebUser().getCalendar(workingDay);
-    SimpleDateFormat weekdaySdf = new SimpleDateFormat("EEEE");
-    out.println("<h2>" + weekdaySdf.format(nextWorkingDay.getTime()) + "</h2>");
-    SimpleDateFormat daynameSdf = new SimpleDateFormat("EEEE dd MMMM yyyy");
-    title += daynameSdf.format(nextWorkingDay.getTime());
+    Calendar nextWorkingDay = webUser.getCalendar(workingDay);
+    out.println("<h2>" + webUser.getDateFormatService().formatWeekdayLong(nextWorkingDay.getTime(),
+        webUser.getTimeZone()) + "</h2>");
+    title += webUser.getDateFormatService().formatPattern(nextWorkingDay.getTime(), "EEEE dd MMMM yyyy",
+        webUser.getTimeZone());
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"title\" colspan=\"" + colspan + "\">" + title + "</th>");
@@ -2381,7 +2388,7 @@ public class ProjectActionServlet extends ClientServlet {
     printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
     printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
     out.println("</table>");
-    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime() + "</h3>");
+    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime(appReq.getWebUser()) + "</h3>");
     if ((timeAdder.getCommittedEst() + timeAdder.getWillMeetEst() + timeAdder.getWillEst()) == 0) {
       out.println("<p>You have finished everything you said you would do today. Good job! </p>");
     } else if (timeAdder.getCompletedAct() > (8 * 60)) {
@@ -2441,10 +2448,9 @@ public class ProjectActionServlet extends ClientServlet {
     }
   }
 
-  private String getFullDayAndTime() {
-    SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd MMM yyyy HH:mm z");
-    String fullDayAndTime = sdf.format(new Date());
-    return fullDayAndTime;
+  private String getFullDayAndTime(WebUser webUser) {
+    return webUser.getDateFormatService().formatPattern(new Date(), "EEEE, dd MMM yyyy HH:mm z",
+        webUser.getTimeZone());
   }
 
   private void printSendEmailSelection(PrintWriter out, String formName, List<ProjectContact> projectContactList) {
@@ -2466,7 +2472,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  <tr>");
     out.println("    <td class=\"outside\">");
     out.println("      <table class=\"inside\">");
-    SimpleDateFormat sdf2 = webUser.getDateFormat("MM/dd/yyyy");
+    SimpleDateFormat sdf2 = webUser.getDateFormat();
     {
       sdf1 = webUser.getDateFormat();
       out.println("        <tr>");

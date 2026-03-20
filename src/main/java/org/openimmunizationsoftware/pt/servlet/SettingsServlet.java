@@ -19,6 +19,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.format.DateFormatService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
@@ -57,6 +58,10 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_SYSTEM_WIDE_MESSAGE = "systemWideMessage";
   private static final String PARAM_TIME_ZONE_USER = "timeZoneUser";
   private static final String PARAM_TIME_ZONE_APPLICATION = "timeZoneApplication";
+  private static final String PARAM_DATE_DISPLAY_FORMAT = "dateDisplayFormat";
+  private static final String PARAM_DATE_ENTRY_FORMAT = "dateEntryFormat";
+  private static final String PARAM_TIME_DISPLAY_FORMAT = "timeDisplayFormat";
+  private static final String PARAM_TIME_ENTRY_FORMAT = "timeEntryFormat";
   private static final String PARAM_TRACK_TIME = "trackTime";
   private static final String PARAM_USE_SMTPS = "useSmtps";
   private static final String PARAM_VISIBLE = "visible";
@@ -64,6 +69,15 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_CATEGORY_CODE = "categoryCode";
   private static final String PARAM_API_KEY_AGENT_NAME = "apiKeyAgentName";
   private static final String PARAM_API_KEY_CLIENT_ID = "apiKeyClientId";
+
+  private static final String[][] DATE_FORMAT_OPTIONS = {
+      { DateFormatService.PATTERN_DATE_SHORT, "MM/dd/yyyy (US)" },
+      { DateFormatService.PATTERN_DATE_SHORT_EU, "dd/MM/yyyy (Europe)" },
+      { DateFormatService.PATTERN_TRANSPORT_DATE, "yyyy-MM-dd (ISO)" } };
+
+  private static final String[][] TIME_FORMAT_OPTIONS = {
+      { DateFormatService.PATTERN_TIME_12H, "hh:mm AM/PM (12-hour)" },
+      { DateFormatService.PATTERN_TIME_24H, "HH:mm (24-hour)" } };
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -99,11 +113,27 @@ public class SettingsServlet extends ClientServlet {
               request.getParameter(PARAM_DISPLAY_COLOR), dataSession);
           String timeZoneUser = request.getParameter(PARAM_TIME_ZONE_USER);
           String timeZoneApplication = request.getParameter(PARAM_TIME_ZONE_APPLICATION);
+          String dateDisplayFormat = request.getParameter(PARAM_DATE_DISPLAY_FORMAT);
+          String dateEntryFormat = request.getParameter(PARAM_DATE_ENTRY_FORMAT);
+          String timeDisplayFormat = request.getParameter(PARAM_TIME_DISPLAY_FORMAT);
+          String timeEntryFormat = request.getParameter(PARAM_TIME_ENTRY_FORMAT);
           TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ZONE, webUser, timeZoneUser,
               dataSession);
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT, webUser,
+              dateDisplayFormat, dataSession);
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DATE_ENTRY_FORMAT, webUser,
+              dateEntryFormat, dataSession);
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT, webUser,
+              timeDisplayFormat, dataSession);
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ENTRY_FORMAT, webUser,
+              timeEntryFormat, dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
               timeZoneApplication, dataSession);
           webUser.setTimeZone(TimeZone.getTimeZone(timeZoneUser));
+          webUser.setDateDisplayPattern(dateDisplayFormat);
+          webUser.setDateEntryPattern(dateEntryFormat);
+          webUser.setTimeDisplayPattern(timeDisplayFormat);
+          webUser.setTimeEntryPattern(timeEntryFormat);
 
           if (webUser.isUserTypeAdmin()) {
             TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TRACK_TIME, webUser,
@@ -285,6 +315,18 @@ public class SettingsServlet extends ClientServlet {
           WebUser.AMERICA_DENVER, webUser, dataSession);
       String timeZoneApplication = TrackerKeysManager.getApplicationKeyValue(
           TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, dataSession);
+      String dateDisplayFormat = TrackerKeysManager.getKeyValue(
+          TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT, webUser.getDateDisplayPattern(),
+          webUser, dataSession);
+      String dateEntryFormat = TrackerKeysManager.getKeyValue(
+          TrackerKeysManager.KEY_DATE_ENTRY_FORMAT, webUser.getDateEntryPattern(),
+          webUser, dataSession);
+      String timeDisplayFormat = TrackerKeysManager.getKeyValue(
+          TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT, webUser.getTimeDisplayPattern(),
+          webUser, dataSession);
+      String timeEntryFormat = TrackerKeysManager.getKeyValue(
+          TrackerKeysManager.KEY_TIME_ENTRY_FORMAT, webUser.getTimeEntryPattern(),
+          webUser, dataSession);
 
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
       out.println("<table class=\"boxed\">");
@@ -335,6 +377,42 @@ public class SettingsServlet extends ClientServlet {
       }
       out.println("      </select>");
       out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Date Display Format</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"" + PARAM_DATE_DISPLAY_FORMAT + "\">");
+      printOptionList(out, DATE_FORMAT_OPTIONS, dateDisplayFormat);
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Date Entry Format</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"" + PARAM_DATE_ENTRY_FORMAT + "\">");
+      printOptionList(out, DATE_FORMAT_OPTIONS, dateEntryFormat);
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Time Display Format</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"" + PARAM_TIME_DISPLAY_FORMAT + "\">");
+      printOptionList(out, TIME_FORMAT_OPTIONS, timeDisplayFormat);
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Time Entry Format</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"" + PARAM_TIME_ENTRY_FORMAT + "\">");
+      printOptionList(out, TIME_FORMAT_OPTIONS, timeEntryFormat);
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println(
+          "    <td class=\"boxed\" colspan=\"2\">Date/time entry also accepts legacy values for compatibility.</td>");
       out.println("  </tr>");
       if (webUser.isUserTypeAdmin()) {
         out.println("  <tr class=\"boxed\">");
@@ -713,6 +791,15 @@ public class SettingsServlet extends ClientServlet {
       out.println("     <td>" + n(row[0]) + "</td>");
       out.println("     <td>" + n(row[1]) + "</td>");
       out.println("  </tr>");
+    }
+  }
+
+  private static void printOptionList(PrintWriter out, String[][] options, String selectedValue) {
+    for (String[] option : options) {
+      String value = option[0];
+      String label = option[1];
+      out.println("        <option value=\"" + value + "\""
+          + (value.equals(selectedValue) ? " selected" : "") + ">" + label + "</option>");
     }
   }
 }

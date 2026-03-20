@@ -7,16 +7,17 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -64,7 +65,6 @@ public class BillBudgetsServlet extends ClientServlet {
       if (action != null) {
         if (action.equals("Update Time")) {
           Transaction transaction = dataSession.beginTransaction();
-          SimpleDateFormat formatCompact = webUser.getDateFormat("yyyyMMdd");
           @SuppressWarnings("unchecked")
           Enumeration<String> enumeration = request.getParameterNames();
           while (enumeration.hasMoreElements()) {
@@ -73,7 +73,8 @@ public class BillBudgetsServlet extends ClientServlet {
               Date date = null;
               String timeString = "0";
               try {
-                date = formatCompact.parse(paramName.substring(2));
+                date = webUser.getDateFormatService().createLegacyFormatter("yyyyMMdd", webUser.getTimeZone())
+                    .parse(paramName.substring(2));
                 timeString = request.getParameter(paramName);
               } catch (ParseException pe) {
                 throw new ServletException("Unable to parse date '" + paramName + "'");
@@ -183,8 +184,6 @@ public class BillBudgetsServlet extends ClientServlet {
     @SuppressWarnings("unchecked")
     List<BillBudget> billBudgetList = query.list();
 
-    SimpleDateFormat sdfMonth = webUser.getDateFormat("MMM");
-
     out.println("<table class=\"boxed\">");
     out.println("  <tr>");
     out.println("    <th class=\"title\" colspan=\"4\">Bill Budgets</th>");
@@ -227,9 +226,13 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Bill Label</th>");
     out.println(
-        "    <th class=\"boxed\">" + sdfMonth.format(monthDateList.get(0)) + " Actual</th>");
+        "    <th class=\"boxed\">"
+            + webUser.getDateFormatService().formatPattern(monthDateList.get(0), "MMM", webUser.getTimeZone())
+            + " Actual</th>");
     for (int i = 1; i < monthDateList.size(); i++) {
-      out.println("    <th class=\"boxed\">" + sdfMonth.format(monthDateList.get(i - 1)) + "</th>");
+      out.println("    <th class=\"boxed\">"
+          + webUser.getDateFormatService().formatPattern(monthDateList.get(i - 1), "MMM", webUser.getTimeZone())
+          + "</th>");
     }
     out.println("  </tr>");
     for (BillBudget billBudget : billBudgetList) {
@@ -273,7 +276,9 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\" colspan=\"2\">Total</th>");
     for (int i = 1; i < monthDateList.size(); i++) {
-      out.println("    <th class=\"boxed\">" + sdfMonth.format(monthDateList.get(i - 1)) + "</th>");
+      out.println("    <th class=\"boxed\">"
+          + webUser.getDateFormatService().formatPattern(monthDateList.get(i - 1), "MMM", webUser.getTimeZone())
+          + "</th>");
     }
     out.println("  </tr>");
     out.println("  <tr class=\"boxed\">");
@@ -315,7 +320,6 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("</table> ");
     out.println("<br/>");
 
-    SimpleDateFormat daySdf = webUser.getDateFormat("MMM dd EEE");
     out.println("<table class=\"boxed\">");
     out.println("  <tr>");
     out.println("    <th class=\"title\" colspan=\"4\">Billable Work Completed</th>");
@@ -353,7 +357,9 @@ public class BillBudgetsServlet extends ClientServlet {
       totalTimeToday = totalTime;
 
       out.println("  <tr>");
-      out.println("    <td class=\"boxed\">" + daySdf.format(workingDay.date) + "</td>");
+      out.println("    <td class=\"boxed\">"
+          + webUser.getDateFormatService().formatPattern(workingDay.date, "MMM dd EEE", webUser.getTimeZone())
+          + "</td>");
       if (timeTracker.getTotalMinsBillable() > 0) {
         out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(totalTime) + "</td>");
         int rate = ((int) (totalBillableMoney / (totalTime / 60.0) + 0.5));
@@ -386,7 +392,6 @@ public class BillBudgetsServlet extends ClientServlet {
     out.println("</table> ");
     out.println("<br/>");
 
-    SimpleDateFormat formatCompact = webUser.getDateFormat("yyyyMMdd");
     if (showLinks) {
       out.println("<form method=\"POST\" action=\"BillBudgetsServlet\">");
     }
@@ -418,10 +423,13 @@ public class BillBudgetsServlet extends ClientServlet {
         }
         totalTime += billExpected.getBillMins();
         out.println("  <tr>");
-        out.println("    <td class=\"boxed\">" + daySdf.format(workingDay.date) + "</td>");
+        out.println("    <td class=\"boxed\">"
+            + webUser.getDateFormatService().formatPattern(workingDay.date, "MMM dd EEE", webUser.getTimeZone())
+            + "</td>");
         if (showLinks) {
           out.println("    <td class=\"boxed\"><input type=\"text\" size=\"5\" name=\"wd"
-              + formatCompact.format(workingDay.date) + "\" value=\""
+              + webUser.getDateFormatService().formatPattern(workingDay.date, "yyyyMMdd", webUser.getTimeZone())
+              + "\" value=\""
               + TimeTracker.formatTime(billExpected.getBillMins()) + "\"/></td>");
         } else {
           out.println("    <td class=\"boxed\">"

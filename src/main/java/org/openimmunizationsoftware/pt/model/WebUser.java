@@ -8,6 +8,8 @@ import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
+import org.openimmunizationsoftware.pt.format.DateFormatService;
+import org.openimmunizationsoftware.pt.format.DefaultDateFormatService;
 
 // Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1
 
@@ -48,6 +50,11 @@ public class WebUser implements java.io.Serializable {
   private String userType;
   private WebUser parentWebUser = null;
   private TimeZone timeZone = TimeZone.getTimeZone(WebUser.AMERICA_DENVER);
+  private String dateDisplayPattern = DateFormatService.PATTERN_DATE_SHORT;
+  private String dateEntryPattern = DateFormatService.PATTERN_DATE_SHORT;
+  private String timeDisplayPattern = DateFormatService.PATTERN_TIME_12H;
+  private String timeEntryPattern = DateFormatService.PATTERN_TIME_12H;
+  private static final DateFormatService DATE_FORMAT_SERVICE = new DefaultDateFormatService();
 
   public Calendar getCalendar() {
     Calendar calendar = Calendar.getInstance(timeZone);
@@ -160,47 +167,98 @@ public class WebUser implements java.io.Serializable {
   }
 
   public SimpleDateFormat getDateFormat(String s) {
-    SimpleDateFormat sdf = new SimpleDateFormat(s);
-    sdf.setTimeZone(timeZone);
-    return sdf;
+    return DATE_FORMAT_SERVICE.createLegacyFormatter(s, timeZone);
   }
 
   public SimpleDateFormat getTimeFormat() {
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm aaa");
-    sdf.setTimeZone(timeZone);
-    return sdf;
+    return DATE_FORMAT_SERVICE.createLegacyFormatter(getDateTimeDisplayPattern(), timeZone);
   }
 
   public SimpleDateFormat getDateFormat() {
-    SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
-    sdf.setTimeZone(timeZone);
-    return sdf;
+    return DATE_FORMAT_SERVICE.createLegacyFormatter(dateDisplayPattern, timeZone);
   }
 
   public SimpleDateFormat getMonthFormat() {
-    SimpleDateFormat sdf = new SimpleDateFormat("MMMM yyyy");
-    sdf.setTimeZone(timeZone);
-    return sdf;
+    return DATE_FORMAT_SERVICE.createLegacyFormatter("MMMM yyyy", timeZone);
+  }
+
+  public DateFormatService getDateFormatService() {
+    return DATE_FORMAT_SERVICE;
   }
 
   public Date parseDate(String dateString) {
-    Date date = null;
-    if (dateString != null && dateString.length() > 0) {
-      SimpleDateFormat sdf1 = this.getDateFormat("MM/dd/yyyy");
-      try {
-        date = sdf1.parse(dateString);
-      } catch (Exception e) {
-        // Try again with fresh SimpleDateFormat
-        sdf1 = this.getDateFormat("MM/dd/yyyy");
-        try {
-          date = sdf1.parse(dateString);
-        } catch (Exception e2) {
-          // Unable to parse date, return null
-          // (calling code is responsible for error handling)
-        }
-      }
+    if (dateString == null || dateString.length() == 0) {
+      return null;
     }
-    return date;
+    try {
+      return DATE_FORMAT_SERVICE.parseUserDate(dateString, timeZone, dateEntryPattern);
+    } catch (IllegalArgumentException e) {
+      // Unable to parse date, return null (calling code handles validation feedback).
+      return null;
+    }
+  }
+
+  public Date parseDateTime(String dateTimeString) {
+    if (dateTimeString == null || dateTimeString.length() == 0) {
+      return null;
+    }
+    try {
+      return DATE_FORMAT_SERVICE.parseUserDateTime(dateTimeString, timeZone, dateEntryPattern,
+          timeEntryPattern);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  public String getDateDisplayPattern() {
+    return dateDisplayPattern;
+  }
+
+  public void setDateDisplayPattern(String dateDisplayPattern) {
+    this.dateDisplayPattern = normalizeDatePattern(dateDisplayPattern);
+  }
+
+  public String getDateEntryPattern() {
+    return dateEntryPattern;
+  }
+
+  public void setDateEntryPattern(String dateEntryPattern) {
+    this.dateEntryPattern = normalizeDatePattern(dateEntryPattern);
+  }
+
+  public String getTimeDisplayPattern() {
+    return timeDisplayPattern;
+  }
+
+  public void setTimeDisplayPattern(String timeDisplayPattern) {
+    this.timeDisplayPattern = normalizeTimePattern(timeDisplayPattern);
+  }
+
+  public String getTimeEntryPattern() {
+    return timeEntryPattern;
+  }
+
+  public void setTimeEntryPattern(String timeEntryPattern) {
+    this.timeEntryPattern = normalizeTimePattern(timeEntryPattern);
+  }
+
+  public String getDateTimeDisplayPattern() {
+    return dateDisplayPattern + " " + timeDisplayPattern;
+  }
+
+  public String getDateDisplayPatternWithWeekdayShort() {
+    return "EEE " + dateDisplayPattern;
+  }
+
+  public String getDateDisplayPatternWithWeekdayLong() {
+    return "EEEE " + dateDisplayPattern;
+  }
+
+  public String getDateTimeDisplayPatternWithSeconds() {
+    if (DateFormatService.PATTERN_TIME_24H.equals(timeDisplayPattern)) {
+      return dateDisplayPattern + " HH:mm:ss";
+    }
+    return dateDisplayPattern + " hh:mm:ss aaa";
   }
 
   public WebUser getParentWebUser() {
@@ -279,6 +337,23 @@ public class WebUser implements java.io.Serializable {
 
   public void setProvider(ProjectProvider provider) {
     this.provider = provider;
+  }
+
+  private String normalizeDatePattern(String datePattern) {
+    if (DateFormatService.PATTERN_DATE_SHORT_EU.equals(datePattern)) {
+      return DateFormatService.PATTERN_DATE_SHORT_EU;
+    }
+    if (DateFormatService.PATTERN_TRANSPORT_DATE.equals(datePattern)) {
+      return DateFormatService.PATTERN_TRANSPORT_DATE;
+    }
+    return DateFormatService.PATTERN_DATE_SHORT;
+  }
+
+  private String normalizeTimePattern(String timePattern) {
+    if (DateFormatService.PATTERN_TIME_24H.equals(timePattern)) {
+      return DateFormatService.PATTERN_TIME_24H;
+    }
+    return DateFormatService.PATTERN_TIME_12H;
   }
 
   // make a function that is given a date, that may be null, and if not returns if

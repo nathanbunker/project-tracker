@@ -19,8 +19,7 @@ public class TrackerKeysManager {
   public static final String KEY_REPORT_CSS = "report.css";
   public static final String KEY_REPORT_DAILY_ENABLED = "report.daily.enabled";
   public static final String KEY_REPORT_DAILY_TIME = "report.daily.time";
-  public static final String KEY_REPORT_LAST_REPORT_DATE_DESCRIPTION =
-      "report.last_report.date_description";
+  public static final String KEY_REPORT_LAST_REPORT_DATE_DESCRIPTION = "report.last_report.date_description";
   public static final String KEY_SYSTEM_EMAIL_DEBUG = "system.email.debug";
   public static final String KEY_SYSTEM_EMAIL_REPLY = "system.email.reply";
   public static final String KEY_SYSTEM_EMAIL_ENABLE = "system.email.enable";
@@ -34,6 +33,10 @@ public class TrackerKeysManager {
   public static final String KEY_DISPLAY_SIZE = "display.size";
   public static final String KEY_DISPLAY_COLOR = "display.color";
   public static final String KEY_TIME_ZONE = "time.zone";
+  public static final String KEY_DATE_DISPLAY_FORMAT = "date.display.format";
+  public static final String KEY_DATE_ENTRY_FORMAT = "date.entry.format";
+  public static final String KEY_TIME_DISPLAY_FORMAT = "time.display.format";
+  public static final String KEY_TIME_ENTRY_FORMAT = "time.entry.format";
 
   public static final String KEY_EMAIL_DEBUG = "system.email.debug";
   public static final String KEY_EMAIL_REPLY = "system.email.reply";
