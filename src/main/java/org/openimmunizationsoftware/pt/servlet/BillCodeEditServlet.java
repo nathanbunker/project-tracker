@@ -65,9 +65,10 @@ public class BillCodeEditServlet extends ClientServlet {
         billCode = new BillCode();
         billCode.setProvider(webUser.getProvider());
       } else {
-        billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+        billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
         if (billCode == null) {
           billCode = new BillCode();
+          billCode.setProvider(webUser.getProvider());
           billCode.setBillCode(billCodeString);
         }
       }

@@ -11,22 +11,23 @@ public class BillExpectedId implements java.io.Serializable {
 
   private static final long serialVersionUID = -1668990878557896228L;
 
-  private String username;
+  private int webUserId;
   private Date billDate;
 
-  public BillExpectedId() {}
+  public BillExpectedId() {
+  }
 
-  public BillExpectedId(String username, Date billDate) {
-    this.username = username;
+  public BillExpectedId(int webUserId, Date billDate) {
+    this.webUserId = webUserId;
     this.billDate = billDate;
   }
 
-  public String getUsername() {
-    return this.username;
+  public int getWebUserId() {
+    return this.webUserId;
   }
 
-  public void setUsername(String username) {
-    this.username = username;
+  public void setWebUserId(int webUserId) {
+    this.webUserId = webUserId;
   }
 
   public Date getBillDate() {
@@ -46,8 +47,7 @@ public class BillExpectedId implements java.io.Serializable {
       return false;
     BillExpectedId castOther = (BillExpectedId) other;
 
-    return ((this.getUsername() == castOther.getUsername()) || (this.getUsername() != null
-        && castOther.getUsername() != null && this.getUsername().equals(castOther.getUsername())))
+    return (this.getWebUserId() == castOther.getWebUserId())
         && ((this.getBillDate() == castOther.getBillDate())
             || (this.getBillDate() != null && castOther.getBillDate() != null
                 && this.getBillDate().equals(castOther.getBillDate())));
@@ -56,7 +56,7 @@ public class BillExpectedId implements java.io.Serializable {
   public int hashCode() {
     int result = 17;
 
-    result = 37 * result + (getUsername() == null ? 0 : this.getUsername().hashCode());
+    result = 37 * result + this.getWebUserId();
     result = 37 * result + (getBillDate() == null ? 0 : this.getBillDate().hashCode());
     return result;
   }

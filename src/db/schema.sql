@@ -26,12 +26,14 @@ CREATE TABLE `bill_budget` (
   `bill_budget_id` int NOT NULL AUTO_INCREMENT,
   `bill_budget_code` varchar(30) NOT NULL,
   `bill_code` varchar(15) NOT NULL,
+  `provider_id` varchar(30) NOT NULL DEFAULT '1',
   `start_date` date NOT NULL,
   `end_date` date NOT NULL,
   `bill_mins` int NOT NULL,
   `bill_mins_remaining` int DEFAULT '0',
   PRIMARY KEY (`bill_budget_id`),
-  UNIQUE KEY `bill_budget_code` (`bill_budget_code`,`bill_code`)
+  UNIQUE KEY `uk_bill_budget_provider_code` (`provider_id`,`bill_budget_code`,`bill_code`),
+  KEY `idx_bill_budget_provider_bill_code` (`provider_id`,`bill_code`)
 ) ENGINE=MyISAM AUTO_INCREMENT=28 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -53,7 +55,7 @@ CREATE TABLE `bill_code` (
   `estimate_min` int NOT NULL DEFAULT '0',
   `bill_rate` int NOT NULL DEFAULT '0',
   `bill_round` int NOT NULL DEFAULT '1',
-  PRIMARY KEY (`bill_code`)
+  PRIMARY KEY (`provider_id`,`bill_code`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -67,13 +69,15 @@ DROP TABLE IF EXISTS `bill_day`;
 CREATE TABLE `bill_day` (
   `bill_day_id` int NOT NULL AUTO_INCREMENT,
   `bill_code` varchar(15) NOT NULL,
+  `provider_id` varchar(30) NOT NULL DEFAULT '1',
   `bill_date` date NOT NULL,
   `bill_mins` int NOT NULL,
   `bill_budget_id` int DEFAULT NULL,
   `bill_month_id` int DEFAULT NULL,
   `bill_mins_budget` int DEFAULT '0',
   PRIMARY KEY (`bill_day_id`),
-  UNIQUE KEY `bill_code` (`bill_code`,`bill_date`)
+  UNIQUE KEY `uk_bill_day_provider_code_date` (`provider_id`,`bill_code`,`bill_date`),
+  KEY `idx_bill_day_provider_bill_code` (`provider_id`,`bill_code`)
 ) ENGINE=MyISAM AUTO_INCREMENT=6122 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -89,6 +93,7 @@ CREATE TABLE `bill_entry` (
   `project_id` int NOT NULL,
   `category_code` varchar(15) DEFAULT NULL,
   `username` varchar(30) NOT NULL,
+  `web_user_id` int NOT NULL,
   `start_time` datetime NOT NULL,
   `end_time` datetime NOT NULL,
   `bill_mins` int DEFAULT '0',
@@ -96,7 +101,9 @@ CREATE TABLE `bill_entry` (
   `bill_code` varchar(15) DEFAULT NULL,
   `provider_id` varchar(30) NOT NULL DEFAULT '1',
   `action_id` int DEFAULT NULL,
-  PRIMARY KEY (`bill_id`)
+  PRIMARY KEY (`bill_id`),
+  KEY `idx_bill_entry_provider_bill_code` (`provider_id`,`bill_code`),
+  KEY `idx_bill_entry_web_user_id` (`web_user_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=90244 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -109,11 +116,12 @@ DROP TABLE IF EXISTS `bill_expected`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bill_expected` (
   `username` varchar(30) NOT NULL,
+  `web_user_id` int NOT NULL,
   `bill_date` date NOT NULL,
   `bill_mins` int NOT NULL DEFAULT '0',
   `bill_amount` int NOT NULL DEFAULT '0',
   `work_status` varchar(1) DEFAULT NULL,
-  PRIMARY KEY (`username`,`bill_date`)
+  PRIMARY KEY (`web_user_id`,`bill_date`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -127,11 +135,14 @@ DROP TABLE IF EXISTS `bill_month`;
 CREATE TABLE `bill_month` (
   `bill_month_id` int NOT NULL AUTO_INCREMENT,
   `bill_code` varchar(15) NOT NULL,
+  `provider_id` varchar(30) NOT NULL DEFAULT '1',
   `bill_date` date NOT NULL,
   `bill_mins_expected` int NOT NULL,
   `bill_mins_actual` int NOT NULL,
   `bill_budget_id` int DEFAULT NULL,
-  PRIMARY KEY (`bill_month_id`)
+  PRIMARY KEY (`bill_month_id`),
+  UNIQUE KEY `uk_bill_month_provider_code_date` (`provider_id`,`bill_code`,`bill_date`),
+  KEY `idx_bill_month_provider_bill_code` (`provider_id`,`bill_code`)
 ) ENGINE=MyISAM AUTO_INCREMENT=278 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -184,8 +195,11 @@ CREATE TABLE `project` (
   `bill_code` varchar(15) DEFAULT '.',
   `provider_id` varchar(30) DEFAULT NULL,
   `username` varchar(30) NOT NULL DEFAULT 'nbunker',
+  `web_user_id` int NOT NULL,
   `priority_level` int NOT NULL DEFAULT '0',
-  PRIMARY KEY (`project_id`)
+  PRIMARY KEY (`project_id`),
+  KEY `idx_project_provider_bill_code` (`provider_id`,`bill_code`),
+  KEY `idx_project_web_user_id` (`web_user_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=48708 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -378,9 +392,11 @@ CREATE TABLE `project_area` (
   `area_id` int NOT NULL,
   `area_label` varchar(60) NOT NULL,
   `username` varchar(30) NOT NULL,
+  `web_user_id` int NOT NULL,
   `sort_order` int DEFAULT NULL,
   `visible` varchar(1) DEFAULT NULL,
-  PRIMARY KEY (`area_id`)
+  PRIMARY KEY (`area_id`),
+  KEY `idx_project_area_web_user_id` (`web_user_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -566,13 +582,15 @@ CREATE TABLE `report_profile` (
   `profile_label` varchar(50) DEFAULT NULL,
   `provider_id` varchar(30) DEFAULT NULL,
   `username` varchar(30) DEFAULT NULL,
+  `web_user_id` int DEFAULT NULL,
   `profile_type` varchar(3) DEFAULT NULL,
   `use_status` varchar(1) DEFAULT NULL,
   `extend_status` varchar(1) DEFAULT NULL,
   `context_type` varchar(12) DEFAULT NULL,
   `selector_type` varchar(12) DEFAULT NULL,
   `definition` blob,
-  PRIMARY KEY (`profile_id`)
+  PRIMARY KEY (`profile_id`),
+  KEY `idx_report_profile_web_user_id` (`web_user_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=1036 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -623,6 +641,7 @@ CREATE TABLE `web_api_client` (
   `client_id` int NOT NULL AUTO_INCREMENT,
   `api_key` varchar(80) NOT NULL,
   `username` varchar(30) NOT NULL,
+  `web_user_id` int NOT NULL,
   `provider_id` varchar(30) DEFAULT NULL,
   `agent_name` varchar(80) DEFAULT NULL,
   `enabled` char(1) NOT NULL DEFAULT 'Y',
@@ -631,6 +650,7 @@ CREATE TABLE `web_api_client` (
   PRIMARY KEY (`client_id`),
   UNIQUE KEY `uk_web_api_client_key` (`api_key`),
   KEY `idx_web_api_client_user` (`username`),
+  KEY `idx_web_api_client_web_user_id` (`web_user_id`),
   KEY `idx_web_api_client_provider` (`provider_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -643,13 +663,14 @@ DROP TABLE IF EXISTS `web_user`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `web_user` (
+  `web_user_id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(30) NOT NULL,
   `contact_id` int NOT NULL,
   `password` varchar(30) DEFAULT NULL,
   `provider_id` varchar(30) NOT NULL DEFAULT '1',
   `user_type` varchar(30) NOT NULL DEFAULT 'user',
-  `parent_username` varchar(30) DEFAULT NULL,
-  PRIMARY KEY (`username`)
+  PRIMARY KEY (`web_user_id`),
+  UNIQUE KEY `uk_web_user_username` (`username`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

@@ -64,10 +64,7 @@ public class AppReq {
   private static final String SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST = "projectContactAssignedList";
   private static final String SESSION_VAR_PROJECT_SELECTED_LIST = "projectSelectedList";
   private static final String SESSION_VAR_PROJECT = "project";
-  private static final String SESSION_VAR_PARENT_PROJECT = "parentProject";
   private static final String SESSION_VAR_ACTION = "action";
-  private static final String SESSION_VAR_PARENT_ACTION = "parentAction";
-  private static final String SESSION_VAR_CHILD_WEB_USER_LIST = "childWebUserList";
   private static final String SESSION_VAR_APP_TYPE = "appType";
 
   public static final String PARAM_ACTION = "action";
@@ -92,11 +89,8 @@ public class AppReq {
   private String displaySize = "small";
   private String displayColor = "";
   private Project project = null;
-  private Project parentProject = null;
   private ProjectActionNext completingAction = null;
-  private ProjectActionNext projectActionParent = null;
   private String action = null;
-  private List<WebUser> childWebUserList = null;
   private List<Integer> projectIdList = null;
   private List<Project> projectSelectedList = null;
   private List<ProjectContactAssigned> projectContactAssignedList = null;
@@ -160,14 +154,6 @@ public class AppReq {
     return webUser == null;
   }
 
-  public boolean isParentWebUser() {
-    return isLoggedIn() && webUser.getParentWebUser() == null;
-  }
-
-  public boolean isDependentWebUser() {
-    return isLoggedIn() && webUser.getParentWebUser() != null;
-  }
-
   public TimeTracker getTimeTracker() {
     return timeTracker;
   }
@@ -215,11 +201,9 @@ public class AppReq {
       ClientServlet.webUserLastUsedDate.put(webUser.getUsername(), new Date());
       timeTracker = (TimeTracker) webSession.getAttribute(SESSION_VAR_TIME_TRACKER);
       if (timeTracker != null) {
-        actionTrackTime = loadProjectActionFromSession(
-            webUser.getParentWebUser() == null ? SESSION_VAR_ACTION : SESSION_VAR_PARENT_ACTION);
+        actionTrackTime = loadProjectActionFromSession(SESSION_VAR_ACTION);
         if (actionTrackTime == null) {
-          projectTrackTime = loadProjectFromSession(
-              webUser.getParentWebUser() == null ? SESSION_VAR_PROJECT : SESSION_VAR_PARENT_PROJECT);
+          projectTrackTime = loadProjectFromSession(SESSION_VAR_PROJECT);
         } else {
           projectTrackTime = actionTrackTime.getProject();
         }
@@ -252,25 +236,10 @@ public class AppReq {
 
     project = loadProjectFromSession(SESSION_VAR_PROJECT);
     completingAction = loadProjectActionFromSession(SESSION_VAR_ACTION);
-    parentProject = loadProjectFromSession(SESSION_VAR_PARENT_PROJECT);
     action = request.getParameter(PARAM_ACTION);
-    childWebUserList = (List<WebUser>) webSession.getAttribute(SESSION_VAR_CHILD_WEB_USER_LIST);
     projectIdList = (List<Integer>) webSession.getAttribute(SESSION_VAR_PROJECT_ID_LIST);
     projectSelectedList = loadProjectListFromSession(SESSION_VAR_PROJECT_SELECTED_LIST);
     projectContactAssignedList = loadProjectContactAssignedListFromSession(SESSION_VAR_PROJECT_CONTACT_ASSIGNED_LIST);
-  }
-
-  public List<WebUser> getChildWebUserList() {
-    return childWebUserList;
-  }
-
-  public void setChildWebUserList(List<WebUser> childWebUserList) {
-    this.childWebUserList = childWebUserList;
-    if (childWebUserList == null) {
-      webSession.removeAttribute(SESSION_VAR_CHILD_WEB_USER_LIST);
-    } else {
-      webSession.setAttribute(SESSION_VAR_CHILD_WEB_USER_LIST, childWebUserList);
-    }
   }
 
   public void setWebUser(WebUser webUser) {
@@ -341,32 +310,6 @@ public class AppReq {
     } else {
       webSession.setAttribute(SESSION_VAR_ACTION, projectAction.getActionNextId());
       setProject(projectAction.getProject());
-    }
-  }
-
-  public Project getParentProject() {
-    return parentProject;
-  }
-
-  public void setParentProject(Project parentProject) {
-    this.parentProject = parentProject;
-    if (parentProject == null) {
-      webSession.removeAttribute(SESSION_VAR_PARENT_PROJECT);
-    } else {
-      webSession.setAttribute(SESSION_VAR_PARENT_PROJECT, parentProject.getProjectId());
-    }
-  }
-
-  public ProjectActionNext getProjectActionParent() {
-    return projectActionParent;
-  }
-
-  public void setProjectActionParent(ProjectActionNext projectActionParent) {
-    this.projectActionParent = projectActionParent;
-    if (projectActionParent == null) {
-      webSession.removeAttribute(SESSION_VAR_PARENT_ACTION);
-    } else {
-      webSession.setAttribute(SESSION_VAR_PARENT_ACTION, projectActionParent.getActionNextId());
     }
   }
 

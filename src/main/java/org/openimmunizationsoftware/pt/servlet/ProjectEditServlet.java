@@ -82,7 +82,7 @@ public class ProjectEditServlet extends ClientServlet {
           project.setPhaseCode(request.getParameter("phaseCode"));
           project.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           project.setPriorityLevel(Integer.parseInt(request.getParameter("priorityLevel")));
-          project.setUsername(webUser.getUsername());
+          project.setWebUser(webUser);
           project.setProjectName(trim(request.getParameter("projectName"), 100));
           String projectIcon = trim(request.getParameter("projectIcon"), 8);
           if (projectIcon.equals("")) {

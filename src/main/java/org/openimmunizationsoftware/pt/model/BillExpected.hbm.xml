@@ -5,8 +5,8 @@
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
     <class name="BillExpected" table="bill_expected">
         <composite-id name="id" class="BillExpectedId">
-            <key-property name="username" type="string">
-                <column name="username" length="30" />
+            <key-property name="webUserId" type="int">
+                <column name="web_user_id" />
             </key-property>
             <key-property name="billDate" type="date">
                 <column name="bill_date" length="10" />

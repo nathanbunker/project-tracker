@@ -14,6 +14,7 @@ import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class TimeTracker {
   private int totalMins = 0;
@@ -152,9 +153,6 @@ public class TimeTracker {
 
   public TimeTracker(WebUser webUser, Date date, int calendarField, Session dataSession) {
     this.webUser = webUser;
-    if (webUser.getParentWebUser() != null) {
-      this.webUser = webUser.getParentWebUser();
-    }
     Calendar t = webUser.getCalendar();
     t.setTime(date);
     removeTime(t);
@@ -178,8 +176,8 @@ public class TimeTracker {
     startDate = today;
     endDate = tomorrow;
     Query query = dataSession
-        .createQuery("from BillEntry where username = ? and startTime >= ? and startTime < ?");
-    query.setParameter(0, webUser.getUsername());
+        .createQuery("from BillEntry where webUser = ? and startTime >= ? and startTime < ?");
+    query.setParameter(0, webUser);
     query.setParameter(1, today);
     query.setParameter(2, tomorrow);
     @SuppressWarnings("unchecked")
@@ -219,8 +217,8 @@ public class TimeTracker {
     startDate = today;
     endDate = tomorrow;
     Query query = dataSession
-        .createQuery("from BillEntry where username = ? and startTime >= ? and startTime < ?");
-    query.setParameter(0, webUser.getUsername());
+        .createQuery("from BillEntry where webUser = ? and startTime >= ? and startTime < ?");
+    query.setParameter(0, webUser);
     query.setParameter(1, today);
     query.setParameter(2, tomorrow);
     @SuppressWarnings("unchecked")
@@ -334,13 +332,13 @@ public class TimeTracker {
     clearRunningEntry();
 
     if (project.getBillCode() != null && !project.getBillCode().equals("")) {
-      BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
+      BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
       if (billCode != null) {
         BillEntry billEntry = new BillEntry();
         billEntry.setProjectId(project.getProjectId());
         billEntry.setCategoryCode(project.getCategoryCode());
         billEntry.setAction(action);
-        billEntry.setUsername(webUser.getUsername());
+        billEntry.setWebUser(webUser);
         billEntry.setStartTime(new Date());
         billEntry.setEndTime(new Date());
         billEntry.setBillMins(0);

@@ -4,12 +4,16 @@
 <!-- Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1 -->
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
     <class name="BillCode" table="bill_code">
-        <id name="billCode" type="string">
-            <column name="bill_code" length="15" />
-            <generator class="assigned" />
-        </id>
+        <composite-id name="id" class="BillCodeId">
+            <key-property name="providerId" type="string">
+                <column name="provider_id" length="30" />
+            </key-property>
+            <key-property name="billCode" type="string">
+                <column name="bill_code" length="15" />
+            </key-property>
+        </composite-id>
         <property name="billLabel" type="string">
-            <column name="bill_label" length="30" not-null="true" />
+            <column name="bill_label" length="150" not-null="false" />
         </property>
         <property name="billable" type="string">
             <column name="billable" length="1" not-null="true" />
@@ -23,7 +27,9 @@
         <property name="clientBillDescription" type="string">
             <column name="client_bill_description" length="120" />
         </property>
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <many-to-one name="provider" class="ProjectProvider" insert="false" update="false">
+            <column name="provider_id" length="30" not-null="true" />
+        </many-to-one>
         <property name="estimateMin" type="int">
             <column name="estimate_min"/>
         </property>

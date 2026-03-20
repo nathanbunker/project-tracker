@@ -11,9 +11,7 @@
         <property name="areaLabel" type="string">
             <column name="area_label" length="60" not-null="true" />
         </property>
-        <property name="username" type="string">
-            <column name="username" length="30" not-null="true" />
-        </property>
+        <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
         <property name="sortOrder" type="java.lang.Integer">
             <column name="sort_order" />
         </property>

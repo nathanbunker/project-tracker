@@ -15,9 +15,7 @@
             <column name="profile_label" length="50" />
         </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
-        <property name="username" type="string">
-            <column name="username" length="30" />
-        </property>
+        <many-to-one name="webUser" column="web_user_id" class="WebUser"/>
         <property name="profileType" type="string">
             <column name="profile_type" length="3" />
         </property>

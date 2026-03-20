@@ -55,7 +55,7 @@ public class BillBudgetsServlet extends ClientServlet {
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
-      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+      if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
       }
@@ -80,8 +80,8 @@ public class BillBudgetsServlet extends ClientServlet {
                 throw new ServletException("Unable to parse date '" + paramName + "'");
               }
               Query query = dataSession
-                  .createQuery("from BillExpected where id.username = ? and id.billDate = ?");
-              query.setParameter(0, webUser.getUsername());
+                  .createQuery("from BillExpected where id.webUserId = ? and id.billDate = ?");
+              query.setParameter(0, webUser.getWebUserId());
               query.setParameter(1, date);
               @SuppressWarnings("unchecked")
               List<BillExpected> billExpectedList = query.list();
@@ -91,7 +91,7 @@ public class BillBudgetsServlet extends ClientServlet {
                 billExpected.setBillMins(TimeTracker.readTime(timeString));
                 dataSession.update(billExpected);
               } else {
-                billExpected = new BillExpected(new BillExpectedId(webUser.getUsername(), date),
+                billExpected = new BillExpected(new BillExpectedId(webUser.getWebUserId(), date),
                     TimeTracker.readTime(timeString), 0);
                 dataSession.save(billExpected);
               }
@@ -343,7 +343,10 @@ public class BillBudgetsServlet extends ClientServlet {
       int totalBillable = 0;
       for (TimeEntry timeEntry : timeEntryList) {
         String billCodeString = timeEntry.getId();
-        BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+        BillCode billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
+        if (billCode == null) {
+          continue;
+        }
         int billable = TimeTracker.roundTime(billCodeMap.get(billCodeString), billCode);
         int billableMoney = (int) (billable * billCode.getBillRate() / 60.0 + 0.5);
 
@@ -406,8 +409,8 @@ public class BillBudgetsServlet extends ClientServlet {
     int totalTime = 0;
     for (WorkingDay workingDay : workingDayList[1]) {
       if (!workingDay.date.before(today)) {
-        query = dataSession.createQuery("from BillExpected where id.username = ? and id.billDate = ?");
-        query.setParameter(0, webUser.getUsername());
+        query = dataSession.createQuery("from BillExpected where id.webUserId = ? and id.billDate = ?");
+        query.setParameter(0, webUser.getWebUserId());
         query.setParameter(1, workingDay.date);
         @SuppressWarnings("unchecked")
         List<BillExpected> billExpectedList = query.list();
@@ -416,7 +419,7 @@ public class BillBudgetsServlet extends ClientServlet {
           billExpected = billExpectedList.get(0);
         } else {
           Transaction transaction = dataSession.beginTransaction();
-          billExpected = new BillExpected(new BillExpectedId(webUser.getUsername(), workingDay.date),
+          billExpected = new BillExpected(new BillExpectedId(webUser.getWebUserId(), workingDay.date),
               workingDay.isWeekDay ? 8 * 60 : 0, 0);
           dataSession.save(billExpected);
           transaction.commit();

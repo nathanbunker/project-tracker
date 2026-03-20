@@ -56,7 +56,7 @@ public class BillBudgetServlet extends ClientServlet {
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
-      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+      if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
       }
@@ -223,8 +223,10 @@ public class BillBudgetServlet extends ClientServlet {
 
     }
 
-    query = dataSession.createQuery("from Project where billCode = ? order by projectName");
-    query.setParameter(0, billCode.getBillCode());
+    query = dataSession.createQuery(
+        "from Project where provider = ? and billCode = ? order by projectName");
+    query.setParameter(0, webUser.getProvider());
+    query.setParameter(1, billCode.getBillCode());
     @SuppressWarnings("unchecked")
     List<Project> projectList = query.list();
 

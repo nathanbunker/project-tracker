@@ -11,23 +11,22 @@ public class ProjectArea implements java.io.Serializable {
 
   private int areaId;
   private String areaLabel;
-  private String username;
+  private WebUser webUser;
   private Integer sortOrder;
   private String visible;
 
-  public ProjectArea() {}
+  public ProjectArea() {
+  }
 
   public ProjectArea(int areaId, String areaLabel, String username) {
     this.areaId = areaId;
     this.areaLabel = areaLabel;
-    this.username = username;
   }
 
   public ProjectArea(int areaId, String areaLabel, String username, Integer sortOrder,
       String visible) {
     this.areaId = areaId;
     this.areaLabel = areaLabel;
-    this.username = username;
     this.sortOrder = sortOrder;
     this.visible = visible;
   }
@@ -49,11 +48,19 @@ public class ProjectArea implements java.io.Serializable {
   }
 
   public String getUsername() {
-    return this.username;
+    return webUser != null ? webUser.getUsername() : null;
   }
 
   public void setUsername(String username) {
-    this.username = username;
+    // no-op: use setWebUser() instead
+  }
+
+  public WebUser getWebUser() {
+    return webUser;
+  }
+
+  public void setWebUser(WebUser webUser) {
+    this.webUser = webUser;
   }
 
   public Integer getSortOrder() {

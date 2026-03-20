@@ -256,13 +256,13 @@ public class SettingsServlet extends ClientServlet {
             Query query = null;
             if (providerId == null) {
               query = dataSession.createQuery(
-                  "from WebApiClient where username = :username and enabled = true and lower(agentName) = :agentNameLower and providerId is null");
+                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and providerId is null");
             } else {
               query = dataSession.createQuery(
-                  "from WebApiClient where username = :username and enabled = true and lower(agentName) = :agentNameLower and providerId = :providerId");
+                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and providerId = :providerId");
               query.setParameter("providerId", providerId);
             }
-            query.setParameter("username", webUser.getUsername());
+            query.setParameter("webUser", webUser);
             query.setParameter("agentNameLower", agentName.toLowerCase());
             @SuppressWarnings("unchecked")
             List<WebApiClient> existingClients = query.list();
@@ -271,7 +271,7 @@ public class SettingsServlet extends ClientServlet {
                   "Agent name already exists, so new API key not created. ");
             } else {
               WebApiClient client = new WebApiClient();
-              client.setUsername(webUser.getUsername());
+              client.setWebUser(webUser);
               client.setProviderId(providerId);
               client.setAgentName(agentName);
               client.setEnabled(true);
@@ -291,7 +291,7 @@ public class SettingsServlet extends ClientServlet {
               String providerId = webUser.getProvider() == null ? null
                   : webUser.getProvider().getProviderId();
               if (client != null && client.isEnabled()
-                  && webUser.getUsername().equals(client.getUsername())
+                  && webUser.equals(client.getWebUser())
                   && sameProvider(providerId, client.getProviderId())) {
                 client.setEnabled(false);
                 Transaction trans = dataSession.beginTransaction();
@@ -618,13 +618,13 @@ public class SettingsServlet extends ClientServlet {
       Query apiKeyQuery;
       if (providerId == null) {
         apiKeyQuery = dataSession.createQuery(
-            "from WebApiClient where username = :username and enabled = true and providerId is null order by createDate desc");
+            "from WebApiClient where webUser = :webUser and enabled = true and providerId is null order by createDate desc");
       } else {
         apiKeyQuery = dataSession.createQuery(
-            "from WebApiClient where username = :username and enabled = true and providerId = :providerId order by createDate desc");
+            "from WebApiClient where webUser = :webUser and enabled = true and providerId = :providerId order by createDate desc");
         apiKeyQuery.setParameter("providerId", providerId);
       }
-      apiKeyQuery.setParameter("username", webUser.getUsername());
+      apiKeyQuery.setParameter("webUser", webUser);
       @SuppressWarnings("unchecked")
       List<WebApiClient> apiClients = apiKeyQuery.list();
       if (apiClients.size() > 0) {

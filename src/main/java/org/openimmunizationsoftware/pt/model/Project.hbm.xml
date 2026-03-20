@@ -33,9 +33,7 @@
             <column name="project_icon" length="8" />
         </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
-        <property name="username" type="string">
-            <column name="username" length="30" not-null="true" />
-        </property>
+        <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
         <property name="priorityLevel" type="integer">
             <column name="priority_level" not-null="true" />
         </property>

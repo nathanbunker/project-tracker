@@ -11,7 +11,10 @@
         <property name="billBudgetCode" type="string">
             <column name="bill_budget_code" length="30" not-null="true" />
         </property>
-        <many-to-one name="billCode" column="bill_code" class="BillCode"/>
+        <many-to-one name="billCode" class="BillCode">
+            <column name="provider_id" length="30" not-null="true" />
+            <column name="bill_code" length="15" not-null="true" />
+        </many-to-one>
         <property name="startDate" type="date">
             <column name="start_date" />
         </property>

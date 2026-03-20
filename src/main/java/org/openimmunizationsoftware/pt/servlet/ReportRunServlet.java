@@ -523,13 +523,8 @@ public class ReportRunServlet extends ClientServlet {
       @SuppressWarnings("unchecked")
       List<ReportProfile> reportProfileList = query.list();
       for (ReportProfile reportProfile : reportProfileList) {
-        query = dataSession.createQuery("from WebUser where username = :username");
-        query.setParameter("username", reportProfile.getUsername());
-        @SuppressWarnings("unchecked")
-        List<WebUser> webUserList = query.list();
-        WebUser webUser;
-        if (webUserList.size() > 0) {
-          webUser = webUserList.get(0);
+        WebUser webUser = reportProfile.getWebUser();
+        if (webUser != null) {
           webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
               TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
           webUser.setDateDisplayPattern(TrackerKeysManager.getKeyValue(

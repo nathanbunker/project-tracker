@@ -44,7 +44,7 @@ public class BillCodeServlet extends ClientServlet {
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
-      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+      if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
       }
@@ -57,9 +57,10 @@ public class BillCodeServlet extends ClientServlet {
 
       BillCode billCode = null;
       String billCodeString = request.getParameter("billCode");
-      billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+      billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
       if (billCode == null) {
         billCode = new BillCode();
+        billCode.setProvider(webUser.getProvider());
         billCode.setBillCode(billCodeString);
       }
 

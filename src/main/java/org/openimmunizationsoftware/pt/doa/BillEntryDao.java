@@ -7,6 +7,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.BillEntry;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * DAO for BillEntry operations used by servlets.
@@ -41,10 +42,10 @@ public class BillEntryDao {
     }
 
     @SuppressWarnings("unchecked")
-    public List<BillEntry> listBillEntriesForUserBetween(String username, Date start, Date end) {
+    public List<BillEntry> listBillEntriesForUserBetween(WebUser webUser, Date start, Date end) {
         Query query = session.createQuery(
-                "from BillEntry where username = :username and startTime >= :start and startTime < :end order by startTime");
-        query.setString("username", username);
+                "from BillEntry where webUser = :webUser and startTime >= :start and startTime < :end order by startTime");
+        query.setParameter("webUser", webUser);
         query.setTimestamp("start", start);
         query.setTimestamp("end", end);
         return query.list();

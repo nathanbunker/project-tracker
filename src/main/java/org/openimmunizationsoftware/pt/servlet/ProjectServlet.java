@@ -85,26 +85,12 @@ public class ProjectServlet extends ClientServlet {
           assignContact(projectId, dataSession, contactId);
         } else if (action.equals("StartTimer")) {
           if (timeTracker != null) {
-            if (webUser.getParentWebUser() != null) {
-              Project parentProject = appReq.getParentProject();
-              if (parentProject != null) {
-                timeTracker.startClock(parentProject, null, dataSession);
-              }
-            } else {
-              timeTracker.startClock(project, null, dataSession);
-            }
+            timeTracker.startClock(project, null, dataSession);
           }
         }
       } else {
         if (timeTracker != null) {
-          if (webUser.getParentWebUser() != null) {
-            Project parentProject = appReq.getParentProject();
-            if (parentProject != null) {
-              timeTracker.update(parentProject, null, dataSession);
-            }
-          } else {
-            timeTracker.update(project, null, dataSession);
-          }
+          timeTracker.update(project, null, dataSession);
         }
       }
 

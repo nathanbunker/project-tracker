@@ -26,7 +26,6 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -138,40 +137,6 @@ public class HomeServlet extends ClientServlet {
             } finally {
               trans.commit();
             }
-          } else if (action.equals("Switch")) {
-            String username = request.getParameter("childWebUserName");
-            boolean switched = false;
-            if (webUser.getParentWebUser() != null
-                && webUser.getParentWebUser().getUsername().equals(username)) {
-              webUser = webUser.getParentWebUser();
-              appReq.setWebUser(webUser);
-              switched = true;
-            } else if (!webUser.getUsername().equals(username)) {
-              List<WebUser> childWebUserList = appReq.getChildWebUserList();
-              if (childWebUserList != null) {
-                for (WebUser childWebUser : childWebUserList) {
-                  if (childWebUser.getUsername().equals(username)) {
-                    Project project = appReq.getProject();
-                    if (webUser.getParentWebUser() == null && project != null) {
-                      appReq.setParentProject(project);
-                    }
-                    appReq.setProject(null);
-                    appReq.setCompletingAction(null);
-                    webUser = childWebUser;
-                    appReq.setWebUser(webUser);
-                    switched = true;
-                    break;
-                  }
-                }
-              }
-            }
-            if (switched) {
-              ProjectProvider projectProvider = webUser.getProvider();
-              message = "Welcome " + webUser.getProjectContact().getName() + " to "
-                  + projectProvider.getProviderName();
-              appReq.setProjectIdList(null);
-              appReq.setProjectSelectedList(null);
-            }
           }
         }
 
@@ -183,43 +148,6 @@ public class HomeServlet extends ClientServlet {
 
         printActionsDue(webUser, out, dataSession, nextActionType, nextActionDate, showLink, true);
 
-        List<WebUser> childWebUserList = appReq.getChildWebUserList();
-        if (childWebUserList != null) {
-          out.println("<h2>Select Provider</h2>");
-          out.println("<table class=\"boxed\">");
-          out.println("  <tr class=\"boxed\">");
-          out.println("    <th class=\"title\" colspan=\"1\">Choose Provider</th>");
-          out.println("  </tr>");
-          if (webUser.getParentWebUser() != null) {
-            ProjectProvider projectProvider = webUser.getParentWebUser().getProvider();
-            out.println("  <tr class=\"boxed\">");
-            String switchLink = "HomeServlet?action=Switch&childWebUserName="
-                + webUser.getParentWebUser().getUsername();
-            String switchLabel = webUser.getParentWebUser().getUsername() + " on "
-                + projectProvider.getProviderName();
-            out.println("    <td class=\"boxed\"><a href=\"" + switchLink + "\" class=\"button\">"
-                + switchLabel + "</a></td>");
-            out.println("  </tr>");
-          } else {
-            ProjectProvider projectProvider = webUser.getProvider();
-            out.println("  <tr class=\"boxed\">");
-            String switchLink = "HomeServlet?action=Switch&childWebUserName=" + webUser.getUsername();
-            String switchLabel = webUser.getUsername() + " on " + projectProvider.getProviderName();
-            out.println("    <td class=\"boxed\"><a href=\"" + switchLink + "\" class=\"button\">"
-                + switchLabel + "</a></td>");
-            out.println("  </tr>");
-          }
-          for (WebUser childWebUser : childWebUserList) {
-            ProjectProvider projectProvider = childWebUser.getProvider();
-            out.println("  <tr class=\"boxed\">");
-            String switchLink = "HomeServlet?action=Switch&childWebUserName=" + childWebUser.getUsername();
-            String switchLabel = childWebUser.getUsername() + " on " + projectProvider.getProviderName();
-            out.println("    <td class=\"boxed\"><a href=\"" + switchLink + "\" class=\"button\">"
-                + switchLabel + "</a></td>");
-            out.println("  </tr>");
-          }
-        }
-        out.println("</table>");
         out.println("<p><a href=\"m/todo?filterSubmitted=Y&showPersonal=Y\">Switch to Mobile</a></p>");
         out.println("<h2>Logout</h2>");
         out.println(

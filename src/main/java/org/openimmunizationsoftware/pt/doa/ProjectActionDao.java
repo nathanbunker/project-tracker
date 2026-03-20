@@ -12,6 +12,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
+import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 /**
  * Data Access Object for ProjectActionNext and ProjectActionTaken.
@@ -129,7 +130,7 @@ public class ProjectActionDao {
         if (project == null || project.getBillCode() == null || project.getBillCode().equals("")) {
             return false;
         }
-        BillCode billCode = (BillCode) session.get(BillCode.class, project.getBillCode());
+        BillCode billCode = ClientServlet.resolveBillCode(session, project);
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 

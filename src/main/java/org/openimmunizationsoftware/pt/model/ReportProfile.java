@@ -21,7 +21,7 @@ public class ReportProfile implements java.io.Serializable {
   private Integer extendsProfileId;
   private String profileLabel;
   private ProjectProvider provider;
-  private String username;
+  private WebUser webUser;
   private String userId;
   private String profileType;
   private String useStatus;
@@ -85,11 +85,19 @@ public class ReportProfile implements java.io.Serializable {
   }
 
   public String getUsername() {
-    return this.username;
+    return webUser != null ? webUser.getUsername() : null;
   }
 
   public void setUsername(String username) {
-    this.username = username;
+    // no-op: use setWebUser() instead
+  }
+
+  public WebUser getWebUser() {
+    return webUser;
+  }
+
+  public void setWebUser(WebUser webUser) {
+    this.webUser = webUser;
   }
 
   public String getProfileType() {

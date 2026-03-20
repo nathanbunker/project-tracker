@@ -138,19 +138,6 @@ public class LoginServlet extends ClientServlet {
             TrackerKeysManager.KEY_TIME_ENTRY_FORMAT,
             webUser.getTimeEntryPattern(), webUser, dataSession));
 
-        query = dataSession.createQuery("from WebUser where parentWebUser = ? order by username");
-        query.setParameter(0, webUser);
-        @SuppressWarnings("unchecked")
-        List<WebUser> childWebUserList = query.list();
-        if (childWebUserList.size() > 0) {
-          for (WebUser childWebUser : childWebUserList) {
-            projectContact = (ProjectContact) dataSession.get(ProjectContact.class, childWebUser.getContactId());
-            childWebUser.setProjectContact(projectContact);
-          }
-          appReq.setChildWebUserList(childWebUserList);
-
-        }
-
         message = "Welcome " + projectContact.getNameFirst() + " " + projectContact.getNameLast();
 
         if (webUser.isTrackTime()) {

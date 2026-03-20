@@ -8,7 +8,8 @@ package org.openimmunizationsoftware.pt.model;
 public class BillCode implements java.io.Serializable {
 
   private static final long serialVersionUID = -6825144623396164007L;
-  private String billCode;
+
+  private BillCodeId id;
   private String billLabel;
   private String billable;
   private String visible;
@@ -19,6 +20,21 @@ public class BillCode implements java.io.Serializable {
   private int billRate;
   private int billRound;
 
+  public BillCodeId getId() {
+    return id;
+  }
+
+  public void setId(BillCodeId id) {
+    this.id = id;
+  }
+
+  public String getProviderId() {
+    return id == null ? null : id.getProviderId();
+  }
+
+  public void setProviderId(String providerId) {
+    getOrCreateId().setProviderId(providerId);
+  }
 
   public int getEstimateMin() {
     return estimateMin;
@@ -45,11 +61,11 @@ public class BillCode implements java.io.Serializable {
   }
 
   public String getBillCode() {
-    return this.billCode;
+    return id == null ? null : id.getBillCode();
   }
 
   public void setBillCode(String billCode) {
-    this.billCode = billCode;
+    getOrCreateId().setBillCode(billCode);
   }
 
   public String getBillLabel() {
@@ -98,6 +114,16 @@ public class BillCode implements java.io.Serializable {
 
   public void setProvider(ProjectProvider provider) {
     this.provider = provider;
+    if (provider != null) {
+      setProviderId(provider.getProviderId());
+    }
+  }
+
+  private BillCodeId getOrCreateId() {
+    if (id == null) {
+      id = new BillCodeId();
+    }
+    return id;
   }
 
 }

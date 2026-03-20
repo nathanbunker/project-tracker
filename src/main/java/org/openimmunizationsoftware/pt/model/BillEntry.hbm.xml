@@ -14,9 +14,7 @@
         <property name="categoryCode" type="string">
             <column name="category_code" length="5" not-null="true" />
         </property>
-        <property name="username" type="string">
-            <column name="username" length="30" not-null="true" />
-        </property>
+        <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
         <property name="startTime" type="timestamp">
             <column name="start_time" length="19" not-null="true" />
         </property>

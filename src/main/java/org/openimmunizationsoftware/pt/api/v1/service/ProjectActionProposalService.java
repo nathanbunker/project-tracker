@@ -18,7 +18,7 @@ public class ProjectActionProposalService {
         StringBuilder hql = new StringBuilder(
                 "from Project p where p.provider.providerId = :providerId");
         if (username != null && username.trim().length() > 0) {
-            hql.append(" and p.username = :username");
+            hql.append(" and p.webUser.username = :username");
         }
         hql.append(" order by p.priorityLevel desc, p.categoryCode, p.projectName");
         Query query = session.createQuery(hql.toString());

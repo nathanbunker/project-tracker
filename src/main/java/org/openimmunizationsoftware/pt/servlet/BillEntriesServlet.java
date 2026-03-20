@@ -58,7 +58,7 @@ public class BillEntriesServlet extends ClientServlet {
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
-      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+      if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
       }
@@ -89,8 +89,8 @@ public class BillEntriesServlet extends ClientServlet {
       t.add(Calendar.DAY_OF_MONTH, 1);
       Date tomorrow = t.getTime();
       query = dataSession.createQuery(
-          "from BillEntry where username = ? and startTime >= ? and startTime < ? order by startTime");
-      query.setParameter(0, webUser.getUsername());
+          "from BillEntry where webUser = ? and startTime >= ? and startTime < ? order by startTime");
+      query.setParameter(0, webUser);
       query.setParameter(1, today);
       query.setParameter(2, tomorrow);
       @SuppressWarnings("unchecked")
@@ -153,9 +153,9 @@ public class BillEntriesServlet extends ClientServlet {
       nextDay.add(Calendar.DAY_OF_YEAR, 1);
       Date end = nextDay.getTime();
       Query query = dataSession.createQuery(
-          "select 1 from BillEntry where username = :username and startTime >= :start and startTime < :end "
+          "select 1 from BillEntry where webUser = :webUser and startTime >= :start and startTime < :end "
               + "and billMins > 0");
-      query.setParameter("username", webUser.getUsername());
+      query.setParameter("webUser", webUser);
       query.setParameter("start", start);
       query.setParameter("end", end);
       query.setMaxResults(1);
@@ -464,7 +464,7 @@ public class BillEntriesServlet extends ClientServlet {
 
       BillCode billCode = null;
       if (billEntry.getBillCode() != null) {
-        billCode = (BillCode) dataSession.get(BillCode.class, billEntry.getBillCode());
+        billCode = resolveBillCode(dataSession, billEntry.getProvider(), billEntry.getBillCode());
       }
 
       out.println("  <tr class=\"boxed\">");

@@ -26,6 +26,7 @@ import org.openimmunizationsoftware.pt.SoftwareVersion;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.BillCodeId;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
@@ -210,13 +211,7 @@ public class ClientServlet extends HttpServlet {
     List<String[]> menuList = new ArrayList<String[]>();
 
     if (loggedIn) {
-      if (webUser.getParentWebUser() == null) {
-        menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
-      } else {
-        ProjectProvider projectProvider = webUser.getProvider();
-        menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME,
-            projectProvider.getProviderName() + " Home" });
-      }
+      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
       menuList.add(new String[] { "ProjectsServlet", "Projects" });
       menuList.add(new String[] { "ProjectActionServlet", "Actions" });
       menuList.add(new String[] { "ProjectNarrativeReviewServlet", "Review" });
@@ -226,11 +221,9 @@ public class ClientServlet extends HttpServlet {
         menuList.add(new String[] { "ReportsServlet", "Reports" });
       }
 
-      if (webUser.getParentWebUser() == null) {
-        if (timeTracker != null) {
-          menuList.add(new String[] { "BillEntriesServlet", "Time" });
-          menuList.add(new String[] { "TrackServlet", "Track" });
-        }
+      if (timeTracker != null) {
+        menuList.add(new String[] { "BillEntriesServlet", "Time" });
+        menuList.add(new String[] { "TrackServlet", "Track" });
       }
       menuList.add(new String[] { "trackerNarrative", "Narrative" });
       menuList.add(new String[] { "SettingsServlet", "Settings" });
@@ -265,59 +258,34 @@ public class ClientServlet extends HttpServlet {
     if (loggedIn) {
       Project project = appReq.getProject();
       ProjectActionNext completingAction = appReq.getCompletingAction();
-      if (appReq.isParentWebUser()) {
-        if (project != null) {
-          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
-              + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
-          if (timeTracker != null) {
-            String time = timeTracker.getTotalMinsBillableForDisplay();
-            // int mins = timeTracker.getTotalMinsForProject(project);
-            int minsForWeek = 0;
-            {
-              Session dataSession = appReq.getDataSession();
-              Date today = new Date();
-              TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
-              minsForWeek = calculateWeeklyRoundedMinutesLikeTrackServlet(dataSession, timeTrackerForWeek);
+      if (project != null) {
+        result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
+            + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
+        if (timeTracker != null) {
+          String time = timeTracker.getTotalMinsBillableForDisplay();
+          int minsForWeek = 0;
+          {
+            Session dataSession = appReq.getDataSession();
+            Date today = new Date();
+            TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
+            minsForWeek = calculateWeeklyRoundedMinutesLikeTrackServlet(dataSession, timeTrackerForWeek);
+          }
+          if (minsForWeek > 0) {
+            time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";
+          }
+          if (timeTracker.isRunningClock()) {
+            result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
+                + time + "</a>");
+          } else {
+            String link = "ProjectServlet?projectId=" + project.getProjectId() + "&action=StartTimer";
+            if (completingAction != null) {
+              link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
+                  + completingAction.getActionNextId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
+                  + ProjectActionServlet.ACTION_START_TIMER;
             }
-            if (minsForWeek > 0) {
-              time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";
-            }
-            if (timeTracker.isRunningClock()) {
-              result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
-                  + time + "</a>");
-            } else {
-              String link = "ProjectServlet?projectId=" + project.getProjectId()
-                  + "&action=StartTimer";
-              if (completingAction != null) {
-                link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
-                    + completingAction.getActionNextId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
-                    + ProjectActionServlet.ACTION_START_TIMER;
-              }
-              result.append("<a href=\"" + link + "\" class=\"timerStopped\">" + time + "</a>");
-            }
+            result.append("<a href=\"" + link + "\" class=\"timerStopped\">" + time + "</a>");
           }
         }
-      } else {
-        Project parentProject = appReq.getParentProject();
-        if (parentProject != null && project != null) {
-          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
-              + "\" class=\"menuLink\">" + project.getProjectName() + " - "
-              + parentProject.getProjectName() + "</a>");
-          if (timeTracker != null && parentProject != null && timeTracker.isRunningClock()) {
-            String time = timeTracker.getTotalMinsBillableForDisplay();
-            // Integer mins =
-            // timeTracker.getTotalMinsForProjectMap().get(parentProject.getProjectId());
-            // if (mins != null) {
-            // time += " <font size=\"-1\">" + TimeTracker.formatTime(mins) + "</font>";
-            // }
-            result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">" + time
-                + "</a>");
-          }
-        } else if (project != null) {
-          result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
-              + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
-        }
-
       }
     } else {
       result.append("&nbsp;");
@@ -329,6 +297,22 @@ public class ClientServlet extends HttpServlet {
   public static void printFooter(PrintWriter out) {
     out.println("    <p>Open Immunization Software - Project Tracker - Version "
         + SoftwareVersion.VERSION + "</p>");
+  }
+
+  public static BillCode resolveBillCode(Session dataSession, ProjectProvider provider,
+      String billCodeString) {
+    if (provider == null || billCodeString == null || billCodeString.equals("")) {
+      return null;
+    }
+    BillCodeId billCodeId = new BillCodeId(provider.getProviderId(), billCodeString);
+    return (BillCode) dataSession.get(BillCode.class, billCodeId);
+  }
+
+  public static BillCode resolveBillCode(Session dataSession, Project project) {
+    if (project == null) {
+      return null;
+    }
+    return resolveBillCode(dataSession, project.getProvider(), project.getBillCode());
   }
 
   private static int calculateWeeklyRoundedMinutesLikeTrackServlet(Session dataSession,
@@ -344,7 +328,7 @@ public class ClientServlet extends HttpServlet {
       if (billCodeString == null) {
         continue;
       }
-      BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+      BillCode billCode = resolveBillCode(dataSession, project);
       if (billCode == null || !"Y".equals(billCode.getBillable())) {
         continue;
       }

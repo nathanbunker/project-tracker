@@ -57,7 +57,7 @@ public class TemplateScheduleServlet extends ClientServlet {
     if (project == null || project.getBillCode() == null || project.getBillCode().equals("")) {
       return false;
     }
-    BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
+    BillCode billCode = resolveBillCode(dataSession, project);
     return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
   }
 

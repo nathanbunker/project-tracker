@@ -42,13 +42,23 @@ public class WebUser implements java.io.Serializable {
 
   public static final String AMERICA_DENVER = "America/Denver";
 
+  private int webUserId;
+
   private String username;
   private int contactId;
   private String password;
   private ProjectProvider provider = null;
   private boolean trackTime = false;
   private String userType;
-  private WebUser parentWebUser = null;
+
+  public int getWebUserId() {
+    return webUserId;
+  }
+
+  public void setWebUserId(int webUserId) {
+    this.webUserId = webUserId;
+  }
+
   private TimeZone timeZone = TimeZone.getTimeZone(WebUser.AMERICA_DENVER);
   private String dateDisplayPattern = DateFormatService.PATTERN_DATE_SHORT;
   private String dateEntryPattern = DateFormatService.PATTERN_DATE_SHORT;
@@ -259,14 +269,6 @@ public class WebUser implements java.io.Serializable {
       return dateDisplayPattern + " HH:mm:ss";
     }
     return dateDisplayPattern + " hh:mm:ss aaa";
-  }
-
-  public WebUser getParentWebUser() {
-    return parentWebUser;
-  }
-
-  public void setParentWebUser(WebUser parentWebUser) {
-    this.parentWebUser = parentWebUser;
   }
 
   public boolean isUserTypeAdmin() {

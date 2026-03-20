@@ -6,7 +6,6 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URLEncoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -92,31 +91,20 @@ public class TrackServlet extends ClientServlet {
             Query cleanupQuery;
             if (lockedBillEntryId != null) {
               cleanupQuery = dataSession.createQuery(
-                  "delete from BillEntry where username = :username and billMins = 0 and billId <> :billId");
+                  "delete from BillEntry where webUser = :webUser and billMins = 0 and billId <> :billId");
               cleanupQuery.setParameter("billId", lockedBillEntryId);
             } else {
               cleanupQuery = dataSession
-                  .createQuery("delete from BillEntry where username = :username and billMins = 0");
+                  .createQuery("delete from BillEntry where webUser = :webUser and billMins = 0");
             }
-            cleanupQuery.setParameter("username", webUser.getUsername());
+            cleanupQuery.setParameter("webUser", webUser);
             cleanupQuery.executeUpdate();
           } finally {
             trans.commit();
           }
-          if (webUser.getParentWebUser() != null) {
-            response.sendRedirect(
-                "HomeServlet?action=Switch&childWebUserName="
-                    + URLEncoder.encode(webUser.getParentWebUser().getUsername(), "UTF-8"));
-            return;
-          }
           response.sendRedirect("BillEntriesServlet?billDate=" + sdf.format(new Date()));
           return;
         }
-      }
-
-      if (webUser.getParentWebUser() != null) {
-        response.sendRedirect("HomeServlet");
-        return;
       }
 
       String type = request.getParameter("type");
@@ -629,7 +617,7 @@ public class TrackServlet extends ClientServlet {
     if (project == null || project.getBillCode() == null) {
       return false;
     }
-    BillCode billCode = (BillCode) dataSession.get(BillCode.class, project.getBillCode());
+    BillCode billCode = resolveBillCode(dataSession, project);
     return billCode != null && "Y".equals(billCode.getBillable());
   }
 
@@ -655,13 +643,14 @@ public class TrackServlet extends ClientServlet {
   }
 
   public static void updateBillDay(Session dataSession, WebUser webUser, Date day) {
-    updateBillDay(dataSession, new TimeTracker(webUser, day, dataSession), day);
+    updateBillDay(dataSession, webUser, new TimeTracker(webUser, day, dataSession), day);
   }
 
-  private static void updateBillDay(Session dataSession, TimeTracker timeTracker, Date billDate) {
+  private static void updateBillDay(Session dataSession, WebUser webUser, TimeTracker timeTracker,
+      Date billDate) {
     Map<String, Integer> billCodeMap = timeTracker.getTotalMinsForBillCodeMap();
     for (String billCodeString : billCodeMap.keySet()) {
-      BillCode billCode = (BillCode) dataSession.get(BillCode.class, billCodeString);
+      BillCode billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
       int billMins = TimeTracker.roundTime(billCodeMap.get(billCodeString), billCode);
       Query query = dataSession.createQuery("from BillDay where billCode = ? and billDate = ?");
       query.setParameter(0, billCode);

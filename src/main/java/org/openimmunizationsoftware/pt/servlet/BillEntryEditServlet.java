@@ -52,7 +52,7 @@ public class BillEntryEditServlet extends ClientServlet {
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
-      if (appReq.isLoggedOut() || appReq.isDependentWebUser()) {
+      if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
       }
@@ -327,8 +327,8 @@ public class BillEntryEditServlet extends ClientServlet {
     calendar.add(Calendar.DAY_OF_MONTH, 1);
     Date nextDay = calendar.getTime();
     Query query = dataSession.createQuery(
-        "from BillEntry where username = ? and startTime >= ? and startTime < ? order by startTime");
-    query.setParameter(0, webUser.getUsername());
+        "from BillEntry where webUser = ? and startTime >= ? and startTime < ? order by startTime");
+    query.setParameter(0, webUser);
     query.setParameter(1, dayStart);
     query.setParameter(2, nextDay);
     @SuppressWarnings("unchecked")

@@ -20,7 +20,7 @@ public class Project implements java.io.Serializable {
   private String billCode;
   private String projectIcon;
   private ProjectProvider provider;
-  private String username;
+  private WebUser webUser;
   private ProjectCategory projectCategory = null;
   private ProjectPhase projectPhase = null;
   private int priorityLevel = 0;
@@ -143,11 +143,19 @@ public class Project implements java.io.Serializable {
   }
 
   public String getUsername() {
-    return this.username;
+    return webUser != null ? webUser.getUsername() : null;
   }
 
   public void setUsername(String username) {
-    this.username = username;
+    // no-op: use setWebUser() instead
+  }
+
+  public WebUser getWebUser() {
+    return webUser;
+  }
+
+  public void setWebUser(WebUser webUser) {
+    this.webUser = webUser;
   }
 
   public ProjectProvider getProvider() {
