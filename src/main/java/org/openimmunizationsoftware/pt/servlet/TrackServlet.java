@@ -116,7 +116,11 @@ public class TrackServlet extends ClientServlet {
 
       int supervisedContactId = 0;
       if (request.getParameter("supervisedContactId") != null) {
-        supervisedContactId = Integer.parseInt(request.getParameter("supervisedContactId"));
+        try {
+          supervisedContactId = Integer.parseInt(request.getParameter("supervisedContactId"));
+        } catch (NumberFormatException nfe) {
+          supervisedContactId = 0;
+        }
       }
 
       WebUser webUserSelected = getWebUserSelected(webUser, dataSession, supervisedContactId);
@@ -165,6 +169,20 @@ public class TrackServlet extends ClientServlet {
 
     } catch (Exception e) {
       e.printStackTrace();
+      try {
+        if (!response.isCommitted()) {
+          appReq.setTitle("Track");
+          printHtmlHead(appReq);
+          PrintWriter out = appReq.getOut();
+          printDandelionLocation(out, "Time Management & Reporting / Track");
+          out.println("<div class=\"main\">");
+          out.println("<p class=\"fail\">Unable to load Track page: " + n(e.getMessage()) + "</p>");
+          out.println("</div>");
+          printHtmlFoot(appReq);
+        }
+      } catch (Exception renderException) {
+        renderException.printStackTrace();
+      }
     } finally {
       appReq.close();
     }
@@ -653,9 +671,10 @@ public class TrackServlet extends ClientServlet {
     for (String billCodeString : billCodeMap.keySet()) {
       BillCode billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
       int billMins = TimeTracker.roundTime(billCodeMap.get(billCodeString), billCode);
-      Query query = dataSession.createQuery("from BillDay where billCode = ? and billDate = ?");
-      query.setParameter(0, billCode);
-      query.setParameter(1, billDate);
+      Query query = dataSession
+          .createQuery("from BillDay where billCode = :billCode and billDate = :billDate");
+      query.setParameter("billCode", billCode);
+      query.setParameter("billDate", billDate);
       @SuppressWarnings("unchecked")
       List<BillDay> billDayList = query.list();
       BillDay billDay;
@@ -668,10 +687,9 @@ public class TrackServlet extends ClientServlet {
       }
       billDay.setBillMins(billMins);
       query = dataSession.createQuery(
-          "from BillBudget where billCode = ? and start_date <= ? and end_date > ?");
-      query.setParameter(0, billCode);
-      query.setParameter(1, billDate);
-      query.setParameter(2, billDate);
+          "from BillBudget where billCode = :billCode and start_date <= :billDate and end_date > :billDate");
+      query.setParameter("billCode", billCode);
+      query.setParameter("billDate", billDate);
       @SuppressWarnings("unchecked")
       List<BillBudget> billBudgetList = query.list();
       if (billBudgetList.size() > 0) {

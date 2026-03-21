@@ -51,11 +51,12 @@ public class BillCodesServlet extends ClientServlet {
 
       Query query;
 
-      appReq.setTitle("Track");
+      appReq.setTitle("Bill Codes");
       printHtmlHead(appReq);
+      printDandelionLocation(out, "Additional / Bill Codes");
 
       query = dataSession.createQuery(
-          "from BillCode where provider = :provider and visible = 'Y' order by billCode");
+          "from BillCode where provider = :provider and visible = 'Y' order by id.billCode");
       query.setParameter("provider", webUser.getProvider());
       @SuppressWarnings("unchecked")
       List<BillCode> billCodeList = query.list();
@@ -97,6 +98,21 @@ public class BillCodesServlet extends ClientServlet {
 
     } catch (Exception e) {
       e.printStackTrace();
+      try {
+        if (!response.isCommitted()) {
+          appReq.setTitle("Bill Codes");
+          printHtmlHead(appReq);
+          PrintWriter out = appReq.getOut();
+          printDandelionLocation(out, "Additional / Bill Codes");
+          out.println("<p class=\"fail\">Unable to load Bill Codes: " + n(e.getMessage()) + "</p>");
+          printHtmlFoot(appReq);
+        } else {
+          appReq.getOut().println("<p class=\"fail\">Error: " + n(e.getMessage()) + "</p>");
+          printHtmlFoot(appReq);
+        }
+      } catch (Exception re) {
+        re.printStackTrace();
+      }
     } finally {
       appReq.close();
     }
