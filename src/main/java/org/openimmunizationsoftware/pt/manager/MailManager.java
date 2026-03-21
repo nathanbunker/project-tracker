@@ -26,7 +26,7 @@ public class MailManager {
     smtpsPassword = TrackerKeysManager
         .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD, dataSession);
     smtpsPort = parsePort(TrackerKeysManager
-      .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, "0", dataSession));
+        .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, "0", dataSession));
     smtpsUsername = TrackerKeysManager
         .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME, dataSession);
     useSmtps = TrackerKeysManager
@@ -37,7 +37,7 @@ public class MailManager {
     emailEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(
         TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, false, dataSession);
     emailDebug = TrackerKeysManager.getApplicationKeyValueBoolean(
-      TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG, false, dataSession);
+        TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG, false, dataSession);
   }
 
   public void sendEmail(String subject, String body, String to) throws Exception {

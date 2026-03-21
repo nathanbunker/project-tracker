@@ -152,9 +152,9 @@ public class SettingsServlet extends ClientServlet {
               request.getParameter(PARAM_EXTERNAL_URL), dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
               request.getParameter(PARAM_SMTP_ADDRESS), dataSession);
-            TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE,
+          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE,
               request.getParameter(PARAM_EMAIL_ENABLE) != null ? "Y" : "N", dataSession);
-            TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG,
+          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG,
               request.getParameter(PARAM_EMAIL_DEBUG) != null ? "Y" : "N", dataSession);
           TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS,
               request.getParameter(PARAM_USE_SMTPS) != null ? "Y" : "N", dataSession);
@@ -554,28 +554,28 @@ public class SettingsServlet extends ClientServlet {
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
-          out.println("  <tr class=\"boxed\">");
-          out.println("    <th class=\"boxed\">Email enabled</th>");
-          out.println("    <td class=\"boxed\">");
-          out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_ENABLE
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">Email enabled</th>");
+        out.println("    <td class=\"boxed\">");
+        out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_ENABLE
             + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
-              TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, dataSession)).equals("Y")
-                ? " checked"
-                : "")
+                TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, dataSession)).equals("Y")
+                    ? " checked"
+                    : "")
             + ">");
-          out.println("    </td>");
-          out.println("  </tr>");
-          out.println("  <tr class=\"boxed\">");
-          out.println("    <th class=\"boxed\">Email debug logging</th>");
-          out.println("    <td class=\"boxed\">");
-          out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_DEBUG
+        out.println("    </td>");
+        out.println("  </tr>");
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">Email debug logging</th>");
+        out.println("    <td class=\"boxed\">");
+        out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_DEBUG
             + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
-              TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG, dataSession)).equals("Y")
-                ? " checked"
-                : "")
+                TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG, dataSession)).equals("Y")
+                    ? " checked"
+                    : "")
             + ">");
-          out.println("    </td>");
-          out.println("  </tr>");
+        out.println("    </td>");
+        out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email server use SMTPS</th>");
         out.println("    <td class=\"boxed\">");
@@ -626,18 +626,19 @@ public class SettingsServlet extends ClientServlet {
             + "\">");
         out.println("    </td>");
         out.println("  </tr>");
-          out.println("  <tr class=\"boxed\">");
-          out.println("    <th class=\"boxed\">Gmail setup hint</th>");
-          out.println("    <td class=\"boxed\">Use smtp.gmail.com, App Password as email server password, and port 587 with SMTPS unchecked (or port 465 with SMTPS checked).</td>");
-          out.println("  </tr>");
-          out.println("  <tr class=\"boxed\">");
-          out.println("    <th class=\"boxed\">Send test email now</th>");
-          out.println("    <td class=\"boxed\">");
-          out.println("      <input type=\"checkbox\" name=\"" + PARAM_SEND_TEST_EMAIL + "\" value=\"Y\"> ");
-          out.println("      To: <input type=\"text\" name=\"" + PARAM_TEST_EMAIL_TO + "\" size=\"40\" value=\"\"> ");
-          out.println("      <span class=\"small\">(optional: defaults to reply address, then SMTP username)</span>");
-          out.println("    </td>");
-          out.println("  </tr>");
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">Gmail setup hint</th>");
+        out.println(
+            "    <td class=\"boxed\">Use smtp.gmail.com, App Password as email server password, and port 587 with SMTPS unchecked (or port 465 with SMTPS checked).</td>");
+        out.println("  </tr>");
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">Send test email now</th>");
+        out.println("    <td class=\"boxed\">");
+        out.println("      <input type=\"checkbox\" name=\"" + PARAM_SEND_TEST_EMAIL + "\" value=\"Y\"> ");
+        out.println("      To: <input type=\"text\" name=\"" + PARAM_TEST_EMAIL_TO + "\" size=\"40\" value=\"\"> ");
+        out.println("      <span class=\"small\">(optional: defaults to reply address, then SMTP username)</span>");
+        out.println("    </td>");
+        out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Daily Report Run Time</th>");
         out.println("    <td class=\"boxed\">");
