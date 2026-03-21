@@ -62,7 +62,9 @@ ALTER TABLE project
 
   -- Add account lifecycle/auth fields needed for email-first onboarding.
   ALTER TABLE web_user
-    ADD COLUMN email_address VARCHAR(254) NULL AFTER username,
+    ADD COLUMN first_name VARCHAR(60) NULL AFTER username,
+    ADD COLUMN last_name VARCHAR(60) NULL AFTER first_name,
+    ADD COLUMN email_address VARCHAR(254) NULL AFTER last_name,
     ADD COLUMN email_verified VARCHAR(1) NOT NULL DEFAULT 'N' AFTER email_address,
     ADD COLUMN registration_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' AFTER user_type,
     ADD COLUMN created_date DATETIME NULL AFTER registration_status,
@@ -76,7 +78,9 @@ ALTER TABLE project
 
   UPDATE web_user wu
     JOIN project_contact pc ON pc.contact_id = wu.contact_id
-    SET wu.email_address = pc.email_address,
+    SET wu.first_name = pc.name_first,
+      wu.last_name = pc.name_last,
+      wu.email_address = pc.email_address,
       wu.email_verified = CASE WHEN pc.email_confirmed = 'Y' THEN 'Y' ELSE 'N' END,
       wu.verified_date = CASE WHEN pc.email_confirmed = 'Y' THEN NOW() ELSE NULL END
     WHERE wu.email_address IS NULL;
@@ -87,6 +91,10 @@ ALTER TABLE project
 
   ALTER TABLE web_user
     MODIFY COLUMN created_date DATETIME NOT NULL;
+
+  -- Allow newly registered users to have no provider assigned yet.
+  ALTER TABLE web_user
+    MODIFY COLUMN provider_id VARCHAR(30) NULL DEFAULT NULL;
 
   -- bill_entry
   ALTER TABLE bill_entry
@@ -160,3 +168,163 @@ ALTER TABLE project
   ALTER TABLE web_api_client
     MODIFY COLUMN web_user_id INT NOT NULL,
     ADD INDEX idx_web_api_client_web_user_id (web_user_id);
+
+-- Temporary cleanup: keep only provider 12 and the nbunker_aira web user.
+-- WARNING: This permanently deletes historical data outside that scope.
+SET @keep_provider_id = '12';
+SET @keep_username = 'nbunker_aira';
+SET @keep_web_user_id = (
+  SELECT wu.web_user_id
+  FROM web_user wu
+  WHERE wu.username = @keep_username
+    AND wu.provider_id = @keep_provider_id
+  LIMIT 1
+);
+
+-- Safety check (review result before running destructive statements).
+SELECT @keep_provider_id AS keep_provider_id, @keep_username AS keep_username,
+  @keep_web_user_id AS keep_web_user_id;
+
+-- Re-point retained provider data to the kept web user where applicable.
+UPDATE project
+SET web_user_id = @keep_web_user_id
+WHERE provider_id = @keep_provider_id
+  AND web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+UPDATE bill_entry
+SET web_user_id = @keep_web_user_id
+WHERE provider_id = @keep_provider_id
+  AND web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+UPDATE project_area
+SET web_user_id = @keep_web_user_id
+WHERE web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+UPDATE report_profile
+SET web_user_id = @keep_web_user_id
+WHERE (provider_id = @keep_provider_id OR provider_id IS NULL)
+  AND web_user_id IS NOT NULL
+  AND web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+UPDATE web_api_client
+SET web_user_id = @keep_web_user_id
+WHERE provider_id = @keep_provider_id
+  AND web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+-- Remove provider-scoped data outside provider 12.
+DELETE FROM bill_budget WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+DELETE FROM bill_day WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+DELETE FROM bill_month WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+DELETE FROM bill_code WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+DELETE FROM bill_entry WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+
+DELETE pcl
+FROM project_action_change_log pcl
+JOIN project p ON p.project_id = pcl.project_id
+WHERE p.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE pap
+FROM project_action_proposal pap
+JOIN project p ON p.project_id = pap.project_id
+WHERE p.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM project_action WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+DELETE FROM project_action_next WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+DELETE FROM project_action_taken WHERE provider_id <> @keep_provider_id AND @keep_web_user_id IS NOT NULL;
+
+DELETE pb
+FROM project_bookmark pb
+JOIN project p ON p.project_id = pb.project_id
+WHERE p.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE paa
+FROM project_area_assigned paa
+JOIN project p ON p.project_id = paa.project_id
+WHERE p.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE pca
+FROM project_contact_assigned pca
+JOIN project p ON p.project_id = pca.project_id
+WHERE p.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM report_profile
+WHERE provider_id IS NOT NULL
+  AND provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM web_api_client
+WHERE provider_id IS NOT NULL
+  AND provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM project
+WHERE provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM project_category
+WHERE provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE ce
+FROM contact_event ce
+JOIN project_contact pc ON pc.contact_id = ce.contact_id
+WHERE pc.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE pcp
+FROM project_contact_position pcp
+JOIN project_contact pc ON pc.contact_id = pcp.contact_id
+WHERE pc.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE pcs
+FROM project_contact_supervisor pcs
+JOIN project_contact pc ON pc.contact_id = pcs.contact_id
+WHERE pc.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE pcs
+FROM project_contact_supervisor pcs
+JOIN project_contact pc ON pc.contact_id = pcs.supervisor_id
+WHERE pc.provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM project_contact
+WHERE provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM project_provider
+WHERE provider_id <> @keep_provider_id
+  AND @keep_web_user_id IS NOT NULL;
+
+-- Remove user-scoped rows for all users except nbunker_aira.
+DELETE FROM bill_expected
+WHERE web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM project_area
+WHERE web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM tracker_keys
+WHERE key_type = 2
+  AND key_id <> @keep_username
+  AND @keep_web_user_id IS NOT NULL;
+
+DELETE FROM web_user
+WHERE web_user_id <> @keep_web_user_id
+  AND @keep_web_user_id IS NOT NULL;
+
+
+ update web_user set email_address = "Nathan.Bunker@gmail.com";
+ update project_provider set provider_name = 'Nathan Bunker';

@@ -44,6 +44,9 @@ public class LoginServlet extends ClientServlet {
   private static final String PARAM_MAGIC_TOKEN = "magicToken";
 
   private static final int MAGIC_LINK_MINUTES_VALID = 20;
+  // Temporary testing mode: show generated magic link on page instead of sending
+  // email.
+  private static final boolean TEMP_SHOW_MAGIC_LINK_ON_PAGE = true;
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -97,6 +100,7 @@ public class LoginServlet extends ClientServlet {
           uiMode = "desktop";
         }
         try {
+          appReq.setTitle("Login");
           printHtmlHead(appReq);
           printLoginForm(out, username, password, magicEmail, uiMode);
           printHtmlFoot(appReq);
@@ -106,6 +110,21 @@ public class LoginServlet extends ClientServlet {
           appReq.close();
         }
       } else {
+        WebUser webUser = appReq.getWebUser();
+        if (webUser != null && !hasProvider(webUser)) {
+          if (!webUser.isEmailVerified()) {
+            Date now = new Date();
+            webUser.setEmailVerified(true);
+            if (webUser.getVerifiedDate() == null) {
+              webUser.setVerifiedDate(now);
+            }
+            Transaction verifyTrans = dataSession.beginTransaction();
+            dataSession.update(webUser);
+            verifyTrans.commit();
+          }
+          response.sendRedirect("RegistrationServlet?status=setup");
+          return;
+        }
         String uiMode = request.getParameter("uiMode");
         String target = "HomeServlet";
         if (uiMode != null && uiMode.equals("mobile")) {
@@ -135,7 +154,7 @@ public class LoginServlet extends ClientServlet {
       List<WebUser> webUserList = query.list();
 
       if (webUserList.size() > 0) {
-        WebUser webUser = webUserList.get(0);
+        WebUser webUser = hydrateWebUserForSession(dataSession, webUserList.get(0).getWebUserId());
         webUser.setLastLoginDate(new Date());
         Transaction trans = dataSession.beginTransaction();
         dataSession.update(webUser);
@@ -173,7 +192,7 @@ public class LoginServlet extends ClientServlet {
       return false;
     }
 
-    WebUser webUser = (WebUser) dataSession.get(WebUser.class, webUserId);
+    WebUser webUser = hydrateWebUserForSession(dataSession, webUserId);
     if (webUser == null || webUser.getMagicLinkTokenHash() == null || webUser.getMagicLinkExpiry() == null) {
       appReq.setMessageProblem("Magic link is invalid or expired");
       return false;
@@ -189,6 +208,10 @@ public class LoginServlet extends ClientServlet {
     webUser.setMagicLinkTokenHash(null);
     webUser.setMagicLinkExpiry(null);
     webUser.setLastLoginDate(now);
+    webUser.setEmailVerified(true);
+    if (webUser.getVerifiedDate() == null) {
+      webUser.setVerifiedDate(now);
+    }
 
     Transaction trans = dataSession.beginTransaction();
     dataSession.update(webUser);
@@ -210,13 +233,20 @@ public class LoginServlet extends ClientServlet {
       return;
     }
 
-    Query query = dataSession.createQuery("from WebUser where lower(emailAddress) = ?");
+    Query query = dataSession.createQuery(
+        "from WebUser where lower(emailAddress) = ? and registrationStatus = ? order by webUserId desc");
     query.setParameter(0, emailAddress.toLowerCase());
+    query.setParameter(1, "ACTIVE");
     @SuppressWarnings("unchecked")
     List<WebUser> webUserList = query.list();
 
     if (webUserList.size() > 0) {
-      WebUser webUser = webUserList.get(0);
+      WebUser webUser = selectMagicLinkCandidate(webUserList);
+      if (webUser == null) {
+        appReq.setMessageConfirmation("If that email is registered, a sign-in link has been sent.");
+        return;
+      }
+      webUser = hydrateWebUserForSession(dataSession, webUser.getWebUserId());
       String rawToken = UUID.randomUUID().toString().replace("-", "")
           + UUID.randomUUID().toString().replace("-", "");
       String tokenHash = hashToken(rawToken);
@@ -229,19 +259,50 @@ public class LoginServlet extends ClientServlet {
       trans.commit();
 
       String magicLink = buildMagicLinkUrl(request, dataSession, webUser.getWebUserId(), rawToken);
-      String body = "<p>A sign-in link was requested for your Project Tracker account.</p>"
-          + "<p><a href=\"" + magicLink + "\">Sign in to Project Tracker</a></p>"
-          + "<p>This link expires in " + MAGIC_LINK_MINUTES_VALID + " minutes.</p>";
-      try {
-        MailManager mailManager = new MailManager(dataSession);
-        mailManager.sendEmail("Project Tracker Sign-In Link", body, webUser.getEmailAddress());
-      } catch (Exception e) {
-        appReq.setMessageProblem("Unable to send magic link email: " + e.getMessage());
+      if (TEMP_SHOW_MAGIC_LINK_ON_PAGE) {
+        appReq.setMessageConfirmation("Temporary test mode: "
+            + "<a href=\"" + magicLink + "\">Open magic sign-in link</a>"
+            + " (valid for " + MAGIC_LINK_MINUTES_VALID + " minutes)");
         return;
+      } else {
+        String body = "<p>A sign-in link was requested for your Project Tracker account.</p>"
+            + "<p><a href=\"" + magicLink + "\">Sign in to Project Tracker</a></p>"
+            + "<p>This link expires in " + MAGIC_LINK_MINUTES_VALID + " minutes.</p>";
+        try {
+          MailManager mailManager = new MailManager(dataSession);
+          mailManager.sendEmail("Project Tracker Sign-In Link", body, webUser.getEmailAddress());
+        } catch (Exception e) {
+          appReq.setMessageProblem("Unable to send magic link email: " + e.getMessage());
+          return;
+        }
       }
     }
 
     appReq.setMessageConfirmation("If that email is registered, a sign-in link has been sent.");
+  }
+
+  private WebUser selectMagicLinkCandidate(List<WebUser> webUserList) {
+    WebUser preferred = null;
+    for (WebUser candidate : webUserList) {
+      if (candidate.getUsername() != null && !candidate.getUsername().trim().equals("")) {
+        preferred = candidate;
+        break;
+      }
+    }
+    if (preferred != null) {
+      return preferred;
+    }
+    return webUserList.size() > 0 ? webUserList.get(0) : null;
+  }
+
+  private WebUser hydrateWebUserForSession(Session dataSession, int webUserId) {
+    WebUser webUser = (WebUser) dataSession.get(WebUser.class, webUserId);
+    if (webUser != null && webUser.getProvider() != null) {
+      // Force provider id to initialize the association before storing user in
+      // session.
+      webUser.getProvider().getProviderId();
+    }
+    return webUser;
   }
 
   private String initializeUserSession(AppReq appReq, Session dataSession, WebUser webUser) {
@@ -390,6 +451,12 @@ public class LoginServlet extends ClientServlet {
         .replace(">", "&gt;")
         .replace("\"", "&quot;")
         .replace("'", "&#39;");
+  }
+
+  private boolean hasProvider(WebUser webUser) {
+    return webUser.getProvider() != null
+        && webUser.getProvider().getProviderId() != null
+        && !webUser.getProvider().getProviderId().trim().equals("");
   }
 
   // <editor-fold defaultstate="collapsed"

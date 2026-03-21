@@ -11,6 +11,12 @@
         <property name="username" type="string">
             <column name="username" length="30" not-null="true" />
         </property>
+        <property name="firstName" type="string">
+            <column name="first_name" length="60" />
+        </property>
+        <property name="lastName" type="string">
+            <column name="last_name" length="60" />
+        </property>
         <property name="emailAddress" type="string">
             <column name="email_address" length="254" />
         </property>

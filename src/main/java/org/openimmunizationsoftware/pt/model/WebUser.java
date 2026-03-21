@@ -45,6 +45,8 @@ public class WebUser implements java.io.Serializable {
   private int webUserId;
 
   private String username;
+  private String firstName;
+  private String lastName;
   private String emailAddress;
   private boolean emailVerified = false;
   private int contactId;
@@ -315,6 +317,22 @@ public class WebUser implements java.io.Serializable {
 
   public void setUsername(String username) {
     this.username = username;
+  }
+
+  public String getFirstName() {
+    return firstName;
+  }
+
+  public void setFirstName(String firstName) {
+    this.firstName = firstName;
+  }
+
+  public String getLastName() {
+    return lastName;
+  }
+
+  public void setLastName(String lastName) {
+    this.lastName = lastName;
   }
 
   public String getEmailAddress() {

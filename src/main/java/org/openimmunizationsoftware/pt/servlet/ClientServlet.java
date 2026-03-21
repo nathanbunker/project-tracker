@@ -211,7 +211,11 @@ public class ClientServlet extends HttpServlet {
     List<String[]> menuList = new ArrayList<String[]>();
 
     if (loggedIn) {
-      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
+      if (webUser.getProvider() == null || webUser.getProvider().getProviderId() == null
+          || webUser.getProvider().getProviderId().trim().equals("")) {
+        menuList.add(new String[] { "RegistrationServlet", "Register" });
+      }
+      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Dandelion" });
       menuList.add(new String[] { "ProjectsServlet", "Projects" });
       menuList.add(new String[] { "ProjectActionServlet", "Actions" });
       menuList.add(new String[] { "ProjectNarrativeReviewServlet", "Review" });
@@ -229,8 +233,9 @@ public class ClientServlet extends HttpServlet {
       menuList.add(new String[] { "SettingsServlet", "Settings" });
       menuList.add(new String[] { "m/todo?filterSubmitted=Y&showPersonal=Y", "Mobile" });
     } else {
-      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Home" });
+      menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Dandelion" });
       menuList.add(new String[] { "LoginServlet", "Login" });
+      menuList.add(new String[] { "RegistrationServlet", "Register" });
     }
     StringBuilder result = new StringBuilder();
     result.append("    <table class=\"menu\"><tr><td>");

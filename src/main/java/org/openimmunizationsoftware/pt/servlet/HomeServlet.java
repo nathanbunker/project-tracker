@@ -57,9 +57,10 @@ public class HomeServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
 
       if (webUser == null) {
-        appReq.setTitle("Home");
+        appReq.setTitle("Dandelion");
         printHtmlHead(appReq);
         out.println("<h1>Project Tracker</h1>");
+        out.println("<p><a href=\"RegistrationServlet\">Register for a new account</a></p>");
         printHtmlFoot(appReq);
       } else {
         String date = request.getParameter("date");
@@ -143,7 +144,7 @@ public class HomeServlet extends ClientServlet {
         appReq.setMessageProblem(message);
         boolean showLink = true;
 
-        appReq.setTitle("Home");
+        appReq.setTitle("Dandelion");
         printHtmlHead(appReq);
 
         printActionsDue(webUser, out, dataSession, nextActionType, nextActionDate, showLink, true);
