@@ -1,4 +1,4 @@
-# Deployment Notes for Project Tracker
+# Deployment Notes for Dandelion
 
 ## Target Stack
 

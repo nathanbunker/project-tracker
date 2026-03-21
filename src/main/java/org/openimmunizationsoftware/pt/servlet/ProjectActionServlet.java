@@ -2008,7 +2008,7 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
     String nextPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
     nextPrompt += "Please review my current summary of what I accomplished and what I have accomplished in the past with this project and suggest a list "
-        + "of two or three next steps I should indicate in my project tracker. These statements should be short and should start with one of these phrases:  "
+        + "of two or three next steps I should indicate in Dandelion. These statements should be short and should start with one of these phrases:  "
         + "I will ..., I might ..., I have committed ..., I will meet ..., I will review ..., I will document ..., I will follow up ..., or I am waiting for ... \n\n";
     List<ProjectActionNext> projectActionsScheduledAndCompletedList = getProjectActionsScheduledAndCompletedList(
         appReq.getDataSession(), completingAction.getProject().getProjectId());

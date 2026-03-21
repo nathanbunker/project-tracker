@@ -17,7 +17,7 @@ public class SwaggerUiResource {
                 + "<head>\n"
                 + "  <meta charset=\"utf-8\"/>\n"
                 + "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
-                + "  <title>Project Tracker API</title>\n"
+                + "  <title>Dandelion API</title>\n"
                 + "  <link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css\"/>\n"
                 + "</head>\n"
                 + "<body>\n"

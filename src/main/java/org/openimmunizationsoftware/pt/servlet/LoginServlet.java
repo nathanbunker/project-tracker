@@ -265,12 +265,12 @@ public class LoginServlet extends ClientServlet {
             + " (valid for " + MAGIC_LINK_MINUTES_VALID + " minutes)");
         return;
       } else {
-        String body = "<p>A sign-in link was requested for your Project Tracker account.</p>"
-            + "<p><a href=\"" + magicLink + "\">Sign in to Project Tracker</a></p>"
+        String body = "<p>A sign-in link was requested for your Dandelion account.</p>"
+          + "<p><a href=\"" + magicLink + "\">Sign in to Dandelion</a></p>"
             + "<p>This link expires in " + MAGIC_LINK_MINUTES_VALID + " minutes.</p>";
         try {
           MailManager mailManager = new MailManager(dataSession);
-          mailManager.sendEmail("Project Tracker Sign-In Link", body, webUser.getEmailAddress());
+          mailManager.sendEmail("Dandelion Sign-In Link", body, webUser.getEmailAddress());
         } catch (Exception e) {
           appReq.setMessageProblem("Unable to send magic link email: " + e.getMessage());
           return;

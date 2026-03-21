@@ -1,6 +1,6 @@
-# Project Tracker
+# Dandelion
 
-A web-based project and time tracking application.
+A web-based project and time management application.
 
 ## Development Guidelines
 
@@ -78,7 +78,7 @@ Utility classes without WebUser access (e.g., MonthUtil) may continue using Cale
 mvn clean package
 ```
 
-Produces `target/tracker.war` for Tomcat deployment.
+Produces `target/dandelion.war` for Tomcat deployment.
 
 ### Database
 

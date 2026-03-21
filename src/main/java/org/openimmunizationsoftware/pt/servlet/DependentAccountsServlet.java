@@ -177,7 +177,7 @@ public class DependentAccountsServlet extends ClientServlet {
         // Send email to dependent user asking them to approve.
         String guardianName = webUser.getEmailAddress();
         String body = "<p>" + escapeHtml(guardianName) + " would like to add your account as a "
-                + "dependent account in Project Tracker.</p>"
+                + "dependent account in Dandelion.</p>"
                 + "<p><a href=\"" + inviteUrl + "\">Review and respond to this request</a></p>"
                 + "<p>This link expires in " + INVITE_HOURS_VALID + " hours. "
                 + "If you did not expect this invitation, you can ignore it.</p>";
@@ -185,7 +185,7 @@ public class DependentAccountsServlet extends ClientServlet {
         boolean sent = false;
         try {
             MailManager mail = new MailManager(dataSession);
-            mail.sendEmail("Project Tracker: Dependent Account Request", body,
+            mail.sendEmail("Dandelion: Dependent Account Request", body,
                     dependentUser.getEmailAddress());
             sent = true;
         } catch (Exception e) {

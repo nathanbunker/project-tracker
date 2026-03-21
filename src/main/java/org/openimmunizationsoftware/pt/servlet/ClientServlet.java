@@ -292,7 +292,7 @@ public class ClientServlet extends HttpServlet {
   }
 
   public static void printFooter(PrintWriter out) {
-    out.println("    <p>Open Immunization Software - Project Tracker - Version "
+    out.println("    <p>Open Immunization Software - Dandelion - Version "
         + SoftwareVersion.VERSION + "</p>");
   }
 

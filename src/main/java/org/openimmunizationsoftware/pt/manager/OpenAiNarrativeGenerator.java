@@ -21,7 +21,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
 
     private static final ChatModel MODEL = ChatModel.GPT_5_2;
 
-    private static final String SYSTEM_PROMPT = "You are generating an operational daily summary report for a personal project tracker.\n"
+    private static final String SYSTEM_PROMPT = "You are generating an operational daily summary report for a personal Dandelion workspace.\n"
             + "Output MUST be GitHub-flavored Markdown only.\n"
             + "Use only: headings, bold, italics, bullet lists, and short paragraphs. No tables unless the user data already implies a table. No code fences.\n\n"
             + "Goals:\n"

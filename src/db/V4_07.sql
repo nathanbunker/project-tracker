@@ -4,7 +4,7 @@ Table: tracker_narrative
 Purpose
 -------
 Stores generated markdown narratives (daily, weekly, monthly) for the
-Project Tracker system, including draft and final content plus lifecycle
+Dandelion system, including draft and final content plus lifecycle
 state and metadata.
 
 Design Intent

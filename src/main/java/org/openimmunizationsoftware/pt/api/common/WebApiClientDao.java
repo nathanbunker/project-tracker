@@ -9,8 +9,8 @@ public class WebApiClientDao {
 
     public WebApiClient findByApiKey(String apiKey) {
         Session session = HibernateRequestContext.getCurrentSession();
-        Query query = session.createQuery("from WebApiClient where apiKey = ?");
-        query.setString(0, apiKey);
+        Query query = session.createQuery("from WebApiClient where apiKey = :apiKey");
+        query.setString("apiKey", apiKey);
         return (WebApiClient) query.uniqueResult();
     }
 

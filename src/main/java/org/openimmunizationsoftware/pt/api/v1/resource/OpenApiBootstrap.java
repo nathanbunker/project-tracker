@@ -14,13 +14,13 @@ import javax.servlet.ServletContextListener;
 
 public class OpenApiBootstrap implements ServletContextListener {
 
-        public static final String OPENAPI_CONTEXT_ID = "project-tracker-api";
+        public static final String OPENAPI_CONTEXT_ID = "dandelion-api";
 
         @Override
         public void contextInitialized(ServletContextEvent sce) {
                 OpenAPI openApi = new OpenAPI()
                                 .info(new Info()
-                                                .title("Project Tracker API")
+                                                .title("Dandelion API")
                                                 .version("v1")
                                                 .description("API endpoints for project tracking and proposal workflows."))
                                 .components(new Components()
@@ -30,7 +30,7 @@ public class OpenApiBootstrap implements ServletContextListener {
                                                                                 .name("X-Api-Key")
                                                                                 .in(SecurityScheme.In.HEADER)))
                                 .addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"))
-                                .addServersItem(new Server().url("/tracker/api"));
+                                .addServersItem(new Server().url("/dandelion/api"));
 
                 SwaggerConfiguration config = new SwaggerConfiguration()
                                 .openAPI(openApi)

@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.immunizationsoftware.pt</groupId>
-  <artifactId>project-tracker</artifactId>
+  <artifactId>dandelion</artifactId>
   <packaging>war</packaging>
   <version>4.13.7</version>
   <!-- TODO project name -->
-  <name>Project Tracker</name>
+  <name>Dandelion</name>
   <description></description>
   <properties>
     <tomcat.webapps>C:/Program Files/Apache Software Foundation/Tomcat 9.0/webapps</tomcat.webapps>
@@ -170,7 +170,7 @@
 
   </dependencies>
   <build>
-    <finalName>tracker</finalName>
+    <finalName>dandelion</finalName>
     <resources>
       <resource>
         <filtering>true</filtering>

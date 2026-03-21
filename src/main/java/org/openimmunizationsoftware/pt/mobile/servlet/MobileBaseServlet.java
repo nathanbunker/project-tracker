@@ -77,7 +77,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
 
     protected void printHtmlFoot(AppReq appReq) {
         PrintWriter out = appReq.getOut();
-        out.println("      <p>Open Immunization Software - Project Tracker</p>");
+        out.println("      <p>Open Immunization Software - Dandelion</p>");
         out.println("      <p><a href=\"../HomeServlet\" class=\"box\">Desktop Mode</a></p>");
         out.println("    </div>");
         out.println("  </body>");

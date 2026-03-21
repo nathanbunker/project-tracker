@@ -3,10 +3,10 @@
 <hibernate-configuration>
   <session-factory>
     <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
-    <property name="hibernate.connection.url">jdbc:mysql://localhost/tracker?zeroDateTimeBehavior=convertToNull&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;characterSetResults=utf8mb4&amp;connectionCollation=utf8mb4_0900_ai_ci</property>
-    <property name="hibernate.connection.username">tracker_web</property>
+    <property name="hibernate.connection.url">jdbc:mysql://localhost/dandelion?zeroDateTimeBehavior=convertToNull&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;characterSetResults=utf8mb4&amp;connectionCollation=utf8mb4_0900_ai_ci</property>
+    <property name="hibernate.connection.username">dandelion</property>
     <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
-    <property name="connection.password">SharkBaitHooHaHa</property>
+    <property name="connection.password">fgc5RQD!yvf3uhc7kcn</property>
     <property name="hibernate.c3p0.acquire_increment">1</property>
     <property name="hibernate.c3p0.idle_test_period">100</property><!--  seconds -->
     <property name="hibernate.c3p0.timeout">100</property><!--  seconds -->
@@ -46,5 +46,6 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/WebApiClient.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/WebUser.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/WeUserDependency.hbm.xml"/>
+    
   </session-factory>
 </hibernate-configuration>

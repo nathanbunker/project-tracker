@@ -124,10 +124,10 @@ public class AdminSettingsServlet extends ClientServlet {
                                 MailManager mailManager = new MailManager(dataSession);
                                 StringBuilder body = new StringBuilder();
                                 body.append("<html><body>");
-                                body.append("<p>This is a test email from Project Tracker settings.</p>");
+                                body.append("<p>This is a test email from Dandelion settings.</p>");
                                 body.append("<p>Time: ").append(new Date()).append("</p>");
                                 body.append("</body></html>");
-                                mailManager.sendEmail("Project Tracker Test Email", body.toString(), testEmailTo);
+                                mailManager.sendEmail("Dandelion Test Email", body.toString(), testEmailTo);
                                 appReq.setMessageConfirmation("Test email sent to " + testEmailTo + ".");
                             } catch (Exception e) {
                                 appReq.setMessageProblem("Unable to send test email: " + e.getMessage());
@@ -481,7 +481,7 @@ public class AdminSettingsServlet extends ClientServlet {
 
     @Override
     public String getServletInfo() {
-        return "Project Tracker Admin Settings";
+        return "Dandelion Admin Settings";
     }
 
     private static void printDbVariables(PrintWriter out, Session dataSession, String pattern) {

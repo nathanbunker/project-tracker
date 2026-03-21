@@ -10,7 +10,7 @@ user’s working memory before the end of the day.
 
 Design Intent
 -------------
-- Acts as a lightweight capture mechanism inside Project Tracker.
+-- Acts as a lightweight capture mechanism inside Dandelion.
 - Avoids long-form reflection or journaling within the application.
 - Preserves high-value contextual signals that are not represented by
   tasks, time tracking, or status fields.

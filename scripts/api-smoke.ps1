@@ -1,7 +1,7 @@
 param(
-    # Set PROJECT_TRACKER_API_KEY in your environment or pass -ApiKey explicitly.
-    [string]$BaseUrl = "http://localhost:8080/tracker/api",
-    [string]$ApiKey = $env:PROJECT_TRACKER_API_KEY,
+    # Set DANDELION_API_KEY (or PROJECT_TRACKER_API_KEY) in your environment or pass -ApiKey explicitly.
+    [string]$BaseUrl = "http://localhost:8080/dandelion/api",
+    [string]$ApiKey = $(if ($env:DANDELION_API_KEY) { $env:DANDELION_API_KEY } else { $env:PROJECT_TRACKER_API_KEY }),
     [string]$ProviderId = "12",
     [int]$ProjectId = 48689,
     [int]$ActionNextId = 786633,
@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-    throw "ApiKey is required. Set -ApiKey or $env:PROJECT_TRACKER_API_KEY."
+    throw "ApiKey is required. Set -ApiKey or $env:DANDELION_API_KEY (or $env:PROJECT_TRACKER_API_KEY)."
 }
 if ([string]::IsNullOrWhiteSpace($ProviderId)) {
     throw "ProviderId is required. Set -ProviderId or $env:PROVIDER_ID."
