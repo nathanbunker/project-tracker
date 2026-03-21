@@ -2,8 +2,10 @@ package org.openimmunizationsoftware.pt.manager;
 
 import java.util.Date;
 import java.util.Properties;
+import java.util.UUID;
 import javax.mail.Authenticator;
 import javax.mail.Message;
+import javax.mail.MessagingException;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
@@ -11,6 +13,8 @@ import javax.mail.internet.MimeMessage;
 import org.hibernate.Session;
 
 public class MailManager {
+  private static final String MAIL_LOCALHOST = "dandelion-daily.org";
+
   private String reply = "";
   private String smtpsPassword = "";
   private int smtpsPort = 0;
@@ -61,11 +65,13 @@ public class MailManager {
     props.put("mail.smtp.timeout", "15000");
     props.put("mail.smtp.writetimeout", "15000");
     props.put("mail.smtp.auth", "true");
+    props.put("mail.smtp.localhost", MAIL_LOCALHOST);
 
     if (useSmtps) {
       props.put("mail.smtps.host", smtpHost);
       props.put("mail.smtps.port", String.valueOf(smtpPort));
       props.put("mail.smtps.auth", "true");
+      props.put("mail.smtps.localhost", MAIL_LOCALHOST);
       props.put("mail.smtps.ssl.enable", "true");
       props.put("mail.smtps.ssl.protocols", "TLSv1.2");
       props.put("mail.smtps.quitwait", "false");
@@ -89,7 +95,12 @@ public class MailManager {
     });
     session.setDebug(emailDebug);
 
-    MimeMessage msg = new MimeMessage(session);
+    MimeMessage msg = new MimeMessage(session) {
+      @Override
+      protected void updateMessageID() throws MessagingException {
+        setHeader("Message-ID", "<" + UUID.randomUUID().toString() + "@" + MAIL_LOCALHOST + ">");
+      }
+    };
     msg.setFrom(new InternetAddress(fromAddress));
     msg.setReplyTo(new InternetAddress[] { new InternetAddress(fromAddress) });
     msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to, false));
@@ -100,6 +111,7 @@ public class MailManager {
     msg.setSentDate(new Date());
     msg.setContent(body, "text/html; charset=UTF-8");
     msg.setHeader("X-Mailer", "Tracker");
+    msg.saveChanges();
 
     Transport transport = session.getTransport(useSmtps ? "smtps" : "smtp");
     try {
