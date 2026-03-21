@@ -69,6 +69,7 @@ public class ProjectsServlet extends ClientServlet {
 
       appReq.setTitle("Projects");
       printHtmlHead(appReq);
+      printDandelionLocation(out, "Setup / Projects");
 
       String categoryCode = n(request.getParameter(PARAM_CATEGORY_CODE));
       String phaseCode = n(request.getParameter(PARAM_PHASE_CODE), NOT_CLOSED);

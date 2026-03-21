@@ -18,7 +18,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -52,8 +51,6 @@ public class HomeServlet extends ClientServlet {
     AppReq appReq = new AppReq(request, response);
     try {
       WebUser webUser = appReq.getWebUser();
-      Session dataSession = appReq.getDataSession();
-      String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
 
       if (webUser == null) {
@@ -65,96 +62,48 @@ public class HomeServlet extends ClientServlet {
         out.println("<p><a href=\"RegistrationServlet\">Register for a new account</a></p>");
         printHtmlFoot(appReq);
       } else {
-        String date = request.getParameter("date");
-        String nextActionType = request.getParameter("nextActionType");
-        if (nextActionType == null) {
-          nextActionType = "";
-        }
-        Date nextActionDate = null;
-        if (date == null) {
-          nextActionDate = new Date();
-        } else {
-          try {
-            nextActionDate = webUser.parseDate(date);
-          } catch (Exception pe) {
-            nextActionDate = new Date();
-          }
-        }
-        String message = null;
-        if (action != null) {
-          if (action.equals("DoToday") || action.equals("DoNextWeek")
-              || action.equals("DoTomorrow")) {
-            int actionNextId = Integer.parseInt(request.getParameter("actionNextId"));
-            ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
-                actionNextId);
-            Transaction trans = dataSession.beginTransaction();
-            try {
-              Calendar calendar = TimeTracker.createToday(webUser);
-              if (action.equals("DoTomorrow")) {
-                calendar.add(Calendar.DAY_OF_MONTH, 1);
-              } else if (action.equals("DoNextWeek")) {
-                calendar.add(Calendar.DAY_OF_MONTH, 7);
-              }
-              projectAction.setNextActionDate(calendar.getTime());
-            } finally {
-              trans.commit();
-            }
-          } else if (action.equals("UpdateAction")) {
-            int actionNextId = Integer.parseInt(request.getParameter("actionNextId"));
-            ProjectActionNext projectActionNext = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
-                actionNextId);
-            Transaction trans = dataSession.beginTransaction();
-            try {
-              Date oldDateDue = projectActionNext.getNextActionDate();
-              try {
-                projectActionNext.setNextActionDate(webUser.parseDate(
-                    request.getParameter("changeNextActionDate")));
-              } catch (Exception pe) {
-                message = "Unable to parse next due date: " + pe.getMessage();
-              }
-              projectActionNext.setNextActionType(request.getParameter("changeNextActionType"));
-              if (oldDateDue != null && oldDateDue.before(projectActionNext.getNextActionDate())) {
-                if (projectActionNext.getNextActionType() != null) {
-                  if (projectActionNext.getNextActionType()
-                      .equals(ProjectNextActionType.COMMITTED_TO)) {
-                    projectActionNext.setNextActionType(ProjectNextActionType.OVERDUE_TO);
-                  } else if (projectActionNext.getNextActionType()
-                      .equals(ProjectNextActionType.MIGHT)) {
-                    projectActionNext.setNextActionType(ProjectNextActionType.WILL);
-                  }
-                }
-              }
-              if (request.getParameter("nextTimeEstimate") != null
-                  && !request.getParameter("nextTimeEstimate").equals("")) {
-                try {
-                  projectActionNext.setNextTimeEstimate(
-                      Integer.parseInt(request.getParameter("nextTimeEstimate")));
-                } catch (NumberFormatException nfe) {
-                  //
-                  projectActionNext.setNextTimeEstimate(0);
-                }
-              } else {
-                projectActionNext.setNextTimeEstimate(0);
-              }
-
-            } finally {
-              trans.commit();
-            }
-          }
-        }
-
-        appReq.setMessageProblem(message);
-        boolean showLink = true;
-
         appReq.setTitle("Dandelion");
         printHtmlHead(appReq);
 
-        printActionsDue(webUser, out, dataSession, nextActionType, nextActionDate, showLink, true);
+        out.println("<div class=\"main\">");
+        out.println("<h1>Dandelion</h1>");
+        out.println("<p>This page is your central navigation hub.</p>");
 
-        out.println("<p><a href=\"m/todo?filterSubmitted=Y&showPersonal=Y\">Switch to Mobile</a></p>");
+        out.println("<h2>Setup</h2>");
+        out.println("<ul>");
+        out.println("  <li><a href=\"ProjectsServlet\">Projects</a></li>");
+        out.println("  <li><a href=\"ProjectContactsServlet\">Contacts</a></li>");
+        out.println("  <li><a href=\"SettingsServlet\">Settings</a></li>");
+        out.println("  <li><a href=\"DependentAccountsServlet\">Dependent Accounts</a></li>");
+        out.println("</ul>");
+
+        out.println("<h2>Time Management &amp; Reporting</h2>");
+        out.println("<ul>");
+        out.println("  <li><a href=\"BillEntriesServlet\">Time</a></li>");
+        out.println("  <li><a href=\"TrackServlet\">Track</a></li>");
+        out.println("  <li><a href=\"trackerNarrative\">Narrative</a></li>");
+        out.println("  <li><a href=\"ProjectNarrativeReviewServlet\">Review</a></li>");
+        if (webUser.isUserTypeAdmin()) {
+          out.println("  <li><a href=\"ReportsServlet\">Reports</a></li>");
+        }
+        out.println("</ul>");
+
+        out.println("<h2>Additional</h2>");
+        out.println("<ul>");
+        out.println("  <li><a href=\"ProjectReviewServlet\">Project Review</a></li>");
+        out.println("  <li><a href=\"TemplateScheduleServlet\">Template Schedule</a></li>");
+        if (webUser.isUserTypeAdmin()) {
+          out.println("  <li><a href=\"AdminSettingsServlet\">Admin Settings</a></li>");
+          out.println("  <li><a href=\"BillCodesServlet\">Bill Codes</a></li>");
+          out.println("  <li><a href=\"BillBudgetsServlet\">Bill Budgets</a></li>");
+        }
+        out.println("</ul>");
+
+        out.println("<h2>Mobile</h2>");
+        out.println("<p><a href=\"m/todo?filterSubmitted=Y&showPersonal=Y\">Open Mobile View</a></p>");
+
         out.println("<h2>Logout</h2>");
-        out.println(
-            "<p>If you are finished you can <a href=\"LoginServlet?action=Logout\">logout</a>.</p>");
+        out.println("<p>If you are finished you can <a href=\"LoginServlet?action=Logout\">logout</a>.</p>");
         out.println("</div>");
         printHtmlFoot(appReq);
       }

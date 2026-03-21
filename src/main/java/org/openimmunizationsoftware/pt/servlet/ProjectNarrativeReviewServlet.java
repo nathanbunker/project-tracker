@@ -78,6 +78,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             printHtmlHead(appReq);
 
             PrintWriter out = appReq.getOut();
+            printDandelionLocation(out, "Time Management & Reporting / Review");
             List<ReviewItem> reviewItems = narrativeDao.listReviewItemsForDate(reviewDate);
             long selectedProjectId = readLong(request.getParameter(PARAM_PROJECT_ID));
             ReviewItem selectedItem = selectReviewItem(reviewItems, selectedProjectId);

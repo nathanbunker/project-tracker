@@ -94,6 +94,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
             printHtmlHead(appReq);
 
             PrintWriter out = appReq.getOut();
+            printDandelionLocation(out, "Time Management & Reporting / Narrative");
             if (narrativeId > 0) {
                 TrackerNarrative narrative = (TrackerNarrative) dataSession.get(TrackerNarrative.class,
                         (int) narrativeId);

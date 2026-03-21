@@ -211,26 +211,9 @@ public class ClientServlet extends HttpServlet {
     List<String[]> menuList = new ArrayList<String[]>();
 
     if (loggedIn) {
-      if (webUser.getProvider() == null || webUser.getProvider().getProviderId() == null
-          || webUser.getProvider().getProviderId().trim().equals("")) {
-        menuList.add(new String[] { "RegistrationServlet", "Register" });
-      }
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Dandelion" });
-      menuList.add(new String[] { "ProjectsServlet", "Projects" });
       menuList.add(new String[] { "ProjectActionServlet", "Actions" });
-      menuList.add(new String[] { "ProjectNarrativeReviewServlet", "Review" });
-      menuList.add(new String[] { "ProjectContactsServlet", "Contacts" });
-
-      if (webUser.isUserTypeAdmin()) {
-        menuList.add(new String[] { "ReportsServlet", "Reports" });
-      }
-
-      if (timeTracker != null) {
-        menuList.add(new String[] { "BillEntriesServlet", "Time" });
-        menuList.add(new String[] { "TrackServlet", "Track" });
-      }
-      menuList.add(new String[] { "trackerNarrative", "Narrative" });
-      menuList.add(new String[] { "SettingsServlet", "Settings" });
+      menuList.add(new String[] { "BillEntriesServlet", "Time" });
       menuList.add(new String[] { "m/todo?filterSubmitted=Y&showPersonal=Y", "Mobile" });
     } else {
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Dandelion" });
@@ -297,6 +280,15 @@ public class ClientServlet extends HttpServlet {
     }
     result.append("</td></tr></table><br>");
     return result.toString();
+  }
+
+  protected void printDandelionLocation(PrintWriter out, String sectionName) {
+    out.println("<table class=\"boxed\">");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <td class=\"boxed\"><a href=\"HomeServlet\">Dandelion</a> &raquo; "
+        + n(sectionName) + "</td>");
+    out.println("  </tr>");
+    out.println("</table><br/>");
   }
 
   public static void printFooter(PrintWriter out) {

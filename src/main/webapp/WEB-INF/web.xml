@@ -33,6 +33,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.AdminSettingsServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>DependentAccountsServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.DependentAccountsServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ProjectServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectServlet</servlet-class>
   </servlet>
@@ -228,6 +232,10 @@
   <servlet-mapping>
     <servlet-name>AdminSettingsServlet</servlet-name>
     <url-pattern>/AdminSettingsServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>DependentAccountsServlet</servlet-name>
+    <url-pattern>/DependentAccountsServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectServlet</servlet-name>

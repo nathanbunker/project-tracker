@@ -19,7 +19,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-import org.openimmunizationsoftware.pt.format.DateFormatService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.WebApiClient;
@@ -32,33 +31,12 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class SettingsServlet extends ClientServlet {
 
   private static final String ACTION_SAVE = "Save";
-  private static final String ACTION_SAVE_ADMIN = "Save Admin";
-  private static final String ACTION_SAVE_CATEGORIES = "Save Categories";
-  private static final String ACTION_SAVE_SYSTEM_WIDE_MESSAGE = "Save System Wide Message";
   private static final String ACTION_CREATE_API_KEY = "Create API Key";
   private static final String ACTION_DELETE_API_KEY = "Delete API Key";
 
   private static final String PARAM_ACTION = "action";
-  private static final String PARAM_CLIENT_ACRONYM = "clientAcronym";
-  private static final String PARAM_CLIENT_ACRONYM_PREFIX = "clientAcronym_";
-  private static final String PARAM_CLIENT_NAME = "clientName";
-  private static final String PARAM_CLIENT_NAME_PREFIX = "clientName_";
   private static final String PARAM_DISPLAY_COLOR = "displayColor";
   private static final String PARAM_DISPLAY_SIZE = "displaySize";
-  private static final String PARAM_EMAIL_ENABLE = "emailEnable";
-  private static final String PARAM_EMAIL_DEBUG = "emailDebug";
-  private static final String PARAM_EMAIL_REPLY = "emailReply";
-  private static final String PARAM_SEND_TEST_EMAIL = "sendTestEmail";
-  private static final String PARAM_TEST_EMAIL_TO = "testEmailTo";
-  private static final String PARAM_EMAIL_SMTPS_PORT = "emailSmtpsPort";
-  private static final String PARAM_EMAIL_SMTPS_USERNAME = "emailSmtpsUsername";
-  private static final String PARAM_EXTERNAL_URL = "externalUrl";
-  private static final String PARAM_REPORT_DAILY_TIME = "reportDailyTime";
-  private static final String PARAM_SMTP_ADDRESS = "smtpAddress";
-  private static final String PARAM_SMTPS_PASSWORD = "smtpsPassword";
-  private static final String PARAM_SORT_ORDER = "sortOrder";
-  private static final String PARAM_SORT_ORDER_PREFIX = "sortOrder_";
-  private static final String PARAM_SYSTEM_WIDE_MESSAGE = "systemWideMessage";
   private static final String PARAM_TIME_ZONE_USER = "timeZoneUser";
   private static final String PARAM_TIME_ZONE_APPLICATION = "timeZoneApplication";
   private static final String PARAM_DATE_DISPLAY_FORMAT = "dateDisplayFormat";
@@ -66,21 +44,8 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_TIME_DISPLAY_FORMAT = "timeDisplayFormat";
   private static final String PARAM_TIME_ENTRY_FORMAT = "timeEntryFormat";
   private static final String PARAM_TRACK_TIME = "trackTime";
-  private static final String PARAM_USE_SMTPS = "useSmtps";
-  private static final String PARAM_VISIBLE = "visible";
-  private static final String PARAM_VISIBLE_PREFIX = "visible_";
-  private static final String PARAM_CATEGORY_CODE = "categoryCode";
   private static final String PARAM_API_KEY_AGENT_NAME = "apiKeyAgentName";
   private static final String PARAM_API_KEY_CLIENT_ID = "apiKeyClientId";
-
-  private static final String[][] DATE_FORMAT_OPTIONS = {
-      { DateFormatService.PATTERN_DATE_SHORT, "MM/dd/yyyy (US)" },
-      { DateFormatService.PATTERN_DATE_SHORT_EU, "dd/MM/yyyy (Europe)" },
-      { DateFormatService.PATTERN_TRANSPORT_DATE, "yyyy-MM-dd (ISO)" } };
-
-  private static final String[][] TIME_FORMAT_OPTIONS = {
-      { DateFormatService.PATTERN_TIME_12H, "hh:mm AM/PM (12-hour)" },
-      { DateFormatService.PATTERN_TIME_24H, "HH:mm (24-hour)" } };
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -204,140 +169,16 @@ public class SettingsServlet extends ClientServlet {
       }
       appReq.setTitle("Settings");
       printHtmlHead(appReq);
+      printDandelionLocation(out, "Setup / Settings");
 
-      String displaySize = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE,
-          "small", webUser, dataSession);
-      String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
-          webUser, dataSession);
-        if (webUser.isUserTypeAdmin()) {
+      if (webUser.isUserTypeAdmin()) {
         out.println("<br/>");
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed\">Need system-wide controls? <a href=\"AdminSettingsServlet\">Open Admin Settings</a></td>");
-        out.println("  </tr>");
-        out.println("</table>");
-        }
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email debug logging</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_DEBUG
-            + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG, dataSession)).equals("Y")
-                    ? " checked"
-                    : "")
-            + ">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email server use SMTPS</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"checkBox\" name=\"" + PARAM_USE_SMTPS
-            + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS, dataSession)).equals("Y")
-                    ? " checked"
-                    : "")
-            + ">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email server username</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_EMAIL_SMTPS_USERNAME
-            + "\" size=\"30\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email server password</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_SMTPS_PASSWORD
-            + "\" size=\"30\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email server port</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_EMAIL_SMTPS_PORT
-            + "\" size=\"3\" value=\""
-            + n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email reply address</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_EMAIL_REPLY
-            + "\" size=\"50\" value=\"" + n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Gmail setup hint</th>");
         out.println(
-            "    <td class=\"boxed\">Use smtp.gmail.com, App Password as email server password, and port 587 with SMTPS unchecked (or port 465 with SMTPS checked).</td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Send test email now</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"checkbox\" name=\"" + PARAM_SEND_TEST_EMAIL + "\" value=\"Y\"> ");
-        out.println("      To: <input type=\"text\" name=\"" + PARAM_TEST_EMAIL_TO + "\" size=\"40\" value=\"\"> ");
-        out.println("      <span class=\"small\">(optional: defaults to reply address, then SMTP username)</span>");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Daily Report Run Time</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_REPORT_DAILY_TIME
-            + "\" size=\"7\" value=\"" + n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_REPORT_DAILY_TIME, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
-            + PARAM_ACTION + "\" value=\"" + ACTION_SAVE_ADMIN + "\"></td>");
+            "    <td class=\"boxed\">Need system-wide controls? <a href=\"AdminSettingsServlet\">Open Admin Settings</a></td>");
         out.println("  </tr>");
         out.println("</table>");
-        out.println("</form>");
-        out.println("<br />");
-        out.println("<table class=\"boxed\">");
-        out.println("  <tr class=\"boxed\">");
-        out.println("     <th  class=\"title\" colspan=\"2\">Last Used by Users</td>");
-        out.println("  </tr>");
-        SimpleDateFormat sdf = webUser.getTimeFormat();
-        for (String username : ClientServlet.webUserLastUsedDate.keySet()) {
-          out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed\">" + username + "</td>");
-          out.println("    <td class=\"boxed\">"
-              + sdf.format(ClientServlet.webUserLastUsedDate.get(username)) + "</td>");
-          out.println("  </tr>");
-        }
-        out.println("</table>");
-        out.println("<br/>");
-        out.println("<form action=\"SettingsServlet\" method=\"POST\">");
-        out.println("<table class=\"boxed\">");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">System Wide Message</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_SYSTEM_WIDE_MESSAGE
-            + "\" size=\"50\" value=\""
-            + n(getSystemWideMessage()) + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
-            + PARAM_ACTION + "\" value=\"" + ACTION_SAVE_SYSTEM_WIDE_MESSAGE + "\"></td>");
-        out.println("  </tr>");
-        out.println("</table>");
-        out.println("</form>");
-
       }
 
       String providerId = webUser.getProvider() == null ? null : webUser.getProvider().getProviderId();
@@ -411,15 +252,13 @@ public class SettingsServlet extends ClientServlet {
 
       printHtmlFoot(appReq);
 
-    }catch(
+    } catch (
 
-  Exception e)
-  {
-    e.printStackTrace();
-  }finally
-  {
-    appReq.close();
-  }
+    Exception e) {
+      e.printStackTrace();
+    } finally {
+      appReq.close();
+    }
 
   }
 
@@ -495,12 +334,4 @@ public class SettingsServlet extends ClientServlet {
     }
   }
 
-  private static void printOptionList(PrintWriter out, String[][] options, String selectedValue) {
-    for (String[] option : options) {
-      String value = option[0];
-      String label = option[1];
-      out.println("        <option value=\"" + value + "\""
-          + (value.equals(selectedValue) ? " selected" : "") + ">" + label + "</option>");
-    }
-  }
 }

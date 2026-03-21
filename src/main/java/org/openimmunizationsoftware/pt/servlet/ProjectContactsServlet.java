@@ -56,6 +56,7 @@ public class ProjectContactsServlet extends ClientServlet {
 
       appReq.setTitle("Contacts");
       printHtmlHead(appReq);
+      printDandelionLocation(out, "Setup / Contacts");
 
       Query query;
 
