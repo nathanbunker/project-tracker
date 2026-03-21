@@ -801,8 +801,9 @@ public class RegistrationServlet extends ClientServlet {
                 + PARAM_LAST_NAME + "\" size=\"40\" value=\"" + escapeHtml(lastName) + "\"></td></tr>");
         out.println("  <tr><th class=\"boxed\">Email address</th><td class=\"boxed\"><input type=\"text\" name=\""
                 + PARAM_EMAIL + "\" size=\"40\" value=\"" + escapeHtml(emailAddress) + "\"></td></tr>");
-        out.println("  <tr><td class=\"boxed-submit\" colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\""
-                + ACTION_REGISTER + "\"></td></tr>");
+        out.println(
+                "  <tr><td class=\"boxed-submit\" colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\""
+                        + ACTION_REGISTER + "\"></td></tr>");
         out.println("</table>");
         out.println("</form>");
     }
