@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="WeUserDependency" table="we_user_dependency">
+    <id name="dependencyId" type="int">
+      <column name="dependency_id" />
+      <generator class="native" />
+    </id>
+    <many-to-one name="guardianWebUser" column="guardian_web_user_id" class="WebUser" not-null="true"/>
+    <many-to-one name="dependentWebUser" column="dependent_web_user_id" class="WebUser"/>
+    <property name="relationshipType" type="string">
+      <column name="relationship_type" length="24" not-null="true" />
+    </property>
+    <property name="dependencyStatus" type="string">
+      <column name="dependency_status" length="16" not-null="true" />
+    </property>
+    <property name="canViewTodaySummary" type="yes_no">
+      <column name="can_view_today_summary" length="1" not-null="true" />
+    </property>
+    <property name="canViewNextActions" type="yes_no">
+      <column name="can_view_next_actions" length="1" not-null="true" />
+    </property>
+    <property name="canAddActions" type="yes_no">
+      <column name="can_add_actions" length="1" not-null="true" />
+    </property>
+    <property name="canEditActions" type="yes_no">
+      <column name="can_edit_actions" length="1" not-null="true" />
+    </property>
+    <property name="inviteEmail" type="string">
+      <column name="invite_email" length="254" />
+    </property>
+    <property name="inviteTokenHash" type="string">
+      <column name="invite_token_hash" length="128" />
+    </property>
+    <property name="inviteExpiry" type="timestamp">
+      <column name="invite_expiry" length="19" />
+    </property>
+    <property name="createdDate" type="timestamp">
+      <column name="created_date" length="19" not-null="true" />
+    </property>
+    <property name="acceptedDate" type="timestamp">
+      <column name="accepted_date" length="19" />
+    </property>
+    <property name="endedDate" type="timestamp">
+      <column name="ended_date" length="19" />
+    </property>
+  </class>
+</hibernate-mapping>

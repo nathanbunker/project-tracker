@@ -29,6 +29,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.SettingsServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>AdminSettingsServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.AdminSettingsServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ProjectServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectServlet</servlet-class>
   </servlet>
@@ -220,6 +224,10 @@
   <servlet-mapping>
     <servlet-name>SettingsServlet</servlet-name>
     <url-pattern>/SettingsServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>AdminSettingsServlet</servlet-name>
+    <url-pattern>/AdminSettingsServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectServlet</servlet-name>

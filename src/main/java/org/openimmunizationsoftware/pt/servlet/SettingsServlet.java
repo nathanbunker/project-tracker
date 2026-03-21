@@ -21,9 +21,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.format.DateFormatService;
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebApiClient;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -144,145 +142,6 @@ public class SettingsServlet extends ClientServlet {
             TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TRACK_TIME, webUser,
                 request.getParameter(PARAM_TRACK_TIME) != null ? "Y" : "N", dataSession);
           }
-        } else if (action.equals(ACTION_SAVE_ADMIN) && webUser.isUserTypeAdmin()) {
-
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_TIME,
-              request.getParameter(PARAM_REPORT_DAILY_TIME), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EXTERNAL_URL,
-              request.getParameter(PARAM_EXTERNAL_URL), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
-              request.getParameter(PARAM_SMTP_ADDRESS), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE,
-              request.getParameter(PARAM_EMAIL_ENABLE) != null ? "Y" : "N", dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_DEBUG,
-              request.getParameter(PARAM_EMAIL_DEBUG) != null ? "Y" : "N", dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_USE_SMTPS,
-              request.getParameter(PARAM_USE_SMTPS) != null ? "Y" : "N", dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(
-              TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_USERNAME,
-              request.getParameter(PARAM_EMAIL_SMTPS_USERNAME), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(
-              TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PASSWORD,
-              request.getParameter(PARAM_SMTPS_PASSWORD), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_SMTPS_PORT,
-              request.getParameter(PARAM_EMAIL_SMTPS_PORT), dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EMAIL_REPLY,
-              request.getParameter(PARAM_EMAIL_REPLY), dataSession);
-
-          if (request.getParameter(PARAM_SEND_TEST_EMAIL) != null) {
-            String testEmailTo = trim(request.getParameter(PARAM_TEST_EMAIL_TO), 254);
-            if (testEmailTo.equals("")) {
-              testEmailTo = trim(request.getParameter(PARAM_EMAIL_REPLY), 254);
-            }
-            if (testEmailTo.equals("")) {
-              testEmailTo = trim(request.getParameter(PARAM_EMAIL_SMTPS_USERNAME), 254);
-            }
-            if (testEmailTo.equals("") && webUser.getEmailAddress() != null) {
-              testEmailTo = webUser.getEmailAddress();
-            }
-            if (testEmailTo.equals("")) {
-              appReq.setMessageProblem(
-                  "Unable to send test email: no recipient address provided. ");
-            } else {
-              try {
-                MailManager mailManager = new MailManager(dataSession);
-                StringBuilder body = new StringBuilder();
-                body.append("<html><body>");
-                body.append("<p>This is a test email from Project Tracker settings.</p>");
-                body.append("<p>Time: ").append(new Date()).append("</p>");
-                body.append("</body></html>");
-                mailManager.sendEmail("Project Tracker Test Email", body.toString(), testEmailTo);
-                appReq.setMessageConfirmation("Test email sent to " + testEmailTo + ".");
-              } catch (Exception e) {
-                appReq.setMessageProblem("Unable to send test email: " + e.getMessage());
-              }
-            }
-          }
-        } else if (action.equals(ACTION_SAVE_SYSTEM_WIDE_MESSAGE) && webUser.isUserTypeAdmin()) {
-          setSystemWideMessage(request.getParameter(PARAM_SYSTEM_WIDE_MESSAGE));
-        } else if (action.equals(ACTION_SAVE_CATEGORIES) && webUser.isUserTypeAdmin()) {
-          Query query = dataSession.createQuery(
-              "from ProjectCategory where provider = :provider order by sortOrder, clientName");
-          query.setParameter("provider", webUser.getProvider());
-          @SuppressWarnings("unchecked")
-          List<ProjectCategory> projectCategoryList = query.list();
-          String categoryCode = request.getParameter(PARAM_CATEGORY_CODE);
-          if (categoryCode.length() > 15) {
-            appReq.setMessageProblem(
-                "Category code is too long (>15), so new category not created. ");
-            categoryCode = "";
-          }
-          boolean categoryCodeIsUnique = true;
-          for (ProjectCategory projectCategory : projectCategoryList) {
-            String c = projectCategory.getCategoryCode();
-            if (c.equalsIgnoreCase(categoryCode)) {
-              categoryCodeIsUnique = false;
-            }
-            String clientName = request.getParameter(PARAM_CLIENT_NAME_PREFIX + c);
-            String sortOrder = request.getParameter(PARAM_SORT_ORDER_PREFIX + c);
-            String clientAcronym = request.getParameter(PARAM_CLIENT_ACRONYM_PREFIX + c);
-            String visible = request.getParameter(PARAM_VISIBLE_PREFIX + c);
-            if (!clientName.equals("")) {
-              projectCategory.setClientName(clientName);
-            }
-            if (!sortOrder.equals("")) {
-              try {
-                projectCategory.setSortOrder(Integer.parseInt(sortOrder));
-              } catch (NumberFormatException nfe) {
-                // do nothing
-              }
-            }
-            if (!clientAcronym.equals("")) {
-              projectCategory.setClientAcronym(clientAcronym);
-            }
-            projectCategory.setVisible(visible == null ? "N" : "Y");
-            Transaction trans = dataSession.beginTransaction();
-            dataSession.update(projectCategory);
-            trans.commit();
-          }
-          if (!categoryCode.equals("") && categoryCodeIsUnique) {
-            if (categoryCodeIsUnique) {
-              String clientName = request.getParameter(PARAM_CLIENT_NAME);
-              if (clientName.length() > 150) {
-                appReq.setMessageProblem("Client name is too long (>150), truncating. ");
-                clientName = clientName.substring(0, 150);
-              }
-              String sortOrder = request.getParameter(PARAM_SORT_ORDER);
-              String clientAcronym = request.getParameter(PARAM_CLIENT_ACRONYM);
-              String visible = request.getParameter(PARAM_VISIBLE);
-              if (!clientName.equals("")) {
-                ProjectCategory projectCategory = new ProjectCategory();
-                projectCategory.setCategoryCode(categoryCode);
-                projectCategory.setProvider(webUser.getProvider());
-                projectCategory.setClientName(clientName);
-                if (!sortOrder.equals("")) {
-                  try {
-                    projectCategory.setSortOrder(Integer.parseInt(sortOrder));
-                  } catch (NumberFormatException nfe) {
-                    // do nothing
-                  }
-                }
-                if (!clientAcronym.equals("")) {
-                  if (clientAcronym.length() > 15) {
-                    appReq.setMessageProblem("Client acronym is too long (>15), not setting. ");
-                  } else {
-                    projectCategory.setClientAcronym(clientAcronym);
-                  }
-                }
-                projectCategory.setVisible(visible == null ? "N" : "Y");
-                Transaction trans = dataSession.beginTransaction();
-                dataSession.save(projectCategory);
-                trans.commit();
-              } else {
-                appReq
-                    .setMessageProblem("Category name was not set, so new category not created. ");
-              }
-            } else {
-              appReq
-                  .setMessageProblem("Category code was not unique, so new category not created. ");
-            }
-
-          }
         }
         if (action.equals(ACTION_CREATE_API_KEY)) {
           String agentName = request.getParameter(PARAM_API_KEY_AGENT_NAME);
@@ -350,221 +209,14 @@ public class SettingsServlet extends ClientServlet {
           "small", webUser, dataSession);
       String displayColor = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, "",
           webUser, dataSession);
-      String timeZoneUser = TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
-          WebUser.AMERICA_DENVER, webUser, dataSession);
-      String timeZoneApplication = TrackerKeysManager.getApplicationKeyValue(
-          TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, dataSession);
-      String dateDisplayFormat = TrackerKeysManager.getKeyValue(
-          TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT, webUser.getDateDisplayPattern(),
-          webUser, dataSession);
-      String dateEntryFormat = TrackerKeysManager.getKeyValue(
-          TrackerKeysManager.KEY_DATE_ENTRY_FORMAT, webUser.getDateEntryPattern(),
-          webUser, dataSession);
-      String timeDisplayFormat = TrackerKeysManager.getKeyValue(
-          TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT, webUser.getTimeDisplayPattern(),
-          webUser, dataSession);
-      String timeEntryFormat = TrackerKeysManager.getKeyValue(
-          TrackerKeysManager.KEY_TIME_ENTRY_FORMAT, webUser.getTimeEntryPattern(),
-          webUser, dataSession);
-
-      out.println("<form action=\"SettingsServlet\" method=\"POST\">");
-      out.println("<table class=\"boxed\">");
-      out.println("  <tr class=\"boxed\">");
-      out.println("     <th  class=\"title\" colspan=\"2\">Personal Settings</td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Display Size</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_DISPLAY_SIZE + "\">");
-      for (String ds : CssServlet.DISPLAY_SIZE) {
-        out.println("        <option value=\"" + ds + "\""
-            + (displaySize.equals(ds) ? " selected" : "") + ">" + ds + "</option>");
-      }
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Display Color</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_DISPLAY_COLOR + "\">");
-      for (CssServlet.DisplayColor dc : CssServlet.DisplayColor.values()) {
-        String dcl = dc.getLabel();
-        out.println("        <option value=\"" + dcl + "\""
-            + (displayColor.equals(dcl) ? " selected" : "") + ">" + dcl + "</option>");
-      }
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">User Time Zone</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_TIME_ZONE_USER + "\">");
-      for (String tz : TimeZone.getAvailableIDs()) {
-        out.println("        <option value=\"" + tz + "\""
-            + (timeZoneUser.equals(tz) ? " selected" : "") + ">" + tz + "</option>");
-      }
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Application Time Zone</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_TIME_ZONE_APPLICATION + "\">");
-      for (String tz : TimeZone.getAvailableIDs()) {
-        out.println("        <option value=\"" + tz + "\""
-            + (timeZoneApplication.equals(tz) ? " selected" : "") + ">" + tz + "</option>");
-      }
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Date Display Format</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_DATE_DISPLAY_FORMAT + "\">");
-      printOptionList(out, DATE_FORMAT_OPTIONS, dateDisplayFormat);
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Date Entry Format</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_DATE_ENTRY_FORMAT + "\">");
-      printOptionList(out, DATE_FORMAT_OPTIONS, dateEntryFormat);
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Time Display Format</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_TIME_DISPLAY_FORMAT + "\">");
-      printOptionList(out, TIME_FORMAT_OPTIONS, timeDisplayFormat);
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Time Entry Format</th>");
-      out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"" + PARAM_TIME_ENTRY_FORMAT + "\">");
-      printOptionList(out, TIME_FORMAT_OPTIONS, timeEntryFormat);
-      out.println("      </select>");
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println(
-          "    <td class=\"boxed\" colspan=\"2\">Date/time entry also accepts legacy values for compatibility.</td>");
-      out.println("  </tr>");
-      if (webUser.isUserTypeAdmin()) {
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Track Time</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"checkBox\" name=\"" + PARAM_TRACK_TIME
-            + "\" value=\"Y\""
-            + (n(TrackerKeysManager.getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", webUser,
-                dataSession)).equals("Y") ? " checked" : "")
-            + ">");
-        out.println("    </td>");
-        out.println("  </tr>");
-      }
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
-          + PARAM_ACTION + "\" value=\"" + ACTION_SAVE + "\"></td>");
-      out.println("  </tr>");
-      out.println("</table>");
-      out.println("</form>");
-
-      if (webUser.isUserTypeAdmin()) {
-        out.println("<form action=\"SettingsServlet\" method=\"POST\">");
+        if (webUser.isUserTypeAdmin()) {
+        out.println("<br/>");
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
-        out.println("     <th class=\"title\" colspan=\"5\">Categories</td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("     <th>Unique Code</th>");
-        out.println("     <th>Category</th>");
-        out.println("     <th>Sort Order</th>");
-        out.println("     <th>Client Acronym</th>");
-        out.println("     <th>Visible</th>");
-        out.println("  </tr>");
-        Query query = dataSession.createQuery(
-            "from ProjectCategory where provider = :provider order by sortOrder, clientName");
-        query.setParameter("provider", webUser.getProvider());
-        @SuppressWarnings("unchecked")
-        List<ProjectCategory> projectCategoryList = query.list();
-        for (ProjectCategory projectCategory : projectCategoryList) {
-          String c = projectCategory.getCategoryCode();
-          out.println("  <tr class=\"boxed\">");
-          out.println("     <td>" + projectCategory.getCategoryCode() + "</td>");
-          out.println("     <td><input type=\"text\" size=\"30\" name=\""
-              + PARAM_CLIENT_NAME_PREFIX + c + "\" value=\"" + projectCategory.getClientName()
-              + "\"></td>");
-          out.println("     <td><input type=\"text\" size=\"3\" name=\""
-              + PARAM_SORT_ORDER_PREFIX + c + "\" value=\"" + n(projectCategory.getSortOrder())
-              + "\"></td>");
-          out.println("     <td><input type=\"text\" size=\"7\" name=\""
-              + PARAM_CLIENT_ACRONYM_PREFIX + c + "\" value=\""
-              + n(projectCategory.getClientAcronym()) + "\"></td>");
-          out.println("     <td><input type=\"checkbox\" name=\"" + PARAM_VISIBLE_PREFIX + c
-              + "\""
-              + (projectCategory.getVisible() != null
-                  && projectCategory.getVisible().equals("Y") ? " checked=\"true\"" : "")
-              + "\"></td>");
-          out.println("  </tr>");
-        }
-        out.println("  <tr class=\"boxed\">");
-        out.println("     <td><input type=\"text\" size=\"7\" name=\"" + PARAM_CATEGORY_CODE
-            + "\" value=\"\"></td>");
-        out.println("     <td><input type=\"text\" size=\"30\" name=\"" + PARAM_CLIENT_NAME
-            + "\" value=\"\"></td>");
-        out.println("     <td><input type=\"text\" size=\"3\" name=\"" + PARAM_SORT_ORDER
-            + "\" value=\"\"></td>");
-        out.println("     <td><input type=\"text\" size=\"7\" name=\"" + PARAM_CLIENT_ACRONYM
-            + "\" value=\"\"></td>");
-        out.println("     <td><input type=\"checkbox\" name=\"" + PARAM_VISIBLE
-            + "\" checked=\"true\"></td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed-submit\" colspan=\"5\"><input type=\"submit\" name=\""
-            + PARAM_ACTION + "\" value=\"" + ACTION_SAVE_CATEGORIES + "\"></td>");
+        out.println("    <td class=\"boxed\">Need system-wide controls? <a href=\"AdminSettingsServlet\">Open Admin Settings</a></td>");
         out.println("  </tr>");
         out.println("</table>");
-        out.println("</form>");
-
-        out.println("<form action=\"SettingsServlet\" method=\"POST\">");
-        out.println("<table class=\"boxed\">");
-        out.println("  <tr class=\"boxed\">");
-        out.println("     <th  class=\"title\" colspan=\"2\">System System</td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">External URL</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_EXTERNAL_URL
-            + "\" size=\"50\" value=\""
-            + n(TrackerKeysManager
-                .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_EXTERNAL_URL, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email server URL</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + PARAM_SMTP_ADDRESS
-            + "\" size=\"\" value=\""
-            + n(TrackerKeysManager
-                .getApplicationKeyValue(TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS, dataSession))
-            + "\">");
-        out.println("    </td>");
-        out.println("  </tr>");
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Email enabled</th>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"checkBox\" name=\"" + PARAM_EMAIL_ENABLE
-            + "\" value=\"Y\"" + (n(TrackerKeysManager.getApplicationKeyValue(
-                TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, dataSession)).equals("Y")
-                    ? " checked"
-                    : "")
-            + ">");
-        out.println("    </td>");
-        out.println("  </tr>");
+        }
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Email debug logging</th>");
         out.println("    <td class=\"boxed\">");
@@ -757,26 +409,17 @@ public class SettingsServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
 
-      out.println("<br/>");
-      out.println("<table class=\"boxed\">");
-      out.println("  <tr class=\"boxed\">");
-      out.println("     <th class=\"title\" colspan=\"2\">Database Connection Settings</td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
-      out.println("     <th>Variable</th>");
-      out.println("     <th>Value</th>");
-      out.println("  </tr>");
-      printDbVariables(out, dataSession, "character_set_%");
-      printDbVariables(out, dataSession, "collation_%");
-      out.println("</table>");
-
       printHtmlFoot(appReq);
 
-    } catch (Exception e) {
-      e.printStackTrace();
-    } finally {
-      appReq.close();
-    }
+    }catch(
+
+  Exception e)
+  {
+    e.printStackTrace();
+  }finally
+  {
+    appReq.close();
+  }
 
   }
 
@@ -849,22 +492,6 @@ public class SettingsServlet extends ClientServlet {
       if (matches.isEmpty()) {
         return apiKey;
       }
-    }
-  }
-
-  private static void printDbVariables(PrintWriter out, Session dataSession, String pattern) {
-    Query query = dataSession.createSQLQuery("SHOW VARIABLES LIKE :pattern");
-    query.setParameter("pattern", pattern);
-    @SuppressWarnings("unchecked")
-    List<Object[]> rows = query.list();
-    for (Object[] row : rows) {
-      if (row == null || row.length < 2) {
-        continue;
-      }
-      out.println("  <tr class=\"boxed\">");
-      out.println("     <td>" + n(row[0]) + "</td>");
-      out.println("     <td>" + n(row[1]) + "</td>");
-      out.println("  </tr>");
     }
   }
 

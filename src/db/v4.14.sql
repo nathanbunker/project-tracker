@@ -328,3 +328,26 @@ WHERE web_user_id <> @keep_web_user_id
 
  update web_user set email_address = "Nathan.Bunker@gmail.com";
  update project_provider set provider_name = 'Nathan Bunker';
+
+-- Track parent/guardian-to-dependent account relationships and invite lifecycle.
+CREATE TABLE IF NOT EXISTS we_user_dependency (
+  dependency_id INT NOT NULL AUTO_INCREMENT,
+  guardian_web_user_id INT NOT NULL,
+  dependent_web_user_id INT DEFAULT NULL,
+  relationship_type VARCHAR(24) NOT NULL DEFAULT 'guardian',
+  dependency_status VARCHAR(16) NOT NULL DEFAULT 'invited',
+  can_view_today_summary VARCHAR(1) NOT NULL DEFAULT 'Y',
+  can_view_next_actions VARCHAR(1) NOT NULL DEFAULT 'Y',
+  can_add_actions VARCHAR(1) NOT NULL DEFAULT 'Y',
+  can_edit_actions VARCHAR(1) NOT NULL DEFAULT 'N',
+  invite_email VARCHAR(254) DEFAULT NULL,
+  invite_token_hash VARCHAR(128) DEFAULT NULL,
+  invite_expiry DATETIME DEFAULT NULL,
+  created_date DATETIME NOT NULL,
+  accepted_date DATETIME DEFAULT NULL,
+  ended_date DATETIME DEFAULT NULL,
+  PRIMARY KEY (dependency_id),
+  INDEX idx_wud_guardian_status (guardian_web_user_id, dependency_status),
+  INDEX idx_wud_dependent_status (dependent_web_user_id, dependency_status),
+  UNIQUE INDEX uk_wud_guardian_dependent_status (guardian_web_user_id, dependent_web_user_id, dependency_status)
+);
