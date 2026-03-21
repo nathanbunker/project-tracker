@@ -203,6 +203,7 @@ public class RegistrationServlet extends ClientServlet {
             webUser.setMagicLinkTokenHash(tokenHash);
             webUser.setMagicLinkExpiry(expiry);
             dataSession.save(webUser);
+            saveUserKeyValue(dataSession, webUser, TrackerKeysManager.KEY_DISPLAY_SIZE, "large");
 
             trans.commit();
         } catch (Exception e) {

@@ -59,7 +59,9 @@ public class HomeServlet extends ClientServlet {
       if (webUser == null) {
         appReq.setTitle("Dandelion");
         printHtmlHead(appReq);
-        out.println("<h1>Project Tracker</h1>");
+        out.println("<h1>Dandelion</h1>");
+        out.println("<p>Dandelion is a system for managing daily tasks and increasing your productivity at work.</p>");
+        out.println("<p>It also helps organize your personal life and reduce stress while being more productive.</p>");
         out.println("<p><a href=\"RegistrationServlet\">Register for a new account</a></p>");
         printHtmlFoot(appReq);
       } else {
