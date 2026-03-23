@@ -246,40 +246,77 @@ public class ClientServlet extends HttpServlet {
     if (loggedIn) {
       Project project = appReq.getProject();
       ProjectActionNext completingAction = appReq.getCompletingAction();
+      if (project == null && completingAction != null) {
+        project = completingAction.getProject();
+      }
       if (project != null) {
         result.append("<a href=\"ProjectServlet?projectId=" + project.getProjectId()
             + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
-        if (timeTracker != null) {
-          String time = timeTracker.getTotalMinsBillableForDisplay();
-          int minsForWeek = 0;
-          {
-            Session dataSession = appReq.getDataSession();
-            Date today = new Date();
-            TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
-            minsForWeek = calculateWeeklyRoundedMinutesLikeTrackServlet(dataSession, timeTrackerForWeek);
-          }
-          if (minsForWeek > 0) {
-            time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";
-          }
-          if (timeTracker.isRunningClock()) {
-            result.append("<a href=\"TrackServlet?action=StopTimer\" class=\"timerRunning\">"
-                + time + "</a>");
-          } else {
-            String link = "ProjectServlet?projectId=" + project.getProjectId() + "&action=StartTimer";
-            if (completingAction != null) {
-              link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
-                  + completingAction.getActionNextId() + "&" + ProjectActionServlet.PARAM_ACTION + "="
-                  + ProjectActionServlet.ACTION_START_TIMER;
-            }
-            result.append("<a href=\"" + link + "\" class=\"timerStopped\">" + time + "</a>");
-          }
+      }
+      if (timeTracker != null) {
+        String time = timeTracker.getTotalMinsBillableForDisplay();
+        int minsForWeek = 0;
+        {
+          Session dataSession = appReq.getDataSession();
+          Date today = new Date();
+          TimeTracker timeTrackerForWeek = new TimeTracker(webUser, today, Calendar.WEEK_OF_YEAR, dataSession);
+          minsForWeek = calculateWeeklyRoundedMinutesLikeTrackServlet(dataSession, timeTrackerForWeek);
         }
+        if (minsForWeek > 0) {
+          time += " <font size=\"-1\">" + TimeTracker.formatTime(minsForWeek) + "</font>";
+        }
+        result.append(" <span class=\"");
+        result.append(timeTracker.isRunningClock() ? "workStatusWorking\">WORKING" : "workStatusStopped\">NOT WORKING");
+        result.append("</span>");
+        result.append(" <a href=\"");
+        result.append(createWorkToggleLink(project, completingAction, timeTracker));
+        result.append("\" class=\"workToggleButton\" title=\"");
+        result.append(timeTracker.isRunningClock() ? "Stop Working" : "Start Working");
+        result.append("\">");
+        result.append(timeTracker.isRunningClock() ? "&#9632;" : "&#9654;");
+        result.append("</a>");
+        result.append(" <span class=\"");
+        result.append(timeTracker.isRunningClock() ? "timerRunningLabel\">" : "timerStoppedLabel\">");
+        result.append(time);
+        result.append("</span>");
       }
     } else {
       result.append("&nbsp;");
     }
     result.append("</td></tr></table><br>");
     return result.toString();
+  }
+
+  private static String createWorkToggleLink(Project project, ProjectActionNext completingAction,
+      TimeTracker timeTracker) {
+    if (timeTracker != null && timeTracker.isRunningClock()) {
+      return "ProjectActionServlet?" + ProjectActionServlet.PARAM_ACTION + "=StopTimer";
+    }
+    StringBuilder link = new StringBuilder("ProjectActionServlet");
+    boolean hasParam = false;
+    if (project != null || completingAction != null) {
+      link.append("?");
+      if (project != null) {
+        link.append("projectId=").append(project.getProjectId());
+        hasParam = true;
+      }
+      if (completingAction != null) {
+        if (hasParam) {
+          link.append("&");
+        }
+        link.append(ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID)
+            .append("=")
+            .append(completingAction.getActionNextId());
+        hasParam = true;
+      }
+      if (hasParam) {
+        link.append("&");
+      }
+      link.append(ProjectActionServlet.PARAM_ACTION).append("=")
+          .append(ProjectActionServlet.ACTION_START_TIMER);
+      return link.toString();
+    }
+    return "ProjectActionServlet";
   }
 
   protected void printDandelionLocation(PrintWriter out, String sectionName) {

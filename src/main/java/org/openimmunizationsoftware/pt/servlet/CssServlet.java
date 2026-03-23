@@ -268,6 +268,18 @@ public class CssServlet extends ClientServlet {
                 out.println(".right {float: right;}");
                 out.println(".together {white-space:nowrap;}");
                 out.println(
+                                ".workStatusWorking {display:inline-block; padding-left:6px; padding-right:6px; color:#FFFFFF; background-color:#C0392B; border-color: #2B3E42; border-width: 1px; border-style: solid;}");
+                out.println(
+                                ".workStatusStopped {display:inline-block; padding-left:6px; padding-right:6px; color:#444444; background-color:#DDDDDD; border-color: #999999; border-width: 1px; border-style: solid;}");
+                out.println(
+                                "a:link.workToggleButton {display:inline-block; padding-left:6px; padding-right:6px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+                out.println(
+                                "a:visited.workToggleButton {display:inline-block; padding-left:6px; padding-right:6px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+                out.println(
+                                "a:hover.workToggleButton {display:inline-block; padding-left:6px; padding-right:6px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+                out.println(
+                                "a:active.workToggleButton {display:inline-block; padding-left:6px; padding-right:6px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+                out.println(
                                 "td.outside {border-collapse: collapse; border-width: 1px; border-style: solid; padding:0px;border-color: #2B3E42;}");
                 out.println(
                                 "table.inside {border-collapse: collapse; border-style: none; padding-left:5px; padding-right:5px;  }");
@@ -323,6 +335,10 @@ public class CssServlet extends ClientServlet {
                                 "a:hover.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}");
                 out.println(
                                 "a:active.timerRunning {margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; text-decoration:none; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+                out.println(
+                                "span.timerStoppedLabel {display:inline-block; margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; background-color:#FFFFFF; border-color: #2B3E42; border-width: 1px; border-style: solid}");
+                out.println(
+                                "span.timerRunningLabel {display:inline-block; margin-top: 1px; margin-bottom: 1px; padding-left:3px; padding-right:3px; color:#000000; background-color:#FFFF99; border-color: #2B3E42; border-width: 1px; border-style: solid}");
 
                 out.println("#suggestions {");
                 out.println("  border: 1px solid #ccc;");

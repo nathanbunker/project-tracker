@@ -178,6 +178,10 @@ public class ProjectActionServlet extends ClientServlet {
       appReq.setCompletingAction(completingAction);
       appReq.setProjectActionSelected(completingAction);
 
+      if ("GET".equalsIgnoreCase(request.getMethod()) && action == null) {
+        stopTimer(appReq, dataSession);
+      }
+
       List<ChatAgent> chatAgentList = new ArrayList<ChatAgent>();
       List<Project> projectList = getProjectList(webUser, dataSession);
 
@@ -1316,6 +1320,12 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void readCompletingAction(HttpServletRequest request, AppReq appReq, Session dataSession) {
+    String projectIdString = request.getParameter(PARAM_PROJECT_ID);
+    if (projectIdString != null) {
+      Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
+      appReq.setProject(project);
+      appReq.setProjectSelected(project);
+    }
     String completingActionNextIdString = request.getParameter(PARAM_COMPLETING_ACTION_NEXT_ID);
     if (completingActionNextIdString != null) {
       ProjectActionNext completingProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
@@ -1573,6 +1583,8 @@ public class ProjectActionServlet extends ClientServlet {
     TimeTracker timeTracker = appReq.getTimeTracker();
     if (timeTracker != null && completingAction != null) {
       timeTracker.startClock(completingAction.getProject(), completingAction, dataSession);
+    } else if (timeTracker != null && appReq.getProject() != null) {
+      timeTracker.startClock(appReq.getProject(), null, dataSession);
     }
   }
 
@@ -3086,15 +3098,11 @@ public class ProjectActionServlet extends ClientServlet {
       if (timeTracker != null) {
         String t = TimeTracker.formatTime(completingAction.getNextTimeActual());
         if (timeTracker.isRunningClock()) {
-          timeString += "<a href=\"ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_STOP_TIMER
-              + "\" class=\"timerRunning\" id=\"" + ID_TIME_RUNNING + "\">" + t + "</a>";
+          timeString += "<span class=\"timerRunningLabel\" id=\"" + ID_TIME_RUNNING + "\">" + t
+              + "</span>";
         } else {
-          timeString += "<a href=\"ProjectActionServlet?" + PARAM_COMPLETING_ACTION_NEXT_ID + "="
-              + completingAction.getActionNextId()
-              + "&" + PARAM_ACTION + "=" + ACTION_START_TIMER + "\" class=\"timerStopped\" id=\""
-              + ID_TIME_RUNNING
-              + "\">" + t
-              + "</a>";
+          timeString += "<span class=\"timerStoppedLabel\" id=\"" + ID_TIME_RUNNING + "\">" + t
+              + "</span>";
         }
       } else {
         // hidden text with time
