@@ -175,12 +175,15 @@ public class ProjectServlet extends MobileBaseServlet {
             Date nextActionDate = action.getNextActionDate();
             if (nextActionDate == null) {
                 unscheduledActions.add(action);
-            } else if (nextActionDate.before(todayStart)) {
-                overdueActions.add(action);
-            } else if (nextActionDate.before(tomorrowStart)) {
-                dueTodayActions.add(action);
             } else {
-                dueLaterActions.add(action);
+                Date actionDay = webUser.startOfDay(nextActionDate);
+                if (actionDay.before(todayStart)) {
+                    overdueActions.add(action);
+                } else if (actionDay.before(tomorrowStart)) {
+                    dueTodayActions.add(action);
+                } else {
+                    dueLaterActions.add(action);
+                }
             }
         }
 
@@ -246,8 +249,9 @@ public class ProjectServlet extends MobileBaseServlet {
             // Postpone column
             Date nextActionDate = action.getNextActionDate();
             boolean isUnscheduled = nextActionDate == null;
-            boolean isOverdue = !isUnscheduled && nextActionDate.before(todayStart);
-            boolean isDueToday = !isUnscheduled && nextActionDate.before(tomorrowStart);
+            Date actionDay = isUnscheduled ? null : webUser.startOfDay(nextActionDate);
+            boolean isOverdue = !isUnscheduled && actionDay.before(todayStart);
+            boolean isDueToday = !isUnscheduled && actionDay.before(tomorrowStart);
 
             String rescheduleTitle;
             String rescheduleIcon;
@@ -392,10 +396,11 @@ public class ProjectServlet extends MobileBaseServlet {
             Date today = webUser.getToday();
             Date tomorrow = webUser.getTomorrow();
             Date nextActionDate = action.getNextActionDate();
+            Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
 
-            if (nextActionDate == null || nextActionDate.before(today)) {
+            if (nextActionDay == null || nextActionDay.before(today)) {
                 action.setNextActionDate(today);
-            } else if (nextActionDate.before(tomorrow)) {
+            } else if (nextActionDay.before(tomorrow)) {
                 action.setNextActionDate(tomorrow);
             } else {
                 action.setNextActionDate(null);

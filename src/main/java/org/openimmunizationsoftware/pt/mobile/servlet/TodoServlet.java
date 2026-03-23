@@ -127,18 +127,23 @@ public class TodoServlet extends MobileBaseServlet {
                     continue;
                 }
 
+                Date actionDate = action.getNextActionDate();
+                if (actionDate == null) {
+                    continue;
+                }
+                Date actionDay = webUser.startOfDay(actionDate);
+
                 if (isToday) {
                     // Today: show overdue (before today) and today's items
-                    if (action.getNextActionDate() != null && action.getNextActionDate().before(today)) {
+                    if (actionDay.before(startOfSelectedDay)) {
                         overdueActions.add(action);
-                    } else {
+                    } else if (actionDay.before(endOfSelectedDay)) {
                         todayActions.add(action);
                     }
                 } else {
                     // Other days: only show items for that specific day
-                    if (action.getNextActionDate() != null
-                            && action.getNextActionDate().compareTo(startOfSelectedDay) >= 0
-                            && action.getNextActionDate().before(endOfSelectedDay)) {
+                    if (actionDay.compareTo(startOfSelectedDay) >= 0
+                            && actionDay.before(endOfSelectedDay)) {
                         todayActions.add(action);
                     }
                 }
@@ -501,11 +506,12 @@ public class TodoServlet extends MobileBaseServlet {
     private void postponeToTomorrow(ProjectActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
-            Date today = webUser.getToday();
-            Date tomorrow = webUser.getTomorrow();
+            Date today = webUser.startOfDay(webUser.getToday());
+            Date tomorrow = webUser.startOfDay(webUser.getTomorrow());
             Date nextActionDate = action.getNextActionDate();
+            Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
 
-            if (nextActionDate != null && nextActionDate.before(today)) {
+            if (nextActionDay != null && nextActionDay.before(today)) {
                 action.setNextActionDate(today);
             } else {
                 action.setNextActionDate(tomorrow);

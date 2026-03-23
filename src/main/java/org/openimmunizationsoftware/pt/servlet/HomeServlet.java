@@ -345,7 +345,9 @@ public class HomeServlet extends ClientServlet {
         if (projectAction.getProject() == null) {
           continue;
         }
-        if (projectAction.getNextActionDate() != null && projectAction.getNextActionDate().before(today)) {
+        Date nextActionDate = projectAction.getNextActionDate();
+        Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
+        if (nextActionDay != null && nextActionDay.before(today)) {
           projectActionListOverdue.add(projectAction);
         }
         projectAction.setContact(
@@ -547,9 +549,11 @@ public class HomeServlet extends ClientServlet {
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()));
     }
     Calendar today = TimeTracker.createToday(webUser);
-    if (projectAction.getNextActionDate() != null && projectAction.getNextActionDate().before(today.getTime())) {
+    Date nextActionDate = projectAction.getNextActionDate();
+    Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
+    if (nextActionDay != null && nextActionDay.before(today.getTime())) {
       today.add(Calendar.DAY_OF_MONTH, -1);
-      if (!projectAction.getNextActionDate().before(today.getTime())) {
+      if (!nextActionDay.before(today.getTime())) {
         out.println("    <span class=\"fail\">Due Yesterday</span>");
       } else {
         out.println(
