@@ -95,7 +95,7 @@ public class TemplateScheduleServlet extends ClientServlet {
       List<Calendar> dayList = new ArrayList<Calendar>();
       {
         int count = 0;
-        while (count < 8) {
+        while (count < 15) {
           Calendar day = webUser.getCalendar();
           day.set(Calendar.HOUR_OF_DAY, 0);
           day.set(Calendar.MINUTE, 0);
@@ -106,6 +106,8 @@ public class TemplateScheduleServlet extends ClientServlet {
           count++;
         }
       }
+      Calendar dayRangeEnd = (Calendar) dayList.get(dayList.size() - 1).clone();
+      dayRangeEnd.add(Calendar.DAY_OF_MONTH, 1);
       List<Project> projectList = appReq.createProjectList();
       if (projectList == null || projectList.isEmpty()) {
         projectList = getProjectList(webUser, dataSession);
@@ -128,16 +130,18 @@ public class TemplateScheduleServlet extends ClientServlet {
             Map<Calendar, ProjectActionNext> projectActionMap = new HashMap<Calendar, ProjectActionNext>();
             projectActionDayMap.put(projectActionTemplate, projectActionMap);
             query = dataSession.createQuery("from ProjectActionNext where "
-                + "templateActionNextId = :templateActionNextId and nextActionDate >= :nextActionDate ");
+                + "templateActionNextId = :templateActionNextId and nextActionDate >= :nextActionDate "
+                + "and nextActionDate < :nextActionDateEnd ");
             query.setParameter("templateActionNextId", projectActionTemplate.getActionNextId());
             query.setParameter("nextActionDate", dayList.get(0).getTime());
+            query.setParameter("nextActionDateEnd", dayRangeEnd.getTime());
             @SuppressWarnings("unchecked")
             List<ProjectActionNext> pal = query.list();
             for (ProjectActionNext pa : pal) {
-
+              Date scheduledDay = webUser.startOfDay(pa.getNextActionDate());
               Calendar calendar = null;
               for (Calendar c : dayList) {
-                if (c.getTime().equals(pa.getNextActionDate())) {
+                if (c.getTime().equals(scheduledDay)) {
                   calendar = c;
                   break;
                 }
