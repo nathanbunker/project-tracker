@@ -220,7 +220,7 @@ public class ClientServlet extends HttpServlet {
         project = completingAction.getProject();
       }
       if (project != null) {
-          result.append("<a href=\"ProjectActionServlet?projectId=" + project.getProjectId()
+        result.append("<a href=\"ProjectActionServlet?projectId=" + project.getProjectId()
             + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
       }
       if (timeTracker != null) {
