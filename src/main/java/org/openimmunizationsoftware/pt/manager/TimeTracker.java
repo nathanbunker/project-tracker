@@ -13,6 +13,7 @@ import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -334,6 +335,15 @@ public class TimeTracker {
     if (project.getBillCode() != null && !project.getBillCode().equals("")) {
       BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
       if (billCode != null) {
+        ProjectProvider provider = webUser.getProvider();
+        if (provider == null) {
+          provider = project.getProvider();
+        }
+        if (provider == null || provider.getProviderId() == null
+            || provider.getProviderId().trim().equals("")) {
+          throw new IllegalStateException(
+              "Unable to start timer: provider is not set for user/project.");
+        }
         BillEntry billEntry = new BillEntry();
         billEntry.setProjectId(project.getProjectId());
         billEntry.setCategoryCode(project.getCategoryCode());
@@ -344,12 +354,24 @@ public class TimeTracker {
         billEntry.setBillMins(0);
         billEntry.setBillable(billCode.getBillable());
         billEntry.setBillCode(billCode.getBillCode());
-        billEntry.setProvider(webUser.getProvider());
+        billEntry.setProvider(provider);
         Transaction trans = dataSession.beginTransaction();
         try {
           dataSession.save(billEntry);
-        } finally {
           trans.commit();
+        } catch (RuntimeException e) {
+          if (trans != null) {
+            try {
+              trans.rollback();
+            } catch (RuntimeException re) {
+              // Preserve the original failure while avoiding secondary rollback masking.
+            }
+          }
+          throw e;
+        } finally {
+          if (trans != null && trans.isActive()) {
+            trans.commit();
+          }
         }
         billEntryId = billEntry.getBillId();
         billEntryProjectId = billEntry.getProjectId();
@@ -383,8 +405,20 @@ public class TimeTracker {
     Transaction trans = dataSession.beginTransaction();
     try {
       dataSession.saveOrUpdate(billEntry);
-    } finally {
       trans.commit();
+    } catch (RuntimeException e) {
+      if (trans != null) {
+        try {
+          trans.rollback();
+        } catch (RuntimeException re) {
+          // Preserve the original failure while avoiding secondary rollback masking.
+        }
+      }
+      throw e;
+    } finally {
+      if (trans != null && trans.isActive()) {
+        trans.commit();
+      }
     }
   }
 

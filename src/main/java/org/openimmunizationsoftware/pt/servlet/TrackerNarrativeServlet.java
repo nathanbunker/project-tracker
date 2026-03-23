@@ -316,8 +316,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
         LocalDate lastWeekStart = lastDayOfMonth
                 .minusDays(lastDayOfMonth.getDayOfWeek().getValue() % 7);
         LocalDate endExclusive = lastWeekStart.plusWeeks(1);
-        String username = webUser == null ? null : webUser.getUsername();
-        Map<LocalDate, Integer> billableMinutesByDay = narrativeDao.sumBillableMinutesByDay(username,
+        Integer webUserId = webUser == null ? null : Integer.valueOf(webUser.getWebUserId());
+        Map<LocalDate, Integer> billableMinutesByDay = narrativeDao.sumBillableMinutesByDay(webUserId,
                 firstWeekStart, endExclusive);
         Set<LocalDate> approvedDailyStarts = narrativeDao.findApprovedPeriodStarts(TYPE_DAILY, firstWeekStart,
                 endExclusive.minusDays(1));

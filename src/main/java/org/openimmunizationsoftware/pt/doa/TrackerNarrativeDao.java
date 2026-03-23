@@ -68,19 +68,19 @@ public class TrackerNarrativeDao {
         return results.get(0);
     }
 
-    public Map<LocalDate, Integer> sumBillableMinutesByDay(String username, LocalDate startInclusive,
+    public Map<LocalDate, Integer> sumBillableMinutesByDay(Integer webUserId, LocalDate startInclusive,
             LocalDate endExclusive) {
         Map<LocalDate, Integer> minutesByDay = new HashMap<LocalDate, Integer>();
-        if (username == null || username.trim().length() == 0 || startInclusive == null || endExclusive == null
+        if (webUserId == null || webUserId.intValue() <= 0 || startInclusive == null || endExclusive == null
                 || !startInclusive.isBefore(endExclusive)) {
             return minutesByDay;
         }
 
         Query query = session.createQuery(
                 "select startTime, billMins from BillEntry "
-                        + "where username = :username and billable = :billable and billMins > 0 "
+                        + "where webUser.webUserId = :webUserId and billable = :billable and billMins > 0 "
                         + "and startTime >= :start and startTime < :end");
-        query.setString("username", username);
+        query.setInteger("webUserId", webUserId.intValue());
         query.setString("billable", "Y");
         query.setTimestamp("start", toDate(startInclusive.atStartOfDay()));
         query.setTimestamp("end", toDate(endExclusive.atStartOfDay()));

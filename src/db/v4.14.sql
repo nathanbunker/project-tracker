@@ -351,3 +351,10 @@ CREATE TABLE IF NOT EXISTS we_user_dependency (
   INDEX idx_wud_dependent_status (dependent_web_user_id, dependency_status),
   UNIQUE INDEX uk_wud_guardian_dependent_status (guardian_web_user_id, dependent_web_user_id, dependency_status)
 );
+
+ALTER TABLE bill_entry DROP COLUMN username;
+ALTER TABLE bill_expected DROP COLUMN username;
+ALTER TABLE project DROP COLUMN username;
+ALTER TABLE project_area DROP COLUMN username;
+ALTER TABLE report_profile DROP COLUMN username;
+ALTER TABLE web_api_client DROP COLUMN username;

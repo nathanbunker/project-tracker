@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 8.1.0, for Win64 (x86_64)
 --
--- Host: localhost    Database: tracker
+-- Host: localhost    Database: dandelion
 -- ------------------------------------------------------
 -- Server version	8.1.0
 
@@ -26,7 +26,7 @@ CREATE TABLE `bill_budget` (
   `bill_budget_id` int NOT NULL AUTO_INCREMENT,
   `bill_budget_code` varchar(30) NOT NULL,
   `bill_code` varchar(15) NOT NULL,
-  `provider_id` varchar(30) NOT NULL DEFAULT '1',
+  `provider_id` varchar(30) NOT NULL,
   `start_date` date NOT NULL,
   `end_date` date NOT NULL,
   `bill_mins` int NOT NULL,
@@ -69,7 +69,7 @@ DROP TABLE IF EXISTS `bill_day`;
 CREATE TABLE `bill_day` (
   `bill_day_id` int NOT NULL AUTO_INCREMENT,
   `bill_code` varchar(15) NOT NULL,
-  `provider_id` varchar(30) NOT NULL DEFAULT '1',
+  `provider_id` varchar(30) NOT NULL,
   `bill_date` date NOT NULL,
   `bill_mins` int NOT NULL,
   `bill_budget_id` int DEFAULT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE `bill_day` (
   PRIMARY KEY (`bill_day_id`),
   UNIQUE KEY `uk_bill_day_provider_code_date` (`provider_id`,`bill_code`,`bill_date`),
   KEY `idx_bill_day_provider_bill_code` (`provider_id`,`bill_code`)
-) ENGINE=MyISAM AUTO_INCREMENT=6122 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=6151 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -92,7 +92,6 @@ CREATE TABLE `bill_entry` (
   `bill_id` int NOT NULL AUTO_INCREMENT,
   `project_id` int NOT NULL,
   `category_code` varchar(15) DEFAULT NULL,
-  `username` varchar(30) NOT NULL,
   `web_user_id` int NOT NULL,
   `start_time` datetime NOT NULL,
   `end_time` datetime NOT NULL,
@@ -100,11 +99,11 @@ CREATE TABLE `bill_entry` (
   `billable` varchar(1) NOT NULL,
   `bill_code` varchar(15) DEFAULT NULL,
   `provider_id` varchar(30) NOT NULL DEFAULT '1',
-  `action_id` int DEFAULT NULL,
+  `action_next_id` int DEFAULT NULL,
   PRIMARY KEY (`bill_id`),
   KEY `idx_bill_entry_provider_bill_code` (`provider_id`,`bill_code`),
   KEY `idx_bill_entry_web_user_id` (`web_user_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=90244 DEFAULT CHARSET=utf8mb3;
+) ENGINE=MyISAM AUTO_INCREMENT=91703 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -115,7 +114,6 @@ DROP TABLE IF EXISTS `bill_expected`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bill_expected` (
-  `username` varchar(30) NOT NULL,
   `web_user_id` int NOT NULL,
   `bill_date` date NOT NULL,
   `bill_mins` int NOT NULL DEFAULT '0',
@@ -135,7 +133,7 @@ DROP TABLE IF EXISTS `bill_month`;
 CREATE TABLE `bill_month` (
   `bill_month_id` int NOT NULL AUTO_INCREMENT,
   `bill_code` varchar(15) NOT NULL,
-  `provider_id` varchar(30) NOT NULL DEFAULT '1',
+  `provider_id` varchar(30) NOT NULL,
   `bill_date` date NOT NULL,
   `bill_mins_expected` int NOT NULL,
   `bill_mins_actual` int NOT NULL,
@@ -158,6 +156,104 @@ CREATE TABLE `bill_work_status` (
   `work_label` varchar(30) NOT NULL,
   PRIMARY KEY (`work_status`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `budget_account`
+--
+
+DROP TABLE IF EXISTS `budget_account`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `budget_account` (
+  `account_id` int NOT NULL AUTO_INCREMENT,
+  `account_label` varchar(30) NOT NULL,
+  `provider_id` varchar(30) NOT NULL,
+  `start_amount` int NOT NULL,
+  `start_date` date NOT NULL,
+  `balance_amount` int NOT NULL,
+  `balance_date` date NOT NULL,
+  PRIMARY KEY (`account_id`),
+  UNIQUE KEY `account_label` (`account_label`,`provider_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `budget_item`
+--
+
+DROP TABLE IF EXISTS `budget_item`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `budget_item` (
+  `item_id` int NOT NULL AUTO_INCREMENT,
+  `item_label` varchar(30) NOT NULL,
+  `account_id` int NOT NULL,
+  `item_status` varchar(1) NOT NULL,
+  `last_amount` int NOT NULL,
+  `last_date` date NOT NULL,
+  `priority_code` varchar(1) NOT NULL,
+  `related_item_id` int DEFAULT NULL,
+  PRIMARY KEY (`item_id`),
+  UNIQUE KEY `item_label` (`item_label`,`account_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=92 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `budget_month`
+--
+
+DROP TABLE IF EXISTS `budget_month`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `budget_month` (
+  `month_id` int NOT NULL AUTO_INCREMENT,
+  `month_date` date NOT NULL,
+  `account_id` int NOT NULL,
+  `balance_start` int NOT NULL,
+  `balance_end` int NOT NULL,
+  PRIMARY KEY (`month_id`),
+  UNIQUE KEY `month_date` (`month_date`,`account_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=24 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `budget_trans`
+--
+
+DROP TABLE IF EXISTS `budget_trans`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `budget_trans` (
+  `trans_id` int NOT NULL AUTO_INCREMENT,
+  `item_id` int NOT NULL,
+  `month_id` int NOT NULL,
+  `trans_date` date NOT NULL,
+  `trans_status` varchar(1) NOT NULL,
+  `trans_amount` int NOT NULL,
+  `related_trans_id` int DEFAULT NULL,
+  `trans_record_id` int DEFAULT NULL,
+  PRIMARY KEY (`trans_id`),
+  UNIQUE KEY `item_id` (`item_id`,`month_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=237 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `budget_trans_record`
+--
+
+DROP TABLE IF EXISTS `budget_trans_record`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `budget_trans_record` (
+  `trans_record_id` int NOT NULL AUTO_INCREMENT,
+  `account_id` int NOT NULL,
+  `trans_id` int DEFAULT NULL,
+  `trans_date` date NOT NULL,
+  `trans_amount` int NOT NULL,
+  `description` varchar(300) NOT NULL,
+  PRIMARY KEY (`trans_record_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=117 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -194,13 +290,13 @@ CREATE TABLE `project` (
   `profile_id` int DEFAULT NULL,
   `bill_code` varchar(15) DEFAULT '.',
   `provider_id` varchar(30) DEFAULT NULL,
-  `username` varchar(30) NOT NULL DEFAULT 'nbunker',
   `web_user_id` int NOT NULL,
   `priority_level` int NOT NULL DEFAULT '0',
+  `project_icon` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`project_id`),
   KEY `idx_project_provider_bill_code` (`provider_id`,`bill_code`),
   KEY `idx_project_web_user_id` (`web_user_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=48708 DEFAULT CHARSET=utf8mb3;
+) ENGINE=MyISAM AUTO_INCREMENT=48722 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -237,7 +333,7 @@ CREATE TABLE `project_action` (
   `next_action_status` varchar(1) DEFAULT NULL,
   `next_change_date` datetime DEFAULT NULL,
   PRIMARY KEY (`action_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=786630 DEFAULT CHARSET=utf8mb3;
+) ENGINE=MyISAM AUTO_INCREMENT=778486 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -249,7 +345,7 @@ DROP TABLE IF EXISTS `project_action_change_log`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `project_action_change_log` (
   `change_id` int NOT NULL AUTO_INCREMENT,
-  `action_id` int NOT NULL,
+  `action_next_id` int NOT NULL,
   `project_id` int NOT NULL,
   `proposal_id` int DEFAULT NULL,
   `change_date` datetime NOT NULL,
@@ -260,7 +356,7 @@ CREATE TABLE `project_action_change_log` (
   `change_patch` text,
   `change_reason` text,
   PRIMARY KEY (`change_id`),
-  KEY `idx_change_action_date` (`action_id`,`change_date`),
+  KEY `idx_change_action_date` (`action_next_id`,`change_date`),
   KEY `idx_change_project_date` (`project_id`,`change_date`),
   KEY `idx_change_proposal_date` (`proposal_id`,`change_date`),
   KEY `idx_change_actor_date` (`actor_type`,`change_date`)
@@ -282,13 +378,10 @@ CREATE TABLE `project_action_next` (
   `next_action_status` varchar(1) NOT NULL,
   `next_change_date` datetime DEFAULT NULL,
   `next_description` varchar(1200) NOT NULL,
-  `next_due` datetime DEFAULT NULL,
   `next_action_type` varchar(16) DEFAULT NULL,
   `next_time_estimate` int DEFAULT '0',
   `next_contact_id` int DEFAULT NULL,
   `priority_level` int NOT NULL DEFAULT '1',
-  `completion_order` int NOT NULL DEFAULT '0',
-  `next_deadline` datetime DEFAULT NULL,
   `goal_status` varchar(1) DEFAULT NULL,
   `template_action_next_id` int DEFAULT NULL,
   `link_url` varchar(1200) DEFAULT NULL,
@@ -297,14 +390,24 @@ CREATE TABLE `project_action_next` (
   `next_summary` text,
   `template_type` varchar(1) DEFAULT NULL,
   `next_feedback` text,
-  `priority_special` varchar(1) DEFAULT NULL,
+  `process_stage` varchar(20) DEFAULT NULL,
+  `billable` char(1) NOT NULL DEFAULT 'N',
+  `next_action_date` date DEFAULT NULL,
+  `next_deadline_date` date DEFAULT NULL,
+  `next_target_date` date DEFAULT NULL,
+  `time_slot` varchar(20) DEFAULT NULL,
+  `blocked_by_id` int DEFAULT NULL,
+  `completion_order` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`action_next_id`),
-  KEY `idx_pan_project_due` (`project_id`,`next_due`),
-  KEY `idx_pan_project_deadline` (`project_id`,`next_deadline`),
+  KEY `idx_pan_project_due` (`project_id`),
+  KEY `idx_pan_project_deadline` (`project_id`),
   KEY `idx_pan_contact` (`contact_id`),
   KEY `idx_pan_next_contact` (`next_contact_id`),
-  KEY `idx_pan_status` (`next_action_status`)
-) ENGINE=InnoDB AUTO_INCREMENT=16384 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `idx_pan_status` (`next_action_status`),
+  KEY `idx_pan_next_action_date` (`next_action_date`),
+  KEY `idx_pan_blocked_by_id` (`blocked_by_id`),
+  KEY `idx_pan_provider_contact_date_order` (`provider_id`,`contact_id`,`next_action_date`,`completion_order`)
+) ENGINE=InnoDB AUTO_INCREMENT=787410 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -318,7 +421,7 @@ CREATE TABLE `project_action_proposal` (
   `proposal_id` int NOT NULL AUTO_INCREMENT,
   `client_id` int NOT NULL,
   `project_id` int NOT NULL,
-  `action_id` int DEFAULT NULL,
+  `action_next_id` int DEFAULT NULL,
   `contact_id` int DEFAULT NULL,
   `proposal_status` varchar(16) NOT NULL DEFAULT 'new',
   `proposal_create_date` datetime NOT NULL,
@@ -331,11 +434,11 @@ CREATE TABLE `project_action_proposal` (
   `input_snapshot` text,
   PRIMARY KEY (`proposal_id`),
   KEY `idx_proposal_client_project` (`client_id`,`project_id`),
-  KEY `idx_proposal_client_action` (`client_id`,`action_id`),
+  KEY `idx_proposal_client_action` (`client_id`,`action_next_id`),
   KEY `idx_proposal_project_date` (`project_id`,`proposal_create_date`),
   KEY `idx_proposal_project_status` (`project_id`,`proposal_status`),
-  KEY `idx_proposal_action_status` (`action_id`,`proposal_status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `idx_proposal_action_status` (`action_next_id`,`proposal_status`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -355,7 +458,7 @@ CREATE TABLE `project_action_taken` (
   PRIMARY KEY (`action_taken_id`),
   KEY `idx_pat_project_date` (`project_id`,`action_date`),
   KEY `idx_pat_contact_date` (`contact_id`,`action_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=16384 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16733 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -391,7 +494,6 @@ DROP TABLE IF EXISTS `project_area`;
 CREATE TABLE `project_area` (
   `area_id` int NOT NULL,
   `area_label` varchar(60) NOT NULL,
-  `username` varchar(30) NOT NULL,
   `web_user_id` int NOT NULL,
   `sort_order` int DEFAULT NULL,
   `visible` varchar(1) DEFAULT NULL,
@@ -528,6 +630,30 @@ CREATE TABLE `project_contact_supervisor` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `project_narrative`
+--
+
+DROP TABLE IF EXISTS `project_narrative`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `project_narrative` (
+  `narrative_id` int NOT NULL AUTO_INCREMENT,
+  `project_id` int NOT NULL,
+  `contact_id` int NOT NULL,
+  `provider_id` varchar(30) NOT NULL,
+  `narrative_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `narrative_verb` varchar(20) NOT NULL,
+  `narrative_text` text NOT NULL,
+  `last_updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`narrative_id`),
+  KEY `idx_project_date` (`project_id`,`narrative_date`),
+  KEY `idx_verb_date` (`narrative_verb`,`narrative_date`),
+  KEY `idx_contact` (`contact_id`),
+  KEY `idx_provider` (`provider_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `project_next_action_type`
 --
 
@@ -581,7 +707,6 @@ CREATE TABLE `report_profile` (
   `extends_profile_id` int DEFAULT NULL,
   `profile_label` varchar(50) DEFAULT NULL,
   `provider_id` varchar(30) DEFAULT NULL,
-  `username` varchar(30) DEFAULT NULL,
   `web_user_id` int DEFAULT NULL,
   `profile_type` varchar(3) DEFAULT NULL,
   `use_status` varchar(1) DEFAULT NULL,
@@ -631,6 +756,68 @@ CREATE TABLE `tracker_keys` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `tracker_narrative`
+--
+
+DROP TABLE IF EXISTS `tracker_narrative`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tracker_narrative` (
+  `narrative_id` int NOT NULL AUTO_INCREMENT,
+  `display_title` varchar(255) NOT NULL,
+  `narrative_type` varchar(20) NOT NULL,
+  `period_start` date NOT NULL,
+  `period_end` date NOT NULL,
+  `review_status` varchar(20) NOT NULL,
+  `markdown_generated` mediumtext,
+  `markdown_final` mediumtext,
+  `date_generated` datetime DEFAULT NULL,
+  `date_approved` datetime DEFAULT NULL,
+  `prompt_version` varchar(50) DEFAULT NULL,
+  `model_name` varchar(50) DEFAULT NULL,
+  `project_id` int NOT NULL,
+  `contact_id` int NOT NULL,
+  `last_updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`narrative_id`),
+  KEY `idx_type_period` (`narrative_type`,`period_start`,`period_end`),
+  KEY `idx_review_status` (`review_status`),
+  KEY `idx_generated` (`date_generated`),
+  KEY `idx_tracker_narrative_contact_updated` (`contact_id`,`last_updated`),
+  KEY `idx_tracker_narrative_project` (`project_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `we_user_dependency`
+--
+
+DROP TABLE IF EXISTS `we_user_dependency`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `we_user_dependency` (
+  `dependency_id` int NOT NULL AUTO_INCREMENT,
+  `guardian_web_user_id` int NOT NULL,
+  `dependent_web_user_id` int DEFAULT NULL,
+  `relationship_type` varchar(24) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'guardian',
+  `dependency_status` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'invited',
+  `can_view_today_summary` varchar(1) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Y',
+  `can_view_next_actions` varchar(1) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Y',
+  `can_add_actions` varchar(1) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Y',
+  `can_edit_actions` varchar(1) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'N',
+  `invite_email` varchar(254) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `invite_token_hash` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `invite_expiry` datetime DEFAULT NULL,
+  `created_date` datetime NOT NULL,
+  `accepted_date` datetime DEFAULT NULL,
+  `ended_date` datetime DEFAULT NULL,
+  PRIMARY KEY (`dependency_id`),
+  UNIQUE KEY `uk_wud_guardian_dependent_status` (`guardian_web_user_id`,`dependent_web_user_id`,`dependency_status`),
+  KEY `idx_wud_guardian_status` (`guardian_web_user_id`,`dependency_status`),
+  KEY `idx_wud_dependent_status` (`dependent_web_user_id`,`dependency_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `web_api_client`
 --
 
@@ -640,7 +827,6 @@ DROP TABLE IF EXISTS `web_api_client`;
 CREATE TABLE `web_api_client` (
   `client_id` int NOT NULL AUTO_INCREMENT,
   `api_key` varchar(80) NOT NULL,
-  `username` varchar(30) NOT NULL,
   `web_user_id` int NOT NULL,
   `provider_id` varchar(30) DEFAULT NULL,
   `agent_name` varchar(80) DEFAULT NULL,
@@ -649,10 +835,9 @@ CREATE TABLE `web_api_client` (
   `last_used_date` datetime DEFAULT NULL,
   PRIMARY KEY (`client_id`),
   UNIQUE KEY `uk_web_api_client_key` (`api_key`),
-  KEY `idx_web_api_client_user` (`username`),
-  KEY `idx_web_api_client_web_user_id` (`web_user_id`),
-  KEY `idx_web_api_client_provider` (`provider_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `idx_web_api_client_provider` (`provider_id`),
+  KEY `idx_web_api_client_web_user_id` (`web_user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -684,8 +869,16 @@ CREATE TABLE `web_user` (
   UNIQUE KEY `uk_web_user_email_address` (`email_address`),
   KEY `idx_web_user_registration_status` (`registration_status`),
   KEY `idx_web_user_magic_link_expiry` (`magic_link_expiry`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3;
+) ENGINE=MyISAM AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping events for database 'dandelion'
+--
+
+--
+-- Dumping routines for database 'dandelion'
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -696,4 +889,4 @@ CREATE TABLE `web_user` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-09 10:14:50
+-- Dump completed on 2026-03-23  6:20:01
