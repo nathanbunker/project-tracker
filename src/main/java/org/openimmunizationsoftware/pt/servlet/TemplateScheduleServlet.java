@@ -9,6 +9,8 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -105,6 +107,9 @@ public class TemplateScheduleServlet extends ClientServlet {
         }
       }
       List<Project> projectList = appReq.createProjectList();
+      if (projectList == null || projectList.isEmpty()) {
+        projectList = getProjectList(webUser, dataSession);
+      }
       Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap = new HashMap<ProjectActionNext, Map<Calendar, ProjectActionNext>>();
       Map<Project, List<ProjectActionNext>> templateMap = new HashMap<Project, List<ProjectActionNext>>();
       {
@@ -387,6 +392,17 @@ public class TemplateScheduleServlet extends ClientServlet {
     return ((Boolean) request.getAttribute(REQUEST_SHOW_PERSONAL)).booleanValue();
   }
 
+  private List<Project> getProjectList(WebUser webUser, Session dataSession) {
+    String queryString = "from Project where provider = ?";
+    queryString += " and phaseCode <> 'Clos'";
+    queryString += " order by projectName";
+    Query query = dataSession.createQuery(queryString);
+    query.setParameter(0, webUser.getProvider());
+    @SuppressWarnings("unchecked")
+    List<Project> projectList = query.list();
+    return projectList;
+  }
+
   private void printTemplateTable(PrintWriter out, WebUser webUser, List<Calendar> dayList,
       List<Project> filteredProjectList,
       Map<Project, List<ProjectActionNext>> templateMap,
@@ -426,6 +442,9 @@ public class TemplateScheduleServlet extends ClientServlet {
       List<ProjectActionNext> templateScheduleList = templateMap.get(project);
       if (templateScheduleList == null || templateScheduleList.size() == 0) {
         continue;
+      }
+      if (personalTable) {
+        templateScheduleList = sortByTimeSlot(templateScheduleList);
       }
       for (ProjectActionNext projectActionTemplate : templateScheduleList) {
         Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(projectActionTemplate);
@@ -514,6 +533,32 @@ public class TemplateScheduleServlet extends ClientServlet {
     }
     out.println("  </tr>");
     out.println("</table>");
+  }
+
+  private List<ProjectActionNext> sortByTimeSlot(List<ProjectActionNext> templateScheduleList) {
+    List<ProjectActionNext> sortedTemplateScheduleList = new ArrayList<ProjectActionNext>(templateScheduleList);
+    Collections.sort(sortedTemplateScheduleList, new Comparator<ProjectActionNext>() {
+      @Override
+      public int compare(ProjectActionNext left, ProjectActionNext right) {
+        int leftOrder = resolveTimeSlotOrder(left);
+        int rightOrder = resolveTimeSlotOrder(right);
+        if (leftOrder != rightOrder) {
+          return leftOrder - rightOrder;
+        }
+        String leftDescription = left.getNextDescription() == null ? "" : left.getNextDescription();
+        String rightDescription = right.getNextDescription() == null ? "" : right.getNextDescription();
+        return leftDescription.compareToIgnoreCase(rightDescription);
+      }
+    });
+    return sortedTemplateScheduleList;
+  }
+
+  private int resolveTimeSlotOrder(ProjectActionNext projectActionNext) {
+    TimeSlot timeSlot = projectActionNext.getTimeSlot();
+    if (timeSlot == null) {
+      timeSlot = TimeSlot.AFTERNOON;
+    }
+    return timeSlot.ordinal();
   }
 
   private String[] readAddTemplateRequest(HttpServletRequest request) {

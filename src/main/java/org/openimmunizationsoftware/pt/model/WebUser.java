@@ -39,6 +39,8 @@ public class WebUser implements java.io.Serializable {
 
   public static final String USER_TYPE_ADMIN = "admin";
   public static final String USER_TYPE_USER = "user";
+  public static final String REGISTRATION_STATUS_ACTIVE = "ACTIVE";
+  public static final String REGISTRATION_STATUS_PENDING = "PENDING";
 
   public static final String AMERICA_DENVER = "America/Denver";
 
@@ -54,7 +56,7 @@ public class WebUser implements java.io.Serializable {
   private ProjectProvider provider = null;
   private boolean trackTime = false;
   private String userType;
-  private String registrationStatus = "ACTIVE";
+  private String registrationStatus = REGISTRATION_STATUS_PENDING;
   private Date createdDate;
   private Date verifiedDate;
   private Date lastLoginDate;

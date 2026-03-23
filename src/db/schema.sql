@@ -858,7 +858,7 @@ CREATE TABLE `web_user` (
   `password` varchar(30) DEFAULT NULL,
   `provider_id` varchar(30) DEFAULT NULL,
   `user_type` varchar(30) NOT NULL DEFAULT 'user',
-  `registration_status` varchar(16) NOT NULL DEFAULT 'ACTIVE',
+  `registration_status` varchar(16) NOT NULL DEFAULT 'PENDING',
   `created_date` datetime NOT NULL,
   `verified_date` datetime DEFAULT NULL,
   `last_login_date` datetime DEFAULT NULL,

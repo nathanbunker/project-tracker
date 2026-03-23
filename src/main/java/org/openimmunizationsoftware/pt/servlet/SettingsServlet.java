@@ -31,6 +31,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class SettingsServlet extends ClientServlet {
 
   private static final String ACTION_SAVE = "Save";
+  private static final String ACTION_SAVE_REPORT_SETTINGS = "Save Report Settings";
   private static final String ACTION_CREATE_API_KEY = "Create API Key";
   private static final String ACTION_DELETE_API_KEY = "Delete API Key";
 
@@ -44,6 +45,7 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_TIME_DISPLAY_FORMAT = "timeDisplayFormat";
   private static final String PARAM_TIME_ENTRY_FORMAT = "timeEntryFormat";
   private static final String PARAM_TRACK_TIME = "trackTime";
+  private static final String PARAM_REPORT_DAILY_ENABLED = "reportDailyEnabled";
   private static final String PARAM_API_KEY_AGENT_NAME = "apiKeyAgentName";
   private static final String PARAM_API_KEY_CLIENT_ID = "apiKeyClientId";
 
@@ -107,6 +109,9 @@ public class SettingsServlet extends ClientServlet {
             TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TRACK_TIME, webUser,
                 request.getParameter(PARAM_TRACK_TIME) != null ? "Y" : "N", dataSession);
           }
+        } else if (action.equals(ACTION_SAVE_REPORT_SETTINGS)) {
+          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, webUser,
+              request.getParameter(PARAM_REPORT_DAILY_ENABLED) != null ? "Y" : "N", dataSession);
         }
         if (action.equals(ACTION_CREATE_API_KEY)) {
           String agentName = request.getParameter(PARAM_API_KEY_AGENT_NAME);
@@ -180,6 +185,31 @@ public class SettingsServlet extends ClientServlet {
         out.println("  </tr>");
         out.println("</table>");
       }
+
+      boolean userDailyReportsEnabled = TrackerKeysManager.getUserKeyValueBooleanNoFallback(
+          TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, false, webUser, dataSession);
+
+      out.println("<br/>");
+      out.println("<form action=\"SettingsServlet\" method=\"POST\">");
+      out.println("<table class=\"boxed\">");
+      out.println("  <tr class=\"boxed\">");
+      out.println("     <th class=\"title\" colspan=\"2\">Automatic Report Emails</td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Receive automatic report emails</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <input type=\"checkbox\" name=\"" + PARAM_REPORT_DAILY_ENABLED
+          + "\" value=\"Y\"" + (userDailyReportsEnabled ? " checked" : "") + "> ");
+      out.println(
+          "      <span class=\"small\">Both this setting and the admin daily report switch must be enabled before automatic reports send.</span>");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
+          + PARAM_ACTION + "\" value=\"" + ACTION_SAVE_REPORT_SETTINGS + "\"></td>");
+      out.println("  </tr>");
+      out.println("</table>");
+      out.println("</form>");
 
       String providerId = webUser.getProvider() == null ? null : webUser.getProvider().getProviderId();
       Query apiKeyQuery;

@@ -120,11 +120,19 @@ public class TrackerKeysManager {
     @SuppressWarnings("unchecked")
     List<TrackerKeys> trackerKeysList = query.list();
     if (trackerKeysList.size() > 0) {
-      return trackerKeysList.get(0).getKeyValue();
+      String value = trackerKeysList.get(0).getKeyValue();
+      if (value != null && !value.trim().equals("")) {
+        return value;
+      }
     } else {
       if (keyType == KEY_TYPE_USER || keyType == KEY_TYPE_REPORT) {
-        return getKeyValue(keyName, KEY_TYPE_APPLICATION, keyId, defaultValue, dataSession);
+        return getKeyValue(keyName, KEY_TYPE_APPLICATION, KEY_ID_APPLICATION, defaultValue,
+            dataSession);
       }
+    }
+    if (keyType == KEY_TYPE_USER || keyType == KEY_TYPE_REPORT) {
+      return getKeyValue(keyName, KEY_TYPE_APPLICATION, KEY_ID_APPLICATION, defaultValue,
+          dataSession);
     }
     return defaultValue;
   }
@@ -148,6 +156,30 @@ public class TrackerKeysManager {
   public static String getKeyValue(String keyName, String defaultValue, WebUser webUser,
       Session dataSession) {
     return getKeyValue(keyName, KEY_TYPE_USER, webUser.getUsername(), defaultValue, dataSession);
+  }
+
+  public static String getUserKeyValueNoFallback(String keyName, String defaultValue,
+      WebUser webUser, Session dataSession) {
+    Query query = dataSession
+        .createQuery("from TrackerKeys where id.keyName = ? and id.keyType = ? and id.keyId = ?");
+    query.setParameter(0, keyName);
+    query.setParameter(1, KEY_TYPE_USER);
+    query.setParameter(2, webUser.getUsername());
+    @SuppressWarnings("unchecked")
+    List<TrackerKeys> trackerKeysList = query.list();
+    if (trackerKeysList.size() > 0) {
+      String value = trackerKeysList.get(0).getKeyValue();
+      if (value != null && !value.trim().equals("")) {
+        return value;
+      }
+    }
+    return defaultValue;
+  }
+
+  public static boolean getUserKeyValueBooleanNoFallback(String keyName, boolean defaultValue,
+      WebUser webUser, Session dataSession) {
+    return makeBoolean(getUserKeyValueNoFallback(keyName, defaultValue ? "Y" : "N", webUser,
+        dataSession));
   }
 
   public static void saveKeyValue(String keyName, WebUser webUser, String value,

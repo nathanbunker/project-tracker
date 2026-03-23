@@ -196,7 +196,7 @@ public class RegistrationServlet extends ClientServlet {
             webUser.setPassword(null);
             webUser.setProvider(null);
             webUser.setUserType(WebUser.USER_TYPE_USER);
-            webUser.setRegistrationStatus("ACTIVE");
+            webUser.setRegistrationStatus(WebUser.REGISTRATION_STATUS_PENDING);
             webUser.setCreatedDate(now);
             webUser.setVerifiedDate(null);
             webUser.setLastLoginDate(null);
@@ -264,6 +264,7 @@ public class RegistrationServlet extends ClientServlet {
             webUser.setLastName(setupFormData.lastName);
             webUser.setProvider(provider);
             webUser.setEmailVerified(true);
+            webUser.setRegistrationStatus(WebUser.REGISTRATION_STATUS_ACTIVE);
             if (webUser.getVerifiedDate() == null) {
                 webUser.setVerifiedDate(now);
             }

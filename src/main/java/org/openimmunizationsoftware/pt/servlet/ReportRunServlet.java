@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -82,6 +83,32 @@ public class ReportRunServlet extends ClientServlet {
       this.statusMessage = statusMessage;
     }
 
+  }
+
+  private static boolean isAutomaticReportEnabledForUser(WebUser webUser, Session dataSession) {
+    return TrackerKeysManager.getUserKeyValueBooleanNoFallback(
+        TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, false, webUser, dataSession);
+  }
+
+  private static boolean isEligibleForAutomaticReportEmail(WebUser webUser) {
+    if (webUser == null) {
+      return false;
+    }
+    if (!WebUser.REGISTRATION_STATUS_ACTIVE.equals(webUser.getRegistrationStatus())) {
+      return false;
+    }
+    if (!webUser.isEmailVerified()) {
+      return false;
+    }
+    ProjectProvider provider = webUser.getProvider();
+    if (provider == null) {
+      return false;
+    }
+    if (webUser.getProjectContact() == null) {
+      return false;
+    }
+    String projectContactEmail = webUser.getProjectContact().getEmailAddress();
+    return projectContactEmail != null && !projectContactEmail.trim().equals("");
   }
 
   @Override
@@ -447,6 +474,10 @@ public class ReportRunServlet extends ClientServlet {
           WebUser webUser = webUserList.get(0);
           webUser.setProjectContact(
               (ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId()));
+          if (!isAutomaticReportEnabledForUser(webUser, dataSession)
+              || !isEligibleForAutomaticReportEmail(webUser)) {
+            continue;
+          }
           boolean isSunday;
           Date billDate;
           {
@@ -525,6 +556,8 @@ public class ReportRunServlet extends ClientServlet {
       for (ReportProfile reportProfile : reportProfileList) {
         WebUser webUser = reportProfile.getWebUser();
         if (webUser != null) {
+          webUser.setProjectContact(
+              (ProjectContact) dataSession.get(ProjectContact.class, webUser.getContactId()));
           webUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
               TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, webUser, dataSession)));
           webUser.setDateDisplayPattern(TrackerKeysManager.getKeyValue(
@@ -539,6 +572,10 @@ public class ReportRunServlet extends ClientServlet {
           webUser.setTimeEntryPattern(TrackerKeysManager.getKeyValue(
               TrackerKeysManager.KEY_TIME_ENTRY_FORMAT,
               webUser.getTimeEntryPattern(), webUser, dataSession));
+          if (!isAutomaticReportEnabledForUser(webUser, dataSession)
+              || !isEligibleForAutomaticReportEmail(webUser)) {
+            continue;
+          }
         } else {
           webUser = new WebUser();
           webUser.setTimeZone(TimeZone.getDefault());

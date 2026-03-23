@@ -210,6 +210,16 @@ public class AppReq {
         if (projectTrackTime != null) {
           timeTracker.update(projectTrackTime, actionTrackTime, dataSession);
         }
+      } else {
+        // Redeploy can preserve login while dropping transient session state such as
+        // timeTracker.
+        boolean trackTimeEnabled = TrackerKeysManager
+            .getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", webUser, dataSession)
+            .equalsIgnoreCase("Y");
+        if (trackTimeEnabled) {
+          timeTracker = new TimeTracker(webUser, dataSession);
+          webSession.setAttribute(SESSION_VAR_TIME_TRACKER, timeTracker);
+        }
       }
       projectSelected = loadProjectFromSession(SESSION_VAR_PROJECT);
       projectActionSelected = loadProjectActionFromSession(SESSION_VAR_ACTION);

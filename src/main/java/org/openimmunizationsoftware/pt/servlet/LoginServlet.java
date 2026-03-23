@@ -234,9 +234,10 @@ public class LoginServlet extends ClientServlet {
     }
 
     Query query = dataSession.createQuery(
-        "from WebUser where lower(emailAddress) = ? and registrationStatus = ? order by webUserId desc");
+        "from WebUser where lower(emailAddress) = ? and registrationStatus in (:activeStatus, :pendingStatus) order by webUserId desc");
     query.setParameter(0, emailAddress.toLowerCase());
-    query.setParameter(1, "ACTIVE");
+    query.setParameter("activeStatus", WebUser.REGISTRATION_STATUS_ACTIVE);
+    query.setParameter("pendingStatus", WebUser.REGISTRATION_STATUS_PENDING);
     @SuppressWarnings("unchecked")
     List<WebUser> webUserList = query.list();
 
@@ -266,7 +267,7 @@ public class LoginServlet extends ClientServlet {
         return;
       } else {
         String body = "<p>A sign-in link was requested for your Dandelion account.</p>"
-          + "<p><a href=\"" + magicLink + "\">Sign in to Dandelion</a></p>"
+            + "<p><a href=\"" + magicLink + "\">Sign in to Dandelion</a></p>"
             + "<p>This link expires in " + MAGIC_LINK_MINUTES_VALID + " minutes.</p>";
         try {
           MailManager mailManager = new MailManager(dataSession);
