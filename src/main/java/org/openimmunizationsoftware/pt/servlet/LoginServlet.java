@@ -44,9 +44,6 @@ public class LoginServlet extends ClientServlet {
   private static final String PARAM_MAGIC_TOKEN = "magicToken";
 
   private static final int MAGIC_LINK_MINUTES_VALID = 20;
-  // Temporary testing mode: show generated magic link on page instead of sending
-  // email.
-  private static final boolean TEMP_SHOW_MAGIC_LINK_ON_PAGE = true;
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -101,8 +98,10 @@ public class LoginServlet extends ClientServlet {
         }
         try {
           appReq.setTitle("Login");
+          boolean emailEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(
+              TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, false, dataSession);
           printHtmlHead(appReq);
-          printLoginForm(out, username, password, magicEmail, uiMode);
+          printLoginForm(out, username, password, magicEmail, uiMode, emailEnabled);
           printHtmlFoot(appReq);
         } catch (Exception e) {
           e.printStackTrace();
@@ -260,22 +259,15 @@ public class LoginServlet extends ClientServlet {
       trans.commit();
 
       String magicLink = buildMagicLinkUrl(request, dataSession, webUser.getWebUserId(), rawToken);
-      if (TEMP_SHOW_MAGIC_LINK_ON_PAGE) {
-        appReq.setMessageConfirmation("Temporary test mode: "
-            + "<a href=\"" + magicLink + "\">Open magic sign-in link</a>"
-            + " (valid for " + MAGIC_LINK_MINUTES_VALID + " minutes)");
+      String body = "<p>A sign-in link was requested for your Dandelion account.</p>"
+          + "<p><a href=\"" + magicLink + "\">Sign in to Dandelion</a></p>"
+          + "<p>This link expires in " + MAGIC_LINK_MINUTES_VALID + " minutes.</p>";
+      try {
+        MailManager mailManager = new MailManager(dataSession);
+        mailManager.sendEmail("Dandelion Sign-In Link", body, webUser.getEmailAddress());
+      } catch (Exception e) {
+        appReq.setMessageProblem("Unable to send magic link email: " + e.getMessage());
         return;
-      } else {
-        String body = "<p>A sign-in link was requested for your Dandelion account.</p>"
-            + "<p><a href=\"" + magicLink + "\">Sign in to Dandelion</a></p>"
-            + "<p>This link expires in " + MAGIC_LINK_MINUTES_VALID + " minutes.</p>";
-        try {
-          MailManager mailManager = new MailManager(dataSession);
-          mailManager.sendEmail("Dandelion Sign-In Link", body, webUser.getEmailAddress());
-        } catch (Exception e) {
-          appReq.setMessageProblem("Unable to send magic link email: " + e.getMessage());
-          return;
-        }
       }
     }
 
@@ -391,55 +383,56 @@ public class LoginServlet extends ClientServlet {
   }
 
   private void printLoginForm(PrintWriter out, String username, String password, String magicEmail,
-      String uiMode) {
+      String uiMode, boolean emailEnabled) {
     String escapedUsername = escapeHtml(username);
     String escapedPassword = escapeHtml(password);
     String escapedMagicEmail = escapeHtml(magicEmail);
 
-    out.println("<form action=\"LoginServlet\" method=\"POST\">");
-    out.println("<table>");
-    out.println("  <tr>");
-    out.println("    <td>Username</td>");
-    out.println("    <td><input type=\"text\" name=\"username\" value=\"" + escapedUsername + "\"></td>");
-    out.println("  </tr>");
-    out.println("  <tr>");
-    out.println("    <td>Password</td>");
-    out.println(
-        "    <td><input type=\"password\" name=\"password\" value=\"" + escapedPassword + "\"></td>");
-    out.println("  </tr>");
-    out.println("  <tr>");
-    out.println("    <td>Mode</td>");
-    out.println("    <td>");
-    out.println("      <input type=\"radio\" name=\"uiMode\" value=\"desktop\""
-        + (uiMode.equals("desktop") ? " checked" : "") + "> Desktop");
-    out.println("      <input type=\"radio\" name=\"uiMode\" value=\"mobile\""
-        + (uiMode.equals("mobile") ? " checked" : "") + "> Mobile");
-    out.println("    </td>");
-    out.println("  </tr>");
-    out.println("  <tr>");
-    out.println(
-        "    <td colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\"Login\"></td>");
-    out.println("  </tr>");
-    out.println("</table>");
-    out.println("</form>");
-
-    out.println("<p>&nbsp;</p>");
-    out.println("<form action=\"LoginServlet\" method=\"POST\">");
-    out.println("<table>");
-    out.println("  <tr>");
-    out.println("    <td colspan=\"2\"><b>Email Magic Link</b></td>");
-    out.println("  </tr>");
-    out.println("  <tr>");
-    out.println("    <td>Email</td>");
-    out.println("    <td><input type=\"text\" name=\"" + PARAM_MAGIC_EMAIL
-        + "\" value=\"" + escapedMagicEmail + "\" size=\"40\"></td>");
-    out.println("  </tr>");
-    out.println("  <tr>");
-    out.println("    <td colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\""
-        + ACTION_SEND_MAGIC_LINK + "\"></td>");
-    out.println("  </tr>");
-    out.println("</table>");
-    out.println("</form>");
+    if (!emailEnabled) {
+      out.println("<form action=\"LoginServlet\" method=\"POST\">");
+      out.println("<table>");
+      out.println("  <tr>");
+      out.println("    <td>Username</td>");
+      out.println("    <td><input type=\"text\" name=\"username\" value=\"" + escapedUsername + "\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td>Password</td>");
+      out.println(
+          "    <td><input type=\"password\" name=\"password\" value=\"" + escapedPassword + "\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td>Mode</td>");
+      out.println("    <td>");
+      out.println("      <input type=\"radio\" name=\"uiMode\" value=\"desktop\""
+          + (uiMode.equals("desktop") ? " checked" : "") + "> Desktop");
+      out.println("      <input type=\"radio\" name=\"uiMode\" value=\"mobile\""
+          + (uiMode.equals("mobile") ? " checked" : "") + "> Mobile");
+      out.println("    </td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println(
+          "    <td colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\"Login\"></td>");
+      out.println("  </tr>");
+      out.println("</table>");
+      out.println("</form>");
+    } else {
+      out.println("<form action=\"LoginServlet\" method=\"POST\">");
+      out.println("<table>");
+      out.println("  <tr>");
+      out.println("    <td colspan=\"2\"><b>Email Magic Link</b></td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td>Email</td>");
+      out.println("    <td><input type=\"text\" name=\"" + PARAM_MAGIC_EMAIL
+          + "\" value=\"" + escapedMagicEmail + "\" size=\"40\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr>");
+      out.println("    <td colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\""
+          + ACTION_SEND_MAGIC_LINK + "\"></td>");
+      out.println("  </tr>");
+      out.println("</table>");
+      out.println("</form>");
+    }
     out.println("<p>&nbsp;</p>");
   }
 

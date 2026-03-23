@@ -62,7 +62,6 @@ public class RegistrationServlet extends ClientServlet {
     private static final String STATUS_SETUP = "setup";
     private static final int MAGIC_LINK_MINUTES_VALID = 20;
     private static final int EXTRA_TEMPLATE_ROWS = 3;
-    private static final boolean TEMP_SHOW_MAGIC_LINK_ON_PAGE = true;
 
     private static final String SECTION_WORK = "work";
     private static final String SECTION_PERSONAL = "personal";
@@ -213,13 +212,6 @@ public class RegistrationServlet extends ClientServlet {
         }
 
         String magicLink = buildMagicLinkUrl(request, dataSession, webUser.getWebUserId(), rawToken);
-
-        if (TEMP_SHOW_MAGIC_LINK_ON_PAGE) {
-            appReq.setMessageConfirmation("Temporary test mode: "
-                    + "<a href=\"" + magicLink + "\">Open your registration magic link</a>"
-                    + " (valid for " + MAGIC_LINK_MINUTES_VALID + " minutes)");
-            return;
-        }
 
         String body = "<p>Welcome to Dandelion.</p>"
                 + "<p><a href=\"" + magicLink + "\">Verify your email and continue registration</a></p>"
