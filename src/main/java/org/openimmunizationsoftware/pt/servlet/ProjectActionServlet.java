@@ -369,7 +369,7 @@ public class ProjectActionServlet extends ClientServlet {
       planningRangeList = filterProjectActionList(planningRangeList, showWork, showPersonal);
       Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
       for (ProjectActionNext projectAction : planningRangeList) {
-        Date bucketDate = projectAction.getNextActionDate();
+        Date bucketDate = normalizeDate(webUser, projectAction.getNextActionDate());
         List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
         if (bucketList == null) {
           bucketList = new ArrayList<>();
@@ -382,7 +382,7 @@ public class ProjectActionServlet extends ClientServlet {
       for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
         Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
         dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-        Date dayKey = dayCalendar.getTime();
+        Date dayKey = normalizeDate(webUser, dayCalendar.getTime());
         List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
         if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
           continue;
@@ -490,6 +490,8 @@ public class ProjectActionServlet extends ClientServlet {
         printDeletedActionsWithoutTimeForToday(appReq, deletedActionsWithoutTimeToday);
 
         {
+          boolean planningDisplayHasData = !projectActionDueNextWorkingDayListList.isEmpty();
+          boolean planningQueryHasData = !planningRangeList.isEmpty();
           List<TimeAdder> timeAdderList = new ArrayList<>();
           for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
             Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
@@ -549,6 +551,16 @@ public class ProjectActionServlet extends ClientServlet {
           }
           out.println("  </tr>");
           out.println("</table><br/>");
+          if (!planningDisplayHasData) {
+            if (planningQueryHasData) {
+              out.println(
+                  "<p><span class=\"fail\">Planning data was found, but none of it matched the display days.</span> "
+                      + "This usually means the scheduled dates are not normalized to the expected day boundary. "
+                      + "Retrieved future items: " + planningRangeList.size() + ".</p>");
+            } else {
+              out.println("<p>No planning items were found for the next 14 days with the current filters.</p>");
+            }
+          }
         }
         for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
           Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
