@@ -2523,7 +2523,7 @@ public class ProjectActionServlet extends ClientServlet {
         out.println(
             "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_NEXT_ACTION_DATE
                 + "\" size=\"10\" value=\""
-                + n(nextActionDateString) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+                + n(nextActionDateString) + "\"" + disabled + ">");
       }
       out.println("            <font size=\"-1\">");
       Calendar calendar = webUser.getCalendar();
@@ -2631,7 +2631,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("          <th class=\"inside\"></th>");
     out.println("          <td class=\"inside\" colspan=\"3\"> ");
     out.println(
-        "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION + "\" rows=\"1\" onkeydown=\"resetRefresh()\""
+        "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION + "\" rows=\"1\""
             + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
             + "</textarea>");
     out.println("          </td>");
@@ -2641,7 +2641,7 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("          <th class=\"inside\">Note</th>");
       out.println(
           "          <td class=\"inside\" colspan=\"3\"><textarea rows=\"3\" name=\"" + PARAM_NEXT_NOTE
-              + "\" size=\"30\" onkeydown=\"resetRefresh()\" " + disabled + "></textarea></td>");
+              + "\" size=\"30\" " + disabled + "></textarea></td>");
       out.println("        </tr>");
     }
     out.println("        <tr>");
@@ -2649,7 +2649,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("          <td class=\"inside\" colspan=\"3\">");
     out.println("            <input type=\"text\" name=\"" + PARAM_NEXT_TIME_ESTIMATE + "\" size=\"3\" value=\""
         + (projectAction == null ? "" : projectAction.getNextTimeEstimateMinsForDisplay())
-        + "\" onkeydown=\"resetRefresh()\"" + disabled + "> mins ");
+        + "\"" + disabled + "> mins ");
     out.println("            <font size=\"-1\">");
     out.println("              <a href=\"javascript: void selectNextTimeEstimate" + formName
         + "('5');\" class=\"button\"> 5m</a>");
@@ -2687,7 +2687,7 @@ public class ProjectActionServlet extends ClientServlet {
               + n(projectAction == null || projectAction.getNextTargetDate() == null
                   ? request.getParameter(PARAM_NEXT_TARGET_DATE)
                   : sdf1.format(projectAction.getNextTargetDate()))
-              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+              + "\"" + disabled + ">");
       out.println("            <font size=\"-1\">");
       sdf1 = webUser.getDateFormat();
       calendar.add(Calendar.DAY_OF_MONTH, 2);
@@ -2725,7 +2725,7 @@ public class ProjectActionServlet extends ClientServlet {
               + n(projectAction == null || projectAction.getNextDeadlineDate() == null
                   ? request.getParameter(PARAM_NEXT_DEADLINE_DATE)
                   : sdf1.format(projectAction.getNextDeadlineDate()))
-              + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+              + "\"" + disabled + ">");
       out.println("            <font size=\"-1\">");
       sdf1 = webUser.getDateFormat();
       calendar.add(Calendar.DAY_OF_MONTH, 2);
@@ -2761,7 +2761,7 @@ public class ProjectActionServlet extends ClientServlet {
               + n(projectAction == null || projectAction.getLinkUrl() == null
                   ? ""
                   : projectAction.getLinkUrl())
-              + "\" onkeydown=\"resetRefresh()\"" + disabled + "></td>");
+              + "\"" + disabled + "></td>");
       out.println("        </tr>");
     }
     {
@@ -2774,7 +2774,7 @@ public class ProjectActionServlet extends ClientServlet {
           + n((projectAction == null || projectAction.getTemplateType() == null)
               ? request.getParameter(PARAM_TEMPLATE_TYPE)
               : projectAction.getTemplateType().getId())
-          + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+          + "\"" + disabled + ">");
       // default empty option for no template
       out.println("             <option value=\"\">none</option>");
       for (TemplateType templateType : TemplateType.values()) {
@@ -2791,7 +2791,7 @@ public class ProjectActionServlet extends ClientServlet {
             + n((projectAction == null || projectAction.getProcessStage() == null)
                 ? request.getParameter(PARAM_PROCESS_STAGE)
                 : projectAction.getProcessStage().getId())
-            + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+            + "\"" + disabled + ">");
         out.println("             <option value=\"\">none</option>");
         for (ProcessStage processStage : ProcessStage.values()) {
           out.println("             <option value=\"" + processStage.getId() + "\""
@@ -2812,7 +2812,7 @@ public class ProjectActionServlet extends ClientServlet {
             + n((projectAction == null || projectAction.getTimeSlot() == null)
                 ? request.getParameter(PARAM_TIME_SLOT)
                 : projectAction.getTimeSlot().getId())
-            + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+            + "\"" + disabled + ">");
         out.println("             <option value=\"\">none</option>");
         for (TimeSlot timeSlot : TimeSlot.values()) {
           out.println("             <option value=\"" + timeSlot.getId() + "\""
@@ -2914,7 +2914,7 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("<h4>Next Step Suggestions</h4>");
       out.println("" + completingAction.getNextFeedback() + "");
     }
-    out.println("<textarea name=\"nextNotes\" id=\"nextNotes\" rows=\"7\" onkeydown=\"resetRefresh()\"></textarea>");
+    out.println("<textarea name=\"nextNotes\" id=\"nextNotes\" rows=\"7\"></textarea>");
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_PROPOSE + "\"/>");
@@ -2922,7 +2922,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</span>");
 
     out.println("<h3>Summary</h3>");
-    out.println("<textarea name=\"nextSummary\" rows=\"12\" onkeydown=\"resetRefresh()\">"
+    out.println("<textarea name=\"nextSummary\" rows=\"12\">"
         + n(completingAction.getNextSummary()) + "</textarea>");
     printSendEmailSelection(out, formName, projectContactList);
     out.println("<br/><span class=\"right\">");

@@ -431,7 +431,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
                     + "\">Preview</a></p>\n");
             out.println("<h3>Final Markdown</h3>\n");
             out.println("<textarea name=\"" + PARAM_MARKDOWN_FINAL
-                    + "\" rows=\"20\" cols=\"100\" onkeydown=\"resetRefresh()\">"
+                    + "\" rows=\"20\" cols=\"100\">"
                     + escapeHtml(n(narrative.getMarkdownFinal())) + "</textarea><br/><br/>\n");
         } else {
             out.println("<p><a class=\"button\" href=\""

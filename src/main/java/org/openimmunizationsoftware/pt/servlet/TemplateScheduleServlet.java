@@ -437,76 +437,87 @@ public class TemplateScheduleServlet extends ClientServlet {
     out.println("    <th class=\"boxed\">Action</th>");
     out.println("  </tr>");
 
+    List<Project> orderedProjectList = filteredProjectList;
+    if (!personalTable) {
+      orderedProjectList = sortProjectsByPriority(filteredProjectList);
+    }
+
     SimpleDateFormat sdfField = webUser.getDateFormat("yyyyMMdd");
-    for (Project project : filteredProjectList) {
-      List<ProjectActionNext> templateScheduleList = templateMap.get(project);
-      if (templateScheduleList == null || templateScheduleList.size() == 0) {
-        continue;
+    List<ProjectActionNext> rowTemplates = new ArrayList<ProjectActionNext>();
+    Map<ProjectActionNext, Project> templateProjectMap = new HashMap<ProjectActionNext, Project>();
+    for (Project project : orderedProjectList) {
+      List<ProjectActionNext> tl = templateMap.get(project);
+      if (tl != null) {
+        for (ProjectActionNext pan : tl) {
+          rowTemplates.add(pan);
+          templateProjectMap.put(pan, project);
+        }
       }
+    }
+    if (personalTable) {
+      rowTemplates = sortByTimeSlotThenProjectPriority(rowTemplates, templateProjectMap);
+    }
+    for (ProjectActionNext projectActionTemplate : rowTemplates) {
+      Project project = templateProjectMap.get(projectActionTemplate);
+      Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(projectActionTemplate);
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
+          + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
+          + "</a></td>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION
+          + projectActionTemplate.getActionNextId() + "\" value=\""
+          + projectActionTemplate.getNextDescription() + "\" size=\"30\"/>");
+      String link = "ProjectActionServlet?"
+          + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
+          + projectActionTemplate.getActionNextId()
+          + "&editActionNextId=" + projectActionTemplate.getActionNextId();
+      out.println("      <a href=\"" + link + "\" class=\"button\" title=\"Edit action\">&#9998;</a>");
+      out.println("    </td>");
+      out.println("    <td class=\"boxed\">");
       if (personalTable) {
-        templateScheduleList = sortByTimeSlot(templateScheduleList);
-      }
-      for (ProjectActionNext projectActionTemplate : templateScheduleList) {
-        Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(projectActionTemplate);
-        out.println("  <tr class=\"boxed\">");
-        out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
-            + project.getProjectId() + "\" class=\"button\">" + project.getProjectName()
-            + "</a></td>");
-        out.println("    <td class=\"boxed\">");
-        out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION
+        printTimeSlotSelect(out, TIME_SLOT + projectActionTemplate.getActionNextId(),
+            projectActionTemplate.getTimeSlot());
+      } else {
+        out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE
             + projectActionTemplate.getActionNextId() + "\" value=\""
-            + projectActionTemplate.getNextDescription() + "\" size=\"30\"/>");
-        String link = "ProjectActionServlet?"
-            + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
-            + projectActionTemplate.getActionNextId()
-            + "&editActionNextId=" + projectActionTemplate.getActionNextId();
-        out.println("      <a href=\"" + link + "\" class=\"button\" title=\"Edit action\">&#9998;</a>");
-        out.println("    </td>");
-        out.println("    <td class=\"boxed\">");
-        if (personalTable) {
-          printTimeSlotSelect(out, TIME_SLOT + projectActionTemplate.getActionNextId(),
-              projectActionTemplate.getTimeSlot());
-        } else {
-          out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE
-              + projectActionTemplate.getActionNextId() + "\" value=\""
-              + projectActionTemplate.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
-        }
-        out.println("    </td>");
-        for (Calendar day : dayList) {
-          ProjectActionNext projectAction = projectActionMap == null ? null : projectActionMap.get(day);
-          boolean checked = projectAction != null;
-          String style = onWeekend.contains(day) ? "boxed-lowlight" : "boxed";
-          out.println("    <td class=\"" + style + "\">");
-          out.println("      <input type=\"checkbox\" name=\"" + TEMPLATE_SELECTED
-              + projectActionTemplate.getActionNextId() + "." + sdfField.format(day.getTime())
-              + "\" value=\"" + sdf.format(day.getTime()) + "\"" + (checked ? " checked" : "")
-              + "/>");
-          out.println("    </td>");
-          if (checked && projectActionTemplate.getNextTimeEstimate() != null
-              && projectActionTemplate.getNextTimeEstimate() > 0) {
-            timeMap.put(day, timeMap.get(day) + projectActionTemplate.getNextTimeEstimate());
-          }
-        }
-        out.println("    <td class=\"boxed\">");
-        String nextActionType = ProjectNextActionType.WILL;
-        out.println("<select name=\"na" + projectActionTemplate.getActionNextId() + "\">");
-        for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
-            ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO }) {
-          String label = ProjectNextActionType.getLabel(nat);
-          boolean selected = nat.equals(nextActionType);
-          out.println("  <option value=\"" + nat + "\"" + (selected ? " selected" : "") + ">"
-              + label + "</option>");
-        }
-        out.println("      </select>");
-        out.println("    </td>");
-        out.println("  </tr>");
+            + projectActionTemplate.getNextTimeEstimateMinsForDisplay() + "\" size=\"3\"/>");
       }
+      out.println("    </td>");
+      for (Calendar day : dayList) {
+        ProjectActionNext projectAction = projectActionMap == null ? null : projectActionMap.get(day);
+        boolean checked = projectAction != null;
+        String style = onWeekend.contains(day) ? "boxed-lowlight" : "boxed";
+        out.println("    <td class=\"" + style + "\">");
+        out.println("      <input type=\"checkbox\" name=\"" + TEMPLATE_SELECTED
+            + projectActionTemplate.getActionNextId() + "." + sdfField.format(day.getTime())
+            + "\" value=\"" + sdf.format(day.getTime()) + "\"" + (checked ? " checked" : "")
+            + "/>");
+        out.println("    </td>");
+        if (checked && projectActionTemplate.getNextTimeEstimate() != null
+            && projectActionTemplate.getNextTimeEstimate() > 0) {
+          timeMap.put(day, timeMap.get(day) + projectActionTemplate.getNextTimeEstimate());
+        }
+      }
+      out.println("    <td class=\"boxed\">");
+      String nextActionType = ProjectNextActionType.WILL;
+      out.println("<select name=\"na" + projectActionTemplate.getActionNextId() + "\">");
+      for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
+          ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO }) {
+        String label = ProjectNextActionType.getLabel(nat);
+        boolean selected = nat.equals(nextActionType);
+        out.println("  <option value=\"" + nat + "\"" + (selected ? " selected" : "") + ">"
+            + label + "</option>");
+      }
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
     }
 
     out.println("  <tr>");
     out.println("    <td class=\"boxed\">");
     out.println("<select name=\"" + PROJECT_ID + addFieldSuffix + "\">");
-    for (Project project : filteredProjectList) {
+    for (Project project : orderedProjectList) {
       out.println("  <option value=\"" + project.getProjectId() + "\">" + project.getProjectName()
           + "</option>");
     }
@@ -535,7 +546,9 @@ public class TemplateScheduleServlet extends ClientServlet {
     out.println("</table>");
   }
 
-  private List<ProjectActionNext> sortByTimeSlot(List<ProjectActionNext> templateScheduleList) {
+  private List<ProjectActionNext> sortByTimeSlotThenProjectPriority(
+      List<ProjectActionNext> templateScheduleList,
+      final Map<ProjectActionNext, Project> templateProjectMap) {
     List<ProjectActionNext> sortedTemplateScheduleList = new ArrayList<ProjectActionNext>(templateScheduleList);
     Collections.sort(sortedTemplateScheduleList, new Comparator<ProjectActionNext>() {
       @Override
@@ -545,12 +558,35 @@ public class TemplateScheduleServlet extends ClientServlet {
         if (leftOrder != rightOrder) {
           return leftOrder - rightOrder;
         }
-        String leftDescription = left.getNextDescription() == null ? "" : left.getNextDescription();
-        String rightDescription = right.getNextDescription() == null ? "" : right.getNextDescription();
-        return leftDescription.compareToIgnoreCase(rightDescription);
+        int leftPriority = resolveProjectPriority(left, templateProjectMap);
+        int rightPriority = resolveProjectPriority(right, templateProjectMap);
+        if (leftPriority != rightPriority) {
+          return rightPriority - leftPriority;
+        }
+        String leftProject = resolveProjectName(left, templateProjectMap);
+        String rightProject = resolveProjectName(right, templateProjectMap);
+        return leftProject.compareToIgnoreCase(rightProject);
       }
     });
     return sortedTemplateScheduleList;
+  }
+
+  private List<Project> sortProjectsByPriority(List<Project> projectList) {
+    List<Project> sortedProjectList = new ArrayList<Project>(projectList);
+    Collections.sort(sortedProjectList, new Comparator<Project>() {
+      @Override
+      public int compare(Project left, Project right) {
+        int leftPriority = left == null ? 0 : left.getPriorityLevel();
+        int rightPriority = right == null ? 0 : right.getPriorityLevel();
+        if (leftPriority != rightPriority) {
+          return rightPriority - leftPriority;
+        }
+        String leftName = left == null || left.getProjectName() == null ? "" : left.getProjectName();
+        String rightName = right == null || right.getProjectName() == null ? "" : right.getProjectName();
+        return leftName.compareToIgnoreCase(rightName);
+      }
+    });
+    return sortedProjectList;
   }
 
   private int resolveTimeSlotOrder(ProjectActionNext projectActionNext) {
@@ -559,6 +595,24 @@ public class TemplateScheduleServlet extends ClientServlet {
       timeSlot = TimeSlot.AFTERNOON;
     }
     return timeSlot.ordinal();
+  }
+
+  private int resolveProjectPriority(ProjectActionNext projectActionNext,
+      Map<ProjectActionNext, Project> templateProjectMap) {
+    Project project = templateProjectMap.get(projectActionNext);
+    if (project == null) {
+      project = projectActionNext.getProject();
+    }
+    return project == null ? 0 : project.getPriorityLevel();
+  }
+
+  private String resolveProjectName(ProjectActionNext projectActionNext,
+      Map<ProjectActionNext, Project> templateProjectMap) {
+    Project project = templateProjectMap.get(projectActionNext);
+    if (project == null) {
+      project = projectActionNext.getProject();
+    }
+    return project == null || project.getProjectName() == null ? "" : project.getProjectName();
   }
 
   private String[] readAddTemplateRequest(HttpServletRequest request) {

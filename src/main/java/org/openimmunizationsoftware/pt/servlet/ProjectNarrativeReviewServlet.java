@@ -278,7 +278,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("<h3>" + label + "</h3>\n");
         out.println("<p>" + description + "</p>\n");
         out.println("<textarea name=\"" + name + "\" rows=\"" + rows
-                + "\" cols=\"90\" onkeydown=\"resetRefresh()\">" + escapeHtml(displayValue)
+                + "\" cols=\"90\">" + escapeHtml(displayValue)
                 + "</textarea>\n");
     }
 

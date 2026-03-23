@@ -59,8 +59,6 @@ public class ClientServlet extends HttpServlet {
     PrintWriter out = appReq.getOut();
     String title = appReq.getTitle();
     TimeTracker timeTracker = appReq.getTimeTracker();
-    Project projectSelected = appReq.getProjectSelected();
-    ProjectActionNext completingAction = appReq.getCompletingAction();
 
     out.println("<html>");
     out.println("  <head>");
@@ -87,34 +85,6 @@ public class ClientServlet extends HttpServlet {
       uex.printStackTrace();
     }
     out.println("    <script>");
-    out.println("    var refreshCount = 0;");
-    out.println("    function checkRefresh()");
-    out.println("    {");
-    out.println("      refreshCount++;");
-    out.println("      if (refreshCount > 500)");
-    out.println("      {");
-    String link = "HomeServlet";
-    if (title.equals("Projects") && projectSelected != null) {
-      link = "ProjectServlet?projectId=" + projectSelected.getProjectId();
-    } else if (title.equals("Actions") && completingAction != null) {
-      link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
-          + completingAction.getActionNextId();
-    }
-    out.println("        window.location.href=\"" + link + "\"");
-    out.println("      }");
-    out.println("      else");
-    out.println("      {");
-    out.println("        setTimeout('checkRefresh()', 1000);");
-    out.println("      }");
-    out.println("    }");
-    out.println("    ");
-    out.println("    function resetRefresh()");
-    out.println("    {");
-    out.println("      refreshCount = 0;");
-    out.println("    }");
-    out.println("    ");
-    out.println("    checkRefresh();");
-    out.println("    ");
     out.println("      function toggleLayer(whichLayer) ");
     out.println("      {");
     out.println("        var elem, vis;");

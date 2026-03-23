@@ -765,7 +765,7 @@ public class ActionServlet extends MobileBaseServlet {
                         "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\""
                                 + PARAM_NEXT_ACTION_DATE
                                 + "\" size=\"10\" value=\""
-                                + n(nextActionDateString) + "\" onkeydown=\"resetRefresh()\"" + disabled + ">");
+                                + n(nextActionDateString) + "\"" + disabled + ">");
             }
             out.println("            <font size=\"-1\">");
             Calendar calendar = webUser.getCalendar();
@@ -900,7 +900,7 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("          <td class=\"inside\" colspan=\"3\"> ");
         out.println(
                 "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION
-                        + "\" rows=\"1\" onkeydown=\"resetRefresh()\" autocapitalize=\"none\" autocorrect=\"off\""
+                        + "\" rows=\"1\" autocapitalize=\"none\" autocorrect=\"off\""
                         + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
                         + "</textarea>");
         out.println("          </td>");
@@ -910,7 +910,7 @@ public class ActionServlet extends MobileBaseServlet {
             out.println("          <th class=\"inside\">Note</th>");
             out.println(
                     "          <td class=\"inside\" colspan=\"3\"><textarea rows=\"3\" name=\"" + PARAM_NEXT_NOTE
-                            + "\" size=\"30\" onkeydown=\"resetRefresh()\" " + disabled + "></textarea></td>");
+                            + "\" size=\"30\" " + disabled + "></textarea></td>");
             out.println("        </tr>");
         }
         {
@@ -922,7 +922,7 @@ public class ActionServlet extends MobileBaseServlet {
                             + n(projectAction == null || projectAction.getLinkUrl() == null
                                     ? ""
                                     : projectAction.getLinkUrl())
-                            + "\" onkeydown=\"resetRefresh()\"" + disabled + "></td>");
+                            + "\"" + disabled + "></td>");
             out.println("        </tr>");
         }
         out.println("      </table>");
