@@ -179,7 +179,10 @@ public class ProjectActionServlet extends ClientServlet {
       appReq.setProjectActionSelected(completingAction);
 
       if ("GET".equalsIgnoreCase(request.getMethod()) && action == null) {
-        stopTimer(appReq, dataSession);
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        if (timeTracker != null && !timeTracker.isRunningClock() && project != null) {
+          startTimer(appReq, dataSession, completingAction);
+        }
       }
 
       List<ChatAgent> chatAgentList = new ArrayList<ChatAgent>();
@@ -252,6 +255,8 @@ public class ProjectActionServlet extends ClientServlet {
           return;
         } else if (action.equals(ACTION_STOP_TIMER)) {
           stopTimer(appReq, dataSession);
+          response.sendRedirect("BillEntriesServlet");
+          return;
         } else if (action.equals(ACTION_POSTPONE_NEXT_WORKING_DAY)) {
           ProjectActionNext postponedAction = postponeActionToNextWorkingDay(appReq, dataSession);
           if (postponedAction != null && completingAction != null

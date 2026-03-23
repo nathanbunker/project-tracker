@@ -290,7 +290,7 @@ public class ClientServlet extends HttpServlet {
   private static String createWorkToggleLink(Project project, ProjectActionNext completingAction,
       TimeTracker timeTracker) {
     if (timeTracker != null && timeTracker.isRunningClock()) {
-      return "ProjectActionServlet?" + ProjectActionServlet.PARAM_ACTION + "=StopTimer";
+      return "TrackServlet?action=StopTimer";
     }
     StringBuilder link = new StringBuilder("ProjectActionServlet");
     boolean hasParam = false;
