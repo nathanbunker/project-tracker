@@ -65,7 +65,6 @@ public class BillBudgetsServlet extends ClientServlet {
       if (action != null) {
         if (action.equals("Update Time")) {
           Transaction transaction = dataSession.beginTransaction();
-          @SuppressWarnings("unchecked")
           Enumeration<String> enumeration = request.getParameterNames();
           while (enumeration.hasMoreElements()) {
             String paramName = enumeration.nextElement();
