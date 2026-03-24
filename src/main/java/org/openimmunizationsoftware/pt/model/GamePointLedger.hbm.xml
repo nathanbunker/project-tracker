@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="GamePointLedger" table="game_point_ledger">
+    <id name="gamePointLedgerId" type="java.lang.Integer">
+      <column name="game_point_ledger_id" />
+      <generator class="native" />
+    </id>
+    <many-to-one name="contact" column="contact_id" class="ProjectContact" not-null="true" lazy="proxy" fetch="select"/>
+    <many-to-one name="projectActionNext" column="action_next_id" class="ProjectActionNext" not-null="false" lazy="proxy" fetch="select"/>
+    <property name="pointChange" type="java.lang.Integer">
+      <column name="point_change" not-null="true" />
+    </property>
+    <property name="entryType" type="string">
+      <column name="entry_type" length="20" not-null="true" />
+    </property>
+    <property name="entryNote" type="string">
+      <column name="entry_note" length="1200" />
+    </property>
+    <property name="createdDate" type="timestamp">
+      <column name="created_date" />
+    </property>
+    <property name="createdBy" type="string">
+      <column name="created_by" length="50" />
+    </property>
+  </class>
+</hibernate-mapping>

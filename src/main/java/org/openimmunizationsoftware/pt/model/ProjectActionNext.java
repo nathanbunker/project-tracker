@@ -1,6 +1,8 @@
 package org.openimmunizationsoftware.pt.model;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ProjectActionNext implements java.io.Serializable {
 
@@ -36,6 +38,8 @@ public class ProjectActionNext implements java.io.Serializable {
     private String nextDescription;
     private boolean billable;
     private TimeSlot timeSlot;
+    private Integer gamePoints;
+    private Set<GamePointLedger> gamePointEntries = new HashSet<>();
 
     public int getActionNextId() {
         return actionNextId;
@@ -479,6 +483,22 @@ public class ProjectActionNext implements java.io.Serializable {
             return "";
         }
         return getTimeForDisplay(getNextTimeActual());
+    }
+
+    public Integer getGamePoints() {
+        return gamePoints;
+    }
+
+    public void setGamePoints(Integer gamePoints) {
+        this.gamePoints = gamePoints;
+    }
+
+    public Set<GamePointLedger> getGamePointEntries() {
+        return gamePointEntries;
+    }
+
+    public void setGamePointEntries(Set<GamePointLedger> gamePointEntries) {
+        this.gamePointEntries = gamePointEntries;
     }
 
     public static String getTimeForDisplay(int nextTimeEstimateTotal) {

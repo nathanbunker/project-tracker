@@ -84,6 +84,13 @@
     <property name="timeSlotString" type="string">
       <column name="time_slot" length="20" />
     </property>
+    <property name="gamePoints" type="java.lang.Integer">
+      <column name="game_points" />
+    </property>
+    <set name="gamePointEntries" inverse="true" lazy="true" fetch="select">
+      <key column="action_next_id" />
+      <one-to-many class="GamePointLedger" />
+    </set>
   </class>
 </hibernate-mapping>
 
