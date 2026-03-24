@@ -3804,7 +3804,7 @@ public class ProjectActionServlet extends ClientServlet {
           + timeSlotInline
           + " " + moveToCurrentWorkingDayButton
           + "<a href=\"javascript:void(0);\" onclick=\"var m=document.getElementById('" + postponeMenuId
-          + "'); if(m){m.style.display=(m.style.display==='block'?'none':'block');} return false;\""
+          + "'); if(m){var isOpen=(m.style.display==='table-row'||m.style.display==='block'); m.style.display=(isOpen?'none':'table-row');} return false;\""
           + " class=\"button\" style=\"opacity: 0.6;\" title=\"Reschedule\">&#8594;</a>"
           + moveControls + "</td>");
 
@@ -3882,7 +3882,7 @@ public class ProjectActionServlet extends ClientServlet {
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a> "
           + moveToCurrentWorkingDayButton
           + "<a href=\"javascript:void(0);\" onclick=\"var m=document.getElementById('" + postponeMenuId
-          + "'); if(m){m.style.display=(m.style.display==='block'?'none':'block');} return false;\""
+          + "'); if(m){var isOpen=(m.style.display==='table-row'||m.style.display==='block'); m.style.display=(isOpen?'none':'table-row');} return false;\""
           + " class=\"button\" style=\"opacity: 0.6;\" title=\"Reschedule\">&#8594;</a>"
           + moveControls + "</td>");
       if (showWork) {
