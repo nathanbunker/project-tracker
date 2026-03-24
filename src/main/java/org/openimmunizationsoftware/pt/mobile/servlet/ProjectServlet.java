@@ -49,7 +49,8 @@ public class ProjectServlet extends MobileBaseServlet {
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
 
-            // Handle action processing (Complete/Cancel/Reschedule) - works for both GET and POST
+            // Handle action processing (Complete/Cancel/Reschedule) - works for both GET
+            // and POST
             String paramAction = request.getParameter(PARAM_ACTION);
             Integer actionId = parseInteger(request.getParameter(PARAM_ACTION_ID));
             if (paramAction != null && actionId != null) {
@@ -240,7 +241,7 @@ public class ProjectServlet extends MobileBaseServlet {
                     + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_COMPLETE;
             String cancelUrl = "project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
                     + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_CANCEL;
-            
+
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
             out.println("      <span style=\"white-space: nowrap;\">");
             out.println("        <a href=\"" + completeUrl

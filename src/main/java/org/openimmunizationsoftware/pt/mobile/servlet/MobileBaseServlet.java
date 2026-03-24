@@ -28,7 +28,6 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
  */
 public abstract class MobileBaseServlet extends ClientServlet {
 
-
     protected void printHtmlHead(AppReq appReq) {
         printHtmlHead(appReq, "Project");
     }
@@ -220,15 +219,18 @@ public abstract class MobileBaseServlet extends ClientServlet {
         printPostponeMenuInternal(out, action, dateParam, webUser, "todo");
     }
 
-    protected void printPostponeMenuForProject(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser, int projectId) {
+    protected void printPostponeMenuForProject(PrintWriter out, ProjectActionNext action, String dateParam,
+            WebUser webUser, int projectId) {
         printPostponeMenuInternal(out, action, dateParam, webUser, "project", projectId);
     }
 
-    private void printPostponeMenuInternal(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser, String servletName) {
+    private void printPostponeMenuInternal(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser,
+            String servletName) {
         printPostponeMenuInternal(out, action, dateParam, webUser, servletName, -1);
     }
 
-    private void printPostponeMenuInternal(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser, String servletName, int projectId) {
+    private void printPostponeMenuInternal(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser,
+            String servletName, int projectId) {
         int actionNextId = action.getActionNextId();
         String actionDay = action.getNextActionDate() == null
                 ? formatActionDateAsTransport(webUser.getToday())
@@ -334,7 +336,8 @@ public abstract class MobileBaseServlet extends ClientServlet {
     }
 
     protected void printPostponeMenuDayOption(PrintWriter out, int actionNextId,
-            String dateParam, String slotId, String currentDate, String targetDate, String label, String servletName, int projectId) {
+            String dateParam, String slotId, String currentDate, String targetDate, String label, String servletName,
+            int projectId) {
         boolean isCurrent = targetDate.equals(currentDate);
         String style = "display:inline-block; margin-right:6px; margin-bottom:6px; padding:4px 6px; text-decoration:none;";
         if (isCurrent) {
