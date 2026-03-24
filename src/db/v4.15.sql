@@ -24,7 +24,7 @@ CREATE TABLE game_point_ledger (
   PRIMARY KEY (game_point_ledger_id),
   INDEX idx_gpl_contact     (contact_id),
   INDEX idx_gpl_action_next (action_next_id),
-  INDEX idx_gpl_created     (created_date),
-  CONSTRAINT fk_gpl_contact     FOREIGN KEY (contact_id)     REFERENCES project_contact (contact_id),
-  CONSTRAINT fk_gpl_action_next FOREIGN KEY (action_next_id) REFERENCES project_action_next (action_next_id)
+  INDEX idx_gpl_created     (created_date)
+  -- FK constraints omitted: project_contact uses MyISAM and does not support them.
+  -- Referential integrity is enforced at the application level.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
