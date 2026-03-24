@@ -140,7 +140,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
             Date targetDate = action.getNextActionDate();
             if (targetDateString != null && !targetDateString.isEmpty()) {
                 try {
-                    // Parse using JVM default timezone (matches JDBC SQL DATE behavior)
+                    // Parse as UTC date without timezone conversion to avoid day shifts
                     targetDate = parseUTCDate(targetDateString);
                 } catch (Exception e) {
                     targetDate = action.getNextActionDate();
@@ -378,18 +378,22 @@ public abstract class MobileBaseServlet extends ClientServlet {
     }
 
     protected Date parseUTCDate(String dateString) throws Exception {
-        // Parse in JVM default timezone to match how JDBC converts SQL DATE values.
-        // Do NOT override to UTC: a UTC parse on a non-UTC JVM will shift the date.
-        return new SimpleDateFormat("yyyy-MM-dd").parse(dateString);
+        // Parse date string (yyyy-MM-dd) as UTC without timezone conversion
+        // This ensures date-only database values are not shifted by timezone
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return sdf.parse(dateString);
     }
 
     protected String formatActionDateAsTransport(Date date) {
-        // Format in JVM default timezone to match how JDBC reads SQL DATE values.
-        // Do NOT override to UTC: a UTC format on a non-UTC JVM would shift the date.
+        // Format date (yyyy-MM-dd) as UTC without timezone conversion
+        // This ensures date-only database values are not shifted by timezone
         if (date == null) {
             return "";
         }
-        return toDatabaseDateKey(date);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return sdf.format(date);
     }
 
     protected String escapeHtml(String text) {

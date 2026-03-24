@@ -3817,7 +3817,7 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\" id=\"" + postponeMenuId + "\" style=\"display:none;\">");
-      out.println("    <td class=\"boxed\" colspan=\"" + (showWork ? 4 : 2) + "\" style=\"padding: 0;\">");
+      out.println("    <td class=\"boxed\" colspan=\"4\" style=\"padding: 0;\">");
       printDesktopPostponeForm(out, appReq, projectAction, postponeMenuId);
       out.println("    </td>");
       out.println("  </tr>");
@@ -3903,7 +3903,7 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\" id=\"" + postponeMenuId + "\" style=\"display:none;\">");
-      out.println("    <td class=\"boxed\" colspan=\"" + (showWork ? 4 : 2) + "\" style=\"padding: 0;\">");
+      out.println("    <td class=\"boxed\" colspan=\"4\" style=\"padding: 0;\">");
       printDesktopPostponeForm(out, appReq, projectAction, postponeMenuId);
       out.println("    </td>");
       out.println("  </tr>");
@@ -3930,7 +3930,7 @@ public class ProjectActionServlet extends ClientServlet {
           + completingAction.getActionNextId() + "\"/>");
     }
     out.println("    <strong>Reschedule</strong> " + projectAction.getNextDescriptionForDisplay(
-        appReq.getWebUser().getProjectContact())) + "<br/>");
+        appReq.getWebUser().getProjectContact()) + "<br/>");
 
     if (!projectAction.isBillable()) {
       TimeSlot selectedTimeSlot = projectAction.getTimeSlot();
