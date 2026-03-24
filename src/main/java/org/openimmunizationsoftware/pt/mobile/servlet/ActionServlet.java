@@ -344,39 +344,6 @@ public class ActionServlet extends MobileBaseServlet {
                 && cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
     }
 
-    private void postponeToTomorrow(ProjectActionNext action, Session dataSession, WebUser webUser) {
-        Transaction trans = dataSession.beginTransaction();
-        try {
-            Calendar calendar = webUser.getCalendar();
-            calendar.set(Calendar.HOUR_OF_DAY, 0);
-            calendar.set(Calendar.MINUTE, 0);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-            calendar.add(Calendar.DAY_OF_MONTH, 1);
-            action.setNextActionDate(calendar.getTime());
-            action.setNextChangeDate(new Date());
-            dataSession.saveOrUpdate(action);
-            trans.commit();
-        } catch (Exception e) {
-            trans.rollback();
-            throw e;
-        }
-    }
-
-    private void completeAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
-        Transaction trans = dataSession.beginTransaction();
-        try {
-            action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
-            action.setNextChangeDate(new Date());
-            dataSession.saveOrUpdate(action);
-            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, action);
-            trans.commit();
-        } catch (Exception e) {
-            trans.rollback();
-            throw e;
-        }
-    }
-
     private String buildTodoRedirectUrl(HttpServletRequest request) {
         String dateParam = request.getParameter(PARAM_DATE);
         if (dateParam != null && !dateParam.isEmpty()) {
@@ -450,17 +417,6 @@ public class ActionServlet extends MobileBaseServlet {
         } catch (NumberFormatException nfe) {
             return null;
         }
-    }
-
-    private String escapeHtml(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
     }
 
     private static String convertToHtmlList(String input) {

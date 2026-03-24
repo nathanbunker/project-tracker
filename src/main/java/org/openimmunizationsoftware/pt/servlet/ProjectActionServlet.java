@@ -88,6 +88,9 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_PROJECT_ID = "projectId";
   public static final String PARAM_ACTION_NEXT_ID = "actionNextId";
   private static final String PARAM_POSTPONE_ACTION_NEXT_ID = "postponeActionNextId";
+  private static final String PARAM_POSTPONE_TARGET_DATE = "postponeTargetDate";
+  private static final String PARAM_POSTPONE_TIME_SLOT = "postponeTimeSlot";
+  private static final String PARAM_POSTPONE_ACTION_TYPE = "postponeActionType";
   private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
   protected static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
   private static final String PARAM_EDIT_ACTION_NEXT_ID = "editActionNextId";
@@ -115,6 +118,7 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_SUGGEST = "Suggest";
   private static final String ACTION_POSTPONE_NEXT_WORKING_DAY = "PostponeNextWorkingDay";
   private static final String ACTION_MOVE_TO_CURRENT_WORKING_DAY = "MoveToCurrentWorkingDay";
+  private static final String ACTION_RESCHEDULE_FROM_FORM = "RescheduleFromForm";
   private static final String ACTION_SET_TIME_SLOT_MORNING = "SetTimeSlotMorning";
   private static final String ACTION_SET_TIME_SLOT_AFTERNOON = "SetTimeSlotAfternoon";
   private static final String ACTION_SET_TIME_SLOT_EVENING = "SetTimeSlotEvening";
@@ -266,6 +270,8 @@ public class ProjectActionServlet extends ClientServlet {
           }
         } else if (action.equals(ACTION_MOVE_TO_CURRENT_WORKING_DAY)) {
           moveActionToCurrentWorkingDay(appReq, dataSession);
+        } else if (action.equals(ACTION_RESCHEDULE_FROM_FORM)) {
+          updateActionFromPostponeForm(appReq, dataSession);
         } else if (action.equals(ACTION_SET_TIME_SLOT_MORNING)) {
           ProjectActionNext updatedAction = setCompletingActionTimeSlot(appReq, dataSession, TimeSlot.MORNING);
           if (updatedAction != null) {
@@ -1789,6 +1795,89 @@ public class ProjectActionServlet extends ClientServlet {
     dataSession.update(projectAction);
     transaction.commit();
     return projectAction;
+  }
+
+  private ProjectActionNext updateActionFromPostponeForm(AppReq appReq, Session dataSession) {
+    HttpServletRequest request = appReq.getRequest();
+    String actionNextIdString = request.getParameter(PARAM_POSTPONE_ACTION_NEXT_ID);
+    if (actionNextIdString == null) {
+      return null;
+    }
+    int actionNextId;
+    try {
+      actionNextId = Integer.parseInt(actionNextIdString);
+    } catch (NumberFormatException nfe) {
+      return null;
+    }
+
+    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+    if (projectAction == null) {
+      return null;
+    }
+
+    WebUser webUser = appReq.getWebUser();
+    Date targetDate = parsePostponeDate(webUser, request.getParameter(PARAM_POSTPONE_TARGET_DATE));
+    if (targetDate == null) {
+      targetDate = getCalendarForTodayNoTime(webUser).getTime();
+    }
+
+    projectAction.setNextActionDate(targetDate);
+    if (projectAction.isBillable()) {
+      String actionType = request.getParameter(PARAM_POSTPONE_ACTION_TYPE);
+      if (isSupportedWorkActionType(actionType)) {
+        projectAction.setNextActionType(actionType);
+      }
+    } else {
+      TimeSlot timeSlot = TimeSlot.getTimeSlot(request.getParameter(PARAM_POSTPONE_TIME_SLOT));
+      if (timeSlot != null) {
+        projectAction.setTimeSlot(timeSlot);
+      }
+    }
+    projectAction.setCompletionOrder(0);
+    projectAction.setNextChangeDate(new Date());
+
+    Transaction transaction = dataSession.beginTransaction();
+    dataSession.update(projectAction);
+    transaction.commit();
+    return projectAction;
+  }
+
+  private Date parsePostponeDate(WebUser webUser, String dateString) {
+    if (dateString == null || dateString.length() != 10) {
+      return null;
+    }
+    String[] parts = dateString.split("-");
+    if (parts.length != 3) {
+      return null;
+    }
+    try {
+      int year = Integer.parseInt(parts[0]);
+      int month = Integer.parseInt(parts[1]);
+      int day = Integer.parseInt(parts[2]);
+      Calendar calendar = getCalendarForTodayNoTime(webUser);
+      calendar.set(Calendar.YEAR, year);
+      calendar.set(Calendar.MONTH, month - 1);
+      calendar.set(Calendar.DAY_OF_MONTH, day);
+      return calendar.getTime();
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private boolean isSupportedWorkActionType(String actionType) {
+    if (actionType == null) {
+      return false;
+    }
+    return actionType.equals(ProjectNextActionType.WILL)
+        || actionType.equals(ProjectNextActionType.MIGHT)
+        || actionType.equals(ProjectNextActionType.WILL_CONTACT)
+        || actionType.equals(ProjectNextActionType.WILL_MEET)
+        || actionType.equals(ProjectNextActionType.WILL_REVIEW)
+        || actionType.equals(ProjectNextActionType.WILL_DOCUMENT)
+        || actionType.equals(ProjectNextActionType.WILL_FOLLOW_UP)
+        || actionType.equals(ProjectNextActionType.COMMITTED_TO)
+        || actionType.equals(ProjectNextActionType.GOAL)
+        || actionType.equals(ProjectNextActionType.WAITING);
   }
 
   private ProjectActionNext setCompletingActionTimeSlot(AppReq appReq, Session dataSession, TimeSlot timeSlot) {
@@ -3671,8 +3760,7 @@ public class ProjectActionServlet extends ClientServlet {
       String moveToCurrentWorkingDayLink = "ProjectActionServlet?" + PARAM_ACTION + "="
           + ACTION_MOVE_TO_CURRENT_WORKING_DAY
           + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
-      String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
-          + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String postponeMenuId = "postponeMenu" + projectAction.getActionNextId();
       String moveUpLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_UP
           + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
       String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
@@ -3715,8 +3803,9 @@ public class ProjectActionServlet extends ClientServlet {
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a>"
           + timeSlotInline
           + " " + moveToCurrentWorkingDayButton
-          + "<a href=\"" + postponeLink
-          + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a>"
+          + "<a href=\"javascript:void(0);\" onclick=\"var m=document.getElementById('" + postponeMenuId
+          + "'); if(m){m.style.display=(m.style.display==='block'?'none':'block');} return false;\""
+          + " class=\"button\" style=\"opacity: 0.6;\" title=\"Reschedule\">&#8594;</a>"
           + moveControls + "</td>");
 
       if (showWork) {
@@ -3726,6 +3815,11 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("    <td class=\"boxed\" colspan=\"2\">" + timeSlotLabel + "</td>");
         }
       }
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\" id=\"" + postponeMenuId + "\" style=\"display:none;\">");
+      out.println("    <td class=\"boxed\" colspan=\"" + (showWork ? 4 : 2) + "\" style=\"padding: 0;\">");
+      printDesktopPostponeForm(out, appReq, projectAction, postponeMenuId);
+      out.println("    </td>");
       out.println("  </tr>");
     }
   }
@@ -3749,8 +3843,7 @@ public class ProjectActionServlet extends ClientServlet {
       String moveToCurrentWorkingDayLink = "ProjectActionServlet?" + PARAM_ACTION + "="
           + ACTION_MOVE_TO_CURRENT_WORKING_DAY
           + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
-      String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
-          + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
+      String postponeMenuId = "postponeMenu" + projectAction.getActionNextId();
       String moveUpLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_UP
           + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + projectAction.getActionNextId();
       String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
@@ -3788,8 +3881,9 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("    <td class=\"boxed\"><a href=\"" + link + "\" class=\"button\">"
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</a> "
           + moveToCurrentWorkingDayButton
-          + "<a href=\"" + postponeLink
-          + "\" class=\"button\" style=\"opacity: 0.6;\" title=\"Put off until next working day\">&#8594;</a>"
+          + "<a href=\"javascript:void(0);\" onclick=\"var m=document.getElementById('" + postponeMenuId
+          + "'); if(m){m.style.display=(m.style.display==='block'?'none':'block');} return false;\""
+          + " class=\"button\" style=\"opacity: 0.6;\" title=\"Reschedule\">&#8594;</a>"
           + moveControls + "</td>");
       if (showWork) {
         if (!projectAction.isBillable() || projectAction.getNextTimeEstimate() == null
@@ -3808,7 +3902,147 @@ public class ProjectActionServlet extends ClientServlet {
         }
       }
       out.println("  </tr>");
+      out.println("  <tr class=\"boxed\" id=\"" + postponeMenuId + "\" style=\"display:none;\">");
+      out.println("    <td class=\"boxed\" colspan=\"" + (showWork ? 4 : 2) + "\" style=\"padding: 0;\">");
+      printDesktopPostponeForm(out, appReq, projectAction, postponeMenuId);
+      out.println("    </td>");
+      out.println("  </tr>");
     }
+  }
+
+  private void printDesktopPostponeForm(PrintWriter out, AppReq appReq, ProjectActionNext projectAction,
+      String postponeMenuId) {
+    WebUser webUser = appReq.getWebUser();
+    ProjectActionNext completingAction = appReq.getCompletingAction();
+    String selectedDate = toDatabaseDateKey(projectAction.getNextActionDate());
+    if (selectedDate == null || selectedDate.length() == 0) {
+      selectedDate = toDatabaseDateKey(getCalendarForTodayNoTime(webUser).getTime());
+    }
+
+    out.println("<div style=\"padding: 8px;\">");
+    out.println("  <form method=\"POST\" action=\"ProjectActionServlet\">");
+    out.println("    <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_RESCHEDULE_FROM_FORM
+        + "\"/>");
+    out.println("    <input type=\"hidden\" name=\"" + PARAM_POSTPONE_ACTION_NEXT_ID + "\" value=\""
+        + projectAction.getActionNextId() + "\"/>");
+    if (completingAction != null) {
+      out.println("    <input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
+          + completingAction.getActionNextId() + "\"/>");
+    }
+    out.println("    <strong>Reschedule</strong> " + projectAction.getNextDescriptionForDisplay(
+        appReq.getWebUser().getProjectContact())) + "<br/>");
+
+    if (!projectAction.isBillable()) {
+      TimeSlot selectedTimeSlot = projectAction.getTimeSlot();
+      if (selectedTimeSlot == null) {
+        selectedTimeSlot = TimeSlot.AFTERNOON;
+      }
+      out.println("    <div style=\"margin: 6px 0;\"><strong>Time:</strong> ");
+      out.println("      <label><input type=\"radio\" name=\"" + PARAM_POSTPONE_TIME_SLOT + "\" value=\""
+          + TimeSlot.WAKE.getId() + "\"" + (selectedTimeSlot == TimeSlot.WAKE ? " checked" : "")
+          + "/> Wake</label> ");
+      out.println("      <label><input type=\"radio\" name=\"" + PARAM_POSTPONE_TIME_SLOT + "\" value=\""
+          + TimeSlot.MORNING.getId() + "\"" + (selectedTimeSlot == TimeSlot.MORNING ? " checked" : "")
+          + "/> Morning</label> ");
+      out.println("      <label><input type=\"radio\" name=\"" + PARAM_POSTPONE_TIME_SLOT + "\" value=\""
+          + TimeSlot.AFTERNOON.getId() + "\"" + (selectedTimeSlot == TimeSlot.AFTERNOON ? " checked" : "")
+          + "/> Afternoon</label> ");
+      out.println("      <label><input type=\"radio\" name=\"" + PARAM_POSTPONE_TIME_SLOT + "\" value=\""
+          + TimeSlot.EVENING.getId() + "\"" + (selectedTimeSlot == TimeSlot.EVENING ? " checked" : "")
+          + "/> Evening</label>");
+      out.println("    </div>");
+    } else {
+      String selectedType = projectAction.getNextActionType();
+      if (!isSupportedWorkActionType(selectedType)) {
+        selectedType = ProjectNextActionType.WILL;
+      }
+      out.println("    <div style=\"margin: 6px 0;\"><strong>Action Verb</strong><br/>");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WILL, "will");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.MIGHT, "might");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_CONTACT, "will contact");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_MEET, "will meet");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_REVIEW, "will review");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_DOCUMENT, "will document");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_FOLLOW_UP, "will follow up");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.COMMITTED_TO, "committed");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.GOAL, "set goal");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WAITING, "waiting");
+      out.println("    </div>");
+    }
+
+    out.println("    <div style=\"margin: 6px 0;\"><strong>Date</strong></div>");
+    printSixWeekDatePicker(out, webUser, selectedDate);
+
+    out.println("    <div style=\"margin-top: 8px;\">");
+    out.println("      <input type=\"submit\" class=\"button\" value=\"Apply\"/> ");
+    out.println("      <a href=\"javascript:void(0);\" class=\"button\" onclick=\"var m=document.getElementById('"
+        + postponeMenuId + "'); if(m){m.style.display='none';} return false;\">Cancel</a>");
+    out.println("    </div>");
+    out.println("  </form>");
+    out.println("</div>");
+  }
+
+  private void printActionTypeOption(PrintWriter out, String selectedType, String optionValue, String label) {
+    out.println("<label style=\"display:inline-block; margin-right: 10px;\"><input type=\"radio\" name=\""
+        + PARAM_POSTPONE_ACTION_TYPE + "\" value=\"" + optionValue + "\""
+        + (optionValue.equals(selectedType) ? " checked" : "")
+        + "/> " + escapeHtml(label) + "</label>");
+  }
+
+  private void printSixWeekDatePicker(PrintWriter out, WebUser webUser, String selectedDateKey) {
+    Calendar today = getCalendarForTodayNoTime(webUser);
+    int startDayOfWeek = today.get(Calendar.DAY_OF_WEEK); // Sunday = 1
+    int blankCells = startDayOfWeek - Calendar.SUNDAY;
+    String todayDateKey = toDatabaseDateKey(today.getTime());
+    String effectiveSelectedDateKey = selectedDateKey == null || selectedDateKey.length() == 0
+        ? todayDateKey
+        : selectedDateKey;
+    boolean selectedInWindow = false;
+    for (int i = 0; i < 42; i++) {
+      Calendar optionDate = (Calendar) today.clone();
+      optionDate.add(Calendar.DAY_OF_MONTH, i);
+      String dateKey = toDatabaseDateKey(optionDate.getTime());
+      if (dateKey != null && dateKey.equals(effectiveSelectedDateKey)) {
+        selectedInWindow = true;
+        break;
+      }
+    }
+
+    String[] dayHeaders = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    out.println("<table style=\"width: 100%;\">");
+    out.println("  <tr>");
+    for (String dayHeader : dayHeaders) {
+      out.println("    <th style=\"text-align:center;\">" + dayHeader + "</th>");
+    }
+    out.println("  </tr>");
+
+    int dayOffset = 0;
+    for (int row = 0; row < 6; row++) {
+      out.println("  <tr>");
+      for (int col = 0; col < 7; col++) {
+        int cellIndex = (row * 7) + col;
+        if (cellIndex < blankCells) {
+          out.println("    <td>&nbsp;</td>");
+          continue;
+        }
+        Calendar optionDate = (Calendar) today.clone();
+        optionDate.add(Calendar.DAY_OF_MONTH, dayOffset);
+        String dateKey = toDatabaseDateKey(optionDate.getTime());
+        boolean checked = dateKey != null && dateKey.equals(effectiveSelectedDateKey);
+        if (!selectedInWindow && dateKey != null && dateKey.equals(todayDateKey)) {
+          checked = true;
+        }
+        out.println("    <td style=\"text-align:center; white-space:nowrap;\">");
+        out.println("      <label style=\"display:block;\"><input type=\"radio\" name=\""
+            + PARAM_POSTPONE_TARGET_DATE + "\" value=\"" + dateKey + "\""
+            + (checked ? " checked" : "")
+            + "/> " + optionDate.get(Calendar.DAY_OF_MONTH) + "</label>");
+        out.println("    </td>");
+        dayOffset++;
+      }
+      out.println("  </tr>");
+    }
+    out.println("</table>");
   }
 
   // <editor-fold defaultstate="collapsed"

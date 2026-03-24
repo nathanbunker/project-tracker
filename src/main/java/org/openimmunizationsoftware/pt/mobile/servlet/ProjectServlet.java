@@ -14,9 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -35,6 +33,7 @@ public class ProjectServlet extends MobileBaseServlet {
     private static final String PARAM_ACTION_ID = "actionId";
 
     private static final String ACTION_COMPLETE = "complete";
+    private static final String ACTION_CANCEL = "cancel";
     private static final String ACTION_RESCHEDULE = "reschedule";
     private static final String ACTION_TOMORROW = "tomorrow";
 
@@ -50,7 +49,7 @@ public class ProjectServlet extends MobileBaseServlet {
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
 
-            // Handle action processing (Complete/Tomorrow) - works for both GET and POST
+            // Handle action processing (Complete/Cancel/Reschedule) - works for both GET and POST
             String paramAction = request.getParameter(PARAM_ACTION);
             Integer actionId = parseInteger(request.getParameter(PARAM_ACTION_ID));
             if (paramAction != null && actionId != null) {
@@ -60,8 +59,12 @@ public class ProjectServlet extends MobileBaseServlet {
                     if (projectAction != null) {
                         if (ACTION_COMPLETE.equals(paramAction)) {
                             completeAction(projectAction, dataSession, webUser);
-                        } else if (ACTION_RESCHEDULE.equals(paramAction) || ACTION_TOMORROW.equals(paramAction)) {
-                            rescheduleAction(projectAction, dataSession, webUser);
+                        } else if (ACTION_CANCEL.equals(paramAction)) {
+                            cancelAction(projectAction, dataSession, webUser);
+                        } else if (ACTION_RESCHEDULE.equals(paramAction)) {
+                            rescheduleAction(projectAction, request, webUser, dataSession);
+                        } else if (ACTION_TOMORROW.equals(paramAction)) {
+                            postponeToTomorrow(projectAction, dataSession, webUser);
                         }
                     }
 
@@ -199,17 +202,10 @@ public class ProjectServlet extends MobileBaseServlet {
             return;
         }
 
-        Date todayStart = webUser.getToday();
-        Date tomorrowStart = webUser.getTomorrow();
-        boolean unscheduledTable = "Unscheduled".equals(tableTitle);
-
         out.println("<h2>" + tableTitle + "</h2>");
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">" + tableTitle + "</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">Complete</th>");
-        out.println("    <th class=\"boxed\" style=\"text-align:center;\">"
-                + (unscheduledTable ? "Do Today" : "Postpone") + "</th>");
+        out.println("    <th class=\"boxed\">To Do</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
 
@@ -239,48 +235,25 @@ public class ProjectServlet extends MobileBaseServlet {
             out.println("      </a>");
             out.println("    </td>");
 
-            // Complete column
+            // Action column (complete + postpone + cancel)
+            String completeUrl = "project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
+                    + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_COMPLETE;
+            String cancelUrl = "project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
+                    + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_CANCEL;
+            
             out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
-                    + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_COMPLETE
-                    + "\" class=\"action-icon\" title=\"Complete\">&#10004;</a>");
-            out.println("    </td>");
+            out.println("      <span style=\"white-space: nowrap;\">");
+            out.println("        <a href=\"" + completeUrl
+                    + "\" class=\"action-icon\" title=\"Complete\" style=\"margin-right: 8px;\">&#10004;</a>");
+            out.println("        <a href=\"javascript:void(0);\" onclick=\"showPostponeMenu(" + action.getActionNextId()
+                    + "); return false;\" class=\"action-icon\" title=\"Postpone/Reschedule\" style=\"margin-right: 8px;\">&#8594;</a>");
+            out.println("        <a href=\"" + cancelUrl
+                    + "\" class=\"action-icon\" title=\"Cancel\" style=\"margin-right: 8px;\">&#10006;</a>");
+            out.println("      </span>");
 
-            // Postpone column
-            Date nextActionDate = action.getNextActionDate();
-            boolean isUnscheduled = nextActionDate == null;
-            Date actionDay = isUnscheduled ? null : webUser.startOfDay(nextActionDate);
-            boolean isOverdue = !isUnscheduled && actionDay.before(todayStart);
-            boolean isDueToday = !isUnscheduled && actionDay.before(tomorrowStart);
+            // Print the shared postpone menu with project context
+            printPostponeMenuForProject(out, action, "", webUser, projectId);
 
-            String rescheduleTitle;
-            String rescheduleIcon;
-            if (isUnscheduled) {
-                rescheduleTitle = "Do Today";
-                // Distinct shape to indicate scheduling for today.
-                rescheduleIcon = "&#9673;";
-            } else if (isOverdue) {
-                rescheduleTitle = "Move To Today";
-                rescheduleIcon = "&#8593;";
-            } else if (isDueToday) {
-                rescheduleTitle = "Postpone To Tomorrow";
-                rescheduleIcon = "&#8594;";
-            } else {
-                rescheduleTitle = "Unschedule";
-                rescheduleIcon = "&#9633;";
-            }
-
-            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"project?" + PARAM_PROJECT_ID + "=" + projectId + "&" + PARAM_ACTION_ID
-                    + "=" + action.getActionNextId() + "&" + PARAM_ACTION + "=" + ACTION_RESCHEDULE
-                    + "\" class=\"action-icon\" title=\"" + rescheduleTitle + "\">" + rescheduleIcon
-                    + "</a>");
-            out.println("    </td>");
-
-            // Edit column
-            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
-            out.println("      <a href=\"action?actionNextId=" + action.getActionNextId()
-                    + "\" class=\"action-icon\" title=\"Edit\">&#9998;</a>");
             out.println("    </td>");
             out.println("  </tr>");
         }
@@ -376,44 +349,6 @@ public class ProjectServlet extends MobileBaseServlet {
         return countMap;
     }
 
-    private void completeAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
-        Transaction trans = dataSession.beginTransaction();
-        try {
-            action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
-            action.setNextChangeDate(new Date());
-            dataSession.saveOrUpdate(action);
-            ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, action);
-            trans.commit();
-        } catch (Exception e) {
-            trans.rollback();
-            throw e;
-        }
-    }
-
-    private void rescheduleAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
-        Transaction trans = dataSession.beginTransaction();
-        try {
-            Date today = webUser.getToday();
-            Date tomorrow = webUser.getTomorrow();
-            Date nextActionDate = action.getNextActionDate();
-            Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
-
-            if (nextActionDay == null || nextActionDay.before(today)) {
-                action.setNextActionDate(today);
-            } else if (nextActionDay.before(tomorrow)) {
-                action.setNextActionDate(tomorrow);
-            } else {
-                action.setNextActionDate(null);
-            }
-            action.setNextChangeDate(new Date());
-            dataSession.saveOrUpdate(action);
-            trans.commit();
-        } catch (Exception e) {
-            trans.rollback();
-            throw e;
-        }
-    }
-
     private String buildRedirectUrl(HttpServletRequest request) {
         Integer projectId = parseInteger(request.getParameter(PARAM_PROJECT_ID));
         if (projectId != null) {
@@ -439,16 +374,5 @@ public class ProjectServlet extends MobileBaseServlet {
         }
         BillCode billCode = resolveBillCode(dataSession, project);
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
-    }
-
-    private String escapeHtml(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
     }
 }
