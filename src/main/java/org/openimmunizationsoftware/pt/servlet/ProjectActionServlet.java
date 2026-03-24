@@ -367,13 +367,13 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
           planningStartDate, planningEndDate);
       planningRangeList = filterProjectActionList(planningRangeList, showWork, showPersonal);
-      Map<Date, List<ProjectActionNext>> planningBuckets = new HashMap<>();
+      Map<String, List<ProjectActionNext>> planningBuckets = new HashMap<>();
       for (ProjectActionNext projectAction : planningRangeList) {
-        Date bucketDate = normalizeDate(webUser, projectAction.getNextActionDate());
-        List<ProjectActionNext> bucketList = planningBuckets.get(bucketDate);
+        String bucketKey = toDatabaseDateKey(projectAction.getNextActionDate());
+        List<ProjectActionNext> bucketList = planningBuckets.get(bucketKey);
         if (bucketList == null) {
           bucketList = new ArrayList<>();
-          planningBuckets.put(bucketDate, bucketList);
+          planningBuckets.put(bucketKey, bucketList);
         }
         bucketList.add(projectAction);
       }
@@ -382,7 +382,7 @@ public class ProjectActionServlet extends ClientServlet {
       for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
         Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
         dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-        Date dayKey = normalizeDate(webUser, dayCalendar.getTime());
+        String dayKey = toDatabaseDateKey(dayCalendar.getTime());
         List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
         if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
           continue;
@@ -1693,9 +1693,11 @@ public class ProjectActionServlet extends ClientServlet {
     }
     Calendar todayCalendar = getCalendarForTodayNoTime(appReq.getWebUser());
     Calendar calendar = getCalendarForTodayNoTime(appReq.getWebUser());
+    String actionDateKey = toDatabaseDateKey(projectAction.getNextActionDate());
+    String todayKey = toDatabaseDateKey(todayCalendar.getTime());
     boolean isOverdue = projectAction.getNextActionDate() != null
-        && projectAction.getNextActionDate().before(todayCalendar.getTime());
-    if (projectAction.getNextActionDate() != null && projectAction.getNextActionDate().after(todayCalendar.getTime())) {
+        && actionDateKey.compareTo(todayKey) < 0;
+    if (projectAction.getNextActionDate() != null && actionDateKey.compareTo(todayKey) > 0) {
       calendar.setTime(projectAction.getNextActionDate());
     }
     if (!isOverdue) {
@@ -2886,9 +2888,9 @@ public class ProjectActionServlet extends ClientServlet {
           + trim(completingAction.getLinkUrl(), 40) + "</a>");
     }
     if (completingAction.getNextDeadlineDate() != null) {
-      Date today = normalizeDate(webUser, webUser.now());
-      Date deadlineDate = completingAction.getNextDeadlineDate();
-      if (deadlineDate.after(today)) {
+      String today = toDatabaseDateKey(webUser.now());
+      String deadlineKey = toDatabaseDateKey(completingAction.getNextDeadlineDate());
+      if (deadlineKey.compareTo(today) > 0) {
         out.println("    <br/>Deadline: " + sdf11.format(completingAction.getNextDeadlineDate()));
       } else {
         out.println("    <br/><span class=\"fail\">Deadline Overdue:</span> "
@@ -3372,8 +3374,11 @@ public class ProjectActionServlet extends ClientServlet {
     return projectActionList;
   }
 
-  private static Date normalizeDate(WebUser webUser, Date date) {
-    return webUser.startOfDay(date);
+  private static String toDatabaseDateKey(Date date) {
+    if (date == null) {
+      return "";
+    }
+    return new SimpleDateFormat("yyyy-MM-dd").format(date);
   }
 
   private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {
@@ -3940,9 +3945,9 @@ public class ProjectActionServlet extends ClientServlet {
       additionalContent = " [<a href=\"" + pa.getLinkUrl() + "\" target=\"_blank\">link</a>]";
     }
     if (pa.getNextDeadlineDate() != null) {
-      Date todayDateOnly = normalizeDate(webUser, today);
-      Date deadlineDateOnly = pa.getNextDeadlineDate();
-      if (deadlineDateOnly.after(todayDateOnly)) {
+      String todayKey = toDatabaseDateKey(today);
+      String deadlineKey = toDatabaseDateKey(pa.getNextDeadlineDate());
+      if (deadlineKey.compareTo(todayKey) > 0) {
         additionalContent += "    <br/>Deadline: " + sdf11.format(pa.getNextDeadlineDate());
       } else {
         additionalContent += "    <br/>Deadline: <span class=\"fail\">"

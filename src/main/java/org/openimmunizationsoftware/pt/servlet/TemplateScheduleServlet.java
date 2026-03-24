@@ -114,6 +114,10 @@ public class TemplateScheduleServlet extends ClientServlet {
       }
       Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap = new HashMap<ProjectActionNext, Map<Calendar, ProjectActionNext>>();
       Map<Project, List<ProjectActionNext>> templateMap = new HashMap<Project, List<ProjectActionNext>>();
+      Map<String, Calendar> dayByKey = new HashMap<String, Calendar>();
+      for (Calendar day : dayList) {
+        dayByKey.put(toDayKey(day), day);
+      }
       {
         for (Project project : projectList) {
           Query query = dataSession.createQuery(
@@ -138,14 +142,7 @@ public class TemplateScheduleServlet extends ClientServlet {
             @SuppressWarnings("unchecked")
             List<ProjectActionNext> pal = query.list();
             for (ProjectActionNext pa : pal) {
-              Date scheduledDay = webUser.startOfDay(pa.getNextActionDate());
-              Calendar calendar = null;
-              for (Calendar c : dayList) {
-                if (c.getTime().equals(scheduledDay)) {
-                  calendar = c;
-                  break;
-                }
-              }
+              Calendar calendar = dayByKey.get(toDayKey(pa.getNextActionDate()));
               if (calendar != null) {
                 projectActionMap.put(calendar, pa);
               }
@@ -641,6 +638,25 @@ public class TemplateScheduleServlet extends ClientServlet {
       }
     }
     return null;
+  }
+
+  private String toDayKey(Calendar calendar) {
+    if (calendar == null) {
+      return "";
+    }
+    int year = calendar.get(Calendar.YEAR);
+    int month = calendar.get(Calendar.MONTH) + 1;
+    int day = calendar.get(Calendar.DAY_OF_MONTH);
+    return String.format("%04d-%02d-%02d", year, month, day);
+  }
+
+  private String toDayKey(Date date) {
+    if (date == null) {
+      return "";
+    }
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(date);
+    return toDayKey(calendar);
   }
 
   private void printTimeSlotSelect(PrintWriter out, String name, TimeSlot selectedTimeSlot) {

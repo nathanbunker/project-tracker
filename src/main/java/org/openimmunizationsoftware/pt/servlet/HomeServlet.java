@@ -346,8 +346,7 @@ public class HomeServlet extends ClientServlet {
           continue;
         }
         Date nextActionDate = projectAction.getNextActionDate();
-        Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
-        if (nextActionDay != null && nextActionDay.before(today)) {
+        if (nextActionDate != null && toDatabaseDateKey(nextActionDate).compareTo(toDatabaseDateKey(today)) < 0) {
           projectActionListOverdue.add(projectAction);
         }
         projectAction.setContact(
@@ -549,11 +548,13 @@ public class HomeServlet extends ClientServlet {
           + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()));
     }
     Calendar today = TimeTracker.createToday(webUser);
-    Date nextActionDate = projectAction.getNextActionDate();
-    Date nextActionDay = nextActionDate == null ? null : webUser.startOfDay(nextActionDate);
-    if (nextActionDay != null && nextActionDay.before(today.getTime())) {
-      today.add(Calendar.DAY_OF_MONTH, -1);
-      if (!nextActionDay.before(today.getTime())) {
+    String actionDateKey = toDatabaseDateKey(projectAction.getNextActionDate());
+    String todayKey = toDatabaseDateKey(today.getTime());
+    if (actionDateKey != null && actionDateKey.compareTo(todayKey) < 0) {
+      Calendar yesterday = (Calendar) today.clone();
+      yesterday.add(Calendar.DAY_OF_MONTH, -1);
+      String yesterdayKey = toDatabaseDateKey(yesterday.getTime());
+      if (actionDateKey.equals(yesterdayKey)) {
         out.println("    <span class=\"fail\">Due Yesterday</span>");
       } else {
         out.println(
@@ -685,6 +686,13 @@ public class HomeServlet extends ClientServlet {
 
     out.println("</td>");
     return changeBoxId;
+  }
+
+  private static String toDatabaseDateKey(Date date) {
+    if (date == null) {
+      return "";
+    }
+    return new SimpleDateFormat("yyyy-MM-dd").format(date);
   }
 
   private static boolean sameDay(Calendar c1, Date d, WebUser webUser) {

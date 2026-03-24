@@ -2,6 +2,7 @@ package org.openimmunizationsoftware.pt.mobile.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -101,26 +102,17 @@ public class TodoServlet extends MobileBaseServlet {
             // Get selected date (default to today)
             Date selectedDate = getSelectedDate(request, webUser);
             Date today = TimeTracker.createToday(webUser).getTime();
+            String selectedDateKey = toUserDateKey(selectedDate, webUser);
+            String todayDateKey = toUserDateKey(today, webUser);
 
             // Fetch READY actions for the selected date
-            List<ProjectActionNext> allActions = fetchReadyActions(selectedDate, webUser, dataSession);
+            List<ProjectActionNext> allActions = fetchReadyActions(selectedDateKey, webUser, dataSession);
 
             // Filter by personal/work
             List<ProjectActionNext> overdueActions = new ArrayList<>();
             List<ProjectActionNext> todayActions = new ArrayList<>();
 
-            boolean isToday = isSameDay(selectedDate, today, webUser);
-
-            // Calculate boundaries for selected day
-            Calendar cal = webUser.getCalendar();
-            cal.setTime(selectedDate);
-            cal.set(Calendar.HOUR_OF_DAY, 0);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            Date startOfSelectedDay = cal.getTime();
-            cal.add(Calendar.DAY_OF_MONTH, 1);
-            Date endOfSelectedDay = cal.getTime();
+            boolean isToday = selectedDateKey.equals(todayDateKey);
 
             for (ProjectActionNext action : allActions) {
                 if (action.isBillable()) {
@@ -131,19 +123,21 @@ public class TodoServlet extends MobileBaseServlet {
                 if (actionDate == null) {
                     continue;
                 }
-                Date actionDay = webUser.startOfDay(actionDate);
+                String actionDateKey = toDatabaseDateKey(actionDate);
+                if (actionDateKey == null) {
+                    continue;
+                }
 
                 if (isToday) {
-                    // Today: show overdue (before today) and today's items
-                    if (actionDay.before(startOfSelectedDay)) {
+                    // Today view: date-only compare using yyyy-MM-dd keys.
+                    if (actionDateKey.compareTo(selectedDateKey) < 0) {
                         overdueActions.add(action);
-                    } else if (actionDay.before(endOfSelectedDay)) {
+                    } else if (actionDateKey.equals(selectedDateKey)) {
                         todayActions.add(action);
                     }
                 } else {
-                    // Other days: only show items for that specific day
-                    if (actionDay.compareTo(startOfSelectedDay) >= 0
-                            && actionDay.before(endOfSelectedDay)) {
+                    // Other days: only show items for that specific date.
+                    if (actionDateKey.equals(selectedDateKey)) {
                         todayActions.add(action);
                     }
                 }
@@ -222,17 +216,10 @@ public class TodoServlet extends MobileBaseServlet {
         return TimeTracker.createToday(webUser).getTime();
     }
 
-    private List<ProjectActionNext> fetchReadyActions(Date selectedDate, WebUser webUser, Session dataSession) {
-        Calendar cal = webUser.getCalendar();
-        cal.setTime(selectedDate);
-        cal.set(Calendar.HOUR_OF_DAY, 0);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        cal.add(Calendar.DAY_OF_MONTH, 1);
-        Date nextDayStart = cal.getTime();
+    private List<ProjectActionNext> fetchReadyActions(String selectedDateKey, WebUser webUser, Session dataSession) {
+        java.sql.Date selectedSqlDate = java.sql.Date.valueOf(selectedDateKey);
 
-        // Fetch all READY actions for this date OR overdue (if viewing today)
+        // Fetch all READY actions due on or before selected date.
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan " +
                         "left join fetch pan.project " +
@@ -242,21 +229,22 @@ public class TodoServlet extends MobileBaseServlet {
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.nextActionStatusString = :status " +
                         "and pan.nextDescription <> '' " +
-                        "and pan.nextActionDate < :nextDayStart " +
+                        "and pan.nextActionDate <= :selectedDate " +
                         "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate");
 
         query.setParameter("provider", webUser.getProvider());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
-        query.setParameter("nextDayStart", nextDayStart);
+        query.setParameter("selectedDate", selectedSqlDate);
 
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
 
-        // Filter to only include items due before next day (date-only semantics)
+        // Keep a defensive date-only guard in case DB mapping includes time-of-day.
         List<ProjectActionNext> filtered = new ArrayList<>();
         for (ProjectActionNext action : results) {
-            if (action.getNextActionDate() != null && action.getNextActionDate().before(nextDayStart)) {
+            String actionDateKey = toDatabaseDateKey(action.getNextActionDate());
+            if (actionDateKey != null && actionDateKey.compareTo(selectedDateKey) <= 0) {
                 // Load lazy associations
                 if (action.getProject() == null && action.getProjectId() > 0) {
                     action.setProject((Project) dataSession.get(Project.class, action.getProjectId()));
@@ -274,6 +262,20 @@ public class TodoServlet extends MobileBaseServlet {
         }
 
         return filtered;
+    }
+
+    private String toUserDateKey(Date date, WebUser webUser) {
+        if (date == null) {
+            return null;
+        }
+        return webUser.getDateFormatService().formatTransportDate(date, webUser.getTimeZone());
+    }
+
+    private String toDatabaseDateKey(Date date) {
+        if (date == null) {
+            return null;
+        }
+        return new SimpleDateFormat("yyyy-MM-dd").format(date);
     }
 
     private boolean isSameDay(Date date1, Date date2, WebUser webUser) {
