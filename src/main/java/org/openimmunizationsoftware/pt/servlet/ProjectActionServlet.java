@@ -365,6 +365,7 @@ public class ProjectActionServlet extends ClientServlet {
       sortProjectActionListByCompletionOrder(projectActionOverdueList);
       sortProjectActionListByCompletionOrder(projectActionDueTodayList);
       List<List<ProjectActionNext>> projectActionDueNextWorkingDayListList = new ArrayList<>();
+      List<Date> planningDisplayDateList = new ArrayList<>();
       Calendar planningCalendar = getCalendarForTodayNoTime(webUser);
       planningCalendar.add(Calendar.DAY_OF_MONTH, 1);
       Date planningStartDate = planningCalendar.getTime();
@@ -388,13 +389,15 @@ public class ProjectActionServlet extends ClientServlet {
       for (int dayOffset = 1; dayOffset < 14 && daysFound < 5; dayOffset++) {
         Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
         dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-        String dayKey = toDatabaseDateKey(dayCalendar.getTime());
+        Date displayDayDate = dayCalendar.getTime();
+        String dayKey = toDatabaseDateKey(displayDayDate);
         List<ProjectActionNext> projectActionDueNextWorkingDayList = planningBuckets.get(dayKey);
         if (projectActionDueNextWorkingDayList == null || projectActionDueNextWorkingDayList.isEmpty()) {
           continue;
         }
         sortProjectActionList(projectActionDueNextWorkingDayList);
         projectActionDueNextWorkingDayListList.add(projectActionDueNextWorkingDayList);
+        planningDisplayDateList.add(displayDayDate);
         daysFound++;
       }
       if (completingAction != null && !shouldDisplayProjectAction(completingAction, showWork, showPersonal)) {
@@ -499,8 +502,9 @@ public class ProjectActionServlet extends ClientServlet {
           boolean planningDisplayHasData = !projectActionDueNextWorkingDayListList.isEmpty();
           boolean planningQueryHasData = !planningRangeList.isEmpty();
           List<TimeAdder> timeAdderList = new ArrayList<>();
-          for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
+          for (int i = 0; i < projectActionDueNextWorkingDayListList.size(); i++) {
+            List<ProjectActionNext> projectActionDueNextWorkingDayList = projectActionDueNextWorkingDayListList.get(i);
+            Date workingDayDate = planningDisplayDateList.get(i);
             TimeAdder timeAdder = new TimeAdder(projectActionDueNextWorkingDayList, appReq, workingDayDate);
             timeAdderList.add(timeAdder);
           }
@@ -508,8 +512,7 @@ public class ProjectActionServlet extends ClientServlet {
           out.println("<table class=\"boxed\">");
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"title\">Planning</th>");
-          for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-            Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
+          for (Date workingDayDate : planningDisplayDateList) {
             String workingDayLabel = webUser.getDateFormatService().formatPattern(workingDayDate,
                 webUser.getDateDisplayPatternWithWeekdayShort(),
                 webUser.getTimeZone());
@@ -568,8 +571,9 @@ public class ProjectActionServlet extends ClientServlet {
             }
           }
         }
-        for (List<ProjectActionNext> projectActionDueNextWorkingDayList : projectActionDueNextWorkingDayListList) {
-          Date workingDayDate = projectActionDueNextWorkingDayList.get(0).getNextActionDate();
+        for (int i = 0; i < projectActionDueNextWorkingDayListList.size(); i++) {
+          List<ProjectActionNext> projectActionDueNextWorkingDayList = projectActionDueNextWorkingDayListList.get(i);
+          Date workingDayDate = planningDisplayDateList.get(i);
           printActionsScheduledForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
           printTimeManagementBoxForNextWorkingDay(appReq, projectActionDueNextWorkingDayList, workingDayDate);
         }
@@ -1295,7 +1299,7 @@ public class ProjectActionServlet extends ClientServlet {
         addToMap(projectActionMap, pa, "Proposed");
       } else if (pa.hasNextActionDate()) {
         String label = "Overdue";
-        if (pa.getNextActionDate().before(dateList.get(0))) {
+        if (toDatabaseDateKey(pa.getNextActionDate()).compareTo(toDatabaseDateKey(dateList.get(0))) < 0) {
           addToMap(projectActionMap, pa, label);
         } else {
           label = "Today";
@@ -1322,15 +1326,10 @@ public class ProjectActionServlet extends ClientServlet {
   private static boolean sameDayOrBefore(ProjectActionNext pa, Date dateFromDateList,
       WebUser webUser) {
     Date nextActionDate = pa.getNextActionDate();
-    // need to chop off the time from the date
-    Calendar c = webUser.getCalendar(dateFromDateList);
-    c.set(Calendar.HOUR_OF_DAY, 0);
-    c.set(Calendar.MINUTE, 0);
-    c.set(Calendar.SECOND, 0);
-    c.set(Calendar.MILLISECOND, 0);
-    dateFromDateList = c.getTime();
-
-    return dateFromDateList.equals(nextActionDate) || nextActionDate.before(dateFromDateList);
+    if (nextActionDate == null || dateFromDateList == null) {
+      return false;
+    }
+    return toDatabaseDateKey(nextActionDate).compareTo(toDatabaseDateKey(dateFromDateList)) <= 0;
   }
 
   private void addToMap(Map<String, List<ProjectActionNext>> projectActionMap, ProjectActionNext pa, String key) {
@@ -3572,13 +3571,8 @@ public class ProjectActionServlet extends ClientServlet {
         return BUCKET_END_OF_WORK_DAY;
       }
     }
-    Calendar todayCalendar = Calendar.getInstance();
-    todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
-    todayCalendar.set(Calendar.MINUTE, 0);
-    todayCalendar.set(Calendar.SECOND, 0);
-    todayCalendar.set(Calendar.MILLISECOND, 0);
     if (projectAction.getNextActionDate() != null
-        && projectAction.getNextActionDate().before(todayCalendar.getTime())) {
+        && toDatabaseDateKey(projectAction.getNextActionDate()).compareTo(toDatabaseDateKey(new Date())) < 0) {
       return BUCKET_OVERDUE;
     }
     if (!projectAction.isBillable()) {
