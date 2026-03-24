@@ -68,6 +68,10 @@ public class RegistrationServlet extends ClientServlet {
 
     private static final String DEFAULT_WORK_PROJECTS = "Overhead, Email, Meetings";
     private static final String DEFAULT_PERSONAL_PROJECTS = "Finances, Exercise, Family, Home";
+    private static final String WORKFLOW_STUDENT = "STUDENT";
+    private static final String PARAM_WORKFLOW_TYPE = "workflowType";
+    private static final String DEFAULT_SCHOOL_PROJECTS = "English, Math, Science";
+    private static final String DEFAULT_CHORE_PROJECTS = "Kitchen, Living Room, Bedroom";
 
     private static final String[][] DATE_FORMAT_OPTIONS = {
             { DateFormatService.PATTERN_DATE_SHORT, "MM/dd/yyyy (US)" },
@@ -195,6 +199,8 @@ public class RegistrationServlet extends ClientServlet {
             webUser.setPassword(null);
             webUser.setProvider(null);
             webUser.setUserType(WebUser.USER_TYPE_USER);
+            String workflowTypeParam = safe(request.getParameter(PARAM_WORKFLOW_TYPE));
+            webUser.setWorkflowType(WORKFLOW_STUDENT.equals(workflowTypeParam) ? WORKFLOW_STUDENT : "STANDARD");
             webUser.setRegistrationStatus(WebUser.REGISTRATION_STATUS_PENDING);
             webUser.setCreatedDate(now);
             webUser.setVerifiedDate(null);
@@ -274,8 +280,11 @@ public class RegistrationServlet extends ClientServlet {
             saveUserKeyValue(dataSession, webUser, TrackerKeysManager.KEY_TIME_ENTRY_FORMAT,
                     setupFormData.timeFormat);
 
-            BillCode workBillCode = createBillCode(provider, "Work", "Work", "Y");
-            BillCode personalBillCode = createBillCode(provider, "Personal", "Personal", "N");
+            boolean isStudent = WORKFLOW_STUDENT.equals(webUser.getWorkflowType());
+            String workCodeLabel = isStudent ? "School" : "Work";
+            String personalCodeLabel = isStudent ? "Chores" : "Personal";
+            BillCode workBillCode = createBillCode(provider, workCodeLabel, workCodeLabel, "Y");
+            BillCode personalBillCode = createBillCode(provider, personalCodeLabel, personalCodeLabel, "N");
             dataSession.save(workBillCode);
             dataSession.save(personalBillCode);
 
@@ -444,22 +453,36 @@ public class RegistrationServlet extends ClientServlet {
         formData.dateFormat = DateFormatService.PATTERN_DATE_SHORT;
         formData.timeFormat = DateFormatService.PATTERN_TIME_12H;
         formData.trackTime = true;
-        formData.workProjects = DEFAULT_WORK_PROJECTS;
-        formData.personalProjects = DEFAULT_PERSONAL_PROJECTS;
-        formData.workProjectNames = parseProjectNames(formData.workProjects);
-        formData.personalProjectNames = parseProjectNames(formData.personalProjects);
-
-        formData.workTemplateRows.add(createWorkTemplateRow(true, "Email", "clear email start of day",
-                ProcessStage.FIRST, "0:20"));
-        formData.workTemplateRows.add(createWorkTemplateRow(true, "Email", "clear email end of day",
-                ProcessStage.PENULTIMATE, "0:20"));
-        formData.workTemplateRows.add(createWorkTemplateRow(true, "Overhead", "plan for today",
-                ProcessStage.SECOND, "0:15"));
-        formData.workTemplateRows.add(createWorkTemplateRow(true, "Overhead", "plan for tomorrow",
-                ProcessStage.LAST, "0:15"));
-
-        formData.personalTemplateRows.add(createPersonalTemplateRow(true, "Exercise", "workout",
-                TimeSlot.AFTERNOON, "1:00"));
+        formData.workflowType = safe(webUser.getWorkflowType());
+        if (WORKFLOW_STUDENT.equals(formData.workflowType)) {
+            formData.workProjects = DEFAULT_SCHOOL_PROJECTS;
+            formData.personalProjects = DEFAULT_CHORE_PROJECTS;
+            formData.workProjectNames = parseProjectNames(formData.workProjects);
+            formData.personalProjectNames = parseProjectNames(formData.personalProjects);
+            formData.workTemplateRows.add(createWorkTemplateRow(true, "Math", "practice the piano",
+                    ProcessStage.FIRST, "0:30"));
+            formData.workTemplateRows.add(createWorkTemplateRow(true, "English", "complete reading assignment",
+                    ProcessStage.SECOND, "0:20"));
+            formData.personalTemplateRows.add(createPersonalTemplateRow(true, "Kitchen", "wash the dishes",
+                    TimeSlot.AFTERNOON, "0:15"));
+            formData.personalTemplateRows.add(createPersonalTemplateRow(true, "Bedroom", "tidy bedroom",
+                    TimeSlot.MORNING, "0:10"));
+        } else {
+            formData.workProjects = DEFAULT_WORK_PROJECTS;
+            formData.personalProjects = DEFAULT_PERSONAL_PROJECTS;
+            formData.workProjectNames = parseProjectNames(formData.workProjects);
+            formData.personalProjectNames = parseProjectNames(formData.personalProjects);
+            formData.workTemplateRows.add(createWorkTemplateRow(true, "Email", "clear email start of day",
+                    ProcessStage.FIRST, "0:20"));
+            formData.workTemplateRows.add(createWorkTemplateRow(true, "Email", "clear email end of day",
+                    ProcessStage.PENULTIMATE, "0:20"));
+            formData.workTemplateRows.add(createWorkTemplateRow(true, "Overhead", "plan for today",
+                    ProcessStage.SECOND, "0:15"));
+            formData.workTemplateRows.add(createWorkTemplateRow(true, "Overhead", "plan for tomorrow",
+                    ProcessStage.LAST, "0:15"));
+            formData.personalTemplateRows.add(createPersonalTemplateRow(true, "Exercise", "workout",
+                    TimeSlot.AFTERNOON, "1:00"));
+        }
 
         appendBlankTemplateRows(formData.workTemplateRows, SECTION_WORK, EXTRA_TEMPLATE_ROWS);
         appendBlankTemplateRows(formData.personalTemplateRows, SECTION_PERSONAL, EXTRA_TEMPLATE_ROWS);
@@ -795,6 +818,13 @@ public class RegistrationServlet extends ClientServlet {
                 + PARAM_LAST_NAME + "\" size=\"40\" value=\"" + escapeHtml(lastName) + "\"></td></tr>");
         out.println("  <tr><th class=\"boxed\">Email address</th><td class=\"boxed\"><input type=\"text\" name=\""
                 + PARAM_EMAIL + "\" size=\"40\" value=\"" + escapeHtml(emailAddress) + "\"></td></tr>");
+        out.println("  <tr><th class=\"boxed\">Workspace type</th><td class=\"boxed\">"
+                + "<label><input type=\"radio\" name=\"" + PARAM_WORKFLOW_TYPE
+                + "\" value=\"STANDARD\" checked> Standard</label>"
+                + "&nbsp;&nbsp;"
+                + "<label><input type=\"radio\" name=\"" + PARAM_WORKFLOW_TYPE + "\" value=\"STUDENT\"> School</label>"
+                + "<br><small>Choose <b>School</b> for a student workspace with subjects and chores instead of work projects.</small>"
+                + "</td></tr>");
         out.println(
                 "  <tr><td class=\"boxed-submit\" colspan=\"2\" align=\"right\"><input type=\"submit\" name=\"action\" value=\""
                         + ACTION_REGISTER + "\"></td></tr>");
@@ -803,6 +833,11 @@ public class RegistrationServlet extends ClientServlet {
     }
 
     private void printSetupForm(PrintWriter out, SetupFormData formData) {
+        boolean isStudent = WORKFLOW_STUDENT.equals(formData.workflowType);
+        String workLabel = isStudent ? "School" : "Work";
+        String personalLabel = isStudent ? "Chores" : "Personal";
+        String workSuggestions = isStudent ? "English, Math, Science" : "Overhead, Email, Meetings";
+        String personalSuggestions = isStudent ? "Kitchen, Living Room, Bedroom" : "Finances, Exercise, Family, Home";
         out.println("<h2>Finish Registration</h2>");
         out.println(
                 "<p>We will create your starter workspace, two bill codes, your projects, and a week of suggested daily actions.</p>");
@@ -837,28 +872,35 @@ public class RegistrationServlet extends ClientServlet {
         out.println("<br/>");
         out.println("<table class=\"boxed\">");
         out.println("  <tr><th class=\"title\" colspan=\"2\">Starter Projects</th></tr>");
-        out.println("  <tr><th class=\"boxed\">Work Projects</th><td class=\"boxed\"><input type=\"text\" name=\""
+        out.println("  <tr><th class=\"boxed\">" + workLabel
+                + " Projects</th><td class=\"boxed\"><input type=\"text\" name=\""
                 + PARAM_WORK_PROJECTS + "\" value=\"" + escapeHtml(formData.workProjects)
                 + "\" size=\"90\"></td></tr>");
         out.println(
-                "  <tr><td class=\"boxed\"></td><td class=\"boxed\">Suggestions: Overhead, Email, Meetings. Add more names separated by commas.</td></tr>");
-        out.println("  <tr><th class=\"boxed\">Personal Projects</th><td class=\"boxed\"><input type=\"text\" name=\""
+                "  <tr><td class=\"boxed\"></td><td class=\"boxed\">Suggestions: " + workSuggestions
+                        + ". Add more names separated by commas.</td></tr>");
+        out.println("  <tr><th class=\"boxed\">" + personalLabel
+                + " Projects</th><td class=\"boxed\"><input type=\"text\" name=\""
                 + PARAM_PERSONAL_PROJECTS + "\" value=\"" + escapeHtml(formData.personalProjects)
                 + "\" size=\"90\"></td></tr>");
         out.println(
-                "  <tr><td class=\"boxed\"></td><td class=\"boxed\">Suggestions: Finances, Exercise, Family, Home. Add more names separated by commas.</td></tr>");
+                "  <tr><td class=\"boxed\"></td><td class=\"boxed\">Suggestions: " + personalSuggestions
+                        + ". Add more names separated by commas.</td></tr>");
         out.println(
-                "  <tr><td class=\"boxed\" colspan=\"2\">We will create bill codes named Work and Personal automatically.</td></tr>");
+                "  <tr><td class=\"boxed\" colspan=\"2\">We will create bill codes named " + workLabel + " and "
+                        + personalLabel + " automatically.</td></tr>");
         out.println("</table>");
 
-        out.println("<h3>Work Templates</h3>");
+        out.println("<h3>" + workLabel + " Templates</h3>");
         out.println(
-                "<p>These rows will create daily work actions. Project names can match your list above or introduce a new project. Action text should read naturally after \"I will\" and should stay lower-case for the phone workflow.</p>");
+                "<p>These rows will create daily " + workLabel.toLowerCase()
+                        + " actions. Project names can match your list above or introduce a new project. Action text should read naturally after \"I will\" and should stay lower-case for the phone workflow.</p>");
         printTemplateTable(out, formData.workTemplateRows, false);
 
-        out.println("<h3>Personal Templates</h3>");
+        out.println("<h3>" + personalLabel + " Templates</h3>");
         out.println(
-                "<p>These rows will create daily personal actions. Use the time slot to place them in your day. Action text should read naturally after \"I will\" and should stay lower-case for the phone workflow.</p>");
+                "<p>These rows will create daily " + personalLabel.toLowerCase()
+                        + " actions. Use the time slot to place them in your day. Action text should read naturally after \"I will\" and should stay lower-case for the phone workflow.</p>");
         printTemplateTable(out, formData.personalTemplateRows, true);
 
         out.println("<br/>");
@@ -1003,6 +1045,7 @@ public class RegistrationServlet extends ClientServlet {
         private String dateFormat = DateFormatService.PATTERN_DATE_SHORT;
         private String timeFormat = DateFormatService.PATTERN_TIME_12H;
         private boolean trackTime = true;
+        private String workflowType = "STANDARD";
         private String workProjects = DEFAULT_WORK_PROJECTS;
         private String personalProjects = DEFAULT_PERSONAL_PROJECTS;
         private List<String> workProjectNames = new ArrayList<String>();

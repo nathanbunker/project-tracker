@@ -56,6 +56,7 @@ public class WebUser implements java.io.Serializable {
   private ProjectProvider provider = null;
   private boolean trackTime = false;
   private String userType;
+  private String workflowType = "STANDARD";
   private String registrationStatus = REGISTRATION_STATUS_PENDING;
   private Date createdDate;
   private Date verifiedDate;
@@ -295,6 +296,14 @@ public class WebUser implements java.io.Serializable {
 
   public void setUserType(String userType) {
     this.userType = userType;
+  }
+
+  public String getWorkflowType() {
+    return workflowType;
+  }
+
+  public void setWorkflowType(String workflowType) {
+    this.workflowType = workflowType;
   }
 
   public boolean isTrackTime() {

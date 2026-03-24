@@ -32,6 +32,9 @@
         <property name="userType" type="string">
             <column name="user_type" length="30" not-null="true" />
         </property>
+        <property name="workflowType" type="string">
+            <column name="workflow_type" length="8" not-null="true" />
+        </property>
         <property name="registrationStatus" type="string">
             <column name="registration_status" length="16" not-null="true" />
         </property>
