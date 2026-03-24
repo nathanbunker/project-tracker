@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
+import org.openimmunizationsoftware.pt.RememberMeManager;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -160,6 +161,7 @@ public class LoginServlet extends ClientServlet {
         trans.commit();
 
         String welcomeMessage = initializeUserSession(appReq, dataSession, webUser);
+        RememberMeManager.issueRememberMeCookie(appReq.getResponse(), webUser, dataSession);
         loginSuccess = true;
         message = welcomeMessage;
 
@@ -217,6 +219,7 @@ public class LoginServlet extends ClientServlet {
     trans.commit();
 
     initializeUserSession(appReq, dataSession, webUser);
+    RememberMeManager.issueRememberMeCookie(appReq.getResponse(), webUser, dataSession);
     appReq.setMessageConfirmation("Signed in using magic link");
     return true;
   }

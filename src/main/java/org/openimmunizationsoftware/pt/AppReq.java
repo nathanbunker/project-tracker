@@ -5,6 +5,8 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -16,6 +18,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -197,6 +200,9 @@ public class AppReq {
     webUser = (WebUser) webSession.getAttribute(SESSION_VAR_WEB_USER);
     SessionFactory factory = CentralControl.getSessionFactory();
     dataSession = factory.openSession();
+    if (webUser == null) {
+      webUser = tryRestoreFromRememberMeCookie();
+    }
     if (webUser != null) {
       ClientServlet.webUserLastUsedDate.put(webUser.getUsername(), new Date());
       timeTracker = (TimeTracker) webSession.getAttribute(SESSION_VAR_TIME_TRACKER);
@@ -365,7 +371,103 @@ public class AppReq {
     }
   }
 
+  /**
+   * Attempts to restore the user session from a remember-me cookie.
+   *
+   * <p>
+   * If the cookie is present and the stored token hash matches a valid,
+   * non-expired record in the database the WebUser is loaded, its transient
+   * session preferences are initialized, and the token rolling window is
+   * renewed for another week.
+   * </p>
+   *
+   * @return the authenticated {@link WebUser}, or {@code null} if the cookie
+   *         is absent or invalid
+   */
+  private WebUser tryRestoreFromRememberMeCookie() {
+    Cookie[] cookies = request.getCookies();
+    if (cookies == null) {
+      return null;
+    }
+    String cookieValue = null;
+    for (Cookie cookie : cookies) {
+      if (RememberMeManager.COOKIE_NAME.equals(cookie.getName())) {
+        cookieValue = cookie.getValue();
+        break;
+      }
+    }
+    if (cookieValue == null) {
+      return null;
+    }
+
+    int colonIdx = cookieValue.indexOf(':');
+    if (colonIdx < 1) {
+      RememberMeManager.expireCookie(response);
+      return null;
+    }
+    int userId;
+    try {
+      userId = Integer.parseInt(cookieValue.substring(0, colonIdx));
+    } catch (NumberFormatException e) {
+      RememberMeManager.expireCookie(response);
+      return null;
+    }
+    String rawToken = cookieValue.substring(colonIdx + 1);
+    if (rawToken.isEmpty()) {
+      RememberMeManager.expireCookie(response);
+      return null;
+    }
+
+    WebUser restoredUser = (WebUser) dataSession.get(WebUser.class, userId);
+    if (restoredUser == null
+        || restoredUser.getRememberMeTokenHash() == null
+        || restoredUser.getRememberMeExpiry() == null) {
+      RememberMeManager.expireCookie(response);
+      return null;
+    }
+
+    String tokenHash = RememberMeManager.hashToken(rawToken);
+    if (!restoredUser.getRememberMeTokenHash().equals(tokenHash)
+        || restoredUser.getRememberMeExpiry().before(new Date())) {
+      RememberMeManager.expireCookie(response);
+      return null;
+    }
+
+    // Force-initialize the lazy provider association before storing in session.
+    if (restoredUser.getProvider() != null) {
+      restoredUser.getProvider().getProviderId();
+    }
+
+    // Initialize transient session preferences from persisted key-values.
+    setWebUser(restoredUser);
+    ProjectContact projectContact = (ProjectContact) dataSession.get(ProjectContact.class, restoredUser.getContactId());
+    restoredUser.setProjectContact(projectContact);
+    restoredUser.setTrackTime(TrackerKeysManager
+        .getKeyValue(TrackerKeysManager.KEY_TRACK_TIME, "N", restoredUser, dataSession)
+        .equalsIgnoreCase("Y"));
+    restoredUser.setTimeZone(TimeZone.getTimeZone(TrackerKeysManager.getKeyValue(
+        TrackerKeysManager.KEY_TIME_ZONE, WebUser.AMERICA_DENVER, restoredUser, dataSession)));
+    restoredUser.setDateDisplayPattern(TrackerKeysManager.getKeyValue(
+        TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT,
+        restoredUser.getDateDisplayPattern(), restoredUser, dataSession));
+    restoredUser.setDateEntryPattern(TrackerKeysManager.getKeyValue(
+        TrackerKeysManager.KEY_DATE_ENTRY_FORMAT,
+        restoredUser.getDateEntryPattern(), restoredUser, dataSession));
+    restoredUser.setTimeDisplayPattern(TrackerKeysManager.getKeyValue(
+        TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT,
+        restoredUser.getTimeDisplayPattern(), restoredUser, dataSession));
+    restoredUser.setTimeEntryPattern(TrackerKeysManager.getKeyValue(
+        TrackerKeysManager.KEY_TIME_ENTRY_FORMAT,
+        restoredUser.getTimeEntryPattern(), restoredUser, dataSession));
+
+    // Roll the remember-me window forward so it extends ~7 days from last access.
+    RememberMeManager.renewRememberMeCookie(response, restoredUser, rawToken, dataSession);
+
+    return restoredUser;
+  }
+
   public void logout() {
+    RememberMeManager.clearRememberMeCookie(response, webUser, dataSession);
     webSession.invalidate();
     webSession = request.getSession(true);
   }

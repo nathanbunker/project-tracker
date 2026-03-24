@@ -50,6 +50,12 @@
         <property name="magicLinkExpiry" type="timestamp">
             <column name="magic_link_expiry" length="19" />
         </property>
+        <property name="rememberMeTokenHash" type="string">
+            <column name="remember_me_token_hash" length="128" />
+        </property>
+        <property name="rememberMeExpiry" type="timestamp">
+            <column name="remember_me_expiry" length="19" />
+        </property>
         <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
     </class>
 </hibernate-mapping>

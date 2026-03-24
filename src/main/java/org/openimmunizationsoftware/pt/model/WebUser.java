@@ -62,6 +62,8 @@ public class WebUser implements java.io.Serializable {
   private Date lastLoginDate;
   private String magicLinkTokenHash;
   private Date magicLinkExpiry;
+  private String rememberMeTokenHash;
+  private Date rememberMeExpiry;
 
   public int getWebUserId() {
     return webUserId;
@@ -431,6 +433,22 @@ public class WebUser implements java.io.Serializable {
 
   public void setMagicLinkExpiry(Date magicLinkExpiry) {
     this.magicLinkExpiry = magicLinkExpiry;
+  }
+
+  public String getRememberMeTokenHash() {
+    return rememberMeTokenHash;
+  }
+
+  public void setRememberMeTokenHash(String rememberMeTokenHash) {
+    this.rememberMeTokenHash = rememberMeTokenHash;
+  }
+
+  public Date getRememberMeExpiry() {
+    return rememberMeExpiry;
+  }
+
+  public void setRememberMeExpiry(Date rememberMeExpiry) {
+    this.rememberMeExpiry = rememberMeExpiry;
   }
 
   private String normalizeDatePattern(String datePattern) {
