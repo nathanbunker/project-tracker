@@ -167,8 +167,7 @@ public class ProjectServlet extends MobileBaseServlet {
             return;
         }
 
-        Date todayStart = webUser.getToday();
-        Date tomorrowStart = webUser.getTomorrow();
+        String todayKey = toDatabaseDateKey(webUser.getToday());
 
         List<ProjectActionNext> overdueActions = new ArrayList<ProjectActionNext>();
         List<ProjectActionNext> dueTodayActions = new ArrayList<ProjectActionNext>();
@@ -180,10 +179,10 @@ public class ProjectServlet extends MobileBaseServlet {
             if (nextActionDate == null) {
                 unscheduledActions.add(action);
             } else {
-                Date actionDay = webUser.startOfDay(nextActionDate);
-                if (actionDay.before(todayStart)) {
+                String actionDateKey = toDatabaseDateKey(nextActionDate);
+                if (actionDateKey.compareTo(todayKey) < 0) {
                     overdueActions.add(action);
-                } else if (actionDay.before(tomorrowStart)) {
+                } else if (actionDateKey.equals(todayKey)) {
                     dueTodayActions.add(action);
                 } else {
                     dueLaterActions.add(action);
@@ -217,15 +216,13 @@ public class ProjectServlet extends MobileBaseServlet {
             String viewUrl = "action?viewActionId=" + action.getActionNextId();
             if (action.getNextActionDate() != null) {
                 viewUrl += "&date="
-                        + webUser.getDateFormatService().formatTransportDate(action.getNextActionDate(),
-                                webUser.getTimeZone());
+                        + formatActionDateAsTransport(action.getNextActionDate());
             }
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\">");
             if (action.getNextActionDate() != null) {
-                String todoDateUrl = "todo?date=" + webUser.getDateFormatService()
-                        .formatTransportDate(action.getNextActionDate(), webUser.getTimeZone());
+                String todoDateUrl = "todo?date=" + formatActionDateAsTransport(action.getNextActionDate());
                 out.println("      <strong><a href=\"" + todoDateUrl + "\" style=\"text-decoration: none;\">"
                         + webUser.getDateFormatService().formatPattern(action.getNextActionDate(),
                                 webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone())
