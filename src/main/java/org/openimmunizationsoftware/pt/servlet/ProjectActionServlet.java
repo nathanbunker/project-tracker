@@ -1347,7 +1347,7 @@ public class ProjectActionServlet extends ClientServlet {
     if (projectIdString != null) {
       Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
       if (project != null && project.getProvider() != null && webUser.getProvider() != null
-          && safe(project.getProvider().getProviderId()).equals(safe(webUser.getProvider().getProviderId()))) {
+          && n(project.getProvider().getProviderId()).equals(n(webUser.getProvider().getProviderId()))) {
         appReq.setProject(project);
         appReq.setProjectSelected(project);
       }
@@ -1359,8 +1359,8 @@ public class ProjectActionServlet extends ClientServlet {
       if (completingProjectAction != null
           && completingProjectAction.getProvider() != null
           && webUser.getProvider() != null
-          && safe(completingProjectAction.getProvider().getProviderId())
-              .equals(safe(webUser.getProvider().getProviderId()))
+          && n(completingProjectAction.getProvider().getProviderId())
+              .equals(n(webUser.getProvider().getProviderId()))
           && (completingProjectAction.getContactId() == webUser.getContactId()
               || (completingProjectAction.getNextContactId() != null
                   && completingProjectAction.getNextContactId().intValue() == webUser.getContactId()))) {
@@ -1380,8 +1380,8 @@ public class ProjectActionServlet extends ClientServlet {
           Integer.parseInt(actionNextIdString));
       if (editProjectAction != null
           && (editProjectAction.getProvider() == null || webUser.getProvider() == null
-              || !safe(editProjectAction.getProvider().getProviderId())
-                  .equals(safe(webUser.getProvider().getProviderId()))
+              || !n(editProjectAction.getProvider().getProviderId())
+                  .equals(n(webUser.getProvider().getProviderId()))
               || (editProjectAction.getContactId() != webUser.getContactId()
                   && (editProjectAction.getNextContactId() == null
                       || editProjectAction.getNextContactId().intValue() != webUser.getContactId())))) {
