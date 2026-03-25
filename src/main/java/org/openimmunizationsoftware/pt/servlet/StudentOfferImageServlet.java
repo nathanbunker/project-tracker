@@ -16,11 +16,14 @@ import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.servlet.http.Part;
 
 import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.CentralControl;
 import org.openimmunizationsoftware.pt.model.StudentOffer;
 import org.openimmunizationsoftware.pt.doa.StudentOfferTemplateDao;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
@@ -145,8 +148,7 @@ public class StudentOfferImageServlet extends ClientServlet {
         PrintWriter out = appReq.getOut();
         printDandelionLocation(out, "Setup / Student Reward Store / Upload Offer Image");
 
-        String imageUrl = "StudentOfferImageServlet?mode=view&studentOfferTemplateId="
-                + offerTemplate.getStudentOfferTemplateId() + "&size=full";
+        String imageUrl = buildTemplateImageUrl(offerTemplate, "full");
 
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\"><th class=\"title\" colspan=\"2\">Upload Offer Image</th></tr>");
@@ -179,14 +181,20 @@ public class StudentOfferImageServlet extends ClientServlet {
     }
 
     private void renderImage(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        AppReq appReq = new AppReq(request, response);
+        Session dataSession = null;
         try {
-            if (appReq.isLoggedOut()) {
+            request.setCharacterEncoding("UTF-8");
+            response.setCharacterEncoding("UTF-8");
+            setNoCacheHeaders(response);
+            HttpSession webSession = request.getSession(false);
+            WebUser webUser = webSession == null ? null : (WebUser) webSession.getAttribute("webUser");
+            if (webUser == null) {
                 writePlaceholderImage(response, 64);
                 return;
             }
-            WebUser webUser = appReq.getWebUser();
-            Session dataSession = appReq.getDataSession();
+
+            SessionFactory factory = CentralControl.getSessionFactory();
+            dataSession = factory.openSession();
             Integer offerTemplateId = parseInteger(request.getParameter(PARAM_STUDENT_OFFER_TEMPLATE_ID));
             Integer studentOfferId = parseInteger(request.getParameter(PARAM_STUDENT_OFFER_ID));
             String size = n(request.getParameter(PARAM_SIZE));
@@ -250,10 +258,25 @@ public class StudentOfferImageServlet extends ClientServlet {
             ImageIO.write(image, "jpg", outputStream);
             outputStream.flush();
         } catch (Exception e) {
+            e.printStackTrace();
             writePlaceholderImage(response, 64);
         } finally {
-            appReq.close();
+            if (dataSession != null) {
+                dataSession.close();
+            }
         }
+    }
+
+    private String buildTemplateImageUrl(StudentOfferTemplate offerTemplate, String size) {
+        StringBuilder url = new StringBuilder();
+        url.append("StudentOfferImageServlet?mode=view&studentOfferTemplateId=")
+                .append(offerTemplate.getStudentOfferTemplateId())
+                .append("&size=")
+                .append(size);
+        if (offerTemplate.getUpdatedDate() != null) {
+            url.append("&v=").append(offerTemplate.getUpdatedDate().getTime());
+        }
+        return url.toString();
     }
 
     private boolean canEdit(StudentOfferTemplate offerTemplate, WebUser webUser) {
@@ -310,6 +333,13 @@ public class StudentOfferImageServlet extends ClientServlet {
         OutputStream outputStream = response.getOutputStream();
         ImageIO.write(image, "jpg", outputStream);
         outputStream.flush();
+    }
+
+    private void setNoCacheHeaders(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        response.addHeader("Cache-Control", "post-check=0, pre-check=0");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
     }
 
     private File resolveImageBaseFolder(Session dataSession) {

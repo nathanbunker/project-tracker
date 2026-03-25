@@ -97,8 +97,7 @@ public class StudentStoreAddServlet extends ClientServlet {
             }
 
             for (StudentOfferTemplate template : templateList) {
-                String imageUrl = "StudentOfferImageServlet?mode=view&studentOfferTemplateId="
-                        + template.getStudentOfferTemplateId() + "&size=thumb";
+                String imageUrl = buildTemplateImageUrl(template, "thumb");
 
                 out.println("  <tr class=\"boxed\">");
                 out.println("    <td class=\"boxed\"><img src=\"" + imageUrl
@@ -187,6 +186,18 @@ public class StudentStoreAddServlet extends ClientServlet {
             trans.rollback();
             throw e;
         }
+    }
+
+    private String buildTemplateImageUrl(StudentOfferTemplate template, String size) {
+        StringBuilder url = new StringBuilder();
+        url.append("StudentOfferImageServlet?mode=view&studentOfferTemplateId=")
+                .append(template.getStudentOfferTemplateId())
+                .append("&size=")
+                .append(size);
+        if (template.getUpdatedDate() != null) {
+            url.append("&v=").append(template.getUpdatedDate().getTime());
+        }
+        return url.toString();
     }
 
     private void printContext(PrintWriter out, WebUser dependentUser, ProjectContact dependentContact,

@@ -255,7 +255,14 @@ public class StudentStoreServlet extends StudentBaseServlet {
     }
 
     private String buildOfferImageUrl(StudentOffer offer) {
-        return "../StudentOfferImageServlet?mode=view&studentOfferId=" + offer.getStudentOfferId() + "&size=thumb";
+        StringBuilder url = new StringBuilder();
+        url.append("../StudentOfferImageServlet?mode=view&studentOfferId=")
+                .append(offer.getStudentOfferId())
+                .append("&size=thumb");
+        if (offer.getUpdatedDate() != null) {
+            url.append("&v=").append(offer.getUpdatedDate().getTime());
+        }
+        return url.toString();
     }
 
     private String getStudentStatusLabel(String status) {

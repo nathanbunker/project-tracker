@@ -120,8 +120,7 @@ public class StudentOfferSetupServlet extends ClientServlet {
             for (StudentOfferTemplate offerTemplate : offerList) {
                 String rowAnchor = "offer-" + offerTemplate.getStudentOfferTemplateId();
                 String returnAnchor = urlEncode(rowAnchor);
-                String imageUrl = "StudentOfferImageServlet?mode=view&studentOfferTemplateId="
-                        + offerTemplate.getStudentOfferTemplateId() + "&size=thumb";
+                String imageUrl = buildTemplateImageUrl(offerTemplate, "thumb");
                 String editUrl = "StudentOfferEditServlet?studentOfferTemplateId="
                         + offerTemplate.getStudentOfferTemplateId() + "&returnAnchor=" + returnAnchor;
                 String uploadUrl = "StudentOfferImageServlet?studentOfferTemplateId="
@@ -305,6 +304,18 @@ public class StudentOfferSetupServlet extends ClientServlet {
         Number max = (Number) query.uniqueResult();
         int current = max == null ? 0 : max.intValue();
         return current + 10;
+    }
+
+    private String buildTemplateImageUrl(StudentOfferTemplate offerTemplate, String size) {
+        StringBuilder url = new StringBuilder();
+        url.append("StudentOfferImageServlet?mode=view&studentOfferTemplateId=")
+                .append(offerTemplate.getStudentOfferTemplateId())
+                .append("&size=")
+                .append(size);
+        if (offerTemplate.getUpdatedDate() != null) {
+            url.append("&v=").append(offerTemplate.getUpdatedDate().getTime());
+        }
+        return url.toString();
     }
 
     private static int parseNonNegativeInt(String value, int fallback) {

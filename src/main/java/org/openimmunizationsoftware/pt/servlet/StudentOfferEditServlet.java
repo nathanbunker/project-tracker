@@ -98,8 +98,7 @@ public class StudentOfferEditServlet extends ClientServlet {
             PrintWriter out = appReq.getOut();
             printDandelionLocation(out, "Setup / Student Reward Store / Edit Offer Template");
 
-            String imageUrl = "StudentOfferImageServlet?mode=view&studentOfferTemplateId="
-                    + offerTemplate.getStudentOfferTemplateId() + "&size=thumb";
+            String imageUrl = buildTemplateImageUrl(offerTemplate, "thumb");
             String uploadUrl = "StudentOfferImageServlet?studentOfferTemplateId="
                     + offerTemplate.getStudentOfferTemplateId()
                     + "&returnAnchor=" + urlEncode(returnAnchor);
@@ -184,6 +183,18 @@ public class StudentOfferEditServlet extends ClientServlet {
             return "StudentOfferSetupServlet";
         }
         return "StudentOfferSetupServlet#" + returnAnchor;
+    }
+
+    private String buildTemplateImageUrl(StudentOfferTemplate offerTemplate, String size) {
+        StringBuilder url = new StringBuilder();
+        url.append("StudentOfferImageServlet?mode=view&studentOfferTemplateId=")
+                .append(offerTemplate.getStudentOfferTemplateId())
+                .append("&size=")
+                .append(size);
+        if (offerTemplate.getUpdatedDate() != null) {
+            url.append("&v=").append(offerTemplate.getUpdatedDate().getTime());
+        }
+        return url.toString();
     }
 
     private String urlEncode(String value) {

@@ -307,8 +307,14 @@ public class StudentStoreServlet extends ClientServlet {
                 || offer.getStudentOfferTemplate().getStudentOfferTemplateId() == null) {
             return "StudentOfferImageServlet?mode=view&size=thumb";
         }
-        return "StudentOfferImageServlet?mode=view&studentOfferTemplateId="
-                + offer.getStudentOfferTemplate().getStudentOfferTemplateId() + "&size=thumb";
+        StringBuilder url = new StringBuilder();
+        url.append("StudentOfferImageServlet?mode=view&studentOfferTemplateId=")
+                .append(offer.getStudentOfferTemplate().getStudentOfferTemplateId())
+                .append("&size=thumb");
+        if (offer.getUpdatedDate() != null) {
+            url.append("&v=").append(offer.getUpdatedDate().getTime());
+        }
+        return url.toString();
     }
 
     private String formatDateTime(WebUser parentUser, Date date) {
