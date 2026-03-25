@@ -1342,28 +1342,51 @@ public class ProjectActionServlet extends ClientServlet {
   }
 
   private void readCompletingAction(HttpServletRequest request, AppReq appReq, Session dataSession) {
+    WebUser webUser = appReq.getWebUser();
     String projectIdString = request.getParameter(PARAM_PROJECT_ID);
     if (projectIdString != null) {
       Project project = (Project) dataSession.get(Project.class, Integer.parseInt(projectIdString));
-      appReq.setProject(project);
-      appReq.setProjectSelected(project);
+      if (project != null && project.getProvider() != null && webUser.getProvider() != null
+          && safe(project.getProvider().getProviderId()).equals(safe(webUser.getProvider().getProviderId()))) {
+        appReq.setProject(project);
+        appReq.setProjectSelected(project);
+      }
     }
     String completingActionNextIdString = request.getParameter(PARAM_COMPLETING_ACTION_NEXT_ID);
     if (completingActionNextIdString != null) {
       ProjectActionNext completingProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
           Integer.parseInt(completingActionNextIdString));
-      appReq.setCompletingAction(completingProjectAction);
+      if (completingProjectAction != null
+          && completingProjectAction.getProvider() != null
+          && webUser.getProvider() != null
+          && safe(completingProjectAction.getProvider().getProviderId())
+              .equals(safe(webUser.getProvider().getProviderId()))
+          && (completingProjectAction.getContactId() == webUser.getContactId()
+              || (completingProjectAction.getNextContactId() != null
+                  && completingProjectAction.getNextContactId().intValue() == webUser.getContactId()))) {
+        appReq.setCompletingAction(completingProjectAction);
+      }
     }
   }
 
   private ProjectActionNext readEditProjectAction(AppReq appReq) {
     Session dataSession = appReq.getDataSession();
     HttpServletRequest request = appReq.getRequest();
+    WebUser webUser = appReq.getWebUser();
     String actionNextIdString = request.getParameter(PARAM_EDIT_ACTION_NEXT_ID);
     ProjectActionNext editProjectAction = null;
     if (actionNextIdString != null) {
       editProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
           Integer.parseInt(actionNextIdString));
+      if (editProjectAction != null
+          && (editProjectAction.getProvider() == null || webUser.getProvider() == null
+              || !safe(editProjectAction.getProvider().getProviderId())
+                  .equals(safe(webUser.getProvider().getProviderId()))
+              || (editProjectAction.getContactId() != webUser.getContactId()
+                  && (editProjectAction.getNextContactId() == null
+                      || editProjectAction.getNextContactId().intValue() != webUser.getContactId())))) {
+        editProjectAction = null;
+      }
     }
     return editProjectAction;
   }

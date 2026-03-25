@@ -44,6 +44,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String ACTION_UPDATE = "Update Template Schedule";
     private static final String ACTION_MOVE_UP = "MoveUp";
     private static final String ACTION_MOVE_DOWN = "MoveDown";
+    private static final String ACTION_EDIT_ASSIGNMENT = "EditAssignment";
 
     private static final String TEMPLATE_SELECTED = "s";
     private static final String PROJECT_ID = "projectId";
@@ -52,6 +53,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String NEXT_DESCRIPTION = "nd";
     private static final String NEXT_ACTION_TYPE = "na";
     private static final String GAME_POINTS = "gp";
+    private static final String PARAM_EDIT_NEXT_DESCRIPTION = "editNextDescription";
+    private static final String PARAM_EDIT_NEXT_ACTION_DATE = "editNextActionDate";
+    private static final String PARAM_EDIT_NEXT_TIME_ESTIMATE = "editNextTimeEstimate";
+    private static final String PARAM_EDIT_NEXT_ACTION_TYPE = "editNextActionType";
 
     private static final int TEMPLATE_DAY_SPAN = 15;
     private static final int ASSIGNMENT_PAST_DAYS = 2;
@@ -117,6 +122,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
             String action = appReq.getAction();
             if (ACTION_MOVE_UP.equals(action) || ACTION_MOVE_DOWN.equals(action)) {
                 handleMoveAction(request, dataSession, dependentUser, ACTION_MOVE_UP.equals(action) ? -1 : 1);
+                response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
+                return;
+            }
+            if (ACTION_EDIT_ASSIGNMENT.equals(action)) {
+                handleAssignmentEdit(request, dataSession, dependentUser);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
@@ -841,6 +851,17 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Map<String, Integer> earnedPointsByDay = loadEarnedPointsByDay(dependentUser, dataSession, rangeStart,
                 rangeEnd);
 
+        out.println("<script>");
+        out.println("  function openScheduleEditDialog(actionId) {");
+        out.println("    var dialog = document.getElementById('scheduleEditDialog' + actionId);");
+        out.println("    if (dialog) { dialog.style.display = 'block'; }");
+        out.println("  }");
+        out.println("  function closeScheduleEditDialog(actionId) {");
+        out.println("    var dialog = document.getElementById('scheduleEditDialog' + actionId);");
+        out.println("    if (dialog) { dialog.style.display = 'none'; }");
+        out.println("  }");
+        out.println("</script>");
+
         for (Date dayDate : dayOrder) {
             String dayKey = toDayKey(dayDate);
             List<ProjectActionNext> rows = byDay.get(dayKey);
@@ -893,9 +914,6 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
                 String sourceLabel = action.getTemplateActionNextId() == null ? "Ad Hoc" : "Template";
 
-                String editUrl = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
-                        + action.getActionNextId() + "&editActionNextId=" + action.getActionNextId()
-                        + "&projectId=" + action.getProjectId();
                 String upUrl = "ScheduleSchoolServlet?" + PARAM_DEPENDENCY_ID + "=" + dependencyId + "&" + PARAM_ACTION
                         + "=" + ACTION_MOVE_UP + "&" + PARAM_ACTION_NEXT_ID + "=" + action.getActionNextId();
                 String downUrl = "ScheduleSchoolServlet?" + PARAM_DEPENDENCY_ID + "=" + dependencyId + "&"
@@ -921,8 +939,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 out.println("    <td class=\"boxed\">"
                         + (billable ? ProjectActionNext.getTimeForDisplay(actual) : "&nbsp;") + "</td>");
                 out.println("    <td class=\"boxed\">" + points + "</td>");
-                out.println("    <td class=\"boxed\"><a href=\"" + editUrl + "\" class=\"button\">Edit</a></td>");
+                out.println("    <td class=\"boxed\"><a href=\"javascript:void(0);\" class=\"button\" "
+                        + "onclick=\"openScheduleEditDialog(" + action.getActionNextId()
+                        + ")\">Edit</a></td>");
                 out.println("  </tr>");
+                printAssignmentEditDialog(out, dependentUser, dependencyId, action);
             }
 
             int earnedPoints = intValue(earnedPointsByDay.get(dayKey));
@@ -968,6 +989,130 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
 
         return earnedByDay;
+    }
+
+    private void printAssignmentEditDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
+            ProjectActionNext action) {
+        SimpleDateFormat dateFormat = dependentUser.getDateFormat();
+        String dateString = action.getNextActionDate() == null ? "" : dateFormat.format(action.getNextActionDate());
+        String nextActionType = safe(action.getNextActionType());
+        if (nextActionType.equals("")) {
+            nextActionType = ProjectNextActionType.WILL;
+        }
+
+        out.println("<div id=\"scheduleEditDialog" + action.getActionNextId()
+                + "\" style=\"display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999;\">");
+        out.println(
+                "  <div style=\"background:#fff; width:680px; max-width:95%; margin:40px auto; padding:14px; border:1px solid #666;\">");
+        out.println("    <h3>Edit Assignment</h3>");
+        out.println("    <form action=\"ScheduleSchoolServlet\" method=\"POST\">");
+        out.println("      <input type=\"hidden\" name=\"" + PARAM_DEPENDENCY_ID + "\" value=\"" + dependencyId
+                + "\"/>");
+        out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_EDIT_ASSIGNMENT
+                + "\"/>");
+        out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION_NEXT_ID + "\" value=\""
+                + action.getActionNextId() + "\"/>");
+
+        out.println("      <table class=\"boxed\" style=\"width:100%;\">");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">Project</th><td class=\"boxed\">"
+                + escapeHtml(action.getProject() == null ? "" : safe(action.getProject().getProjectName()))
+                + "</td></tr>");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">When</th><td class=\"boxed\">"
+                + "<input type=\"text\" name=\"" + PARAM_EDIT_NEXT_ACTION_DATE + "\" value=\""
+                + escapeHtml(dateString) + "\" size=\"12\"/></td></tr>");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">What</th><td class=\"boxed\">"
+                + "<textarea name=\"" + PARAM_EDIT_NEXT_DESCRIPTION + "\" rows=\"3\" style=\"width:98%;\">"
+                + escapeHtml(safe(action.getNextDescription())) + "</textarea></td></tr>");
+
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">Type</th><td class=\"boxed\"><select name=\""
+                + PARAM_EDIT_NEXT_ACTION_TYPE + "\">");
+        for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
+                ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.WILL_MEET, ProjectNextActionType.WILL_REVIEW,
+                ProjectNextActionType.WILL_DOCUMENT, ProjectNextActionType.WILL_FOLLOW_UP,
+                ProjectNextActionType.COMMITTED_TO, ProjectNextActionType.WAITING, ProjectNextActionType.GOAL }) {
+            boolean selected = nat.equals(nextActionType);
+            out.println("          <option value=\"" + nat + "\"" + (selected ? " selected" : "") + ">"
+                    + escapeHtml(ProjectNextActionType.getLabel(nat)) + "</option>");
+        }
+        out.println("        </select></td></tr>");
+
+        if (action.isBillable()) {
+            out.println("        <tr class=\"boxed\"><th class=\"boxed\">Est (mins)</th><td class=\"boxed\">"
+                    + "<input type=\"text\" name=\"" + PARAM_EDIT_NEXT_TIME_ESTIMATE + "\" value=\""
+                    + escapeHtml(action.getNextTimeEstimateMinsForDisplay()) + "\" size=\"6\"/></td></tr>");
+        } else {
+            out.println(
+                    "        <tr class=\"boxed\"><th class=\"boxed\">Est (mins)</th><td class=\"boxed\">&nbsp;</td></tr>");
+        }
+        out.println("      </table>");
+
+        out.println("      <div style=\"margin-top:10px; text-align:right;\">");
+        out.println("        <button type=\"submit\">Save</button>");
+        out.println("        <button type=\"button\" onclick=\"closeScheduleEditDialog(" + action.getActionNextId()
+                + ")\">Cancel</button>");
+        out.println("      </div>");
+        out.println("    </form>");
+        out.println("  </div>");
+        out.println("</div>");
+    }
+
+    private void handleAssignmentEdit(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+        Integer actionNextId = parseInteger(request.getParameter(PARAM_ACTION_NEXT_ID));
+        if (actionNextId == null) {
+            return;
+        }
+
+        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                actionNextId.intValue());
+        if (action == null || action.getProvider() == null || dependentUser.getProvider() == null
+                || !safe(action.getProvider().getProviderId()).equals(safe(dependentUser.getProvider().getProviderId()))
+                || action.getContactId() != dependentUser.getContactId()) {
+            return;
+        }
+
+        String nextDescription = trim(request.getParameter(PARAM_EDIT_NEXT_DESCRIPTION), 1200);
+        if (nextDescription.equals("")) {
+            return;
+        }
+
+        Date nextActionDate = dependentUser.parseDate(request.getParameter(PARAM_EDIT_NEXT_ACTION_DATE));
+        Integer nextTimeEstimate = parseInteger(request.getParameter(PARAM_EDIT_NEXT_TIME_ESTIMATE));
+        String nextActionType = safe(request.getParameter(PARAM_EDIT_NEXT_ACTION_TYPE));
+        boolean validType = false;
+        for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
+                ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.WILL_MEET, ProjectNextActionType.WILL_REVIEW,
+                ProjectNextActionType.WILL_DOCUMENT, ProjectNextActionType.WILL_FOLLOW_UP,
+                ProjectNextActionType.COMMITTED_TO, ProjectNextActionType.WAITING, ProjectNextActionType.GOAL }) {
+            if (nat.equals(nextActionType)) {
+                validType = true;
+                break;
+            }
+        }
+        if (!validType) {
+            nextActionType = action.getNextActionType();
+        }
+
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            action.setNextDescription(nextDescription);
+            action.setNextActionDate(nextActionDate);
+            action.setNextActionType(nextActionType);
+            if (action.isBillable()) {
+                action.setNextTimeEstimate(
+                        nextTimeEstimate == null || nextTimeEstimate.intValue() <= 0 ? null : nextTimeEstimate);
+            } else {
+                action.setNextTimeEstimate(null);
+                if (action.getNextTimeActual() != null && action.getNextTimeActual().intValue() != 0) {
+                    action.setNextTimeActual(Integer.valueOf(0));
+                }
+            }
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            trans.commit();
+        } catch (RuntimeException e) {
+            trans.rollback();
+            throw e;
+        }
     }
 
     private void sortAssignments(List<ProjectActionNext> actionList) {
