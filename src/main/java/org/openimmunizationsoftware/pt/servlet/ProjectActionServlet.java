@@ -362,6 +362,9 @@ public class ProjectActionServlet extends ClientServlet {
       projectActionDueTodayList = filterProjectActionList(projectActionDueTodayList, showWork, showPersonal);
       List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
       projectActionOverdueList = filterProjectActionList(projectActionOverdueList, showWork, showPersonal);
+      List<ProjectActionNext> projectActionTodayAndOverdueList = new ArrayList<>();
+      projectActionTodayAndOverdueList.addAll(projectActionOverdueList);
+      projectActionTodayAndOverdueList.addAll(projectActionDueTodayList);
       sortProjectActionListByCompletionOrder(projectActionOverdueList);
       sortProjectActionListByCompletionOrder(projectActionDueTodayList);
       List<List<ProjectActionNext>> projectActionDueNextWorkingDayListList = new ArrayList<>();
@@ -456,7 +459,7 @@ public class ProjectActionServlet extends ClientServlet {
       cIndicated.setTime(nextActionDate);
 
       if (completingAction == null) {
-        printTimeManagementBox(appReq, projectActionDueTodayList);
+        printTimeManagementBox(appReq, projectActionTodayAndOverdueList);
         out.println("<h2>Good Job!</h2>");
         out.println("<p>You have no more actions to take today. Have a great evening! </p>");
         printActionsCompletedForToday(appReq, projectActionClosedTodayList);
@@ -492,7 +495,7 @@ public class ProjectActionServlet extends ClientServlet {
         // ACTION LATER
         // ------------------------------------------------------------------------------
         out.println("<div id=\"actionLater\">");
-        printTimeManagementBox(appReq, projectActionDueTodayList);
+        printTimeManagementBox(appReq, projectActionTodayAndOverdueList);
         printActionsScheduledForToday(appReq, projectActionDueTodayList, projectActionOverdueList);
         printActionsCompletedForToday(appReq, projectActionClosedTodayList);
         printActionsDeletedWithTimeForToday(appReq, deletedActionsWithTimeToday);
@@ -2524,14 +2527,14 @@ public class ProjectActionServlet extends ClientServlet {
   private void printTimeManagementBox(AppReq appReq, List<ProjectActionNext> projectActionList) {
     PrintWriter out = appReq.getOut();
     TimeAdder timeAdder = new TimeAdder(projectActionList, appReq);
+    int committedWillTotal = timeAdder.getCommittedEst() + timeAdder.getWillEst();
     out.println("<table class=\"boxed float-right\">");
     printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
-    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
     printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
     printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
     out.println("</table>");
     out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime(appReq.getWebUser()) + "</h3>");
-    if ((timeAdder.getCommittedEst() + timeAdder.getWillMeetEst() + timeAdder.getWillEst()) == 0) {
+    if (committedWillTotal == 0) {
       out.println("<p>You have finished everything you said you would do today. Good job! </p>");
     } else if (timeAdder.getCompletedAct() > (8 * 60)) {
       out.println(
@@ -2574,7 +2577,7 @@ public class ProjectActionServlet extends ClientServlet {
     TimeAdder timeAdder = new TimeAdder(projectActionList, appReq, date);
     out.println("<table class=\"boxed\">");
     printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
-    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, timeAdder.getWillMeetEst(), timeAdder.getWillMeetAct());
     printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
     printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
     printTimeTotal(out, "Might", ID_TIME_MIGHT, timeAdder.getMightEst(), timeAdder.getMightAct());
