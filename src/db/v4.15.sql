@@ -4,6 +4,10 @@ ALTER TABLE web_user
   ADD COLUMN remember_me_token_hash VARCHAR(128) NULL,
   ADD COLUMN remember_me_expiry     TIMESTAMP    NULL;
 
+ALTER TABLE web_user
+  ADD COLUMN workflow_type ENUM('STANDARD', 'STUDENT') NOT NULL DEFAULT 'STANDARD'
+  AFTER user_type;
+
 -- Add nullable game_points override column to project_action_next.
 -- NULL = derive from logic later; 0 = explicit zero; negatives reserved for future use.
 
