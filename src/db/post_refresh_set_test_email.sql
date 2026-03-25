@@ -33,6 +33,15 @@ INSERT INTO tracker_keys (key_name, key_type, key_id, key_value)
 VALUES ('system.external.url', 1, 'APPLICATION', 'http://localhost:8080/dandelion')
 ON DUPLICATE KEY UPDATE key_value = VALUES(key_value);
 
+-- Local Windows development: point image uploads to a writable folder.
+-- Tomcat runs as NETWORK SERVICE; grant it FullControl on this folder (run once, elevated):
+--   $acl = Get-Acl "C:\dev\dandelion\student-offer-images"
+--   $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("NETWORK SERVICE","FullControl","ContainerInherit,ObjectInherit","None","Allow")
+--   $acl.SetAccessRule($rule); Set-Acl "C:\dev\dandelion\student-offer-images" $acl
+INSERT INTO tracker_keys (key_name, key_type, key_id, key_value)
+VALUES ('student.offer.image.base.folder', 1, 'APPLICATION', 'C:\\dev\\dandelion\\student-offer-images')
+ON DUPLICATE KEY UPDATE key_value = VALUES(key_value);
+
 -- Recommended for Mailtrap credentials where username is not an email address:
 -- ensure the envelope/header from is valid.
 INSERT INTO tracker_keys (key_name, key_type, key_id, key_value)
