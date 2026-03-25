@@ -249,14 +249,16 @@ public class StudentSchoolServlet extends StudentBaseServlet {
             }
 
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
-            String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
-            String projectVisual = (projectIcon != null && projectIcon.trim().length() > 0)
-                    ? projectIcon.trim()
-                    : "•";
+            String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : null;
+            String projectVisual = (projectIcon != null && !projectIcon.trim().isEmpty()) ? projectIcon.trim() : "";
+
+            String projectDisplay = projectVisual.isEmpty()
+                    ? escapeHtml(projectName)
+                    : escapeHtml(projectVisual) + " " + escapeHtml(projectName);
 
             out.println("  <tr class=\"boxed\"" + rowStyle + ">");
             out.println("    <td class=\"boxed\">");
-            out.println("      <strong>" + escapeHtml(projectVisual) + " " + escapeHtml(projectName) + "</strong>: ");
+            out.println("      <strong>" + projectDisplay + "</strong>: ");
             String description = action.getNextDescriptionForDisplay(action.getContact());
             out.println("      " + (description == null ? "" : description));
             if (isCompleted) {
