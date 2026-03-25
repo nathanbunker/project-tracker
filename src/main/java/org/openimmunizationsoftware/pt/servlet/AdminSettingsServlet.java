@@ -41,6 +41,7 @@ public class AdminSettingsServlet extends ClientServlet {
         private static final String PARAM_REPORT_DAILY_ENABLED = "reportDailyEnabled";
         private static final String PARAM_REPORT_DAILY_TIME = "reportDailyTime";
         private static final String PARAM_SMTP_ADDRESS = "smtpAddress";
+        private static final String PARAM_STUDENT_OFFER_IMAGE_BASE_FOLDER = "studentOfferImageBaseFolder";
         private static final String PARAM_SMTPS_PASSWORD = "smtpsPassword";
         private static final String PARAM_SORT_ORDER = "sortOrder";
         private static final String PARAM_SORT_ORDER_PREFIX = "sortOrder_";
@@ -97,6 +98,10 @@ public class AdminSettingsServlet extends ClientServlet {
                                         TrackerKeysManager.saveApplicationKeyValue(
                                                         TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
                                                         request.getParameter(PARAM_SMTP_ADDRESS), dataSession);
+                                        TrackerKeysManager.saveApplicationKeyValue(
+                                                        TrackerKeysManager.KEY_STUDENT_OFFER_IMAGE_BASE_FOLDER,
+                                                        request.getParameter(PARAM_STUDENT_OFFER_IMAGE_BASE_FOLDER),
+                                                        dataSession);
                                         TrackerKeysManager.saveApplicationKeyValue(
                                                         TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE,
                                                         request.getParameter(PARAM_EMAIL_ENABLE) != null ? "Y" : "N",
@@ -351,6 +356,19 @@ public class AdminSettingsServlet extends ClientServlet {
                                                                         TrackerKeysManager.KEY_SYSTEM_SMTP_ADDRESS,
                                                                         dataSession))
                                         + "\">");
+                        out.println("    </td>");
+                        out.println("  </tr>");
+                        out.println("  <tr class=\"boxed\">");
+                        out.println("    <th class=\"boxed\">Student offer image folder</th>");
+                        out.println("    <td class=\"boxed\">");
+                        out.println("      <input type=\"text\" name=\"" + PARAM_STUDENT_OFFER_IMAGE_BASE_FOLDER
+                                        + "\" size=\"80\" value=\""
+                                        + n(TrackerKeysManager.getApplicationKeyValue(
+                                                        TrackerKeysManager.KEY_STUDENT_OFFER_IMAGE_BASE_FOLDER,
+                                                        "/var/lib/dandelion/student-offer-images",
+                                                        dataSession))
+                                        + "\"> ");
+                        out.println("      <span class=\"small\">Used by StudentOfferImageServlet for local image storage.</span>");
                         out.println("    </td>");
                         out.println("  </tr>");
                         out.println("  <tr class=\"boxed\">");

@@ -41,6 +41,18 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ScheduleSchoolServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>StudentOfferSetupServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentOfferSetupServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>StudentOfferEditServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentOfferEditServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>StudentOfferImageServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentOfferImageServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ProjectServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectServlet</servlet-class>
   </servlet>
@@ -260,6 +272,18 @@
   <servlet-mapping>
     <servlet-name>ScheduleSchoolServlet</servlet-name>
     <url-pattern>/ScheduleSchoolServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentOfferSetupServlet</servlet-name>
+    <url-pattern>/StudentOfferSetupServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentOfferEditServlet</servlet-name>
+    <url-pattern>/StudentOfferEditServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentOfferImageServlet</servlet-name>
+    <url-pattern>/StudentOfferImageServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectServlet</servlet-name>

@@ -233,6 +233,16 @@ public class SettingsServlet extends ClientServlet {
         out.println("</table>");
       }
 
+      if (!WORKFLOW_TYPE_STUDENT.equals(webUser.getWorkflowType())) {
+        out.println("<br/>");
+        out.println("<table class=\"boxed\">");
+        out.println("  <tr class=\"boxed\">");
+        out.println(
+            "    <td class=\"boxed\">Manage parent reward store templates: <a href=\"StudentOfferSetupServlet\">Student Offer Setup</a></td>");
+        out.println("  </tr>");
+        out.println("</table>");
+      }
+
       boolean userDailyReportsEnabled = TrackerKeysManager.getUserKeyValueBooleanNoFallback(
           TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, false, webUser, dataSession);
 

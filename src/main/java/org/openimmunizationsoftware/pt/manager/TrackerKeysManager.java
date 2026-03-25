@@ -29,6 +29,7 @@ public class TrackerKeysManager {
   public static final String KEY_SYSTEM_EMAIL_USE_SMTPS = "system.email.use.smtps";
   public static final String KEY_SYSTEM_EXTERNAL_URL = "system.external.url";
   public static final String KEY_SYSTEM_SMTP_ADDRESS = "system.smtp.address";
+  public static final String KEY_STUDENT_OFFER_IMAGE_BASE_FOLDER = "student.offer.image.base.folder";
   public static final String KEY_TRACK_TIME = "track.time";
   public static final String KEY_DISPLAY_SIZE = "display.size";
   public static final String KEY_DISPLAY_COLOR = "display.color";
