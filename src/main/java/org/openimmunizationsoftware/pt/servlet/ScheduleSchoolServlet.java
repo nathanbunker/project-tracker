@@ -220,7 +220,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Map<String, BillCode> billCodeMap = new HashMap<String, BillCode>();
         if (!billCodeSet.isEmpty()) {
             Query query = dataSession
-                .createQuery("from BillCode where provider = :provider and id.billCode in (:billCodes)");
+                    .createQuery("from BillCode where provider = :provider and id.billCode in (:billCodes)");
             query.setParameter("provider", dependentUser.getProvider());
             query.setParameterList("billCodes", billCodeSet);
             @SuppressWarnings("unchecked")
