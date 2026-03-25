@@ -75,6 +75,7 @@ public class HomeServlet extends ClientServlet {
         out.println("  <li><a href=\"ProjectContactsServlet\">Contacts</a></li>");
         out.println("  <li><a href=\"SettingsServlet\">Settings</a></li>");
         out.println("  <li><a href=\"DependentAccountsServlet\">Dependent Accounts</a></li>");
+        out.println("  <li><a href=\"DependentAccountsServlet\">Manage Student Store</a></li>");
         out.println("</ul>");
 
         out.println("<h2>Time Management &amp; Reporting</h2>");

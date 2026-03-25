@@ -35,7 +35,6 @@ public class StudentOfferSetupServlet extends ClientServlet {
     private static final String PARAM_BULK_DEFAULT_PRICE = "bulkDefaultPricePoints";
 
     private static final String STATUS_ACTIVE = "ACTIVE";
-    private static final String STATUS_ARCHIVED = "ARCHIVED";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {

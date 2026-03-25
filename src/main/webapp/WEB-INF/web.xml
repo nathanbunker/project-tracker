@@ -154,6 +154,14 @@
     <servlet-class>org.openimmunizationsoftware.pt.student.servlet.StudentStoreServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ParentStudentStoreServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentStoreServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>StudentStoreAddServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentStoreAddServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>BillEntryEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillEntryEditServlet</servlet-class>
   </servlet>
@@ -224,6 +232,14 @@
   <servlet-mapping>
     <servlet-name>StudentStoreServlet</servlet-name>
     <url-pattern>/student/store</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ParentStudentStoreServlet</servlet-name>
+    <url-pattern>/StudentStoreServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentStoreAddServlet</servlet-name>
+    <url-pattern>/StudentStoreAddServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>HomeServlet</servlet-name>

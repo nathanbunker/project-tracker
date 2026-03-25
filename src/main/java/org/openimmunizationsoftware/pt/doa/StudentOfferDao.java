@@ -52,4 +52,25 @@ public class StudentOfferDao {
         query.setString("status", status);
         return query.list();
     }
+
+    public int nextDisplayOrder(int contactId) {
+        Query query = session.createQuery(
+                "select max(so.displayOrder) from StudentOffer so where so.contact.contactId = :contactId");
+        query.setInteger("contactId", contactId);
+        Number max = (Number) query.uniqueResult();
+        int current = max == null ? 0 : max.intValue();
+        return current + 10;
+    }
+
+    public boolean hasAvailableOfferForTemplate(int contactId, int studentOfferTemplateId) {
+        Query query = session.createQuery(
+                "select count(*) from StudentOffer so where so.contact.contactId = :contactId "
+                        + "and so.studentOfferTemplate.studentOfferTemplateId = :studentOfferTemplateId "
+                        + "and so.status = :status");
+        query.setInteger("contactId", contactId);
+        query.setInteger("studentOfferTemplateId", studentOfferTemplateId);
+        query.setString("status", "AVAILABLE");
+        Number count = (Number) query.uniqueResult();
+        return count != null && count.longValue() > 0;
+    }
 }

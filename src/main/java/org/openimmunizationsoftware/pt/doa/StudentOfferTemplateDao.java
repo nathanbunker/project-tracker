@@ -52,4 +52,14 @@ public class StudentOfferTemplateDao {
         query.setString("status", status);
         return query.list();
     }
+
+    @SuppressWarnings("unchecked")
+    public List<StudentOfferTemplate> listActiveByContactId(int contactId) {
+        Query query = session.createQuery(
+                "from StudentOfferTemplate sot where sot.contact.contactId = :contactId and sot.status = :status "
+                        + "order by sot.displayOrder, sot.title, sot.studentOfferTemplateId");
+        query.setInteger("contactId", contactId);
+        query.setString("status", "ACTIVE");
+        return query.list();
+    }
 }
