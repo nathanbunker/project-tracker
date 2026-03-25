@@ -402,6 +402,10 @@ public class DependentAccountsServlet extends ClientServlet {
             out.println("    <td class=\"boxed\">" + who + "</td>");
             out.println("    <td class=\"boxed\">" + statusLabel + "</td>");
             out.println("    <td class=\"boxed\">");
+            if ("active".equals(status)) {
+                out.println("      <a href=\"ScheduleSchoolServlet?dependencyId=" + dep.getDependencyId()
+                        + "\" class=\"button\">Schedule School</a>");
+            }
             if ("active".equals(status) || "invited".equals(status)) {
                 out.println("      <form action=\"DependentAccountsServlet\" method=\"POST\""
                         + " style=\"display:inline\">");

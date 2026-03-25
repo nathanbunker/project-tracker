@@ -37,6 +37,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.DependentAccountsServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ScheduleSchoolServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.ScheduleSchoolServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ProjectServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectServlet</servlet-class>
   </servlet>
@@ -252,6 +256,10 @@
   <servlet-mapping>
     <servlet-name>DependentAccountsServlet</servlet-name>
     <url-pattern>/DependentAccountsServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ScheduleSchoolServlet</servlet-name>
+    <url-pattern>/ScheduleSchoolServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectServlet</servlet-name>
