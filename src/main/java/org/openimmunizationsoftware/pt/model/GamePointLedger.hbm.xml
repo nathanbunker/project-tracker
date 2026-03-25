@@ -9,6 +9,7 @@
     </id>
     <many-to-one name="contact" column="contact_id" class="ProjectContact" not-null="true" lazy="proxy" fetch="select"/>
     <many-to-one name="projectActionNext" column="action_next_id" class="ProjectActionNext" not-null="false" lazy="proxy" fetch="select"/>
+    <many-to-one name="studentOffer" column="student_offer_id" class="StudentOffer" not-null="false" lazy="proxy" fetch="select"/>
     <property name="pointChange" type="java.lang.Integer">
       <column name="point_change" not-null="true" />
     </property>

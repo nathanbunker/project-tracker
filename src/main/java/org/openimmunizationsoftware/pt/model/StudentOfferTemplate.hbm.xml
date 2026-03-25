@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="StudentOfferTemplate" table="student_offer_template">
+    <id name="studentOfferTemplateId" type="java.lang.Integer">
+      <column name="student_offer_template_id" />
+      <generator class="native" />
+    </id>
+    <many-to-one name="contact" column="contact_id" class="ProjectContact" not-null="true" lazy="proxy" fetch="select"/>
+    <property name="title" type="string">
+      <column name="title" length="200" not-null="true" />
+    </property>
+    <property name="description" type="text">
+      <column name="description" />
+    </property>
+    <property name="defaultPricePoints" type="java.lang.Integer">
+      <column name="default_price_points" not-null="true" />
+    </property>
+    <property name="imagePath" type="string">
+      <column name="image_path" length="500" />
+    </property>
+    <property name="status" type="string">
+      <column name="status" length="20" not-null="true" />
+    </property>
+    <property name="displayOrder" type="integer">
+      <column name="display_order" not-null="true" />
+    </property>
+    <property name="createdDate" type="timestamp">
+      <column name="created_date" not-null="true" />
+    </property>
+    <property name="updatedDate" type="timestamp">
+      <column name="updated_date" />
+    </property>
+    <set name="studentOffers" inverse="true" lazy="true" fetch="select">
+      <key column="student_offer_template_id" />
+      <one-to-many class="StudentOffer" />
+    </set>
+  </class>
+</hibernate-mapping>
