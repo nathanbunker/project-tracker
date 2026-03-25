@@ -48,6 +48,12 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_REPORT_DAILY_ENABLED = "reportDailyEnabled";
   private static final String PARAM_API_KEY_AGENT_NAME = "apiKeyAgentName";
   private static final String PARAM_API_KEY_CLIENT_ID = "apiKeyClientId";
+  private static final String PARAM_FIRST_NAME = "firstName";
+  private static final String PARAM_LAST_NAME = "lastName";
+  private static final String PARAM_WORKFLOW_TYPE = "workflowType";
+
+  private static final String WORKFLOW_TYPE_STANDARD = "STANDARD";
+  private static final String WORKFLOW_TYPE_STUDENT = "STUDENT";
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -77,33 +83,74 @@ public class SettingsServlet extends ClientServlet {
 
       if (action != null) {
         if (action.equals(ACTION_SAVE)) {
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE, webUser,
-              request.getParameter(PARAM_DISPLAY_SIZE), dataSession);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, webUser,
-              request.getParameter(PARAM_DISPLAY_COLOR), dataSession);
+          String firstName = request.getParameter(PARAM_FIRST_NAME);
+          String lastName = request.getParameter(PARAM_LAST_NAME);
+          String workflowType = request.getParameter(PARAM_WORKFLOW_TYPE);
+
+          firstName = firstName == null ? "" : firstName.trim();
+          lastName = lastName == null ? "" : lastName.trim();
+          workflowType = WORKFLOW_TYPE_STUDENT.equals(workflowType) ? WORKFLOW_TYPE_STUDENT
+              : WORKFLOW_TYPE_STANDARD;
+
+          if (firstName.length() < 1 || lastName.length() < 1) {
+            appReq.setMessageProblem("First name and last name must each have at least one character.");
+          } else {
+            WebUser webUserDb = (WebUser) dataSession.get(WebUser.class, webUser.getWebUserId());
+            Transaction trans = dataSession.beginTransaction();
+            webUserDb.setFirstName(firstName);
+            webUserDb.setLastName(lastName);
+            webUserDb.setWorkflowType(workflowType);
+            dataSession.update(webUserDb);
+            trans.commit();
+
+            webUser.setFirstName(firstName);
+            webUser.setLastName(lastName);
+            webUser.setWorkflowType(workflowType);
+          }
+
+          if (request.getParameter(PARAM_DISPLAY_SIZE) != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_SIZE, webUser,
+                request.getParameter(PARAM_DISPLAY_SIZE), dataSession);
+          }
+          if (request.getParameter(PARAM_DISPLAY_COLOR) != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DISPLAY_COLOR, webUser,
+                request.getParameter(PARAM_DISPLAY_COLOR), dataSession);
+          }
           String timeZoneUser = request.getParameter(PARAM_TIME_ZONE_USER);
           String timeZoneApplication = request.getParameter(PARAM_TIME_ZONE_APPLICATION);
           String dateDisplayFormat = request.getParameter(PARAM_DATE_DISPLAY_FORMAT);
           String dateEntryFormat = request.getParameter(PARAM_DATE_ENTRY_FORMAT);
           String timeDisplayFormat = request.getParameter(PARAM_TIME_DISPLAY_FORMAT);
           String timeEntryFormat = request.getParameter(PARAM_TIME_ENTRY_FORMAT);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ZONE, webUser, timeZoneUser,
-              dataSession);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT, webUser,
-              dateDisplayFormat, dataSession);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DATE_ENTRY_FORMAT, webUser,
-              dateEntryFormat, dataSession);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT, webUser,
-              timeDisplayFormat, dataSession);
-          TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ENTRY_FORMAT, webUser,
-              timeEntryFormat, dataSession);
-          TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
-              timeZoneApplication, dataSession);
-          webUser.setTimeZone(TimeZone.getTimeZone(timeZoneUser));
-          webUser.setDateDisplayPattern(dateDisplayFormat);
-          webUser.setDateEntryPattern(dateEntryFormat);
-          webUser.setTimeDisplayPattern(timeDisplayFormat);
-          webUser.setTimeEntryPattern(timeEntryFormat);
+          if (timeZoneUser != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ZONE, webUser, timeZoneUser,
+                dataSession);
+            webUser.setTimeZone(TimeZone.getTimeZone(timeZoneUser));
+          }
+          if (dateDisplayFormat != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DATE_DISPLAY_FORMAT, webUser,
+                dateDisplayFormat, dataSession);
+            webUser.setDateDisplayPattern(dateDisplayFormat);
+          }
+          if (dateEntryFormat != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_DATE_ENTRY_FORMAT, webUser,
+                dateEntryFormat, dataSession);
+            webUser.setDateEntryPattern(dateEntryFormat);
+          }
+          if (timeDisplayFormat != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_DISPLAY_FORMAT, webUser,
+                timeDisplayFormat, dataSession);
+            webUser.setTimeDisplayPattern(timeDisplayFormat);
+          }
+          if (timeEntryFormat != null) {
+            TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TIME_ENTRY_FORMAT, webUser,
+                timeEntryFormat, dataSession);
+            webUser.setTimeEntryPattern(timeEntryFormat);
+          }
+          if (timeZoneApplication != null) {
+            TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_TIME_ZONE,
+                timeZoneApplication, dataSession);
+          }
 
           if (webUser.isUserTypeAdmin()) {
             TrackerKeysManager.saveKeyValue(TrackerKeysManager.KEY_TRACK_TIME, webUser,
@@ -188,6 +235,42 @@ public class SettingsServlet extends ClientServlet {
 
       boolean userDailyReportsEnabled = TrackerKeysManager.getUserKeyValueBooleanNoFallback(
           TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, false, webUser, dataSession);
+
+      out.println("<br/>");
+      out.println("<form action=\"SettingsServlet\" method=\"POST\">");
+      out.println("<table class=\"boxed\">");
+      out.println("  <tr class=\"boxed\">");
+      out.println("     <th class=\"title\" colspan=\"2\">Profile Settings</td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">First Name</th>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"" + PARAM_FIRST_NAME
+          + "\" size=\"30\" value=\"" + h(webUser.getFirstName()) + "\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Last Name</th>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"" + PARAM_LAST_NAME
+          + "\" size=\"30\" value=\"" + h(webUser.getLastName()) + "\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Workflow Type</th>");
+      out.println("    <td class=\"boxed\"><select name=\"" + PARAM_WORKFLOW_TYPE + "\">");
+      String selectedWorkflowType = webUser.getWorkflowType() == null ? WORKFLOW_TYPE_STANDARD
+          : webUser.getWorkflowType();
+      out.println("      <option value=\"" + WORKFLOW_TYPE_STANDARD + "\""
+          + (WORKFLOW_TYPE_STANDARD.equals(selectedWorkflowType) ? " selected" : "")
+          + ">Standard</option>");
+      out.println("      <option value=\"" + WORKFLOW_TYPE_STUDENT + "\""
+          + (WORKFLOW_TYPE_STUDENT.equals(selectedWorkflowType) ? " selected" : "")
+          + ">School</option>");
+      out.println("    </select></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
+          + PARAM_ACTION + "\" value=\"" + ACTION_SAVE + "\"></td>");
+      out.println("  </tr>");
+      out.println("</table>");
+      out.println("</form>");
 
       out.println("<br/>");
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
@@ -362,6 +445,14 @@ public class SettingsServlet extends ClientServlet {
         return apiKey;
       }
     }
+  }
+
+  private static String h(String value) {
+    if (value == null) {
+      return "";
+    }
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        .replace("\"", "&quot;").replace("'", "&#39;");
   }
 
 }
