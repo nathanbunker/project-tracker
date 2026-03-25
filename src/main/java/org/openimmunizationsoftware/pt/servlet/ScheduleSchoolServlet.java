@@ -1081,7 +1081,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return value == null ? "" : value;
     }
 
-    private static String trim(String value, int maxLength) {
+    protected static String trim(String value, int maxLength) {
         String v = value == null ? "" : value.trim();
         if (v.length() > maxLength) {
             v = v.substring(0, maxLength);
