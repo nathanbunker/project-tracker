@@ -376,6 +376,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 + sdfField.format(day.getTime());
                         boolean checked = request.getParameter(fieldName) != null;
                         ProjectActionNext assignedAction = projectActionMap == null ? null : projectActionMap.get(day);
+                        boolean hasTemplateDescription = templateAction.getNextDescription() != null
+                                && !templateAction.getNextDescription().trim().equals("");
 
                         if (!checked) {
                             if (assignedAction != null
@@ -385,6 +387,15 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 dataSession.update(assignedAction);
                             }
                         } else {
+                            if (!hasTemplateDescription) {
+                                if (assignedAction != null
+                                        && assignedAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED) {
+                                    assignedAction.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+                                    assignedAction.setNextChangeDate(new Date());
+                                    dataSession.update(assignedAction);
+                                }
+                                continue;
+                            }
                             if (assignedAction == null) {
                                 assignedAction = new ProjectActionNext();
                                 assignedAction.setProjectId(project.getProjectId());
@@ -418,9 +429,12 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 if (projectActionMap != null) {
                                     projectActionMap.put(day, assignedAction);
                                 }
-                                dataSession.save(assignedAction);
                             }
-                            assignedAction.setNextDescription(templateAction.getNextDescription());
+                            String assignedDescription = templateAction.getNextDescription();
+                            if (assignedDescription == null) {
+                                assignedDescription = "";
+                            }
+                            assignedAction.setNextDescription(assignedDescription);
                             assignedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate());
                             assignedAction.setGamePoints(templateAction.getGamePoints());
                             if (!projectBillable) {
@@ -835,7 +849,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             out.println("<h3>"
-                    + escapeHtml(dependentUser.getDateFormatService().formatDate(dayDate, dependentUser.getTimeZone()))
+                    + escapeHtml(dependentUser.getDateFormatService().formatPattern(dayDate, "EEEE MM/dd/yyyy",
+                            dependentUser.getTimeZone()))
                     + "</h3>");
             out.println("<table class=\"boxed\">");
             out.println("  <tr class=\"boxed\">");
@@ -862,8 +877,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 int estimate = action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate().intValue();
                 int actual = action.getNextTimeActual() == null ? 0 : action.getNextTimeActual().intValue();
                 int points = action.getGamePoints() == null ? 0 : action.getGamePoints().intValue();
-                totalEstimate += estimate;
-                totalActual += actual;
+                boolean billable = action.isBillable();
+                if (billable) {
+                    totalEstimate += estimate;
+                    totalActual += actual;
+                }
 
                 ProjectNextActionStatus status = action.getNextActionStatus();
                 String statusLabel = "Active";
@@ -898,8 +916,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
                         + "</td>");
                 out.println("    <td class=\"boxed\">" + sourceLabel + "</td>");
                 out.println("    <td class=\"boxed\">" + escapeHtml(statusLabel) + "</td>");
-                out.println("    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(estimate) + "</td>");
-                out.println("    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(actual) + "</td>");
+                out.println("    <td class=\"boxed\">"
+                        + (billable ? ProjectActionNext.getTimeForDisplay(estimate) : "&nbsp;") + "</td>");
+                out.println("    <td class=\"boxed\">"
+                        + (billable ? ProjectActionNext.getTimeForDisplay(actual) : "&nbsp;") + "</td>");
                 out.println("    <td class=\"boxed\">" + points + "</td>");
                 out.println("    <td class=\"boxed\"><a href=\"" + editUrl + "\" class=\"button\">Edit</a></td>");
                 out.println("  </tr>");
