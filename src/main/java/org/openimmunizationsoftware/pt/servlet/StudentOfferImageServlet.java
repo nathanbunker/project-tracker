@@ -21,6 +21,7 @@ import javax.servlet.http.Part;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.StudentOffer;
 import org.openimmunizationsoftware.pt.doa.StudentOfferTemplateDao;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.StudentOfferTemplate;
@@ -34,6 +35,7 @@ public class StudentOfferImageServlet extends ClientServlet {
     private static final String PARAM_SIZE = "size";
 
     private static final String PARAM_STUDENT_OFFER_TEMPLATE_ID = "studentOfferTemplateId";
+    private static final String PARAM_STUDENT_OFFER_ID = "studentOfferId";
     private static final String PARAM_RETURN_ANCHOR = "returnAnchor";
     private static final String PARAM_IMAGE_FILE = "imageFile";
 
@@ -186,29 +188,52 @@ public class StudentOfferImageServlet extends ClientServlet {
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
             Integer offerTemplateId = parseInteger(request.getParameter(PARAM_STUDENT_OFFER_TEMPLATE_ID));
+            Integer studentOfferId = parseInteger(request.getParameter(PARAM_STUDENT_OFFER_ID));
             String size = n(request.getParameter(PARAM_SIZE));
             int placeholderSize = "thumb".equalsIgnoreCase(size) ? 64 : 200;
 
-            if (offerTemplateId == null) {
-                writePlaceholderImage(response, placeholderSize);
-                return;
+            String imagePath = "";
+
+            if (studentOfferId != null) {
+                StudentOffer offer = (StudentOffer) dataSession.get(StudentOffer.class, studentOfferId.intValue());
+                if (offer == null || offer.getContact() == null
+                        || (offer.getContact().getContactId() != webUser.getContactId()
+                                && !webUser.isUserTypeAdmin())) {
+                    writePlaceholderImage(response, placeholderSize);
+                    return;
+                }
+                imagePath = n(offer.getImagePath());
+                if (imagePath.trim().equals("") && offer.getStudentOfferTemplate() != null) {
+                    imagePath = n(offer.getStudentOfferTemplate().getImagePath());
+                }
+            } else {
+                if (offerTemplateId == null) {
+                    writePlaceholderImage(response, placeholderSize);
+                    return;
+                }
+
+                StudentOfferTemplateDao dao = new StudentOfferTemplateDao(dataSession);
+                StudentOfferTemplate offerTemplate = dao.getById(offerTemplateId.intValue());
+                if (offerTemplate == null || n(offerTemplate.getImagePath()).trim().equals("")) {
+                    writePlaceholderImage(response, placeholderSize);
+                    return;
+                }
+                if (offerTemplate.getContact() == null
+                        || (offerTemplate.getContact().getContactId() != webUser.getContactId()
+                                && !webUser.isUserTypeAdmin())) {
+                    writePlaceholderImage(response, placeholderSize);
+                    return;
+                }
+                imagePath = n(offerTemplate.getImagePath());
             }
 
-            StudentOfferTemplateDao dao = new StudentOfferTemplateDao(dataSession);
-            StudentOfferTemplate offerTemplate = dao.getById(offerTemplateId.intValue());
-            if (offerTemplate == null || n(offerTemplate.getImagePath()).trim().equals("")) {
-                writePlaceholderImage(response, placeholderSize);
-                return;
-            }
-            if (offerTemplate.getContact() == null
-                    || (offerTemplate.getContact().getContactId() != webUser.getContactId()
-                            && !webUser.isUserTypeAdmin())) {
+            if (imagePath.trim().equals("")) {
                 writePlaceholderImage(response, placeholderSize);
                 return;
             }
 
             File baseFolder = resolveImageBaseFolder(dataSession);
-            File imageFile = new File(baseFolder, n(offerTemplate.getImagePath()));
+            File imageFile = new File(baseFolder, imagePath);
             if (!imageFile.exists() || !imageFile.isFile() || !imageFile.canRead()) {
                 writePlaceholderImage(response, placeholderSize);
                 return;
