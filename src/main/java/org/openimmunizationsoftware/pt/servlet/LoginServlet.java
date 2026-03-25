@@ -127,7 +127,9 @@ public class LoginServlet extends ClientServlet {
         }
         String uiMode = request.getParameter("uiMode");
         String target = "HomeServlet";
-        if (uiMode != null && uiMode.equals("mobile")) {
+        if ("STUDENT".equals(webUser.getWorkflowType())) {
+          target = "student/school";
+        } else if (uiMode != null && uiMode.equals("mobile")) {
           target = "m/todo";
         }
         response.sendRedirect(target);

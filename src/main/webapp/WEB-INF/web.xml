@@ -130,6 +130,14 @@
     <servlet-class>org.openimmunizationsoftware.pt.mobile.servlet.OopsServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>StudentSchoolServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.student.servlet.StudentSchoolServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>StudentStoreServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.student.servlet.StudentStoreServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>BillEntryEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillEntryEditServlet</servlet-class>
   </servlet>
@@ -192,6 +200,14 @@
   <servlet-mapping>
     <servlet-name>MobileOopsServlet</servlet-name>
     <url-pattern>/m/oops</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentSchoolServlet</servlet-name>
+    <url-pattern>/student/school</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentStoreServlet</servlet-name>
+    <url-pattern>/student/store</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>HomeServlet</servlet-name>

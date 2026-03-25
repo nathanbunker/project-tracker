@@ -102,6 +102,9 @@ public class HomeServlet extends ClientServlet {
         out.println("<h2>Mobile</h2>");
         out.println("<p><a href=\"m/todo?filterSubmitted=Y&showPersonal=Y\">Open Mobile View</a></p>");
 
+        out.println("<h2>Student</h2>");
+        out.println("<p><a href=\"student/school\">Open Student View</a></p>");
+
         out.println("<h2>Logout</h2>");
         out.println("<p>If you are finished you can <a href=\"LoginServlet?action=Logout\">logout</a>.</p>");
         out.println("</div>");
