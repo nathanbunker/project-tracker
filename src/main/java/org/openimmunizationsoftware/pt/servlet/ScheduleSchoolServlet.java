@@ -44,7 +44,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String ACTION_UPDATE = "Update Template Schedule";
     private static final String ACTION_MOVE_UP = "MoveUp";
     private static final String ACTION_MOVE_DOWN = "MoveDown";
-    private static final String ACTION_EDIT_ASSIGNMENT = "EditAssignment";
+    private static final String ACTION_EDIT_SCHEDULE_ACTION = "EditScheduleAction";
 
     private static final String TEMPLATE_SELECTED = "s";
     private static final String PROJECT_ID = "projectId";
@@ -125,8 +125,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
-            if (ACTION_EDIT_ASSIGNMENT.equals(action)) {
-                handleAssignmentEdit(request, dataSession, dependentUser);
+            if (ACTION_EDIT_SCHEDULE_ACTION.equals(action)) {
+                handleScheduleActionEdit(request, dataSession, dependentUser);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
@@ -168,6 +168,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_UPDATE
                     + "\" >");
             out.println("</form>");
+
+            printTemplateEditDialogs(out, dependentUser, dependency.getDependencyId(), templateMap);
 
             out.println("<br/>");
             out.println("<h2>Daily Assignments</h2>");
@@ -699,10 +701,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("    <td class=\"boxed\">");
             out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + templateAction.getActionNextId()
                     + "\" value=\"" + escapeHtml(safe(templateAction.getNextDescription())) + "\" size=\"30\"/>");
-            String link = "ProjectActionServlet?" + ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID + "="
-                    + templateAction.getActionNextId()
-                    + "&editActionNextId=" + templateAction.getActionNextId();
-            out.println("      <a href=\"" + link + "\" class=\"button\" title=\"Edit action\">&#9998;</a>");
+            out.println("      <a href=\"javascript:void(0);\" class=\"button\" title=\"Edit action\" "
+                    + "onclick=\"openScheduleEditDialog(" + templateAction.getActionNextId() + ")\">&#9998;</a>");
             out.println("    </td>");
 
             if (choreTable) {
@@ -794,6 +794,18 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         out.println("</table>");
         out.println("<br/>");
+    }
+
+    private void printTemplateEditDialogs(PrintWriter out, WebUser dependentUser, int dependencyId,
+            Map<Project, List<ProjectActionNext>> templateMap) {
+        for (List<ProjectActionNext> templateList : templateMap.values()) {
+            if (templateList == null) {
+                continue;
+            }
+            for (ProjectActionNext templateAction : templateList) {
+                printScheduleActionEditDialog(out, dependentUser, dependencyId, templateAction);
+            }
+        }
     }
 
     private void printDailyAssignments(PrintWriter out, WebUser dependentUser, Session dataSession,
@@ -944,7 +956,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                         + "onclick=\"openScheduleEditDialog(" + action.getActionNextId()
                         + ")\">Edit</a></td>");
                 out.println("  </tr>");
-                printAssignmentEditDialog(out, dependentUser, dependencyId, action);
+                printScheduleActionEditDialog(out, dependentUser, dependencyId, action);
             }
 
             int earnedPoints = intValue(earnedPointsByDay.get(dayKey));
@@ -992,7 +1004,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return earnedByDay;
     }
 
-    private void printAssignmentEditDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
+    private void printScheduleActionEditDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
             ProjectActionNext action) {
         SimpleDateFormat dateFormat = dependentUser.getDateFormat();
         String dateString = action.getNextActionDate() == null ? "" : dateFormat.format(action.getNextActionDate());
@@ -1005,11 +1017,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 + "\" style=\"display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999;\">");
         out.println(
                 "  <div style=\"background:#fff; width:680px; max-width:95%; margin:40px auto; padding:14px; border:1px solid #666;\">");
-        out.println("    <h3>Edit Assignment</h3>");
+        out.println("    <h3>Edit Scheduled Action</h3>");
         out.println("    <form action=\"ScheduleSchoolServlet\" method=\"POST\">");
         out.println("      <input type=\"hidden\" name=\"" + PARAM_DEPENDENCY_ID + "\" value=\"" + dependencyId
                 + "\"/>");
-        out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_EDIT_ASSIGNMENT
+        out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_EDIT_SCHEDULE_ACTION
                 + "\"/>");
         out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION_NEXT_ID + "\" value=\""
                 + action.getActionNextId() + "\"/>");
@@ -1057,7 +1069,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("</div>");
     }
 
-    private void handleAssignmentEdit(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+    private void handleScheduleActionEdit(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
         Integer actionNextId = parseInteger(request.getParameter(PARAM_ACTION_NEXT_ID));
         if (actionNextId == null) {
             return;
