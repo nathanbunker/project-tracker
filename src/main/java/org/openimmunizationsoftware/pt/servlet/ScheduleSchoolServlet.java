@@ -297,8 +297,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) "
                                 + "order by nextChangeDate desc");
                 dayQuery.setParameter("templateActionNextId", templateAction.getActionNextId());
-                dayQuery.setParameter("nextActionDate", dayList.get(0).getTime());
-                dayQuery.setParameter("nextActionDateEnd", dayRangeEnd.getTime());
+                dayQuery.setParameter("nextActionDate", java.sql.Date.valueOf(toDayKey(dayList.get(0))));
+                dayQuery.setParameter("nextActionDateEnd", java.sql.Date.valueOf(toDayKey(dayRangeEnd)));
                 dayQuery.setParameter("contactId", dependentUser.getContactId());
                 dayQuery.setParameter("provider", dependentUser.getProvider());
                 dayQuery.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
@@ -450,7 +450,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
                             if (!projectBillable) {
                                 assignedAction.setTimeSlot(templateAction.getTimeSlot());
                             }
-                            if (assignedAction.getNextActionStatus() == ProjectNextActionStatus.CANCELLED) {
+                            if (assignedAction.getNextActionStatus() == null
+                                    || assignedAction.getNextActionStatus() == ProjectNextActionStatus.CANCELLED) {
                                 assignedAction.setNextActionStatus(ProjectNextActionStatus.READY);
                             }
                             assignedAction.setNextChangeDate(new Date());
@@ -1217,7 +1218,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         if (date == null) {
             return "";
         }
-        Calendar calendar = Calendar.getInstance();
+        Calendar calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
         calendar.setTime(date);
         return toDayKey(calendar);
     }
