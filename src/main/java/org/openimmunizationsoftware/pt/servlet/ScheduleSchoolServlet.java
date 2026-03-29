@@ -45,6 +45,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String ACTION_MOVE_UP = "MoveUp";
     private static final String ACTION_MOVE_DOWN = "MoveDown";
     private static final String ACTION_EDIT_SCHEDULE_ACTION = "EditScheduleAction";
+    private static final String ACTION_DELETE_SCHEDULE_ACTION = "DeleteScheduleAction";
+    private static final String ACTION_ADD_SCHEDULE_ACTION = "AddScheduleAction";
 
     private static final String TEMPLATE_SELECTED = "s";
     private static final String PROJECT_ID = "projectId";
@@ -56,7 +58,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String PARAM_EDIT_NEXT_DESCRIPTION = "editNextDescription";
     private static final String PARAM_EDIT_NEXT_ACTION_DATE = "editNextActionDate";
     private static final String PARAM_EDIT_NEXT_TIME_ESTIMATE = "editNextTimeEstimate";
+    private static final String PARAM_EDIT_GAME_POINTS = "editGamePoints";
     private static final String PARAM_EDIT_NEXT_ACTION_TYPE = "editNextActionType";
+    private static final String PARAM_EDIT_PROJECT_ID = "editProjectId";
 
     private static final int TEMPLATE_DAY_SPAN = 15;
     private static final int ASSIGNMENT_PAST_DAYS = 2;
@@ -130,6 +134,16 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
+            if (ACTION_DELETE_SCHEDULE_ACTION.equals(action)) {
+                handleScheduleActionDelete(request, dataSession, dependentUser);
+                response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
+                return;
+            }
+            if (ACTION_ADD_SCHEDULE_ACTION.equals(action)) {
+                handleScheduleActionAdd(request, dataSession, dependentUser);
+                response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
+                return;
+            }
             if (ACTION_UPDATE.equals(action)) {
                 handleTemplateUpdate(request, dataSession, dependentUser, projectList, projectBillableMap, dayList,
                         templateMap, projectActionDayMap);
@@ -173,7 +187,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
             out.println("<br/>");
             out.println("<h2>Daily Assignments</h2>");
-            printDailyAssignments(out, dependentUser, dataSession, dependency.getDependencyId());
+            printDailyAssignments(out, dependentUser, dataSession, dependency.getDependencyId(), projectList,
+                    projectBillableMap);
 
             out.println("<br/>");
             out.println("<p><a href=\"DependentAccountsServlet\">Back to Dependent Accounts</a></p>");
@@ -809,7 +824,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
     }
 
     private void printDailyAssignments(PrintWriter out, WebUser dependentUser, Session dataSession,
-            int dependencyId) {
+            int dependencyId, List<Project> projectList, Map<Integer, Boolean> projectBillableMap) {
         Date rangeStart = dependentUser
                 .startOfDay(dependentUser.addDays(dependentUser.getToday(), -ASSIGNMENT_PAST_DAYS));
         Date rangeEnd = dependentUser.endOfDay(dependentUser.addDays(dependentUser.getToday(), ASSIGNMENT_FUTURE_DAYS));
@@ -878,9 +893,12 @@ public class ScheduleSchoolServlet extends ClientServlet {
         for (Date dayDate : dayOrder) {
             String dayKey = toDayKey(dayDate);
             List<ProjectActionNext> rows = byDay.get(dayKey);
-            if (rows == null || rows.isEmpty()) {
-                continue;
+            if (rows == null) {
+                rows = new ArrayList<ProjectActionNext>();
             }
+
+            List<ProjectActionNext> dialogActions = new ArrayList<ProjectActionNext>();
+            String addDialogId = "add" + dayKey.replace("-", "");
 
             out.println("<h3>"
                     + escapeHtml(dependentUser.getDateFormatService().formatPattern(dayDate, "EEEE MM/dd/yyyy",
@@ -904,6 +922,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
             for (int i = 0; i < rows.size(); i++) {
                 ProjectActionNext action = rows.get(i);
+                if (action.getNextActionStatus() == ProjectNextActionStatus.CANCELLED) {
+                    continue;
+                }
                 String projectName = action.getProject() == null ? "" : safe(action.getProject().getProjectName());
                 String projectIcon = action.getProject() == null ? "" : safe(action.getProject().getProjectIcon());
                 String projectLabel = projectIcon.equals("") ? projectName : (projectIcon + " " + projectName);
@@ -956,8 +977,21 @@ public class ScheduleSchoolServlet extends ClientServlet {
                         + "onclick=\"openScheduleEditDialog(" + action.getActionNextId()
                         + ")\">Edit</a></td>");
                 out.println("  </tr>");
-                printScheduleActionEditDialog(out, dependentUser, dependencyId, action);
+                dialogActions.add(action);
             }
+
+            out.println("  <tr class=\"boxed\">");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\">&nbsp;</td>");
+            out.println("    <td class=\"boxed\"><a href=\"javascript:void(0);\" class=\"button\" "
+                    + "onclick=\"openScheduleEditDialog('" + addDialogId + "')\">Add</a></td>");
+            out.println("  </tr>");
 
             int earnedPoints = intValue(earnedPointsByDay.get(dayKey));
             out.println("  <tr class=\"boxed\">");
@@ -970,8 +1004,94 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("    <td class=\"boxed\">&nbsp;</td>");
             out.println("  </tr>");
             out.println("</table>");
+            for (ProjectActionNext action : dialogActions) {
+                printScheduleActionEditDialog(out, dependentUser, dependencyId, action);
+            }
+            printScheduleActionAddDialog(out, dependentUser, dependencyId, dayDate, addDialogId, projectList,
+                    projectBillableMap);
             out.println("<br/>");
         }
+    }
+
+    private void printScheduleActionAddDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
+            Date dayDate, String dialogId, List<Project> projectList, Map<Integer, Boolean> projectBillableMap) {
+        SimpleDateFormat dateFormat = dependentUser.getDateFormat();
+        String dateString = dayDate == null ? "" : dateFormat.format(dayDate);
+        String projectSelectId = "addProjectSelect" + dialogId;
+        String estimateRowId = "addEstimateRow" + dialogId;
+        String pointsRowId = "addPointsRow" + dialogId;
+
+        out.println("<div id=\"scheduleEditDialog" + dialogId
+                + "\" style=\"display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999;\">");
+        out.println(
+                "  <div style=\"background:#fff; width:680px; max-width:95%; margin:40px auto; padding:14px; border:1px solid #666;\">");
+        out.println("    <h3>Add Scheduled Action</h3>");
+        out.println("    <form action=\"ScheduleSchoolServlet\" method=\"POST\">");
+        out.println("      <input type=\"hidden\" name=\"" + PARAM_DEPENDENCY_ID + "\" value=\"" + dependencyId
+                + "\"/>");
+        out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_ADD_SCHEDULE_ACTION
+                + "\"/>");
+
+        out.println("      <table class=\"boxed\" style=\"width:100%;\">");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">Project</th><td class=\"boxed\"><select name=\""
+                + PARAM_EDIT_PROJECT_ID + "\" id=\"" + projectSelectId + "\" onchange=\"toggleAddBillable"
+                + dialogId + "()\">");
+        if (projectList != null) {
+            for (Project project : projectList) {
+                boolean billable = Boolean.TRUE.equals(projectBillableMap.get(Integer.valueOf(project.getProjectId())));
+                out.println("          <option value=\"" + project.getProjectId() + "\" data-billable=\""
+                        + (billable ? "Y" : "N") + "\">"
+                        + escapeHtml(safe(project.getProjectName())) + "</option>");
+            }
+        }
+        out.println("        </select></td></tr>");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">When</th><td class=\"boxed\">"
+                + "<input type=\"text\" name=\"" + PARAM_EDIT_NEXT_ACTION_DATE + "\" value=\""
+                + escapeHtml(dateString) + "\" size=\"12\"/></td></tr>");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">What</th><td class=\"boxed\">"
+                + "<textarea name=\"" + PARAM_EDIT_NEXT_DESCRIPTION
+                + "\" rows=\"3\" style=\"width:98%;\"></textarea></td></tr>");
+        out.println("        <tr class=\"boxed\"><th class=\"boxed\">Type</th><td class=\"boxed\"><select name=\""
+                + PARAM_EDIT_NEXT_ACTION_TYPE + "\">");
+        for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
+                ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.WILL_MEET, ProjectNextActionType.WILL_REVIEW,
+                ProjectNextActionType.WILL_DOCUMENT, ProjectNextActionType.WILL_FOLLOW_UP,
+                ProjectNextActionType.COMMITTED_TO, ProjectNextActionType.WAITING, ProjectNextActionType.GOAL }) {
+            out.println("          <option value=\"" + nat + "\">"
+                    + escapeHtml(ProjectNextActionType.getLabel(nat)) + "</option>");
+        }
+        out.println("        </select></td></tr>");
+        out.println("        <tr class=\"boxed\" id=\"" + estimateRowId
+                + "\"><th class=\"boxed\">Est (mins)</th><td class=\"boxed\">"
+                + "<input type=\"text\" name=\"" + PARAM_EDIT_NEXT_TIME_ESTIMATE
+                + "\" value=\"\" size=\"6\"/></td></tr>");
+        out.println("        <tr class=\"boxed\" id=\"" + pointsRowId
+                + "\"><th class=\"boxed\">Points</th><td class=\"boxed\">"
+                + "<input type=\"text\" name=\"" + PARAM_EDIT_GAME_POINTS + "\" value=\"0\" size=\"6\"/></td></tr>");
+        out.println("      </table>");
+
+        out.println("      <script>");
+        out.println("        function toggleAddBillable" + dialogId + "() {");
+        out.println("          var select = document.getElementById('" + projectSelectId + "');");
+        out.println("          var estRow = document.getElementById('" + estimateRowId + "');");
+        out.println("          var pointsRow = document.getElementById('" + pointsRowId + "');");
+        out.println("          if (!select || !estRow || !pointsRow) { return; }");
+        out.println("          var selected = select.options[select.selectedIndex];");
+        out.println("          var isBillable = selected && selected.getAttribute('data-billable') === 'Y';");
+        out.println("          estRow.style.display = isBillable ? '' : 'none';");
+        out.println("          pointsRow.style.display = isBillable ? '' : 'none';");
+        out.println("        }");
+        out.println("        toggleAddBillable" + dialogId + "();");
+        out.println("      </script>");
+
+        out.println("      <div style=\"margin-top:10px; text-align:right;\">");
+        out.println("        <button type=\"submit\">Save</button>");
+        out.println("        <button type=\"button\" onclick=\"closeScheduleEditDialog('" + dialogId
+                + "')\">Cancel</button>");
+        out.println("      </div>");
+        out.println("    </form>");
+        out.println("  </div>");
+        out.println("</div>");
     }
 
     private Map<String, Integer> loadEarnedPointsByDay(WebUser dependentUser, Session dataSession,
@@ -1021,8 +1141,6 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("    <form action=\"ScheduleSchoolServlet\" method=\"POST\">");
         out.println("      <input type=\"hidden\" name=\"" + PARAM_DEPENDENCY_ID + "\" value=\"" + dependencyId
                 + "\"/>");
-        out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_EDIT_SCHEDULE_ACTION
-                + "\"/>");
         out.println("      <input type=\"hidden\" name=\"" + PARAM_ACTION_NEXT_ID + "\" value=\""
                 + action.getActionNextId() + "\"/>");
 
@@ -1053,14 +1171,18 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("        <tr class=\"boxed\"><th class=\"boxed\">Est (mins)</th><td class=\"boxed\">"
                     + "<input type=\"text\" name=\"" + PARAM_EDIT_NEXT_TIME_ESTIMATE + "\" value=\""
                     + escapeHtml(action.getNextTimeEstimateMinsForDisplay()) + "\" size=\"6\"/></td></tr>");
-        } else {
-            out.println(
-                    "        <tr class=\"boxed\"><th class=\"boxed\">Est (mins)</th><td class=\"boxed\">&nbsp;</td></tr>");
+            out.println("        <tr class=\"boxed\"><th class=\"boxed\">Points</th><td class=\"boxed\">"
+                    + "<input type=\"text\" name=\"" + PARAM_EDIT_GAME_POINTS + "\" value=\""
+                    + (action.getGamePoints() == null ? "0" : action.getGamePoints()) + "\" size=\"6\"/></td></tr>");
         }
         out.println("      </table>");
 
         out.println("      <div style=\"margin-top:10px; text-align:right;\">");
-        out.println("        <button type=\"submit\">Save</button>");
+        out.println("        <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
+                + ACTION_DELETE_SCHEDULE_ACTION + "\" "
+                + "onclick=\"return confirm('Delete this scheduled action?');\">Delete</button>");
+        out.println("        <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
+                + ACTION_EDIT_SCHEDULE_ACTION + "\">Save</button>");
         out.println("        <button type=\"button\" onclick=\"closeScheduleEditDialog(" + action.getActionNextId()
                 + ")\">Cancel</button>");
         out.println("      </div>");
@@ -1090,6 +1212,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         Date nextActionDate = dependentUser.parseDate(request.getParameter(PARAM_EDIT_NEXT_ACTION_DATE));
         Integer nextTimeEstimate = parseInteger(request.getParameter(PARAM_EDIT_NEXT_TIME_ESTIMATE));
+        Integer gamePoints = parseInteger(request.getParameter(PARAM_EDIT_GAME_POINTS));
         String nextActionType = safe(request.getParameter(PARAM_EDIT_NEXT_ACTION_TYPE));
         boolean validType = false;
         for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
@@ -1113,8 +1236,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
             if (action.isBillable()) {
                 action.setNextTimeEstimate(
                         nextTimeEstimate == null || nextTimeEstimate.intValue() <= 0 ? null : nextTimeEstimate);
+                action.setGamePoints(gamePoints == null ? Integer.valueOf(0) : gamePoints);
             } else {
                 action.setNextTimeEstimate(null);
+                action.setGamePoints(null);
                 if (action.getNextTimeActual() != null && action.getNextTimeActual().intValue() != 0) {
                     action.setNextTimeActual(Integer.valueOf(0));
                 }
@@ -1126,6 +1251,126 @@ public class ScheduleSchoolServlet extends ClientServlet {
             trans.rollback();
             throw e;
         }
+    }
+
+    private void handleScheduleActionDelete(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+        Integer actionNextId = parseInteger(request.getParameter(PARAM_ACTION_NEXT_ID));
+        if (actionNextId == null) {
+            return;
+        }
+
+        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                actionNextId.intValue());
+        if (action == null || action.getProvider() == null || dependentUser.getProvider() == null
+                || !safe(action.getProvider().getProviderId()).equals(safe(dependentUser.getProvider().getProviderId()))
+                || action.getContactId() != dependentUser.getContactId()) {
+            return;
+        }
+
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            trans.commit();
+        } catch (RuntimeException e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
+    private void handleScheduleActionAdd(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+        Integer projectId = parseInteger(request.getParameter(PARAM_EDIT_PROJECT_ID));
+        if (projectId == null) {
+            return;
+        }
+
+        Project project = (Project) dataSession.get(Project.class, projectId.intValue());
+        if (project == null || project.getProvider() == null || dependentUser.getProvider() == null
+                || !safe(project.getProvider().getProviderId())
+                        .equals(safe(dependentUser.getProvider().getProviderId()))) {
+            return;
+        }
+
+        String nextDescription = trim(request.getParameter(PARAM_EDIT_NEXT_DESCRIPTION), 1200);
+        if (nextDescription.equals("")) {
+            return;
+        }
+
+        Date nextActionDate = dependentUser.parseDate(request.getParameter(PARAM_EDIT_NEXT_ACTION_DATE));
+        if (nextActionDate == null) {
+            return;
+        }
+
+        Integer nextTimeEstimate = parseInteger(request.getParameter(PARAM_EDIT_NEXT_TIME_ESTIMATE));
+        Integer gamePoints = parseInteger(request.getParameter(PARAM_EDIT_GAME_POINTS));
+        String nextActionType = safe(request.getParameter(PARAM_EDIT_NEXT_ACTION_TYPE));
+        boolean validType = false;
+        for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
+                ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.WILL_MEET, ProjectNextActionType.WILL_REVIEW,
+                ProjectNextActionType.WILL_DOCUMENT, ProjectNextActionType.WILL_FOLLOW_UP,
+                ProjectNextActionType.COMMITTED_TO, ProjectNextActionType.WAITING, ProjectNextActionType.GOAL }) {
+            if (nat.equals(nextActionType)) {
+                validType = true;
+                break;
+            }
+        }
+        if (!validType) {
+            nextActionType = ProjectNextActionType.WILL;
+        }
+
+        Integer completionOrder = Integer.valueOf(1);
+        Query orderQuery = dataSession.createQuery(
+                "select max(pan.completionOrder) from ProjectActionNext pan "
+                        + "where pan.provider = :provider and pan.contactId = :contactId and pan.nextActionDate = :nextActionDate");
+        orderQuery.setParameter("provider", dependentUser.getProvider());
+        orderQuery.setParameter("contactId", dependentUser.getContactId());
+        orderQuery.setParameter("nextActionDate", nextActionDate);
+        Number maxOrder = (Number) orderQuery.uniqueResult();
+        if (maxOrder != null) {
+            completionOrder = Integer.valueOf(maxOrder.intValue() + 1);
+        }
+
+        boolean billable = isProjectBillable(project, dependentUser, dataSession);
+
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            ProjectActionNext action = new ProjectActionNext();
+            action.setProjectId(project.getProjectId());
+            action.setProject(project);
+            action.setContactId(dependentUser.getContactId());
+            action.setContact(dependentUser.getProjectContact());
+            action.setProvider(dependentUser.getProvider());
+            action.setNextActionDate(nextActionDate);
+            action.setNextDescription(nextDescription);
+            action.setNextActionType(nextActionType);
+            action.setNextActionStatus(ProjectNextActionStatus.READY);
+            action.setBillable(billable);
+            action.setCompletionOrder(completionOrder.intValue());
+            action.setPriorityLevel(project.getPriorityLevel());
+            action.setNextTimeEstimate(billable && nextTimeEstimate != null && nextTimeEstimate.intValue() > 0
+                    ? nextTimeEstimate
+                    : null);
+            action.setGamePoints(billable ? (gamePoints == null ? Integer.valueOf(0) : gamePoints) : null);
+            action.setNextChangeDate(new Date());
+            dataSession.save(action);
+            trans.commit();
+        } catch (RuntimeException e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
+    private boolean isProjectBillable(Project project, WebUser dependentUser, Session dataSession) {
+        if (project == null || project.getBillCode() == null || project.getBillCode().trim().equals("")) {
+            return false;
+        }
+        Query billCodeQuery = dataSession
+                .createQuery("from BillCode where provider = :provider and id.billCode = :billCode");
+        billCodeQuery.setParameter("provider", dependentUser.getProvider());
+        billCodeQuery.setParameter("billCode", project.getBillCode());
+        BillCode billCode = (BillCode) billCodeQuery.uniqueResult();
+        return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 
     private void sortAssignments(List<ProjectActionNext> actionList) {
