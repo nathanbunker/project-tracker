@@ -170,7 +170,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
 
     private List<StudentOffer> listOffersByStatus(WebUser webUser, Session dataSession, String status) {
         Query query = dataSession.createQuery(
-                "from StudentOffer so where so.contact.contactId = :contactId and so.status = :status order by so.updatedDate desc, so.studentOfferId desc");
+            "from StudentOffer so where so.contact.contactId = :contactId and so.status = :status order by coalesce(so.pricePoints, 0) asc, so.updatedDate desc, so.studentOfferId desc");
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", status);
         @SuppressWarnings("unchecked")

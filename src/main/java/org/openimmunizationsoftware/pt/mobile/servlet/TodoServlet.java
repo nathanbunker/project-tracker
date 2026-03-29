@@ -225,7 +225,7 @@ public class TodoServlet extends MobileBaseServlet {
                         "and pan.nextActionStatusString = :status " +
                         "and pan.nextDescription <> '' " +
                         "and pan.nextActionDate <= :selectedDate " +
-                        "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate");
+                        "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate, lower(pan.nextDescription)");
 
         query.setParameter("provider", webUser.getProvider());
         query.setParameter("contactId", webUser.getContactId());
