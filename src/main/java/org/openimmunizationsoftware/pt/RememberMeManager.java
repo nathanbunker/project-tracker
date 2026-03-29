@@ -2,27 +2,23 @@ package org.openimmunizationsoftware.pt;
 
 import java.security.MessageDigest;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
+import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.model.RememberMeToken;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * Manages persistent "remember me" login cookies.
  *
  * <p>
- * A secure random token is generated at login, stored as a SHA-256 hash in
- * the database, and placed in an HttpOnly cookie. On subsequent requests the
- * cookie is validated against the hash; if valid the user session is restored
- * transparently.
- * </p>
- *
- * <p>
- * The token and its expiry are rolled forward on every successful cookie
- * restore so that the user stays logged in as long as they access the app at
- * least once per week.
+ * Each login on any device inserts a new row into {@code remember_me_token},
+ * so multiple devices can be logged in simultaneously. Logging out only
+ * removes the token for the current device.
  * </p>
  */
 public class RememberMeManager {
@@ -35,12 +31,9 @@ public class RememberMeManager {
     public static final int MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
     /**
-     * Generates a fresh token, stores its hash and expiry in the database, and
-     * adds the remember-me cookie to the response.
-     *
-     * @param response    the HTTP response to add the cookie to
-     * @param webUser     the authenticated user; must already be persisted
-     * @param dataSession an open Hibernate session
+     * Generates a fresh token, inserts a new row into {@code remember_me_token},
+     * and adds the remember-me cookie to the response. Existing tokens for
+     * other devices are not disturbed.
      */
     public static void issueRememberMeCookie(HttpServletResponse response, WebUser webUser,
             Session dataSession) {
@@ -49,10 +42,12 @@ public class RememberMeManager {
         String tokenHash = hashToken(rawToken);
         Date expiry = new Date(System.currentTimeMillis() + (long) MAX_AGE_SECONDS * 1000L);
 
+        RememberMeToken token = new RememberMeToken();
+        token.setWebUserId(webUser.getWebUserId());
+        token.setTokenHash(tokenHash);
+        token.setExpiry(expiry);
         Transaction trans = dataSession.beginTransaction();
-        webUser.setRememberMeTokenHash(tokenHash);
-        webUser.setRememberMeExpiry(expiry);
-        dataSession.update(webUser);
+        dataSession.save(token);
         trans.commit();
 
         setCookie(response, webUser.getWebUserId(), rawToken);
@@ -60,43 +55,61 @@ public class RememberMeManager {
 
     /**
      * Extends the stored expiry by another week and refreshes the browser
-     * cookie's max-age, keeping the same raw token value.
-     *
-     * @param response    the HTTP response to add the renewed cookie to
-     * @param webUser     the current user
-     * @param rawToken    the raw (un-hashed) token that was read from the cookie
-     * @param dataSession an open Hibernate session
+     * cookie's max-age for the specific device token.
      */
     public static void renewRememberMeCookie(HttpServletResponse response, WebUser webUser,
             String rawToken, Session dataSession) {
-        Date newExpiry = new Date(System.currentTimeMillis() + (long) MAX_AGE_SECONDS * 1000L);
-
-        Transaction trans = dataSession.beginTransaction();
-        webUser.setRememberMeExpiry(newExpiry);
-        dataSession.update(webUser);
-        trans.commit();
-
+        String tokenHash = hashToken(rawToken);
+        RememberMeToken token = findToken(dataSession, webUser.getWebUserId(), tokenHash);
+        if (token != null) {
+            Date newExpiry = new Date(System.currentTimeMillis() + (long) MAX_AGE_SECONDS * 1000L);
+            Transaction trans = dataSession.beginTransaction();
+            token.setExpiry(newExpiry);
+            dataSession.update(token);
+            trans.commit();
+        }
         setCookie(response, webUser.getWebUserId(), rawToken);
     }
 
     /**
-     * Clears the remember-me token from the database and removes the browser
-     * cookie. Call this on logout.
+     * Deletes the specific device token identified by {@code tokenHash} from the
+     * database and removes the browser cookie. Only the current device is logged
+     * out; other devices remain unaffected.
      *
-     * @param response    the HTTP response
-     * @param webUser     the user being logged out (may be {@code null})
-     * @param dataSession an open Hibernate session
+     * @param tokenHash the SHA-256 hash of the token stored in the current device's
+     *                  cookie, or {@code null} if the cookie was never set
      */
-    public static void clearRememberMeCookie(HttpServletResponse response, WebUser webUser,
+    public static void clearRememberMeCookie(HttpServletResponse response, String tokenHash,
             Session dataSession) {
-        if (webUser != null && webUser.getRememberMeTokenHash() != null) {
-            Transaction trans = dataSession.beginTransaction();
-            webUser.setRememberMeTokenHash(null);
-            webUser.setRememberMeExpiry(null);
-            dataSession.update(webUser);
-            trans.commit();
+        if (tokenHash != null && dataSession != null) {
+            Query q = dataSession.createQuery("from RememberMeToken where tokenHash = :hash");
+            q.setParameter("hash", tokenHash);
+            @SuppressWarnings("unchecked")
+            List<RememberMeToken> tokens = q.list();
+            if (!tokens.isEmpty()) {
+                Transaction trans = dataSession.beginTransaction();
+                for (RememberMeToken t : tokens) {
+                    dataSession.delete(t);
+                }
+                trans.commit();
+            }
         }
         expireCookie(response);
+    }
+
+    /**
+     * Looks up a {@link RememberMeToken} by user id and token hash.
+     *
+     * @return the matching token, or {@code null} if none exists
+     */
+    public static RememberMeToken findToken(Session dataSession, int webUserId, String tokenHash) {
+        Query q = dataSession.createQuery(
+                "from RememberMeToken where webUserId = :uid and tokenHash = :hash");
+        q.setParameter("uid", webUserId);
+        q.setParameter("hash", tokenHash);
+        @SuppressWarnings("unchecked")
+        List<RememberMeToken> results = q.list();
+        return results.isEmpty() ? null : results.get(0);
     }
 
     /**

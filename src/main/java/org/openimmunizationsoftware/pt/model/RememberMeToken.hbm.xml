@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="RememberMeToken" table="remember_me_token">
+        <id name="tokenId" type="int">
+            <column name="token_id" />
+            <generator class="native" />
+        </id>
+        <property name="webUserId" type="int">
+            <column name="web_user_id" not-null="true" />
+        </property>
+        <property name="tokenHash" type="string">
+            <column name="token_hash" length="128" not-null="true" />
+        </property>
+        <property name="expiry" type="timestamp">
+            <column name="expiry" length="19" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

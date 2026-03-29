@@ -19,6 +19,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.RememberMeToken;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -87,6 +88,7 @@ public class AppReq {
   private Project projectSelected = null;
   private ProjectActionNext projectActionSelected = null;
   private WebUser webUser = null;
+  private String currentRememberMeTokenHash = null;
 
   private String title = "";
   private String displaySize = "small";
@@ -419,19 +421,18 @@ public class AppReq {
     }
 
     WebUser restoredUser = (WebUser) dataSession.get(WebUser.class, userId);
-    if (restoredUser == null
-        || restoredUser.getRememberMeTokenHash() == null
-        || restoredUser.getRememberMeExpiry() == null) {
+    if (restoredUser == null) {
       RememberMeManager.expireCookie(response);
       return null;
     }
 
     String tokenHash = RememberMeManager.hashToken(rawToken);
-    if (!restoredUser.getRememberMeTokenHash().equals(tokenHash)
-        || restoredUser.getRememberMeExpiry().before(new Date())) {
+    RememberMeToken token = RememberMeManager.findToken(dataSession, userId, tokenHash);
+    if (token == null || token.getExpiry().before(new Date())) {
       RememberMeManager.expireCookie(response);
       return null;
     }
+    currentRememberMeTokenHash = tokenHash;
 
     // Force-initialize the lazy provider association before storing in session.
     if (restoredUser.getProvider() != null) {
@@ -467,7 +468,7 @@ public class AppReq {
   }
 
   public void logout() {
-    RememberMeManager.clearRememberMeCookie(response, webUser, dataSession);
+    RememberMeManager.clearRememberMeCookie(response, currentRememberMeTokenHash, dataSession);
     webSession.invalidate();
     webSession = request.getSession(true);
   }
