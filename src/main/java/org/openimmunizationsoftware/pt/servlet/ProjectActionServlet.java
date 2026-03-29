@@ -1006,22 +1006,38 @@ public class ProjectActionServlet extends ClientServlet {
     boolean showPersonal = isShowPersonal(request);
     List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
     projectActionDueTodayList = filterProjectActionList(projectActionDueTodayList, showWork, showPersonal);
-    TimeAdder timeAdder = new TimeAdder(projectActionDueTodayList, appReq);
+    List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
+    projectActionOverdueList = filterProjectActionList(projectActionOverdueList, showWork, showPersonal);
+    List<ProjectActionNext> projectActionTodayAndOverdueList = new ArrayList<>();
+    projectActionTodayAndOverdueList.addAll(projectActionOverdueList);
+    projectActionTodayAndOverdueList.addAll(projectActionDueTodayList);
+
+    TimeAdder timeAdderToday = new TimeAdder(projectActionTodayAndOverdueList, appReq);
+    TimeAdder timeAdderScheduled = new TimeAdder(projectActionTodayAndOverdueList, appReq, webUser.getToday());
+
+    int completedAct = timeAdderToday.getCompletedAct();
+    int committedEst = timeAdderScheduled.getCommittedEst();
+    int willEst = timeAdderScheduled.getWillEst();
+    int willMeetEst = timeAdderScheduled.getWillMeetEst();
+    int committedAct = completedAct + committedEst;
+    int willAct = committedAct + willEst;
+    int willMeetAct = willAct + willMeetEst;
+
     Map<String, String> timeData = new HashMap<>();
     timeData.put(ID_TIME_RUNNING, timeRunningString);
     timeData.put(ID_TIME_TODAY, getFullDayAndTime(webUser));
-    timeData.put(ID_TIME_OTHER + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getOtherEst()));
-    timeData.put(ID_TIME_OTHER + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getOtherAct()));
-    timeData.put(ID_TIME_MIGHT + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getMightEst()));
-    timeData.put(ID_TIME_MIGHT + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getMightAct()));
-    timeData.put(ID_TIME_WILL + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getWillEst()));
-    timeData.put(ID_TIME_WILL + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getWillAct()));
-    timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedEst()));
-    timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedAct()));
-    timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getCompletedAct()));
-    timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getCompletedAct()));
-    timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst()));
-    timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetAct()));
+    timeData.put(ID_TIME_OTHER + ID_EST, "-");
+    timeData.put(ID_TIME_OTHER + ID_ACT, "-");
+    timeData.put(ID_TIME_MIGHT + ID_EST, "-");
+    timeData.put(ID_TIME_MIGHT + ID_ACT, "-");
+    timeData.put(ID_TIME_WILL + ID_EST, ProjectActionNext.getTimeForDisplay(willEst));
+    timeData.put(ID_TIME_WILL + ID_ACT, ProjectActionNext.getTimeForDisplay(willAct));
+    timeData.put(ID_TIME_COMMITTED + ID_EST, ProjectActionNext.getTimeForDisplay(committedEst));
+    timeData.put(ID_TIME_COMMITTED + ID_ACT, ProjectActionNext.getTimeForDisplay(committedAct));
+    timeData.put(ID_TIME_COMPLETED + ID_ACT, ProjectActionNext.getTimeForDisplay(completedAct));
+    timeData.put(ID_TIME_COMPLETED + ID_EST, ProjectActionNext.getTimeForDisplay(completedAct));
+    timeData.put(ID_TIME_WILL_MEET + ID_EST, ProjectActionNext.getTimeForDisplay(willMeetEst));
+    timeData.put(ID_TIME_WILL_MEET + ID_ACT, ProjectActionNext.getTimeForDisplay(willMeetAct));
 
     // Use Jackson to convert the map to JSON and write it to the response
     ObjectMapper mapper = new ObjectMapper();
@@ -2526,22 +2542,34 @@ public class ProjectActionServlet extends ClientServlet {
 
   private void printTimeManagementBox(AppReq appReq, List<ProjectActionNext> projectActionList) {
     PrintWriter out = appReq.getOut();
-    TimeAdder timeAdder = new TimeAdder(projectActionList, appReq);
-    int committedWillTotal = timeAdder.getCommittedEst() + timeAdder.getWillEst();
+    WebUser webUser = appReq.getWebUser();
+    TimeAdder timeAdderToday = new TimeAdder(projectActionList, appReq);
+    TimeAdder timeAdderScheduled = new TimeAdder(projectActionList, appReq, webUser.getToday());
+
+    int completedAct = timeAdderToday.getCompletedAct();
+    int committedEst = timeAdderScheduled.getCommittedEst();
+    int willEst = timeAdderScheduled.getWillEst();
+    int willMeetEst = timeAdderScheduled.getWillMeetEst();
+    int committedAct = completedAct + committedEst;
+    int willAct = committedAct + willEst;
+    int willMeetAct = willAct + willMeetEst;
+
+    int committedWillTotal = committedEst + willEst + willMeetEst;
     out.println("<table class=\"boxed float-right\">");
-    printTimeTotal(out, "Completed", ID_TIME_COMPLETED, timeAdder.getCompletedAct(), timeAdder.getCompletedAct());
-    printTimeTotal(out, "Committed", ID_TIME_COMMITTED, timeAdder.getCommittedEst(), timeAdder.getCommittedAct());
-    printTimeTotal(out, "Will", ID_TIME_WILL, timeAdder.getWillEst(), timeAdder.getWillAct());
+    printTimeTotal(out, "Completed", ID_TIME_COMPLETED, completedAct, completedAct);
+    printTimeTotal(out, "Committed", ID_TIME_COMMITTED, committedEst, committedAct);
+    printTimeTotal(out, "Will", ID_TIME_WILL, willEst, willAct);
+    printTimeTotal(out, "Will Meet", ID_TIME_WILL_MEET, willMeetEst, willMeetAct);
     out.println("</table>");
-    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime(appReq.getWebUser()) + "</h3>");
+    out.println("<h3 id=\"" + ID_TIME_TODAY + "\">" + getFullDayAndTime(webUser) + "</h3>");
     if (committedWillTotal == 0) {
       out.println("<p>You have finished everything you said you would do today. Good job! </p>");
-    } else if (timeAdder.getCompletedAct() > (8 * 60)) {
+    } else if (completedAct > (8 * 60)) {
       out.println(
           "<p><span class=\"fail\">Time to be done!</span> You have spent a full day working already. You should not be working now. </p>");
-    } else if (timeAdder.getWillAct() > (8 * 60)) {
+    } else if (willAct > (8 * 60)) {
       out.println("<p><span class=\"fail\">You are over committed for today.</span> Time to re-plan your day. </p>");
-    } else if (timeAdder.getCompletedAct() < 30) {
+    } else if (completedAct < 30) {
       out.println("<p>Good morning! Welcome to another day of productivity. </p>");
     } else {
       out.println("<p>Good job! You are on track to finish your day on time. </p>");
