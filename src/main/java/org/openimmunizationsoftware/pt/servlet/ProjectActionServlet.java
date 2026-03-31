@@ -1021,9 +1021,10 @@ public class ProjectActionServlet extends ClientServlet {
 
     printActionNow(appReq, webUser, out, completingAction, projectContactList,
         FORM_ACTION_NOW, projectList);
-    printPressEnterScript(out);
     printFetchAndUpdateTimesScript(appReq, out, completingAction);
     out.println("</form>");
+
+    printAddNoteForm(out, project, completingAction);
 
     printEditProjectActionForm(appReq, completingAction, projectContactList, formName, formNameSet, project,
         projectList);
@@ -1161,25 +1162,33 @@ public class ProjectActionServlet extends ClientServlet {
     return blockedActionList;
   }
 
-  private void printPressEnterScript(PrintWriter out) {
+  private void printAddNoteForm(PrintWriter out, Project project, ProjectActionNext completingAction) {
+    String formName = "AddNote" + completingAction.getActionNextId();
+    out.println("<div id=\"formDialog" + formName + "\" class=\"dialog\">");
+    out.println("<form method=\"post\" action=\"ProjectActionServlet\" class=\"editForm\">");
+    out.println(
+        "<span class=\"right\"><a href=\"javascript: void(0);\" class=\"edit-link\" onclick=\"document.getElementById('formDialog"
+            + formName + "').style.display='none';\">&times;</a></span>");
+    out.println("<h3>Add Note</h3>");
+    out.println("<textarea name=\"" + PARAM_NEXT_NOTES + "\" rows=\"7\" autofocus></textarea>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + project.getProjectId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
+        + completingAction.getActionNextId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_NEXT_ID + "\" value=\""
+        + completingAction.getActionNextId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
+    out.println("<br/><span class=\"right\">");
+    out.println("<input type=\"submit\" value=\"Add Note\"/>");
+    out.println("</span>");
+    out.println("</form>");
+    out.println("</div>");
     out.println("<script>");
-    out.println("document.getElementById(\"nextNotes\").addEventListener(\"keydown\", function(event) {");
-    out.println("  if (event.key === \"Enter\" && !event.shiftKey) { // Shift + Enter for new line");
-    out.println("    event.preventDefault(); // Prevent the default Enter behavior in textarea");
-    out.println("    // Set the desired action value\n");
-    out.println("    const form = document.getElementById(\"actionNowForm\");");
-    out.println("    const actionInput = document.createElement(\"input\");");
-    out.println("    actionInput.type = \"hidden\";");
-    out.println("    actionInput.name = \"action\";");
-    out.println("    actionInput.value = \"Note\";");
-    out.println("    // Add this temporary hidden input to the form and submit");
-    out.println("    form.appendChild(actionInput);");
-    out.println("    console.log(\"submitting form\");");
-    out.println("    console.log(form);");
-    out.println("    console.log(typeof form.submit);");
-    out.println("    form.submit();");
-    out.println("    // Remove the temporary input to prevent it from persisting");
-    out.println("    form.removeChild(actionInput);");
+    out.println("document.addEventListener('keydown', function(event) {");
+    out.println("  if (event.key === 'Escape') {");
+    out.println("    const formDialog = document.getElementById('formDialog" + formName + "');");
+    out.println("    if (formDialog != null && formDialog.style.display === 'flex') {");
+    out.println("      formDialog.style.display = 'none';");
+    out.println("    }");
     out.println("  }");
     out.println("});");
     out.println("</script>");
@@ -1616,7 +1625,8 @@ public class ProjectActionServlet extends ClientServlet {
       completingAction.setNextSummary(nextSummary);
       isChanged = true;
     }
-    if (nextNotes != null && nextNotes.length() > 0) {
+    if (nextNotes != null && nextNotes.trim().length() > 0) {
+      nextNotes = nextNotes.trim();
       if (completingAction.getNextNotes() != null && completingAction.getNextNotes().trim().length() > 0) {
         nextNotes = completingAction.getNextNotes() + "\n - " + nextNotes;
       } else {
@@ -2843,10 +2853,8 @@ public class ProjectActionServlet extends ClientServlet {
     if (completingAction.getNextNotes() != null) {
       out.println(convertToHtmlList(completingAction.getNextNotes()));
     }
-    out.println("<textarea name=\"nextNotes\" id=\"nextNotes\" rows=\"7\"></textarea>");
-    out.println("<br/><span class=\"right\">");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
-    out.println("</span>");
+    out.println("<a href=\"javascript: void(0);\" onclick=\"document.getElementById('formDialogAddNote"
+        + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Add Note</a>");
 
     out.println("<h3>Summary</h3>");
     out.println("<textarea name=\"nextSummary\" rows=\"12\">"
@@ -4157,17 +4165,4 @@ public class ProjectActionServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
-  private static List<ProjectActionNext> getProjectActionsScheduledAndCompletedList(Session dataSession,
-      int projectId) {
-    Query query = dataSession.createQuery(
-        "from ProjectActionNext pan "
-            + "where pan.projectId = :projectId "
-            + "and pan.nextDescription <> '' "
-            + "and pan.nextActionStatusString = :nextActionStatus");
-    query.setParameter("projectId", projectId);
-    query.setParameter("nextActionStatus", ProjectNextActionStatus.COMPLETED.getId());
-    @SuppressWarnings("unchecked")
-    List<ProjectActionNext> projectActionList = query.list();
-    return projectActionList;
-  }
 }
