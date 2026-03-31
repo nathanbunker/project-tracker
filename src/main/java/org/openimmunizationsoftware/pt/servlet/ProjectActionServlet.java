@@ -90,11 +90,14 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String PARAM_POSTPONE_TIME_SLOT = "postponeTimeSlot";
   private static final String PARAM_POSTPONE_ACTION_TYPE = "postponeActionType";
   private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
+  private static final String PARAM_BULK_IMPORT_TEXT = "bulkImportText";
   protected static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
   private static final String PARAM_EDIT_ACTION_NEXT_ID = "editActionNextId";
   private static final String PARAM_SHOW_WORK = "showWork";
   private static final String PARAM_SHOW_PERSONAL = "showPersonal";
   private static final String PARAM_FILTER_SUBMITTED = "filterSubmitted";
+  private static final String PARAM_WORK_STATUS = "workStatus";
+  private static final String PARAM_WORK_FOLLOW_UP = "workFollowUp";
   private static final String SESSION_SHOW_WORK = "projectAction.showWork";
   private static final String SESSION_SHOW_PERSONAL = "projectAction.showPersonal";
   private static final String REQUEST_SHOW_WORK = "projectAction.requestShowWork";
@@ -104,6 +107,8 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_STOP_TIMER = "StopTimer";
   private static final String ACTION_NOTE = "Note";
   private static final String ACTION_COMPLETED = "Completed";
+  private static final String ACTION_WORK_NEXT = "WorkNext";
+  private static final String ACTION_BULK_IMPORT = "BulkImport";
   private static final String ACTION_SCHEDULE = "Schedule";
   private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
   private static final String ACTION_SCHEDULE_AND_BLOCK = "Schedule and Block";
@@ -119,6 +124,10 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_SET_TIME_SLOT_EVENING = "SetTimeSlotEvening";
   private static final String ACTION_MOVE_COMPLETION_UP = "MoveCompletionUp";
   private static final String ACTION_MOVE_COMPLETION_DOWN = "MoveCompletionDown";
+  private static final String WORK_STATUS_IN_PROGRESS = "IN_PROGRESS";
+  private static final String WORK_STATUS_COMPLETE = "COMPLETE";
+  private static final String WORK_STATUS_DELETE = "DELETE";
+  private static final String WORK_STATUS_BLOCKED = "BLOCKED";
 
   private static final int BUCKET_START_OF_WORK_DAY = 0;
   private static final int BUCKET_OVERDUE = 1;
@@ -291,6 +300,75 @@ public class ProjectActionServlet extends ClientServlet {
           ProjectActionNext movedAction = moveCompletingActionWithinBucket(appReq, dataSession, 1);
           if (movedAction != null) {
             completingAction = movedAction;
+            appReq.setCompletingAction(completingAction);
+          }
+        } else if (action.equals(ACTION_BULK_IMPORT)) {
+          String bulkImportText = request.getParameter(PARAM_BULK_IMPORT_TEXT);
+          if (bulkImportText != null && !bulkImportText.trim().isEmpty()) {
+            String[] lines = bulkImportText.split("\\r?\\n");
+            for (String line : lines) {
+              String sentence = line == null ? "" : line.trim();
+              if (sentence.isEmpty()) {
+                continue;
+              }
+              saveNewAction(webUser, dataSession, completingAction, projectList, editProjectAction, null,
+                  sentence, false);
+            }
+            if (project != null) {
+              projectActionTakenList = getProjectActionsTakenList(dataSession, project);
+              projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
+            }
+          }
+        } else if (action.equals(ACTION_WORK_NEXT)) {
+          String workStatus = n(request.getParameter(PARAM_WORK_STATUS));
+          if (workStatus.length() == 0) {
+            workStatus = WORK_STATUS_COMPLETE;
+          }
+          String followUpText = request.getParameter(PARAM_WORK_FOLLOW_UP);
+          if (followUpText != null) {
+            followUpText = followUpText.trim();
+          }
+          boolean hasFollowUp = followUpText != null && followUpText.length() > 0;
+          if (WORK_STATUS_BLOCKED.equals(workStatus) && !hasFollowUp) {
+            // blocked requires a follow-up action; no-op and render form again
+          } else {
+            ProjectActionNext actionToWork = editProjectAction != null ? editProjectAction : completingAction;
+            ProjectActionNext followUpAction = null;
+            if (hasFollowUp) {
+              SaveNewActionResult saveNewActionResult = saveNewAction(webUser, dataSession, completingAction,
+                  projectList, editProjectAction, null, followUpText, false);
+              followUpAction = saveNewActionResult.getNextAction();
+            }
+
+            if (actionToWork != null) {
+              if (WORK_STATUS_COMPLETE.equals(workStatus)) {
+                closeAction(appReq, actionToWork, actionToWork.getProject(), actionToWork.getNextSummary(),
+                    ProjectNextActionStatus.COMPLETED);
+              } else if (WORK_STATUS_DELETE.equals(workStatus)) {
+                closeAction(appReq, actionToWork, actionToWork.getProject(), "", ProjectNextActionStatus.CANCELLED);
+              } else if (WORK_STATUS_BLOCKED.equals(workStatus) && followUpAction != null) {
+                Transaction blockTrans = dataSession.beginTransaction();
+                actionToWork.setBlockedBy(followUpAction);
+                actionToWork.setNextActionDate(null);
+                actionToWork.setNextChangeDate(new Date());
+                dataSession.update(actionToWork);
+                blockTrans.commit();
+              }
+            }
+
+            projectActionTakenList = getProjectActionsTakenList(dataSession, project);
+            projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
+
+            int actionToWorkId = actionToWork == null ? 0 : actionToWork.getActionNextId();
+            if (WORK_STATUS_BLOCKED.equals(workStatus)
+                && followUpAction != null
+                && followUpAction.getNextActionDate() != null
+                && webUser.isToday(followUpAction.getNextActionDate())) {
+              completingAction = followUpAction;
+            } else {
+              completingAction = selectNextActionForWorkFlow(webUser, dataSession, showWork, showPersonal,
+                  actionToWorkId);
+            }
             appReq.setCompletingAction(completingAction);
           }
         } else {
@@ -1025,6 +1103,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("</form>");
 
     printAddNoteForm(out, project, completingAction);
+    printBulkImportForm(out, project, completingAction);
 
     printEditProjectActionForm(appReq, completingAction, projectContactList, formName, formNameSet, project,
         projectList);
@@ -1179,6 +1258,38 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" value=\"Add Note\"/>");
+    out.println("</span>");
+    out.println("</form>");
+    out.println("</div>");
+    out.println("<script>");
+    out.println("document.addEventListener('keydown', function(event) {");
+    out.println("  if (event.key === 'Escape') {");
+    out.println("    const formDialog = document.getElementById('formDialog" + formName + "');");
+    out.println("    if (formDialog != null && formDialog.style.display === 'flex') {");
+    out.println("      formDialog.style.display = 'none';");
+    out.println("    }");
+    out.println("  }");
+    out.println("});");
+    out.println("</script>");
+  }
+
+  private void printBulkImportForm(PrintWriter out, Project project, ProjectActionNext completingAction) {
+    String formName = "BulkImport" + completingAction.getActionNextId();
+    out.println("<div id=\"formDialog" + formName + "\" class=\"dialog\">");
+    out.println("<form method=\"post\" action=\"ProjectActionServlet\" class=\"editForm\">");
+    out.println(
+        "<span class=\"right\"><a href=\"javascript: void(0);\" class=\"edit-link\" onclick=\"document.getElementById('formDialog"
+            + formName + "').style.display='none';\">&times;</a></span>");
+    out.println("<h3>Bulk Import</h3>");
+    out.println("<textarea name=\"" + PARAM_BULK_IMPORT_TEXT + "\" rows=\"12\" autofocus></textarea>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_PROJECT_ID + "\" value=\"" + project.getProjectId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
+        + completingAction.getActionNextId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_NEXT_ID + "\" value=\""
+        + completingAction.getActionNextId() + "\"/>");
+    out.println("<input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_BULK_IMPORT + "\"/>");
+    out.println("<br/><span class=\"right\">");
+    out.println("<input type=\"submit\" value=\"Import\"/>");
     out.println("</span>");
     out.println("</form>");
     out.println("</div>");
@@ -2794,24 +2905,13 @@ public class ProjectActionServlet extends ClientServlet {
         + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
     String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
         + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
-    boolean canMoveUp = canMoveCompletionOrder(appReq, completingAction, -1);
-    boolean canMoveDown = canMoveCompletionOrder(appReq, completingAction, 1);
-    out.println("<h3>" + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + "</h3>");
+    String timeString = getTimeString(appReq, completingAction);
+    out.println("<h3>" + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact())
+        + (timeString.isEmpty() ? ""
+            : " <span class=\"float-right\" style=\"font-size: 14px;\">" + timeString + "</span>")
+        + " <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
+        + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a></h3>");
     out.println("<p>" + getNextActionTitle(completingAction));
-    out.println(" <a href=\"" + postponeLink + "\" class=\"edit-link\">Postpone</a>");
-    if (canMoveUp) {
-      out.println(" <a href=\"" + moveUpLink + "\" class=\"edit-link\" title=\"Move up\">&uarr;</a>");
-    }
-    if (canMoveDown) {
-      out.println(" <a href=\"" + moveDownLink + "\" class=\"edit-link\" title=\"Move down\">&darr;</a>");
-    }
-    if (!completingAction.isBillable()) {
-      out.println(" <a href=\"" + morningLink + "\" class=\"edit-link\">Morning</a>");
-      out.println(" <a href=\"" + afternoonLink + "\" class=\"edit-link\">Afternoon</a>");
-      out.println(" <a href=\"" + eveningLink + "\" class=\"edit-link\">Evening</a>");
-    }
-    out.println(" <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
-        + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a>");
     if (completingAction.getLinkUrl() != null && completingAction.getLinkUrl().length() > 0) {
       out.println("<br/>Link: <a href=\"" + completingAction.getLinkUrl() + "\" target=\"_blank\">"
           + trim(completingAction.getLinkUrl(), 40) + "</a>");
@@ -2843,31 +2943,40 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("</ul>");
     }
-    out.println("<h3>Notes");
-    String timeString = getTimeString(appReq, completingAction);
-    if (!timeString.isEmpty()) {
-      out.println(
-          "<span class=\"float-right\" style=\"font-size: 14px;\">" + timeString + "</span>");
-    }
-    out.println("</h3>");
+    out.println("<h3>Notes</h3>");
     if (completingAction.getNextNotes() != null) {
       out.println(convertToHtmlList(completingAction.getNextNotes()));
     }
     out.println("<a href=\"javascript: void(0);\" onclick=\"document.getElementById('formDialogAddNote"
         + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Add Note</a>");
 
-    out.println("<h3>Summary</h3>");
-    out.println("<textarea name=\"nextSummary\" rows=\"12\">"
-        + n(completingAction.getNextSummary()) + "</textarea>");
-    printSendEmailSelection(out, formName, projectContactList);
-    out.println("<br/><span class=\"right\">");
+    out.println("<h3>Work Action</h3>");
+    out.println("<input type=\"text\" id=\"workProgressInput\" name=\"nextSummary\" value=\""
+        + escapeHtml(n(completingAction.getNextSummary())) + "\" style=\"width: 100%;\" autofocus/>");
+    out.println("<div style=\"margin-top: 8px;\">");
+    out.println("  <label><input type=\"radio\" name=\"" + PARAM_WORK_STATUS + "\" value=\""
+        + WORK_STATUS_IN_PROGRESS + "\"/> In Progress</label>");
+    out.println("  <label style=\"margin-left: 12px;\"><input type=\"radio\" name=\"" + PARAM_WORK_STATUS
+        + "\" value=\"" + WORK_STATUS_COMPLETE + "\" checked/> Complete</label>");
+    out.println("  <label style=\"margin-left: 12px;\"><input type=\"radio\" name=\"" + PARAM_WORK_STATUS
+        + "\" value=\"" + WORK_STATUS_DELETE + "\"/> Delete</label>");
+    out.println("  <label style=\"margin-left: 12px;\"><input type=\"radio\" name=\"" + PARAM_WORK_STATUS
+        + "\" value=\"" + WORK_STATUS_BLOCKED + "\"/> Blocked</label>");
+    out.println("</div>");
+    out.println("<div style=\"margin-top: 8px;\">");
+    out.println("  <span id=\"workFollowUpPrefix\">Next</span>");
+    out.println("  <input type=\"text\" id=\"workFollowUpInput\" name=\"" + PARAM_WORK_FOLLOW_UP
+        + "\" style=\"width: 70%; margin-left: 8px;\" autocomplete=\"off\"/>");
+    out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_WORK_NEXT
+        + "\" style=\"margin-left: 8px;\">Next</button>");
+    out.println("  <div id=\"workSuggestions\" style=\"display:none;\"></div>");
+    out.println("</div>");
+    printWorkActionScript(out);
+
     out.println("<input type=\"hidden\" name=\"" + PARAM_COMPLETING_ACTION_NEXT_ID + "\" value=\""
         + completingAction.getActionNextId() + "\"/>");
     out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_NEXT_ID + "\" value=\""
         + completingAction.getActionNextId() + "\"/>");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_COMPLETED + "\"/>");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\"/>");
-    out.println("</span>");
     out.println("<h3>Next Action</h3>");
     out.println("<div class=\"input-container\">");
     out.println(
@@ -2881,6 +2990,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_START + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_BLOCK + "\"/>");
     out.println("</span>");
+    out.println("<br/><a href=\"javascript: void(0);\" onclick=\"document.getElementById('formDialogBulkImport"
+        + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Bulk Import</a>");
   }
 
   private void printScriptForSuggestions(PrintWriter out, List<Project> projectList) {
@@ -2998,6 +3109,82 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("});");
     out.println("");
     out.println("      </script>");
+  }
+
+  private void printWorkActionScript(PrintWriter out) {
+    out.println("<script>");
+    out.println("(function() {");
+    out.println("  const prefix = document.getElementById('workFollowUpPrefix');");
+    out.println("  const followUpInput = document.getElementById('workFollowUpInput');");
+    out.println("  const suggestionsBox = document.getElementById('workSuggestions');");
+    out.println(
+        "  const actionVerbs = ['I will', 'I have committed', 'I might', 'I will meet', 'I have set goal to', 'I am waiting'];");
+    out.println("  const dateSuggestions = ['today', 'tomorrow', 'Monday', 'next Monday'];");
+    out.println("  const statusInputs = document.querySelectorAll('input[name=\"" + PARAM_WORK_STATUS + "\"]');");
+    out.println("  const nextButton = document.querySelector('button[name=\"" + PARAM_ACTION + "\"][value=\""
+        + ACTION_WORK_NEXT + "\"]');");
+    out.println("  function showSuggestions(items) {");
+    out.println("    if (!suggestionsBox) { return; }");
+    out.println("    suggestionsBox.innerHTML = ''; ");
+    out.println("    if (!items || items.length === 0) { suggestionsBox.style.display = 'none'; return; }");
+    out.println("    suggestionsBox.style.display = 'block';");
+    out.println("    items.forEach(function(item) {");
+    out.println("      const div = document.createElement('div');");
+    out.println("      div.textContent = item;");
+    out.println("      div.style.cursor = 'pointer';");
+    out.println("      div.onclick = function() {");
+    out.println("        if (followUpInput) {");
+    out.println("          const text = followUpInput.value.trim();");
+    out.println("          const hasVerb = actionVerbs.some(function(v) { return text.startsWith(v); });");
+    out.println("          if (!hasVerb && actionVerbs.indexOf(item) >= 0) { followUpInput.value = item + ' '; }");
+    out.println("          else if (text.length > 0) { followUpInput.value = text + ' ' + item; }");
+    out.println("          else { followUpInput.value = item; }");
+    out.println("          followUpInput.focus();");
+    out.println("        }");
+    out.println("        suggestionsBox.style.display = 'none';");
+    out.println("      }; ");
+    out.println("      suggestionsBox.appendChild(div);");
+    out.println("    });");
+    out.println("  }");
+    out.println("  if (followUpInput) {");
+    out.println("    followUpInput.addEventListener('input', function() {");
+    out.println("      const text = followUpInput.value.trim();");
+    out.println("      if (text.length === 0) { showSuggestions(actionVerbs); return; }");
+    out.println("      const lower = text.toLowerCase();");
+    out.println(
+        "      const verbMatches = actionVerbs.filter(function(v) { return v.toLowerCase().startsWith(lower); });");
+    out.println("      if (verbMatches.length > 0) { showSuggestions(verbMatches); return; }");
+    out.println(
+        "      const dateMatches = dateSuggestions.filter(function(d) { return d.toLowerCase().startsWith(lower.split(' ').slice(-1)[0]); });");
+    out.println("      showSuggestions(dateMatches);");
+    out.println("    });");
+    out.println("    followUpInput.addEventListener('blur', function() {");
+    out.println(
+        "      setTimeout(function() { if (suggestionsBox) { suggestionsBox.style.display = 'none'; } }, 150);");
+    out.println("    });");
+    out.println("  }");
+    out.println("  function refreshPrefix() {");
+    out.println("    let selected = '" + WORK_STATUS_COMPLETE + "';");
+    out.println("    statusInputs.forEach(function(input) { if (input.checked) { selected = input.value; } });");
+    out.println("    if (selected === '" + WORK_STATUS_IN_PROGRESS + "') { prefix.textContent = 'Also'; }");
+    out.println("    else if (selected === '" + WORK_STATUS_BLOCKED + "') { prefix.textContent = 'First'; }");
+    out.println("    else { prefix.textContent = 'Next'; }");
+    out.println("  }");
+    out.println("  statusInputs.forEach(function(input) { input.addEventListener('change', refreshPrefix); });");
+    out.println("  refreshPrefix();");
+    out.println("  if (nextButton) {");
+    out.println("    nextButton.addEventListener('click', function(event) {");
+    out.println("      let selected = '" + WORK_STATUS_COMPLETE + "';");
+    out.println("      statusInputs.forEach(function(input) { if (input.checked) { selected = input.value; } });");
+    out.println("      if (selected === '" + WORK_STATUS_BLOCKED
+        + "' && (!followUpInput || followUpInput.value.trim() === '')) {");
+    out.println("        event.preventDefault();");
+    out.println("        if (followUpInput) { followUpInput.focus(); }");
+    out.println("      }");
+    out.println("    });");
+    out.println("  }");
+    out.println("})();");
+    out.println("</script>");
   }
 
   private static String convertToHtmlList(String input) {
@@ -3272,6 +3459,19 @@ public class ProjectActionServlet extends ClientServlet {
     }
     sortProjectActionListByCompletionOrder(orderedList);
     return orderedList.get(0);
+  }
+
+  private ProjectActionNext selectNextActionForWorkFlow(WebUser webUser, Session dataSession,
+      boolean showWork, boolean showPersonal, int excludeActionNextId) {
+    List<ProjectActionNext> projectActionDueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+    projectActionDueTodayList = filterProjectActionList(projectActionDueTodayList, showWork, showPersonal);
+    List<ProjectActionNext> projectActionOverdueList = getProjectActionListForToday(webUser, dataSession, -1);
+    projectActionOverdueList = filterProjectActionList(projectActionOverdueList, showWork, showPersonal);
+    if (excludeActionNextId > 0) {
+      projectActionDueTodayList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
+      projectActionOverdueList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
+    }
+    return selectNextAction(projectActionOverdueList, projectActionDueTodayList);
   }
 
   private static List<ProjectActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
