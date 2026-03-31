@@ -2,8 +2,12 @@ package org.openimmunizationsoftware.pt.student.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -13,9 +17,13 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.WeUserDependencyDao;
+import org.openimmunizationsoftware.pt.manager.MailManager;
+import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.GamePointLedger;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.StudentOffer;
+import org.openimmunizationsoftware.pt.model.WeUserDependency;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class StudentStoreServlet extends StudentBaseServlet {
@@ -60,7 +68,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
             Integer studentOfferId = parseInteger(request.getParameter(PARAM_STUDENT_OFFER_ID));
             if (action != null && studentOfferId != null) {
                 if (ACTION_BUY.equals(action)) {
-                    handleBuy(webUser, studentOfferId.intValue(), dataSession);
+                    handleBuy(request, webUser, studentOfferId.intValue(), dataSession);
                 } else if (ACTION_RETURN.equals(action)) {
                     handleReturn(webUser, studentOfferId.intValue(), dataSession);
                 }
@@ -170,7 +178,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
 
     private List<StudentOffer> listOffersByStatus(WebUser webUser, Session dataSession, String status) {
         Query query = dataSession.createQuery(
-            "from StudentOffer so where so.contact.contactId = :contactId and so.status = :status order by coalesce(so.pricePoints, 0) asc, so.updatedDate desc, so.studentOfferId desc");
+                "from StudentOffer so where so.contact.contactId = :contactId and so.status = :status order by coalesce(so.pricePoints, 0) asc, so.updatedDate desc, so.studentOfferId desc");
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", status);
         @SuppressWarnings("unchecked")
@@ -178,7 +186,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
         return list;
     }
 
-    private void handleBuy(WebUser webUser, int studentOfferId, Session dataSession) {
+    private void handleBuy(HttpServletRequest request, WebUser webUser, int studentOfferId, Session dataSession) {
         StudentOffer offer = (StudentOffer) dataSession.get(StudentOffer.class, studentOfferId);
         if (offer == null || offer.getContact() == null
                 || offer.getContact().getContactId() != webUser.getContactId()) {
@@ -212,9 +220,91 @@ public class StudentStoreServlet extends StudentBaseServlet {
             offer.setUpdatedDate(new Date());
             dataSession.update(offer);
             trans.commit();
+
+            sendGuardianPurchaseEmail(request, webUser, offer, dataSession);
         } catch (RuntimeException e) {
             trans.rollback();
             throw e;
+        }
+    }
+
+    private void sendGuardianPurchaseEmail(HttpServletRequest request, WebUser studentUser,
+            StudentOffer offer, Session dataSession) {
+        WeUserDependencyDao dependencyDao = new WeUserDependencyDao(dataSession);
+        List<WeUserDependency> dependencyList = dependencyDao
+                .listByDependentWebUserId(studentUser.getWebUserId());
+        if (dependencyList == null || dependencyList.isEmpty()) {
+            return;
+        }
+
+        String studentName = (n(studentUser.getFirstName()) + " " + n(studentUser.getLastName())).trim();
+        if (studentName.equals("")) {
+            studentName = n(studentUser.getEmailAddress());
+        }
+
+        String offerTitle = n(offer.getTitle());
+        int price = Math.max(0, intValue(offer.getPricePoints()));
+        String subject = "Dandelion: Student Store Purchase";
+
+        MailManager mailManager = new MailManager(dataSession);
+        Set<String> emailedAddresses = new HashSet<String>();
+
+        for (WeUserDependency dependency : dependencyList) {
+            if (dependency == null || !"active".equalsIgnoreCase(n(dependency.getDependencyStatus()))) {
+                continue;
+            }
+            WebUser guardianUser = dependency.getGuardianWebUser();
+            if (guardianUser == null) {
+                continue;
+            }
+            String toEmail = n(guardianUser.getEmailAddress()).trim();
+            if (toEmail.equals("")) {
+                continue;
+            }
+            String addressKey = toEmail.toLowerCase();
+            if (emailedAddresses.contains(addressKey)) {
+                continue;
+            }
+
+            String storeUrl = buildGuardianStoreUrl(request, dataSession, dependency.getDependencyId());
+            String body = "<p>" + escapeHtml(studentName)
+                    + " just bought an item in the Student Store.</p>"
+                    + "<p>Item: <strong>" + escapeHtml(offerTitle) + "</strong><br/>"
+                    + "Price: <strong>" + price + " points</strong></p>"
+                    + "<p><a href=\"" + storeUrl
+                    + "\">Review this dependent account's Student Store</a></p>";
+
+            try {
+                mailManager.sendEmail(subject, body, toEmail);
+                emailedAddresses.add(addressKey);
+            } catch (Exception e) {
+                // Purchase should not fail if email cannot be sent.
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private String buildGuardianStoreUrl(HttpServletRequest request, Session dataSession, int dependencyId) {
+        String externalUrl = TrackerKeysManager.getApplicationKeyValue(
+                TrackerKeysManager.KEY_SYSTEM_EXTERNAL_URL, "", dataSession);
+        String base;
+        if (externalUrl == null || externalUrl.trim().isEmpty()) {
+            String requestUrl = request.getRequestURL().toString();
+            String servletPath = request.getServletPath();
+            int idx = requestUrl.indexOf(servletPath);
+            String rootUrl = idx > 0 ? requestUrl.substring(0, idx + 1) : requestUrl;
+            base = rootUrl + "StudentStoreServlet";
+        } else {
+            String norm = externalUrl.trim();
+            if (!norm.endsWith("/")) {
+                norm += "/";
+            }
+            base = norm + "StudentStoreServlet";
+        }
+        try {
+            return base + "?dependencyId=" + URLEncoder.encode(String.valueOf(dependencyId), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            return base + "?dependencyId=" + dependencyId;
         }
     }
 
