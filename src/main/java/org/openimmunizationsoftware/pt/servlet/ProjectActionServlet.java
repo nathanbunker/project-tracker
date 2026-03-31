@@ -111,7 +111,6 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_BULK_IMPORT = "BulkImport";
   private static final String ACTION_SCHEDULE = "Schedule";
   private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
-  private static final String ACTION_SCHEDULE_AND_BLOCK = "Schedule and Block";
   private static final String ACTION_SAVE = "Save";
   private static final String ACTION_DELETE = "Delete";
   private static final String ACTION_START = "Start";
@@ -204,7 +203,7 @@ public class ProjectActionServlet extends ClientServlet {
       ProjectActionNext unblockedAction = null;
       ProjectActionNext editProjectAction = readEditProjectAction(appReq);
       if (sentenceInput != null && !sentenceInput.trim().isEmpty()) {
-        boolean completeCurrentActionWhenSummary = !ACTION_SCHEDULE_AND_BLOCK.equals(action);
+        boolean completeCurrentActionWhenSummary = true;
         SaveNewActionResult saveNewActionResult = saveNewAction(webUser, dataSession, completingAction, projectList,
             editProjectAction,
             nextAction,
@@ -217,16 +216,6 @@ public class ProjectActionServlet extends ClientServlet {
           }
           if (action.equals(ACTION_SCHEDULE_AND_START)) {
             completingAction = nextAction;
-          } else if (action.equals(ACTION_SCHEDULE_AND_BLOCK) && completingAction != null) {
-            ProjectActionNext actionToBlock = editProjectAction != null ? editProjectAction : completingAction;
-            Transaction blockTrans = dataSession.beginTransaction();
-            actionToBlock.setBlockedBy(nextAction);
-            actionToBlock.setNextActionDate(null);
-            actionToBlock.setNextChangeDate(new Date());
-            dataSession.update(actionToBlock);
-            blockTrans.commit();
-            completingAction = nextAction;
-            appReq.setCompletingAction(completingAction);
           } else if (action.equals(ACTION_SCHEDULE)
               && completingAction != null
               && completingAction.getNextActionStatus() == ProjectNextActionStatus.COMPLETED) {
@@ -746,10 +735,58 @@ public class ProjectActionServlet extends ClientServlet {
     return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
   }
 
+  private static class UrlExtractionResult {
+    String cleanedText;
+    String extractedUrl;
+
+    UrlExtractionResult(String cleanedText, String extractedUrl) {
+      this.cleanedText = cleanedText;
+      this.extractedUrl = extractedUrl;
+    }
+  }
+
+  private UrlExtractionResult extractAndRemoveUrl(String text) {
+    if (text == null || text.isEmpty()) {
+      return new UrlExtractionResult(text, null);
+    }
+
+    // Look for https:// in the text
+    int urlStartIndex = text.indexOf("https://");
+    if (urlStartIndex == -1) {
+      return new UrlExtractionResult(text, null);
+    }
+
+    // Find the end of the URL (first space or end of string)
+    int urlEndIndex = text.indexOf(' ', urlStartIndex);
+    if (urlEndIndex == -1) {
+      // URL goes to end of string
+      urlEndIndex = text.length();
+    }
+
+    // Extract the URL
+    String extractedUrl = text.substring(urlStartIndex, urlEndIndex);
+
+    // Remove the URL from the text
+    String cleanedText = text.substring(0, urlStartIndex) + text.substring(urlEndIndex);
+
+    // Clean up extra spaces: trim and normalize internal spaces
+    cleanedText = cleanedText.trim();
+    // Replace multiple spaces with single space
+    cleanedText = cleanedText.replaceAll("\\s+", " ");
+
+    return new UrlExtractionResult(cleanedText, extractedUrl);
+  }
+
   private SaveNewActionResult saveNewAction(WebUser webUser, Session dataSession,
       ProjectActionNext completingAction, List<Project> projectList, ProjectActionNext editProjectAction,
       ProjectActionNext nextAction, String sentenceInput, boolean completeCurrentActionWhenSummary) {
     SaveNewActionResult saveNewActionResult = new SaveNewActionResult();
+
+    // Extract URL from sentence if present
+    UrlExtractionResult urlResult = extractAndRemoveUrl(sentenceInput);
+    String extractedUrl = urlResult.extractedUrl;
+    sentenceInput = urlResult.cleanedText;
+
     String projectName = "";
     String actionPart = sentenceInput;
     String[] parts = sentenceInput.split(":", 2);
@@ -903,6 +940,10 @@ public class ProjectActionServlet extends ClientServlet {
     nextAction.setProvider(webUser.getProvider());
     nextAction.setContact(webUser.getProjectContact());
     nextAction.setBillable(resolveBillable(dataSession, foundProject));
+    // Set the extracted URL if one was found
+    if (extractedUrl != null && !extractedUrl.isEmpty()) {
+      nextAction.setLinkUrl(extractedUrl);
+    }
     defaultPersonalTimeSlot(nextAction);
     if (nextAction.getNextActionStatus() == null) {
       if (nextAction.hasNextDescription()) {
@@ -2911,7 +2952,7 @@ public class ProjectActionServlet extends ClientServlet {
             : " <span class=\"float-right\" style=\"font-size: 14px;\">" + timeString + "</span>")
         + " <a href=\"javascript: void(0); \" onclick=\" document.getElementById('formDialog"
         + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Edit</a></h3>");
-    out.println("<p>" + getNextActionTitle(completingAction));
+    out.println("<p>" + getNextActionTitle(webUser, completingAction));
     if (completingAction.getLinkUrl() != null && completingAction.getLinkUrl().length() > 0) {
       out.println("<br/>Link: <a href=\"" + completingAction.getLinkUrl() + "\" target=\"_blank\">"
           + trim(completingAction.getLinkUrl(), 40) + "</a>");
@@ -2943,14 +2984,13 @@ public class ProjectActionServlet extends ClientServlet {
       }
       out.println("</ul>");
     }
-    out.println("<h3>Notes</h3>");
     if (completingAction.getNextNotes() != null) {
       out.println(convertToHtmlList(completingAction.getNextNotes()));
     }
     out.println("<a href=\"javascript: void(0);\" onclick=\"document.getElementById('formDialogAddNote"
         + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Add Note</a>");
 
-    out.println("<h3>Work Action</h3>");
+    out.println("<p>What action was taken:</p>");
     out.println("<input type=\"text\" id=\"workProgressInput\" name=\"nextSummary\" value=\""
         + escapeHtml(n(completingAction.getNextSummary())) + "\" style=\"width: 100%;\" autofocus/>");
     out.println("<div style=\"margin-top: 8px;\">");
@@ -2977,7 +3017,7 @@ public class ProjectActionServlet extends ClientServlet {
         + completingAction.getActionNextId() + "\"/>");
     out.println("<input type=\"hidden\" name=\"" + PARAM_EDIT_ACTION_NEXT_ID + "\" value=\""
         + completingAction.getActionNextId() + "\"/>");
-    out.println("<h3>Next Action</h3>");
+    out.println("<h3>Other Project Action</h3>");
     out.println("<div class=\"input-container\">");
     out.println(
         "<input type=\"text\" id=\"sentenceInput\" name=\"" + PARAM_SENTENCE_INPUT
@@ -2988,7 +3028,6 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE + "\"/>");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_START + "\"/>");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SCHEDULE_AND_BLOCK + "\"/>");
     out.println("</span>");
     out.println("<br/><a href=\"javascript: void(0);\" onclick=\"document.getElementById('formDialogBulkImport"
         + completingAction.getActionNextId() + "').style.display = 'flex';\" class=\"edit-link\">Bulk Import</a>");
@@ -3241,7 +3280,7 @@ public class ProjectActionServlet extends ClientServlet {
     return timeString;
   }
 
-  private String getNextActionTitle(ProjectActionNext completingAction) {
+  private String getNextActionTitle(WebUser webUser, ProjectActionNext completingAction) {
     String title = "Action to take";
     ProjectNextActionStatus nextActionStatus = completingAction.getNextActionStatus();
     if (nextActionStatus == null) {
@@ -3252,7 +3291,13 @@ public class ProjectActionServlet extends ClientServlet {
         title = "Proposed";
         break;
       case READY:
-        title = "Scheduled today";
+        if (completingAction.getNextActionDate() != null && webUser.isToday(completingAction.getNextActionDate())) {
+          title = "";
+        } else if (completingAction.getNextActionDate() != null) {
+          title = "Scheduled " + webUser.getDateFormat().format(completingAction.getNextActionDate());
+        } else {
+          title = "Scheduled";
+        }
         break;
       case COMPLETED:
         title = "Completed";
