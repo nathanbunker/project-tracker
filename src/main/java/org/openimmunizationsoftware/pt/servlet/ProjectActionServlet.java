@@ -27,7 +27,6 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
-import org.openimmunizationsoftware.pt.manager.ChatAgent;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
@@ -47,7 +46,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 
 import com.fasterxml.jackson.core.exc.StreamWriteException;
 import com.fasterxml.jackson.databind.DatabindException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -105,8 +103,6 @@ public class ProjectActionServlet extends ClientServlet {
   protected static final String ACTION_START_TIMER = "StartTimer";
   private static final String ACTION_STOP_TIMER = "StopTimer";
   private static final String ACTION_NOTE = "Note";
-  private static final String ACTION_PROPOSE = "Propose";
-  private static final String ACTION_FEEDBACK = "Feedback";
   private static final String ACTION_COMPLETED = "Completed";
   private static final String ACTION_SCHEDULE = "Schedule";
   private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
@@ -115,7 +111,6 @@ public class ProjectActionServlet extends ClientServlet {
   private static final String ACTION_DELETE = "Delete";
   private static final String ACTION_START = "Start";
   private static final String ACTION_REFRESH_TIME = "RefreshTime";
-  private static final String ACTION_SUGGEST = "Suggest";
   private static final String ACTION_POSTPONE_NEXT_WORKING_DAY = "PostponeNextWorkingDay";
   private static final String ACTION_MOVE_TO_CURRENT_WORKING_DAY = "MoveToCurrentWorkingDay";
   private static final String ACTION_RESCHEDULE_FROM_FORM = "RescheduleFromForm";
@@ -139,7 +134,6 @@ public class ProjectActionServlet extends ClientServlet {
   private static final int BUCKET_OTHER = 11;
 
   private static final String LIST_START = " - ";
-  private static final String SYSTEM_INSTRUCTIONS = "You are a helpful assistant tasked with helping a professional report about progress that is being made on a project.";
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -189,7 +183,6 @@ public class ProjectActionServlet extends ClientServlet {
         }
       }
 
-      List<ChatAgent> chatAgentList = new ArrayList<ChatAgent>();
       List<Project> projectList = getProjectList(webUser, dataSession);
 
       if (completingAction != null) {
@@ -249,8 +242,6 @@ public class ProjectActionServlet extends ClientServlet {
         projectActionScheduledList = getAllProjectActionsScheduledList(appReq, project, dataSession);
       }
 
-      String nextSuggest = null;
-
       if (action != null) {
         if (action.equals(ACTION_START_TIMER)) {
           startTimer(appReq, dataSession, completingAction);
@@ -302,13 +293,6 @@ public class ProjectActionServlet extends ClientServlet {
             completingAction = movedAction;
             appReq.setCompletingAction(completingAction);
           }
-        } else if (action.equals(ACTION_PROPOSE)) {
-          chatPropose(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
-        } else if (action.equals(ACTION_FEEDBACK)) {
-          chatFeedback(appReq, completingAction, chatAgentList, projectActionTakenList, projectActionScheduledList);
-        } else if (action.equals(ACTION_SUGGEST)) {
-          nextSuggest = chatNext(appReq, completingAction, chatAgentList, projectActionTakenList,
-              projectActionScheduledList);
         } else {
           if (action.equals(ACTION_COMPLETED) && nextAction == null) {
             ProjectNextActionStatus nextActionStatus = ProjectNextActionStatus.COMPLETED;
@@ -478,10 +462,6 @@ public class ProjectActionServlet extends ClientServlet {
         out.println("<div id=\"actionNext\">");
         printActionsNext(appReq, project, projectContactList, projectList, projectActionTakenList,
             projectActionScheduledList, formNameSet);
-        if (nextSuggest != null) {
-          out.println("<h3>Suggested Next Actions</h3>");
-          out.println(nextSuggest);
-        }
         out.println("</div>");
 
         // ------------------------------------------------------------------------------
@@ -585,24 +565,6 @@ public class ProjectActionServlet extends ClientServlet {
         out.println("</div>");
       }
 
-      for (ChatAgent chatAgent : chatAgentList) {
-        if (chatAgent != null) {
-          out.println("<h2>" + chatAgent.getTitle() + " Chat Log</h2>");
-          out.println("<h3>Request</h3>");
-          out.println("<pre>" + chatAgent.getRawRequestBody() + "</pre>");
-          out.println("<h3>Response</h3>");
-          out.println("<pre>" + chatAgent.getRawResponseBody() + "</pre>");
-          if (chatAgent.getResponseText() != null) {
-            out.println("<h3>Response Text</h3>");
-            out.println("<p>" + chatAgent.getResponseText() + "</p>");
-          }
-          if (chatAgent.getResponseError() != null) {
-            out.println("<h3>Error</h3>");
-            out.println("<p>" + chatAgent.getResponseError() + "</p>");
-          }
-        }
-
-      }
       printHtmlFoot(appReq);
 
     } catch (Exception e) {
@@ -1097,13 +1059,6 @@ public class ProjectActionServlet extends ClientServlet {
       }
     }
     out.println("<button id=\"editButton0\" type=\"button\">Add Action</button>");
-    {
-      String link = "ProjectActionServlet?" + PARAM_PROJECT_ID + "=" + project.getProjectId() + "&" + PARAM_ACTION
-          + "=" + ACTION_SUGGEST;
-      // print out button that will use link
-      out.println("<button id=\"suggestButton0\" type=\"button\" onclick=\"window.location.href='" + link
-          + "'\">Suggest</button>");
-    }
 
     List<String> dateLabelList = new ArrayList<String>();
     Map<String, List<ProjectActionNext>> projectActionMap = new HashMap<String, List<ProjectActionNext>>();
@@ -2052,184 +2007,6 @@ public class ProjectActionServlet extends ClientServlet {
         || bucket == BUCKET_MIGHT;
   }
 
-  private void chatPropose(AppReq appReq, ProjectActionNext completingAction, List<ChatAgent> chatAgentList,
-      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
-
-    String proposePrompt = getProposePrompt(completingAction, appReq, projectActionTakenList,
-        projectActionScheduledList);
-
-    ChatAgent chatAgent = null;
-    chatAgent = new ChatAgent("Propose", SYSTEM_INSTRUCTIONS);
-    chatAgent.chat(proposePrompt);
-    chatAgentList.add(chatAgent);
-
-    if (chatAgent.hasResponse()) {
-      WebUser webUser = appReq.getWebUser();
-      String likelyDatePrefix1 = webUser.getDateFormatService().formatTransportDate(new Date(), webUser.getTimeZone());
-      String likelyDatePrefix2 = "- " + likelyDatePrefix1;
-      String chatGPTResponse = chatAgent.getResponseText();
-      String nextSummary;
-      if (chatGPTResponse.startsWith(likelyDatePrefix1)) {
-        nextSummary = chatGPTResponse.substring(likelyDatePrefix1.length()).trim();
-      } else if (chatGPTResponse.startsWith(likelyDatePrefix2)) {
-        nextSummary = chatGPTResponse.substring(likelyDatePrefix2.length()).trim();
-      } else {
-        nextSummary = chatGPTResponse;
-      }
-      completingAction.setNextSummary(nextSummary);
-    }
-  }
-
-  private void chatFeedback(AppReq appReq, ProjectActionNext completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectActionTaken> projectActionTakenList,
-      List<ProjectActionNext> projectActionScheduledList) {
-
-    String feedbackPrompt = getFeedbackPrompt(completingAction, appReq, projectActionTakenList,
-        projectActionScheduledList);
-
-    ChatAgent chatAgent = null;
-    chatAgent = new ChatAgent("Feedback", SYSTEM_INSTRUCTIONS);
-    chatAgent.setResponseFormat(ChatAgent.RESPONSE_FORMAT_JSON);
-    chatAgent.chat(feedbackPrompt);
-    if (chatAgent.hasResponse()) {
-      try {
-        String json = chatAgent.getResponseText();
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode jsonNode = mapper.readTree(json);
-        String nextFeedback = jsonNode.get("html").asText();
-        // set on Project Action and save
-        if (nextFeedback != null) {
-          Session dataSession = appReq.getDataSession();
-          completingAction.setNextFeedback(nextFeedback);
-          Transaction transaction = dataSession.beginTransaction();
-          dataSession.update(completingAction);
-          transaction.commit();
-        }
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }
-
-  }
-
-  private String chatNext(AppReq appReq, ProjectActionNext completingAction,
-      List<ChatAgent> chatAgentList, List<ProjectActionTaken> projectActionTakenList,
-      List<ProjectActionNext> projectActionScheduledList) {
-
-    String nextPrompt = getNextPrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
-
-    String nextSuggest = null;
-    ChatAgent chatAgent = null;
-    chatAgent = new ChatAgent("Next Steps", SYSTEM_INSTRUCTIONS);
-
-    chatAgent.setResponseFormat(ChatAgent.RESPONSE_FORMAT_JSON);
-    chatAgent.chat(nextPrompt);
-    if (chatAgent.hasResponse()) {
-      try {
-
-        String json = chatAgent.getResponseText();
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode jsonNode = mapper.readTree(json);
-        nextSuggest = jsonNode.get("html").asText();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }
-    return nextSuggest;
-  }
-
-  private String getProposePrompt(ProjectActionNext completingAction, AppReq appReq,
-      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
-    WebUser webUser = appReq.getWebUser();
-
-    String proposePrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
-    proposePrompt += "The recent actions taken are previously generated summaries of actions taken for this project. "
-        + "Please create a succinct summary of what action was taken based on the next action I am working on and the next action notes I took (if any) "
-        + "while completing this action. "
-        + "Keep in mind that this summary will be added to the list of recent actions taken, so should be in the same format as the other summaries. "
-        + "Be careful to only document what has occured and do not mention what is planned to happen next. \n";
-    proposePrompt += "I will report this and the list of completed actions to my supervisor and other contacts as this action having been completed on today's date "
-        + webUser.getDateFormatService().formatTransportDate(new Date(), webUser.getTimeZone())
-        + ". Please give me only the text of the update, as it would appear after the date and no other commentary. Thanks!";
-
-    return proposePrompt;
-  }
-
-  private String getFeedbackPrompt(ProjectActionNext completingAction, AppReq appReq,
-      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
-    String feedbackPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
-    feedbackPrompt += "Please review my current summary and give me three to five questions my superisor or others might have that could help me clarify and add more detail to this update. "
-        + " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
-        + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions.. Thanks! \n";
-
-    return feedbackPrompt;
-  }
-
-  private String getNextPrompt(ProjectActionNext completingAction, AppReq appReq,
-      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
-    String nextPrompt = getBasePrompt(completingAction, appReq, projectActionTakenList, projectActionScheduledList);
-    nextPrompt += "Please review my current summary of what I accomplished and what I have accomplished in the past with this project and suggest a list "
-        + "of two or three next steps I should indicate in Dandelion. These statements should be short and should start with one of these phrases:  "
-        + "I will ..., I might ..., I have committed ..., I will meet ..., I will review ..., I will document ..., I will follow up ..., or I am waiting for ... \n\n";
-    List<ProjectActionNext> projectActionsScheduledAndCompletedList = getProjectActionsScheduledAndCompletedList(
-        appReq.getDataSession(), completingAction.getProject().getProjectId());
-    if (projectActionsScheduledAndCompletedList.size() > 0) {
-      nextPrompt += "Here are examples of steps previously taken on this project: \n";
-      for (ProjectActionNext projectAction : projectActionsScheduledAndCompletedList) {
-        nextPrompt += LIST_START + projectAction.getNextDescription() + " \n";
-      }
-    }
-    nextPrompt += " Please give this to me as a list of items for me to consider. Give this to me as list of unordered items in an HTML list. "
-        + " Send me a JSON response where the key 'html' contains the HTML code for a list of suggestions. Thanks! \n";
-    return nextPrompt;
-  }
-
-  private String getBasePrompt(ProjectActionNext completingAction, AppReq appReq,
-      List<ProjectActionTaken> projectActionTakenList, List<ProjectActionNext> projectActionScheduledList) {
-    Project project = completingAction.getProject();
-    WebUser webUser = appReq.getWebUser();
-    String basePrompt = "";
-
-    basePrompt = "I have taken action on a recent project and need to provide an update to be included in reporting to my "
-        + "supervisor and other project participants.  \n\n"
-        + "Project name: " + project.getProjectName() + " \n"
-        + "Project description: " + project.getDescription() + " \n"
-        + "Recent actions taken: \n";
-    int limit = 12;
-    for (ProjectActionTaken pa : projectActionTakenList) {
-      basePrompt += LIST_START
-          + webUser.getDateFormatService().formatTransportDate(pa.getActionDate(), webUser.getTimeZone())
-          + " " + pa.getActionDescription() + " \n";
-      limit--;
-      if (limit == 0) {
-        break;
-      }
-    }
-    if (projectActionScheduledList.size() > 1) {
-      basePrompt += "Actions scheduled in the future: \n";
-      for (ProjectActionNext projectAction : projectActionScheduledList) {
-        if (projectAction.equals(completingAction)) {
-          continue;
-        }
-        basePrompt += LIST_START
-            + webUser.getDateFormatService().formatTransportDate(projectAction.getNextActionDate(),
-                webUser.getTimeZone())
-            + " "
-            + projectAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + " \n";
-      }
-    }
-    basePrompt += "Now working on this next action: "
-        + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact()) + " \n";
-    if (completingAction.getNextNotes() != null && completingAction.getNextNotes().length() > 0) {
-      basePrompt += "Next action notes: \n" + completingAction.getNextNotes() + " \n";
-    }
-
-    if (completingAction.getNextSummary() != null && completingAction.getNextSummary().length() > 0) {
-      basePrompt += "The current summary is: \n" + completingAction.getNextSummary() + " \n";
-    }
-    return basePrompt;
-  }
-
   private void printEditProjectActionForm(AppReq appReq, ProjectActionNext editProjectAction,
       List<ProjectContact> projectContactList, String formName, Set<String> formNameSet, Project project,
       List<Project> projectList) {
@@ -3066,15 +2843,9 @@ public class ProjectActionServlet extends ClientServlet {
     if (completingAction.getNextNotes() != null) {
       out.println(convertToHtmlList(completingAction.getNextNotes()));
     }
-    if (completingAction.getNextFeedback() != null && !completingAction.getNextFeedback().equals("")) {
-      out.println("<h4>Next Step Suggestions</h4>");
-      out.println("" + completingAction.getNextFeedback() + "");
-    }
     out.println("<textarea name=\"nextNotes\" id=\"nextNotes\" rows=\"7\"></textarea>");
     out.println("<br/><span class=\"right\">");
     out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_NOTE + "\"/>");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_PROPOSE + "\"/>");
-    out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_FEEDBACK + "\"/>");
     out.println("</span>");
 
     out.println("<h3>Summary</h3>");
