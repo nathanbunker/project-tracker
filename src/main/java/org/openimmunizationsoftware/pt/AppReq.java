@@ -14,6 +14,8 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
+import org.openimmunizationsoftware.pt.model.PageMessage;
+import org.openimmunizationsoftware.pt.model.PageMessageSeverity;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
@@ -189,6 +191,34 @@ public class AppReq {
 
   public void setMessageConfirmation(String messageConfirmation) {
     this.messageConfirmation = messageConfirmation;
+  }
+
+  // New multi-message page notification system. Register before calling
+  // printHtmlHead():
+  private List<PageMessage> pageMessages = new ArrayList<>();
+
+  public List<PageMessage> getPageMessages() {
+    return pageMessages;
+  }
+
+  public void addPageMessage(PageMessage message) {
+    pageMessages.add(message);
+  }
+
+  public void addSuccessMessage(String text) {
+    addPageMessage(new PageMessage(PageMessageSeverity.SUCCESS, text));
+  }
+
+  public void addInfoMessage(String text) {
+    addPageMessage(new PageMessage(PageMessageSeverity.INFO, text));
+  }
+
+  public void addWarningMessage(String text) {
+    addPageMessage(new PageMessage(PageMessageSeverity.WARNING, text));
+  }
+
+  public void addErrorMessage(String text) {
+    addPageMessage(new PageMessage(PageMessageSeverity.ERROR, text));
   }
 
   @SuppressWarnings("unchecked")

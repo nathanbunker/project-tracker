@@ -27,6 +27,7 @@ import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillCodeId;
+import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
@@ -169,6 +170,69 @@ public class ClientServlet extends HttpServlet {
     if (!systemWideMessage.equals("")) {
       out.println("<p class=\"fail\">" + systemWideMessage + "</p>");
     }
+    renderPageMessages(out, appReq);
+  }
+
+  private void renderPageMessages(PrintWriter out, AppReq appReq) {
+    List<PageMessage> messages = appReq.getPageMessages();
+    if (messages.isEmpty()) {
+      return;
+    }
+    out.println("<style>");
+    out.println("  .pm-stack { display:flex; flex-direction:column; gap:6px; margin:8px 0; }");
+    out.println("  .pm-stack.pm-overlay { position:fixed; z-index:10000; }");
+    out.println("  .pm-msg { display:flex; align-items:flex-start; justify-content:space-between;");
+    out.println("            padding:10px 14px; border-radius:4px; font-size:13px; line-height:1.4; }");
+    out.println("  .pm-success { background:#e8f5e9; border-left:4px solid #388e3c; color:#1b5e20; }");
+    out.println("  .pm-info    { background:#e3f2fd; border-left:4px solid #1976d2; color:#0d47a1; }");
+    out.println("  .pm-warning { background:#fff8e1; border-left:4px solid #f9a825; color:#6d4c00; }");
+    out.println("  .pm-error   { background:#fdecea; border-left:4px solid #c62828; color:#7f0000; }");
+    out.println("  .pm-close { background:none; border:none; cursor:pointer; font-size:16px;");
+    out.println("              line-height:1; padding:0 0 0 12px; opacity:0.6; flex-shrink:0; }");
+    out.println("  .pm-close:hover { opacity:1; }");
+    out.println("</style>");
+    out.println("<script>");
+    out.println("  function pmPinStack() {");
+    out.println("    var stack = document.getElementById('pm-stack');");
+    out.println("    if (!stack) { return; }");
+    out.println("    stack.classList.remove('pm-overlay');");
+    out.println("    var rect = stack.getBoundingClientRect();");
+    out.println("    stack.style.top = rect.top + 'px';");
+    out.println("    stack.style.left = rect.left + 'px';");
+    out.println("    stack.style.width = rect.width + 'px';");
+    out.println("    stack.classList.add('pm-overlay');");
+    out.println("  }");
+    out.println("  function pmDismiss(btn) {");
+    out.println("    var el = btn.parentElement;");
+    out.println("    el.style.transition = 'opacity 0.3s';");
+    out.println("    el.style.opacity = '0';");
+    out.println("    setTimeout(function(){ el.style.display='none'; }, 300);");
+    out.println("  }");
+    out.println("  if (window.addEventListener) {");
+    out.println("    window.addEventListener('load', pmPinStack);");
+    out.println("    window.addEventListener('resize', pmPinStack);");
+    out.println("  }");
+    out.println("</script>");
+    out.println("<div class=\"pm-stack\" id=\"pm-stack\">");
+    for (int i = 0; i < messages.size(); i++) {
+      PageMessage msg = messages.get(i);
+      String sevClass = "pm-" + msg.getSeverity().name().toLowerCase();
+      String msgId = "pm-msg-" + i;
+      String escaped = msg.getMessageText()
+          .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+      out.println("  <div class=\"pm-msg " + sevClass + "\" id=\"" + msgId + "\">");
+      out.println("    <span>" + escaped + "</span>");
+      out.println("    <button class=\"pm-close\" onclick=\"pmDismiss(this)\" title=\"Dismiss\">&#x2715;</button>");
+      out.println("  </div>");
+      if (msg.isAutoDismiss() && msg.getDismissAfterMs() > 0) {
+        out.println("  <script>setTimeout(function(){");
+        out.println("    var el=document.getElementById('" + msgId + "');");
+        out.println("    if(el){el.style.transition='opacity 0.3s';el.style.opacity='0';");
+        out.println("    setTimeout(function(){el.style.display='none';},300);}");
+        out.println("  }," + msg.getDismissAfterMs() + ");</script>");
+      }
+    }
+    out.println("</div>");
   }
 
   public static String makeMenu(AppReq appReq) {
@@ -182,6 +246,7 @@ public class ClientServlet extends HttpServlet {
 
     if (loggedIn) {
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "Dandelion" });
+      menuList.add(new String[] { "DandelionDashboardServlet", "Dashboard" });
       menuList.add(new String[] { "ProjectActionServlet", "Actions" });
       menuList.add(new String[] { "BillEntriesServlet", "Time" });
       menuList.add(new String[] { "m/todo?filterSubmitted=Y&showPersonal=Y", "Mobile" });
