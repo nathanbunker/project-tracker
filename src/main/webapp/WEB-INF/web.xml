@@ -21,6 +21,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectActionServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>DandelionDashboardServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.DandelionDashboardServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>CssServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.CssServlet</servlet-class>
   </servlet>
@@ -248,6 +252,10 @@
   <servlet-mapping>
     <servlet-name>ProjectActionServlet</servlet-name>
     <url-pattern>/ProjectActionServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>DandelionDashboardServlet</servlet-name>
+    <url-pattern>/DandelionDashboardServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>CssServlet</servlet-name>

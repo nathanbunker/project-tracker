@@ -82,6 +82,7 @@ public class HomeServlet extends ClientServlet {
         out.println("<ul>");
         out.println("  <li><a href=\"BillEntriesServlet\">Time</a></li>");
         out.println("  <li><a href=\"TrackServlet\">Track</a></li>");
+        out.println("  <li><a href=\"DandelionDashboardServlet\">Dandelion Dashboard</a></li>");
         out.println("  <li><a href=\"trackerNarrative\">Narrative</a></li>");
         out.println("  <li><a href=\"ProjectNarrativeReviewServlet\">Review</a></li>");
         if (webUser.isUserTypeAdmin()) {
