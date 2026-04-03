@@ -2791,7 +2791,7 @@ public class DashboardPageRenderer {
                 model.setShowStatus(false);
                 model.setShowTargetRange(false);
                 int estimatedMinutes = Math.max(0, item.getEstimateMinutes());
-                int dailyTargetMinutes = 8 * 60; // 8 hours = 480 minutes
+                int dailyTargetMinutes = 2 * 60; // 2 hours = 120 minutes
 
                 if (estimatedMinutes <= 0) {
                         return model;

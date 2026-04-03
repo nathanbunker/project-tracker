@@ -96,10 +96,11 @@ public class TimeGaugeRenderer {
         out.println("    margin-bottom: 0;");
         out.println("  }");
         out.println("  .dd-gauge-inline-bar-long .dd-time-gauge-ratio {");
-        out.println("    min-width: 70px;");
+        out.println("    flex: 0 0 45px;");
         out.println("    font-size: 11px;");
         out.println("    font-weight: bold;");
         out.println("    margin: 0;");
+        out.println("    text-align: right;");
         out.println("  }");
         out.println("  .dd-gauge-inline-bar-long .dd-time-gauge-bar-wrap {");
         out.println("    flex: 1;");
