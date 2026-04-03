@@ -233,34 +233,44 @@ public class ProjectHealthServlet extends ClientServlet {
     }
 
     private void handleLoadUnscheduledReviewData(AppReq appReq) throws Exception {
-        List<ProjectActionNext> actions = pageService.loadUnscheduledReviewActions(appReq);
-        Map<Integer, Map<String, Object>> grouped = new LinkedHashMap<Integer, Map<String, Object>>();
-        for (ProjectActionNext action : actions) {
-            if (action.getProject() == null) {
-                continue;
+        try {
+            List<ProjectActionNext> actions = pageService.loadUnscheduledReviewActions(appReq);
+            Map<Integer, Map<String, Object>> grouped = new LinkedHashMap<Integer, Map<String, Object>>();
+            for (ProjectActionNext action : actions) {
+                if (action.getProject() == null) {
+                    continue;
+                }
+                int projectId = action.getProject().getProjectId();
+                Map<String, Object> projectRow = grouped.get(projectId);
+                if (projectRow == null) {
+                    projectRow = new LinkedHashMap<String, Object>();
+                    projectRow.put("projectId", projectId);
+                    projectRow.put("projectName", action.getProject().getProjectName());
+                    projectRow.put("actions", new ArrayList<Map<String, Object>>());
+                    grouped.put(projectId, projectRow);
+                }
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> projectActions = (List<Map<String, Object>>) projectRow.get("actions");
+                Map<String, Object> actionRow = new LinkedHashMap<String, Object>();
+                actionRow.put("actionId", action.getActionNextId());
+                String descriptionHtml;
+                try {
+                    descriptionHtml = action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact());
+                } catch (Exception e) {
+                    descriptionHtml = escapeHtml(action.getNextDescription());
+                }
+                actionRow.put("descriptionHtml", descriptionHtml);
+                projectActions.add(actionRow);
             }
-            int projectId = action.getProject().getProjectId();
-            Map<String, Object> projectRow = grouped.get(projectId);
-            if (projectRow == null) {
-                projectRow = new LinkedHashMap<String, Object>();
-                projectRow.put("projectId", projectId);
-                projectRow.put("projectName", action.getProject().getProjectName());
-                projectRow.put("actions", new ArrayList<Map<String, Object>>());
-                grouped.put(projectId, projectRow);
-            }
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> projectActions = (List<Map<String, Object>>) projectRow.get("actions");
-            Map<String, Object> actionRow = new LinkedHashMap<String, Object>();
-            actionRow.put("actionId", action.getActionNextId());
-            actionRow.put("descriptionHtml",
-                    action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact()));
-            projectActions.add(actionRow);
-        }
 
-        List<Map<String, Object>> projectRows = new ArrayList<Map<String, Object>>(grouped.values());
-        Map<String, Object> data = new LinkedHashMap<String, Object>();
-        data.put("projects", projectRows);
-        sendJson(appReq, true, "OK", data);
+            List<Map<String, Object>> projectRows = new ArrayList<Map<String, Object>>(grouped.values());
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("projects", projectRows);
+            sendJson(appReq, true, "OK", data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendJson(appReq, false, "Unable to load unscheduled actions: " + e.getMessage(), null);
+        }
     }
 
     private void handleReplaceUnscheduledActions(AppReq appReq) throws Exception {
@@ -423,6 +433,37 @@ public class ProjectHealthServlet extends ClientServlet {
                     } else {
                         escaped.append(ch);
                     }
+                    break;
+            }
+        }
+        return escaped.toString();
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder escaped = new StringBuilder(value.length() + 16);
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            switch (ch) {
+                case '&':
+                    escaped.append("&amp;");
+                    break;
+                case '<':
+                    escaped.append("&lt;");
+                    break;
+                case '>':
+                    escaped.append("&gt;");
+                    break;
+                case '"':
+                    escaped.append("&quot;");
+                    break;
+                case '\'':
+                    escaped.append("&#39;");
+                    break;
+                default:
+                    escaped.append(ch);
                     break;
             }
         }

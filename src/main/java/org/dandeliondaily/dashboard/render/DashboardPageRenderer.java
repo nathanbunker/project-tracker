@@ -767,6 +767,22 @@ public class DashboardPageRenderer {
                 out.println("  .dd-today-cell-action-placeholder {");
                 out.println("    width: 8%;");
                 out.println("  }");
+                out.println("  .dd-issues-table {");
+                out.println("    table-layout: fixed;");
+                out.println("  }");
+                out.println("  .dd-issues-col-type {");
+                out.println("    width: 44px;");
+                out.println("    text-align: center;");
+                out.println("    white-space: nowrap;");
+                out.println("  }");
+                out.println("  .dd-issues-col-text {");
+                out.println("    width: auto;");
+                out.println("    word-break: break-word;");
+                out.println("  }");
+                out.println("  .dd-issues-col-date {");
+                out.println("    width: 86px;");
+                out.println("    white-space: nowrap;");
+                out.println("  }");
                 out.println("  .dd-row-actions {");
                 out.println("    display: inline-flex;");
                 out.println("    align-items: center;");
@@ -1395,7 +1411,7 @@ public class DashboardPageRenderer {
                 out.println("  <table class=\"dd-today-table dd-backlog-table dd-issues-table\">");
                 out.println("    <tr>");
                 out.println("      <th class=\"dd-issues-col-type\">Type</th>");
-                out.println("      <th>Text</th>");
+                out.println("      <th class=\"dd-issues-col-text\">Text</th>");
                 out.println("      <th class=\"dd-issues-col-date\">Created</th>");
                 out.println("    </tr>");
                 if (!issues.isEmpty()) {
@@ -1406,7 +1422,8 @@ public class DashboardPageRenderer {
                                                 + issue.getIssueTypeValue() + "')\">");
                                 out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji()
                                                 + "</td>");
-                                out.println("      <td>" + escapeHtml(issue.getIssueText()) + "</td>");
+                                out.println("      <td class=\"dd-issues-col-text\">" + escapeHtml(issue.getIssueText())
+                                                + "</td>");
                                 out.println("      <td class=\"dd-issues-col-date\">"
                                                 + escapeHtml(issue.getCreatedDisplay()) + "</td>");
                                 out.println("    </tr>");

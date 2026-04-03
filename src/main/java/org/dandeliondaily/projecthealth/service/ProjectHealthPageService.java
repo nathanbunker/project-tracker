@@ -233,8 +233,8 @@ public class ProjectHealthPageService {
             reviewAction.setProvider(webUser.getProvider());
             reviewAction.setNextActionType(ProjectNextActionType.WILL);
             reviewAction.setNextActionDate(reviewDate);
-            reviewAction.setNextDescription("project review");
-            reviewAction.setNextSummary("Project health review");
+            reviewAction.setNextDescription("review and update project");
+            reviewAction.setNextSummary("");
             reviewAction.setNextTimeEstimate(30);
             reviewAction.setNextActionStatus(ProjectNextActionStatus.READY);
             reviewAction.setNextChangeDate(new Date());

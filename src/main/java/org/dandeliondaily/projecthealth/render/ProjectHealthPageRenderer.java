@@ -642,10 +642,11 @@ public class ProjectHealthPageRenderer {
                                 "    var formData = new URLSearchParams(); formData.append('action','loadUnscheduledReviewData');");
                 out.println(
                                 "    fetch('ProjectHealthServlet', { method:'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
-                out.println("      .then(function(r){ return r.json(); })");
+                out.println(
+                                "      .then(function(r){ return r.text().then(function(text){ var data = null; try { data = text ? JSON.parse(text) : null; } catch (e) { throw new Error('Unexpected server response (' + r.status + ')'); } if (!r.ok) { var message = (data && data.message) ? data.message : ('Request failed (' + r.status + ')'); throw new Error(message); } return data; }); })");
                 out.println("      .then(function(data){");
                 out.println(
-                                "        if (!data || !data.success) { list.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load unscheduled actions.</p>'; return; }");
+                                "        if (!data || !data.success) { var message = (data && data.message) ? data.message : 'Could not load unscheduled actions.'; list.innerHTML = '<p class=\\\"ph-subtle\\\">' + phEscapeHtml(message) + '</p>'; return; }");
                 out.println(
                                 "        var projects = data.projects || []; if (projects.length === 0) { list.innerHTML = '<p class=\\\"ph-subtle\\\">No unscheduled actions found.</p>'; return; }");
                 out.println("        var html = ''; ");
@@ -654,7 +655,7 @@ public class ProjectHealthPageRenderer {
                 out.println("        list.innerHTML = html;");
                 out.println("      })");
                 out.println(
-                                "      .catch(function(){ list.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load unscheduled actions.</p>'; });");
+                                "      .catch(function(err){ var message = (err && err.message) ? err.message : 'Could not load unscheduled actions.'; list.innerHTML = '<p class=\\\"ph-subtle\\\">' + phEscapeHtml(message) + '</p>'; });");
                 out.println("  }");
                 out.println("  function phSubmitReviewUnscheduled(evt) {");
                 out.println(
