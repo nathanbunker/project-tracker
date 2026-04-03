@@ -53,7 +53,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
     private static final String PARAM_VIEW = "view";
     private static final String PARAM_MARKDOWN_FINAL = "markdownFinal";
 
-        private static final String GENERATION_UNAVAILABLE_MESSAGE = TrackerNarrativeGenerator
+    private static final String GENERATION_UNAVAILABLE_MESSAGE = TrackerNarrativeGenerator
             .getGenerationUnavailableMessage();
 
     private static final String ACTION_SAVE = "Save";
@@ -268,7 +268,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
             out.println("<input type=\"hidden\" name=\"" + PARAM_TYPE + "\" value=\"" + type + "\">\n");
             out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + selectedDate + "\">\n");
             out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_GENERATE
-                + "\">\n");
+                    + "\">\n");
             out.println("</form><br/>\n");
         } else {
             out.println("<p class=\"fail\">" + escapeHtml(GENERATION_UNAVAILABLE_MESSAGE) + "</p><br/>\n");
@@ -490,7 +490,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 + "\">\n");
         if (generationAvailable) {
             out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REGENERATE
-                + "\">\n");
+                    + "\">\n");
         }
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REJECT + "\">\n");
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\">\n");
