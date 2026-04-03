@@ -259,11 +259,25 @@ public class DandelionDashboardServlet extends ClientServlet {
             String saveMode = appReq.getRequest().getParameter("saveMode");
             boolean saveAndStart = "saveAndStart".equals(saveMode);
 
+            Date originalNextActionDate = action.getNextActionDate();
+            boolean nextActionDateChanged = false;
+
+            if (nextActionDate != null) {
+                nextActionDate = nextActionDate.trim();
+            }
+
             if (nextActionDate != null && nextActionDate.length() > 0) {
                 Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
                 if (parsedDate != null) {
-                    action.setNextActionDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
+                    Date normalizedDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
+                    if (!sameDate(originalNextActionDate, normalizedDate)) {
+                        action.setNextActionDate(normalizedDate);
+                        nextActionDateChanged = true;
+                    }
                 }
+            } else if (nextActionDate != null && originalNextActionDate != null) {
+                action.setNextActionDate(null);
+                nextActionDateChanged = true;
             }
 
             if (nextActionType != null && nextActionType.length() > 0) {
@@ -317,6 +331,11 @@ public class DandelionDashboardServlet extends ClientServlet {
                 // When work starts now, schedule date is forced to the user's current day.
                 WebUser webUser = appReq.getWebUser();
                 action.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
+                nextActionDateChanged = !sameDate(originalNextActionDate, action.getNextActionDate());
+            }
+
+            if (nextActionDateChanged) {
+                action.setCompletionOrder(0);
             }
 
             action.setNextChangeDate(new Date());
@@ -1145,6 +1164,16 @@ public class DandelionDashboardServlet extends ClientServlet {
             return null;
         }
         return java.sql.Date.valueOf(localDate);
+    }
+
+    private boolean sameDate(Date left, Date right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.equals(right);
     }
 
     private LocalDate toStoredLocalDate(Date date, WebUser webUser) {

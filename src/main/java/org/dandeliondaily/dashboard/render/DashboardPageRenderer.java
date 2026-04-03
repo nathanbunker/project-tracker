@@ -2426,7 +2426,6 @@ public class DashboardPageRenderer {
                                 "    <form id=\"ddEditActionForm\" class=\"dd-edit-form\" method=\"POST\" action=\"DandelionDashboardServlet\" onsubmit=\"return ddSubmitEditActionForm(event)\">");
                 out.println("      <input type=\"hidden\" name=\"action\" value=\"editAction\">");
                 out.println("      <input type=\"hidden\" name=\"actionNextId\" id=\"ddEditActionId\" value=\"\">");
-                out.println("      <input type=\"hidden\" id=\"ddEditActionDateOriginal\" value=\"\">");
                 out.println("      <input type=\"hidden\" name=\"saveMode\" id=\"ddEditActionSaveMode\" value=\"save\">");
 
                 out.println("      <div class=\"dd-form-field\">");
@@ -2676,7 +2675,6 @@ public class DashboardPageRenderer {
                 out.println("        if (data.success) {");
                 out.println("          var loadedDate = data.nextActionDate || '';");
                 out.println("          document.getElementById('ddEditActionDate').value = loadedDate;");
-                out.println("          document.getElementById('ddEditActionDateOriginal').value = loadedDate;");
                 out.println("          document.getElementById('ddEditActionType').value = data.nextActionType || '';");
                 out.println("          ddUpdateActionTypeButtons(data.nextActionType || '');");
                 out.println("          document.getElementById('ddEditActionContact').value = data.nextContactId || '';");
@@ -2706,12 +2704,6 @@ public class DashboardPageRenderer {
                 out.println("  function ddSubmitEditActionForm(evt) {");
                 out.println("    evt.preventDefault();");
                 out.println("    var form = document.getElementById('ddEditActionForm');");
-                out.println("    var dateField = document.getElementById('ddEditActionDate');");
-                out.println("    var originalDateField = document.getElementById('ddEditActionDateOriginal');");
-                out.println(
-                                "    if (dateField && (!dateField.value || dateField.value.trim().length === 0) && originalDateField && originalDateField.value) {");
-                out.println("      dateField.value = originalDateField.value;");
-                out.println("    }");
                 out.println("    var saveModeField = document.getElementById('ddEditActionSaveMode');");
                 out.println("    if (saveModeField && (!saveModeField.value || saveModeField.value.length === 0)) {");
                 out.println("      saveModeField.value = 'save';");
