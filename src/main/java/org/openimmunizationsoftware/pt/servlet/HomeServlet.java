@@ -71,7 +71,7 @@ public class HomeServlet extends ClientServlet {
 
         out.println("<h2>Setup</h2>");
         out.println("<ul>");
-        out.println("  <li><a href=\"ProjectsServlet\">Projects</a></li>");
+        out.println("  <li><a href=\"ProjectsServlet\">Project Health</a></li>");
         out.println("  <li><a href=\"ProjectContactsServlet\">Contacts</a></li>");
         out.println("  <li><a href=\"SettingsServlet\">Settings</a></li>");
         out.println("  <li><a href=\"DependentAccountsServlet\">Dependent Accounts</a></li>");
@@ -85,7 +85,7 @@ public class HomeServlet extends ClientServlet {
         out.println("  <li><a href=\"DandelionDashboardServlet\">Dandelion Dashboard</a></li>");
         out.println("  <li><a href=\"ProjectActionServlet\">Actions</a></li>");
         out.println("  <li><a href=\"trackerNarrative\">Narrative</a></li>");
-        out.println("  <li><a href=\"ProjectNarrativeReviewServlet\">Review</a></li>");
+        out.println("  <li><a href=\"ProjectNarrativeReviewServlet\">Review & Report</a></li>");
         if (webUser.isUserTypeAdmin()) {
           out.println("  <li><a href=\"ReportsServlet\">Reports</a></li>");
         }

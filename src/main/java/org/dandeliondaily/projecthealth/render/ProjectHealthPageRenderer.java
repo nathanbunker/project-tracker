@@ -67,7 +67,7 @@ public class ProjectHealthPageRenderer {
                 out.println("<div class=\"ph-section ph-panel\">");
                 printDevLabel(out, "PROJECTS WORK");
                 out.println("  <div class=\"ph-section-title-row\">");
-                out.println("    <h2>Projects</h2>");
+                out.println("    <h2>Work Projects</h2>");
                 out.println("    <span class=\"ph-row-actions\">");
                 out.println(
                                 "      <button type=\"button\" class=\"ph-emoji-btn\" title=\"Add project\" onclick=\"phOpenProjectCreateModal(event)\">➕</button>");
@@ -79,21 +79,30 @@ public class ProjectHealthPageRenderer {
                 }
                 out.println("    </span>");
                 out.println("  </div>");
-
-                out.println("  <h3 class=\"ph-subtitle\">Work Projects</h3>");
                 printProjectCadenceGroups(out, model.getWorkProjectGroups(), "WORK");
 
-                out.println("  <h3 class=\"ph-subtitle\">Personal Projects</h3>");
+                out.println("  <div class=\"ph-divider\"></div>");
+                out.println("  <div class=\"ph-section-title-row ph-section-title-row-sub\">");
+                out.println("    <h2>Personal Projects</h2>");
+                out.println("  </div>");
                 printDevLabel(out, "PROJECTS PERSONAL");
                 printProjectCadenceGroups(out, model.getPersonalProjectGroups(), "PERSONAL");
                 out.println("</div>");
         }
 
         private void printProjectCadenceGroups(PrintWriter out, List<ProjectCadenceGroupModel> groups, String section) {
+                boolean renderedAny = false;
                 for (ProjectCadenceGroupModel group : groups) {
+                        if (group.getProjects() == null || group.getProjects().isEmpty()) {
+                                continue;
+                        }
                         out.println("  <h4 class=\"ph-bucket-title\">" + escapeHtml(group.getGroupLabel()) + "</h4>");
                         printDevLabel(out, "PROJECTS " + section + " " + group.getGroupKey());
                         printProjectTable(out, group.getProjects());
+                        renderedAny = true;
+                }
+                if (!renderedAny) {
+                        out.println("  <p class=\"ph-subtle\">No projects available.</p>");
                 }
         }
 
@@ -577,7 +586,7 @@ public class ProjectHealthPageRenderer {
                 out.println(
                                 "        if (!data || !data.success) { c.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load options</p>'; return; }");
                 out.println(
-                                "        var html = ''; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId, null, \'FIRST\', event)\\\">Move to first in this review period</button>'; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId, null, \'LAST\', event)\\\">Move to last in this review period</button>'; var projects = data.projects || []; if (projects.length > 0) { for (var i=0;i<projects.length;i++) { var p=projects[i]; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId,' + p.id + ', \'BEFORE\', event)\\\">Move before ' + phEscapeHtml(p.name || 'project') + '</button>'; } } else { html += '<p class=\\\"ph-subtle\\\">No other projects in this review period.</p>'; }");
+                                "        var html = ''; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId, null, &quot;FIRST&quot;, event)\\\">Move to first in this review period</button>'; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId, null, &quot;LAST&quot;, event)\\\">Move to last in this review period</button>'; var projects = data.projects || []; if (projects.length > 0) { for (var i=0;i<projects.length;i++) { var p=projects[i]; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId,' + p.id + ', &quot;BEFORE&quot;, event)\\\">Move before ' + phEscapeHtml(p.name || 'project') + '</button>'; } } else { html += '<p class=\\\"ph-subtle\\\">No other projects in this review period.</p>'; }");
                 out.println("        c.innerHTML = html;");
                 out.println("      })");
                 out.println(
@@ -699,6 +708,7 @@ public class ProjectHealthPageRenderer {
                 out.println("  .ph-section { margin-bottom: 12px; }");
                 out.println(
                                 "  .ph-section-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }");
+                out.println("  .ph-section-title-row-sub { margin-top: 8px; }");
                 out.println("  .ph-section h2 { margin: 0 0 8px 0; font-size: 17px; color: #2f3a2f; }");
                 out.println(
                                 "  .ph-subtitle { margin: 10px 0 6px 0; font-size: 12px; color: #5f6d5f; text-transform: uppercase; letter-spacing: 0.04em; }");
