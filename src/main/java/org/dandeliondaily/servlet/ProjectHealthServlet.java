@@ -120,23 +120,32 @@ public class ProjectHealthServlet extends ClientServlet {
 
     private void handleReprioritizeProject(AppReq appReq) throws Exception {
         String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String mode = appReq.getRequest().getParameter("moveMode");
         String beforeProjectIdStr = appReq.getRequest().getParameter("beforeProjectId");
-        if (projectIdStr == null || beforeProjectIdStr == null) {
-            sendJson(appReq, false, "Project ids are required", null);
+        if (projectIdStr == null) {
+            sendJson(appReq, false, "Project id is required", null);
             return;
         }
 
         int projectId;
-        int beforeProjectId;
+        Integer beforeProjectId = null;
         try {
             projectId = Integer.parseInt(projectIdStr.trim());
-            beforeProjectId = Integer.parseInt(beforeProjectIdStr.trim());
         } catch (NumberFormatException nfe) {
-            sendJson(appReq, false, "Invalid project ids", null);
+            sendJson(appReq, false, "Invalid project id", null);
             return;
         }
 
-        String error = pageService.reprioritizeBefore(appReq, projectId, beforeProjectId);
+        if (beforeProjectIdStr != null && beforeProjectIdStr.trim().length() > 0) {
+            try {
+                beforeProjectId = Integer.valueOf(Integer.parseInt(beforeProjectIdStr.trim()));
+            } catch (NumberFormatException nfe) {
+                sendJson(appReq, false, "Invalid target project id", null);
+                return;
+            }
+        }
+
+        String error = pageService.reprioritizeProject(appReq, projectId, beforeProjectId, mode);
         if (error != null) {
             sendJson(appReq, false, error, null);
             return;

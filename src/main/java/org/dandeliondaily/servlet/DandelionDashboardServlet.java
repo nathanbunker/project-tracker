@@ -31,6 +31,7 @@ import org.dandeliondaily.dashboard.service.DashboardNowColumnService;
 import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
 import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -55,6 +56,7 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final DashboardTimeGaugeService dashboardTimeGaugeService = new DashboardTimeGaugeService();
     private final DashboardNextColumnService dashboardNextColumnService = new DashboardNextColumnService();
     private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
+    private final ProjectHealthPageService projectHealthPageService = new ProjectHealthPageService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -1010,7 +1012,6 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             String projectName = clip(appReq.getRequest().getParameter("projectName"), 100);
             String categoryCode = clip(appReq.getRequest().getParameter("categoryCode"), 15);
-            String priorityLevelStr = clip(appReq.getRequest().getParameter("priorityLevel"), 8);
             String projectIcon = clip(appReq.getRequest().getParameter("projectIcon"), 8);
             String description = clip(appReq.getRequest().getParameter("description"), 1200);
             String outcomeText = clip(appReq.getRequest().getParameter("outcomeText"), 12000);
@@ -1035,17 +1036,6 @@ public class DandelionDashboardServlet extends ClientServlet {
                 transaction.rollback();
                 sendJsonResponse(appReq, false, "Project name must be unique", null);
                 return;
-            }
-
-            int priorityLevel = 0;
-            if (priorityLevelStr.length() > 0) {
-                try {
-                    priorityLevel = Integer.parseInt(priorityLevelStr);
-                } catch (NumberFormatException nfe) {
-                    transaction.rollback();
-                    sendJsonResponse(appReq, false, "Priority level must be a number", null);
-                    return;
-                }
             }
 
             int updateEvery = 0;
@@ -1073,7 +1063,10 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             project.setProjectName(projectName);
             project.setCategoryCode(categoryCode.length() > 0 ? categoryCode : null);
-            project.setPriorityLevel(priorityLevel);
+            boolean closedPhase = "Clos".equalsIgnoreCase(phaseCode);
+            if (closedPhase) {
+                project.setPriorityLevel(0);
+            }
             project.setProjectIcon(projectIcon);
             project.setDescription(description);
             // Collected now for future Project Health reporting and project briefing use.
@@ -1102,6 +1095,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             projectContactAssigned.setUpdateDue(updateEvery);
             dataSession.saveOrUpdate(projectContactAssigned);
+
+            if (!closedPhase) {
+                projectHealthPageService.normalizeOpenProjectPriorities(webUser, dataSession);
+            }
 
             ProjectActionNext setupAction = null;
             if (createMode) {

@@ -5,8 +5,11 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +19,7 @@ import org.hibernate.Transaction;
 import org.dandeliondaily.dashboard.service.ActionSentenceImportService;
 import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
+import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -37,8 +41,15 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 public class ProjectHealthPageService {
 
     public static final String PARAM_PROJECT_ID = "projectId";
+    private static final String BUCKET_NONE = "NONE";
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
+
+    private enum ReprioritizeMode {
+        BEFORE,
+        FIRST,
+        LAST
+    }
 
     private static class ProjectStats {
         private int undatedOpen;
@@ -50,7 +61,7 @@ public class ProjectHealthPageService {
         private boolean missingDescription;
         private boolean missingOutcome;
         private boolean missingSuccessCriteria;
-        private boolean missingWeeklyReviewPeriod;
+        private boolean missingReviewPeriod;
     }
 
     public static class ReplaceUnscheduledResult {
@@ -83,10 +94,13 @@ public class ProjectHealthPageService {
         int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser, dataSession);
         model.setSelectedProjectId(selectedProjectId);
 
-        Map<Integer, ProjectStats> statsMap = buildStatsByProject(projects, webUser, dataSession);
+        Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, projects);
+        Map<Integer, ProjectStats> statsMap = buildStatsByProject(projects, webUser, dataSession, updateDueByProject);
 
-        List<ProjectListItemModel> workProjects = new ArrayList<ProjectListItemModel>();
-        List<ProjectListItemModel> personalProjects = new ArrayList<ProjectListItemModel>();
+        List<ProjectCadenceGroupModel> workProjectGroups = createCadenceGroups();
+        List<ProjectCadenceGroupModel> personalProjectGroups = createCadenceGroups();
+        Map<String, ProjectCadenceGroupModel> workGroupsByKey = toGroupMap(workProjectGroups);
+        Map<String, ProjectCadenceGroupModel> personalGroupsByKey = toGroupMap(personalProjectGroups);
 
         Project selectedProject = null;
         for (Project project : projects) {
@@ -95,15 +109,16 @@ public class ProjectHealthPageService {
             if (item.isSelected()) {
                 selectedProject = project;
             }
+            String bucketKey = bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId()));
             if (isPersonalProject(project, dataSession)) {
-                personalProjects.add(item);
+                personalGroupsByKey.get(bucketKey).getProjects().add(item);
             } else {
-                workProjects.add(item);
+                workGroupsByKey.get(bucketKey).getProjects().add(item);
             }
         }
 
-        model.setWorkProjects(workProjects);
-        model.setPersonalProjects(personalProjects);
+        model.setWorkProjectGroups(workProjectGroups);
+        model.setPersonalProjectGroups(personalProjectGroups);
 
         if (selectedProject != null) {
             appReq.setProject(selectedProject);
@@ -122,6 +137,7 @@ public class ProjectHealthPageService {
         Session dataSession = appReq.getDataSession();
 
         List<Project> all = loadProjects(webUser, dataSession);
+        Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, all);
         Project selected = null;
         for (Project project : all) {
             if (project.getProjectId() == projectId) {
@@ -134,12 +150,17 @@ public class ProjectHealthPageService {
         }
 
         boolean personal = isPersonalProject(selected, dataSession);
+        String selectedBucket = bucketKeyForUpdateDue(updateDueByProject.get(selected.getProjectId()));
         List<ProjectListItemModel> candidates = new ArrayList<ProjectListItemModel>();
         for (Project project : all) {
             if (project.getProjectId() == projectId) {
                 continue;
             }
             if (isPersonalProject(project, dataSession) != personal) {
+                continue;
+            }
+            String projectBucket = bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId()));
+            if (!selectedBucket.equals(projectBucket)) {
                 continue;
             }
             ProjectListItemModel item = new ProjectListItemModel();
@@ -151,57 +172,127 @@ public class ProjectHealthPageService {
         return candidates;
     }
 
-    public String reprioritizeBefore(AppReq appReq, int projectId, int beforeProjectId) {
+    public String reprioritizeProject(AppReq appReq, int projectId, Integer beforeProjectId, String modeValue) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
+        ReprioritizeMode mode = parseReprioritizeMode(modeValue);
 
         List<Project> all = loadProjects(webUser, dataSession);
+        Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, all);
         Project selected = null;
         Project before = null;
         for (Project project : all) {
             if (project.getProjectId() == projectId) {
                 selected = project;
             }
-            if (project.getProjectId() == beforeProjectId) {
+            if (beforeProjectId != null && project.getProjectId() == beforeProjectId.intValue()) {
                 before = project;
             }
         }
-        if (selected == null || before == null) {
+        if (selected == null) {
             return "Project was not found";
+        }
+        if (mode == ReprioritizeMode.BEFORE && before == null) {
+            return "Target project was not found";
         }
 
         boolean personal = isPersonalProject(selected, dataSession);
-        if (isPersonalProject(before, dataSession) != personal) {
+        String selectedBucket = bucketKeyForUpdateDue(updateDueByProject.get(selected.getProjectId()));
+        if (before != null && isPersonalProject(before, dataSession) != personal) {
             return "Projects must be in the same section";
+        }
+        if (before != null) {
+            String beforeBucket = bucketKeyForUpdateDue(updateDueByProject.get(before.getProjectId()));
+            if (!selectedBucket.equals(beforeBucket)) {
+                return "Projects must be in the same review period";
+            }
         }
 
         List<Project> bucket = new ArrayList<Project>();
         for (Project project : all) {
-            if (isPersonalProject(project, dataSession) == personal) {
+            if (isPersonalProject(project, dataSession) == personal
+                    && selectedBucket.equals(bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId())))) {
                 bucket.add(project);
             }
         }
 
         bucket.remove(selected);
-        int target = bucket.indexOf(before);
-        if (target < 0) {
-            return "Could not determine target position";
+        if (mode == ReprioritizeMode.FIRST) {
+            bucket.add(0, selected);
+        } else if (mode == ReprioritizeMode.LAST) {
+            bucket.add(selected);
+        } else {
+            int target = bucket.indexOf(before);
+            if (target < 0) {
+                return "Could not determine target position";
+            }
+            bucket.add(target, selected);
         }
-        bucket.add(target, selected);
 
         Transaction transaction = dataSession.beginTransaction();
         try {
-            int priority = bucket.size() * 10;
+            int seedPriority = bucket.size() * 100;
             for (Project project : bucket) {
-                project.setPriorityLevel(priority);
+                project.setPriorityLevel(seedPriority);
                 dataSession.update(project);
-                priority -= 10;
+                seedPriority -= 1;
             }
+
+            normalizeOpenProjectPriorities(webUser, dataSession);
             transaction.commit();
             return null;
         } catch (Exception e) {
             transaction.rollback();
             return "Unable to reprioritize project: " + e.getMessage();
+        }
+    }
+
+    public void normalizeOpenProjectPriorities(WebUser webUser, Session dataSession) {
+        List<Project> allOpenProjects = loadProjects(webUser, dataSession);
+        Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, allOpenProjects);
+
+        final Map<Integer, Boolean> personalByProjectId = new HashMap<Integer, Boolean>();
+        for (Project project : allOpenProjects) {
+            personalByProjectId.put(project.getProjectId(), Boolean.valueOf(isPersonalProject(project, dataSession)));
+        }
+
+        Collections.sort(allOpenProjects, new Comparator<Project>() {
+            @Override
+            public int compare(Project a, Project b) {
+                int aSectionRank = personalByProjectId.get(a.getProjectId()).booleanValue() ? 1 : 0;
+                int bSectionRank = personalByProjectId.get(b.getProjectId()).booleanValue() ? 1 : 0;
+                if (aSectionRank != bSectionRank) {
+                    return aSectionRank - bSectionRank;
+                }
+
+                int aBucket = bucketRankForUpdateDue(updateDueByProject.get(a.getProjectId()));
+                int bBucket = bucketRankForUpdateDue(updateDueByProject.get(b.getProjectId()));
+                if (aBucket != bBucket) {
+                    return aBucket - bBucket;
+                }
+
+                if (a.getPriorityLevel() != b.getPriorityLevel()) {
+                    return b.getPriorityLevel() - a.getPriorityLevel();
+                }
+
+                String aName = n(a.getProjectName(), "").toLowerCase();
+                String bName = n(b.getProjectName(), "").toLowerCase();
+                int byName = aName.compareTo(bName);
+                if (byName != 0) {
+                    return byName;
+                }
+
+                return a.getProjectId() - b.getProjectId();
+            }
+        });
+
+        int priority = allOpenProjects.size() * 10;
+        for (Project project : allOpenProjects) {
+            if (project.getPriorityLevel() != priority) {
+                project.setPriorityLevel(priority);
+                dataSession.update(project);
+            }
+            priority -= 10;
         }
     }
 
@@ -427,7 +518,7 @@ public class ProjectHealthPageService {
     }
 
     private Map<Integer, ProjectStats> buildStatsByProject(List<Project> projects, WebUser webUser,
-            Session dataSession) {
+            Session dataSession, Map<Integer, Integer> updateDueByProject) {
         Map<Integer, ProjectStats> statsMap = new HashMap<Integer, ProjectStats>();
 
         LocalDate today = webUser.getLocalDateToday();
@@ -440,10 +531,8 @@ public class ProjectHealthPageService {
             stats.lastReview = loadLastReview(dataSession, webUser, project);
             stats.reviewScheduledToday = hasReviewScheduledToday(dataSession, project, today);
 
-            ProjectContactAssigned assigned = loadProjectContactAssigned(webUser, dataSession, project);
-            if (assigned != null && assigned.getUpdateDue() != null) {
-                stats.updateDue = assigned.getUpdateDue();
-            }
+            Integer updateDue = updateDueByProject.get(project.getProjectId());
+            stats.updateDue = updateDue == null ? 0 : updateDue.intValue();
 
             stats.missingDescription = project.getDescription() == null
                     || project.getDescription().trim().length() == 0;
@@ -451,7 +540,7 @@ public class ProjectHealthPageService {
                     || project.getOutcomeText().trim().length() == 0;
             stats.missingSuccessCriteria = project.getSuccessCriteriaText() == null
                     || project.getSuccessCriteriaText().trim().length() == 0;
-            stats.missingWeeklyReviewPeriod = !hasWeeklyReviewPeriod(stats.updateDue);
+            stats.missingReviewPeriod = !hasReviewPeriod(stats.updateDue);
 
             if (stats.reviewScheduledToday) {
                 stats.reviewOverdue = false;
@@ -472,6 +561,103 @@ public class ProjectHealthPageService {
         return statsMap;
     }
 
+    private ReprioritizeMode parseReprioritizeMode(String value) {
+        if (value == null || value.trim().length() == 0) {
+            return ReprioritizeMode.BEFORE;
+        }
+        String mode = value.trim().toUpperCase();
+        if ("FIRST".equals(mode)) {
+            return ReprioritizeMode.FIRST;
+        }
+        if ("LAST".equals(mode)) {
+            return ReprioritizeMode.LAST;
+        }
+        return ReprioritizeMode.BEFORE;
+    }
+
+    private List<ProjectCadenceGroupModel> createCadenceGroups() {
+        List<ProjectCadenceGroupModel> groups = new ArrayList<ProjectCadenceGroupModel>();
+        for (ReviewInterval interval : ReviewInterval.values()) {
+            ProjectCadenceGroupModel group = new ProjectCadenceGroupModel();
+            group.setGroupKey(interval.name());
+            group.setGroupLabel(interval.getDescription());
+            groups.add(group);
+        }
+        ProjectCadenceGroupModel noneGroup = new ProjectCadenceGroupModel();
+        noneGroup.setGroupKey(BUCKET_NONE);
+        noneGroup.setGroupLabel("No Review Period");
+        groups.add(noneGroup);
+        return groups;
+    }
+
+    private Map<String, ProjectCadenceGroupModel> toGroupMap(List<ProjectCadenceGroupModel> groups) {
+        Map<String, ProjectCadenceGroupModel> map = new LinkedHashMap<String, ProjectCadenceGroupModel>();
+        for (ProjectCadenceGroupModel group : groups) {
+            map.put(group.getGroupKey(), group);
+        }
+        return map;
+    }
+
+    private Map<Integer, Integer> loadUpdateDueByProject(WebUser webUser, Session dataSession, List<Project> projects) {
+        Map<Integer, Integer> updateDueByProject = new HashMap<Integer, Integer>();
+        if (projects == null || projects.isEmpty()) {
+            return updateDueByProject;
+        }
+
+        List<Integer> projectIds = new ArrayList<Integer>();
+        for (Project project : projects) {
+            if (project != null) {
+                projectIds.add(Integer.valueOf(project.getProjectId()));
+            }
+        }
+        if (projectIds.isEmpty()) {
+            return updateDueByProject;
+        }
+
+        Query query = dataSession.createQuery(
+                "select pca.id.projectId, pca.updateDue from ProjectContactAssigned pca "
+                        + "where pca.id.contactId = :contactId and pca.id.projectId in (:projectIds)");
+        query.setParameter("contactId", webUser.getContactId());
+        query.setParameterList("projectIds", projectIds);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.list();
+        for (Object[] row : rows) {
+            if (row == null || row.length < 2 || row[0] == null) {
+                continue;
+            }
+            Number projectId = (Number) row[0];
+            Number updateDue = (Number) row[1];
+            updateDueByProject.put(Integer.valueOf(projectId.intValue()),
+                    Integer.valueOf(updateDue == null ? 0 : updateDue.intValue()));
+        }
+        return updateDueByProject;
+    }
+
+    private String bucketKeyForUpdateDue(Integer updateDue) {
+        if (updateDue == null || updateDue.intValue() <= 0) {
+            return BUCKET_NONE;
+        }
+        int days = updateDue.intValue();
+        for (ReviewInterval interval : ReviewInterval.values()) {
+            if (interval.getDays() == days) {
+                return interval.name();
+            }
+        }
+        return BUCKET_NONE;
+    }
+
+    private int bucketRankForUpdateDue(Integer updateDue) {
+        String bucketKey = bucketKeyForUpdateDue(updateDue);
+        int rank = 0;
+        for (ReviewInterval interval : ReviewInterval.values()) {
+            if (interval.name().equals(bucketKey)) {
+                return rank;
+            }
+            rank++;
+        }
+        return ReviewInterval.values().length;
+    }
+
     private ProjectListItemModel toListItem(Project project, ProjectStats stats, int selectedProjectId) {
         ProjectListItemModel item = new ProjectListItemModel();
         item.setProjectId(project.getProjectId());
@@ -483,7 +669,7 @@ public class ProjectHealthPageService {
         item.setReviewOverdue(stats.reviewOverdue);
 
         if (stats.missingDescription || stats.missingOutcome || stats.missingSuccessCriteria
-                || stats.missingWeeklyReviewPeriod || stats.overdueOpen > 0
+                || stats.missingReviewPeriod || stats.overdueOpen > 0
                 || stats.reviewOverdue) {
             item.setHealthLevel(ProjectListItemModel.HealthLevel.ATTENTION_NEEDED);
             item.setHealthLabel("attention needed");
@@ -544,7 +730,7 @@ public class ProjectHealthPageService {
         List<ProjectHealthIssueModel> issues = new ArrayList<ProjectHealthIssueModel>();
 
         if (stats.missingDescription || stats.missingOutcome || stats.missingSuccessCriteria
-                || stats.missingWeeklyReviewPeriod) {
+                || stats.missingReviewPeriod) {
             StringBuilder detail = new StringBuilder();
             if (stats.missingDescription) {
                 detail.append("Description is missing.");
@@ -561,11 +747,11 @@ public class ProjectHealthPageService {
                 }
                 detail.append("Success criteria are missing.");
             }
-            if (stats.missingWeeklyReviewPeriod) {
+            if (stats.missingReviewPeriod) {
                 if (detail.length() > 0) {
                     detail.append(" ");
                 }
-                detail.append("Weekly review period is not configured (set Update Every to 7 days or less).");
+                detail.append("Review period is not configured (set Update Every).");
             }
             issues.add(makeIssue(ProjectHealthIssueModel.Severity.CRITICAL,
                     "Project setup incomplete",
@@ -863,8 +1049,8 @@ public class ProjectHealthPageService {
         return Integer.toString(days) + " days";
     }
 
-    private boolean hasWeeklyReviewPeriod(int updateDue) {
-        return updateDue > 0 && updateDue <= 7;
+    private boolean hasReviewPeriod(int updateDue) {
+        return updateDue > 0;
     }
 
     private String n(String value) {

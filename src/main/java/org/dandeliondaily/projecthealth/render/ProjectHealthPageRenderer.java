@@ -7,6 +7,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
+import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -80,12 +81,20 @@ public class ProjectHealthPageRenderer {
                 out.println("  </div>");
 
                 out.println("  <h3 class=\"ph-subtitle\">Work Projects</h3>");
-                printProjectTable(out, model.getWorkProjects());
+                printProjectCadenceGroups(out, model.getWorkProjectGroups(), "WORK");
 
                 out.println("  <h3 class=\"ph-subtitle\">Personal Projects</h3>");
                 printDevLabel(out, "PROJECTS PERSONAL");
-                printProjectTable(out, model.getPersonalProjects());
+                printProjectCadenceGroups(out, model.getPersonalProjectGroups(), "PERSONAL");
                 out.println("</div>");
+        }
+
+        private void printProjectCadenceGroups(PrintWriter out, List<ProjectCadenceGroupModel> groups, String section) {
+                for (ProjectCadenceGroupModel group : groups) {
+                        out.println("  <h4 class=\"ph-bucket-title\">" + escapeHtml(group.getGroupLabel()) + "</h4>");
+                        printDevLabel(out, "PROJECTS " + section + " " + group.getGroupKey());
+                        printProjectTable(out, group.getProjects());
+                }
         }
 
         private void printProjectTable(PrintWriter out, List<ProjectListItemModel> projects) {
@@ -394,10 +403,6 @@ public class ProjectHealthPageRenderer {
                 }
                 out.println("      </select></div>");
 
-                out.println("      <div class=\"ph-form-field\"><label>Priority Level</label>");
-                out.println("      <input id=\"phProjectPriority\" type=\"text\" name=\"priorityLevel\" value=\""
-                                + project.getPriorityLevel() + "\" /></div>");
-
                 out.println("      <div class=\"ph-form-field\"><label>Project Icon</label>");
                 out.println("      <input id=\"phProjectIcon\" type=\"text\" name=\"projectIcon\" value=\""
                                 + escapeHtml(n(project.getProjectIcon())) + "\" /></div>");
@@ -476,7 +481,6 @@ public class ProjectHealthPageRenderer {
                 out.println("  projectId: '" + project.getProjectId() + "',");
                 out.println("  projectName: '" + escapeJsString(n(project.getProjectName())) + "',");
                 out.println("  categoryCode: '" + escapeJsString(n(project.getCategoryCode())) + "',");
-                out.println("  priorityLevel: '" + project.getPriorityLevel() + "',");
                 out.println("  projectIcon: '" + escapeJsString(n(project.getProjectIcon())) + "',");
                 out.println("  description: '" + escapeJsString(n(project.getDescription())) + "',");
                 out.println("  outcomeText: '" + escapeJsString(n(project.getOutcomeText())) + "',");
@@ -535,7 +539,7 @@ public class ProjectHealthPageRenderer {
                 out.println("  function phSetProjectDefaults() {");
                 out.println("    var d = window.phProjectDefaults || {}; ");
                 out.println(
-                                "    var map = [['phProjectName','projectName'],['phProjectCategory','categoryCode'],['phProjectPriority','priorityLevel'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery']];");
+                                "    var map = [['phProjectName','projectName'],['phProjectCategory','categoryCode'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery']];");
                 out.println(
                                 "    for (var i=0;i<map.length;i++){ var el=document.getElementById(map[i][0]); if (el) { el.value = d[map[i][1]] || ''; } }");
                 out.println("  }");
@@ -573,19 +577,17 @@ public class ProjectHealthPageRenderer {
                 out.println(
                                 "        if (!data || !data.success) { c.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load options</p>'; return; }");
                 out.println(
-                                "        if (!data.projects || data.projects.length === 0) { c.innerHTML = '<p class=\\\"ph-subtle\\\">No move targets in this section.</p>'; return; }");
-                out.println(
-                                "        var html = ''; for (var i=0;i<data.projects.length;i++) { var p=data.projects[i]; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProjectBefore(' + projectId + ',' + p.id + ', event)\\\">Move before ' + phEscapeHtml(p.name || 'project') + '</button>'; }");
+                                "        var html = ''; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId, null, \'FIRST\', event)\\\">Move to first in this review period</button>'; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId, null, \'LAST\', event)\\\">Move to last in this review period</button>'; var projects = data.projects || []; if (projects.length > 0) { for (var i=0;i<projects.length;i++) { var p=projects[i]; html += '<button type=\\\"button\\\" class=\\\"ph-btn ph-btn-block\\\" onclick=\\\"phMoveProject(projectId,' + p.id + ', \'BEFORE\', event)\\\">Move before ' + phEscapeHtml(p.name || 'project') + '</button>'; } } else { html += '<p class=\\\"ph-subtle\\\">No other projects in this review period.</p>'; }");
                 out.println("        c.innerHTML = html;");
                 out.println("      })");
                 out.println(
                                 "      .catch(function(){ if (c) { c.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load options</p>'; } });");
                 out.println("    return false;");
                 out.println("  }");
-                out.println("  function phMoveProjectBefore(projectId, beforeProjectId, evt) {");
+                out.println("  function phMoveProject(projectId, beforeProjectId, mode, evt) {");
                 out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
                 out.println(
-                                "    var formData = new URLSearchParams(); formData.append('action','reprioritizeProject'); formData.append('projectId', projectId); formData.append('beforeProjectId', beforeProjectId);");
+                                "    var formData = new URLSearchParams(); formData.append('action','reprioritizeProject'); formData.append('projectId', projectId); if (beforeProjectId) { formData.append('beforeProjectId', beforeProjectId); } formData.append('moveMode', mode || 'BEFORE');");
                 out.println(
                                 "    fetch('ProjectHealthServlet', { method:'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(function(r){ return r.json(); })");
@@ -700,6 +702,8 @@ public class ProjectHealthPageRenderer {
                 out.println("  .ph-section h2 { margin: 0 0 8px 0; font-size: 17px; color: #2f3a2f; }");
                 out.println(
                                 "  .ph-subtitle { margin: 10px 0 6px 0; font-size: 12px; color: #5f6d5f; text-transform: uppercase; letter-spacing: 0.04em; }");
+                out.println(
+                                "  .ph-bucket-title { margin: 10px 0 4px 0; font-size: 11px; color: #6a6053; text-transform: uppercase; letter-spacing: 0.04em; }");
                 out.println("  .ph-subtle { color: #807667; font-size: 12px; }");
 
                 out.println("  .ph-project-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }");

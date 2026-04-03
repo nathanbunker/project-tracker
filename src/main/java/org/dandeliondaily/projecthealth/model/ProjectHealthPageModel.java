@@ -9,8 +9,8 @@ public class ProjectHealthPageModel {
     private String selectedProjectName = "";
     private boolean selectedProjectAvailable;
 
-    private List<ProjectListItemModel> workProjects = new ArrayList<ProjectListItemModel>();
-    private List<ProjectListItemModel> personalProjects = new ArrayList<ProjectListItemModel>();
+    private List<ProjectCadenceGroupModel> workProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
+    private List<ProjectCadenceGroupModel> personalProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
     private ProjectReportModel report = new ProjectReportModel();
     private List<ProjectHealthIssueModel> issues = new ArrayList<ProjectHealthIssueModel>();
 
@@ -38,20 +38,20 @@ public class ProjectHealthPageModel {
         this.selectedProjectAvailable = selectedProjectAvailable;
     }
 
-    public List<ProjectListItemModel> getWorkProjects() {
-        return workProjects;
+    public List<ProjectCadenceGroupModel> getWorkProjectGroups() {
+        return workProjectGroups;
     }
 
-    public void setWorkProjects(List<ProjectListItemModel> workProjects) {
-        this.workProjects = workProjects;
+    public void setWorkProjectGroups(List<ProjectCadenceGroupModel> workProjectGroups) {
+        this.workProjectGroups = workProjectGroups;
     }
 
-    public List<ProjectListItemModel> getPersonalProjects() {
-        return personalProjects;
+    public List<ProjectCadenceGroupModel> getPersonalProjectGroups() {
+        return personalProjectGroups;
     }
 
-    public void setPersonalProjects(List<ProjectListItemModel> personalProjects) {
-        this.personalProjects = personalProjects;
+    public void setPersonalProjectGroups(List<ProjectCadenceGroupModel> personalProjectGroups) {
+        this.personalProjectGroups = personalProjectGroups;
     }
 
     public ProjectReportModel getReport() {
