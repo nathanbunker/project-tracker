@@ -67,11 +67,13 @@ public class DashboardPageRenderer {
         out.println("            <div class=\"dd-header-subtitle\">" + escapeHtml(buildNowHeaderProject(nowColumnModel))
                 + "</div>");
         out.println("          </div>");
-        out.println("          <div class=\"dd-header-gauge-wrap\">");
-        out.println("            <div id=\"ddNowHeaderGauge\">");
-        timeGaugeRenderer.render(out, nowGaugeModel);
-        out.println("            </div>");
-        out.println("          </div>");
+        if (shouldRenderNowHeaderGauge(nowColumnModel)) {
+            out.println("          <div class=\"dd-header-gauge-wrap\">");
+            out.println("            <div id=\"ddNowHeaderGauge\">");
+            timeGaugeRenderer.render(out, nowGaugeModel);
+            out.println("            </div>");
+            out.println("          </div>");
+        }
         out.println("        </div>");
         out.println("      </div>");
         out.println("      <div class=\"dd-header-cell dd-header-today dd-panel dd-panel-open\">");
@@ -128,14 +130,19 @@ public class DashboardPageRenderer {
         out.println("      </div>");
         out.println("    </div>");
         out.println("  </div>");
-        printHeaderGaugeAutoRefreshScript(out);
+        printHeaderGaugeAutoRefreshScript(out, nowColumnModel);
         out.println("</div>");
     }
 
-    private void printHeaderGaugeAutoRefreshScript(PrintWriter out) {
+    private void printHeaderGaugeAutoRefreshScript(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
         out.println("<script>");
         out.println("  (function() {");
+        out.println("    var ddShouldRefreshNowGauge = "
+                + (shouldRenderNowHeaderGauge(nowColumnModel) ? "true" : "false") + ";");
         out.println("    function ddRefreshHeaderGauges() {");
+        out.println("      if (!ddShouldRefreshNowGauge) {");
+        out.println("        return;");
+        out.println("      }");
         out.println("      var body = 'action=refreshHeaderGauges';");
         out.println("      fetch('DandelionDashboardServlet', {");
         out.println("        method: 'POST',");
@@ -165,7 +172,9 @@ public class DashboardPageRenderer {
         out.println("      });");
         out.println("    }");
         out.println("    // Keep gauges and active billing minutes current without full page refresh.");
-        out.println("    window.setInterval(ddRefreshHeaderGauges, 60000);");
+        out.println("    if (ddShouldRefreshNowGauge) {");
+        out.println("      window.setInterval(ddRefreshHeaderGauges, 60000);");
+        out.println("    }");
         out.println("  })();");
         out.println("</script>");
     }
@@ -572,6 +581,84 @@ public class DashboardPageRenderer {
         out.println("  .dd-today-show-all-link:hover {");
         out.println("    text-decoration: underline;");
         out.println("  }");
+        out.println("  .dd-workday-review-note {");
+        out.println("    margin: 0 0 8px 0;");
+        out.println("    font-size: 12px;");
+        out.println("    color: #3e5d40;");
+        out.println("    font-weight: bold;");
+        out.println("  }");
+        out.println("  .dd-workday-review-table {");
+        out.println("    width: 100%;");
+        out.println("    border-collapse: collapse;");
+        out.println("    table-layout: fixed;");
+        out.println("  }");
+        out.println("  .dd-workday-review-table th {");
+        out.println("    text-align: left;");
+        out.println("    font-size: 11px;");
+        out.println("    text-transform: uppercase;");
+        out.println("    letter-spacing: 0.03em;");
+        out.println("    color: #6f6659;");
+        out.println("    padding: 4px 6px;");
+        out.println("    border-bottom: 1px solid #d8cdbb;");
+        out.println("  }");
+        out.println("  .dd-workday-review-table td {");
+        out.println("    padding: 6px;");
+        out.println("    border-bottom: 1px solid #ebe2d4;");
+        out.println("    vertical-align: top;");
+        out.println("    font-size: 12px;");
+        out.println("  }");
+        out.println("  .dd-workday-review-col-project { width: 42%; }");
+        out.println("  .dd-workday-review-col-completed { width: 16%; text-align: right; }");
+        out.println("  .dd-workday-review-col-time { width: 22%; text-align: right; }");
+        out.println("  .dd-workday-review-col-review { width: 20%; text-align: center; }");
+        out.println("  td.dd-workday-review-col-review { cursor: pointer; }");
+        out.println("  .dd-workday-review-trigger {");
+        out.println("    background: none;");
+        out.println("    border: 1px solid #d6c8b3;");
+        out.println("    border-radius: 4px;");
+        out.println("    padding: 3px 8px;");
+        out.println("    cursor: pointer;");
+        out.println("    font-size: 13px;");
+        out.println("    color: #2f3a2f;");
+        out.println("    background: #f8f3ea;");
+        out.println("  }");
+        out.println("  .dd-workday-review-trigger:hover {");
+        out.println("    background: #eee6da;");
+        out.println("  }");
+        out.println("  .dd-workday-review-trigger-reviewed {");
+        out.println("    color: #2f6b36;");
+        out.println("    border-color: #8ab08f;");
+        out.println("    background: #edf7ee;");
+        out.println("  }");
+        out.println("  .dd-workday-review-modal { max-width: 760px; max-height: 88vh; overflow-y: auto; }");
+        out.println("  .dd-workday-review-modal-body { padding: 10px 14px 14px 14px; }");
+        out.println("  .dd-workday-review-field { margin-bottom: 12px; }");
+        out.println("  .dd-workday-review-field label {");
+        out.println("    display: block;");
+        out.println("    margin-bottom: 4px;");
+        out.println("    font-weight: bold;");
+        out.println("    color: #2d3a2d;");
+        out.println("    font-size: 13px;");
+        out.println("  }");
+        out.println("  .dd-workday-review-field p {");
+        out.println("    margin: 0 0 4px 0;");
+        out.println("    color: #5d5448;");
+        out.println("    font-size: 12px;");
+        out.println("  }");
+        out.println("  .dd-workday-review-field textarea {");
+        out.println("    width: 100%;");
+        out.println("    box-sizing: border-box;");
+        out.println("    border: 1px solid #cfbea6;");
+        out.println("    border-radius: 3px;");
+        out.println("    padding: 6px 8px;");
+        out.println("    font-family: inherit;");
+        out.println("    font-size: 13px;");
+        out.println("  }");
+        out.println("  .dd-workday-review-actions {");
+        out.println("    display: flex;");
+        out.println("    gap: 8px;");
+        out.println("    margin-top: 12px;");
+        out.println("  }");
         out.println("  .dd-next-day-chips {");
         out.println("    display: grid;");
         out.println("    grid-template-columns: repeat(4, minmax(0, 1fr));");
@@ -879,7 +966,11 @@ public class DashboardPageRenderer {
             out.println("    <div style=\"margin-top: 8px;\">");
             out.println("      <span id=\"workFollowUpPrefix\">Next</span>");
             out.println(
-                    "      <input type=\"text\" id=\"workFollowUpInput\" name=\"workFollowUp\" style=\"width: 70%; margin-left: 8px;\" autocomplete=\"off\"/>");
+                    "      <span class=\"dd-capture-input-container\" style=\"display: inline-block; width: 70%; margin-left: 8px; vertical-align: middle;\">");
+            out.println(
+                    "        <input type=\"text\" id=\"workFollowUpInput\" name=\"workFollowUp\" style=\"width: 100%;\" autocomplete=\"off\"/>");
+            out.println("        <div id=\"workFollowUpSuggestions\" class=\"dd-capture-suggestions\"></div>");
+            out.println("      </span>");
             out.println(
                     "      <button type=\"submit\" name=\"action\" value=\"WorkNext\" style=\"margin-left: 8px;\">Next</button>");
             out.println("    </div>");
@@ -944,6 +1035,7 @@ public class DashboardPageRenderer {
             out.println("        .catch(function() { alert('Unable to add note.'); });");
             out.println("    }");
             out.println("  </script>");
+            printWorkFollowUpScript(out);
         } else {
             out.println("  <p class=\"dd-subtle\">" + nowColumnModel.getCurrentAction().getFallbackMessage() + "</p>");
         }
@@ -1321,6 +1413,10 @@ public class DashboardPageRenderer {
         // Quick capture submit handling intentionally posts to
         // DandelionDashboardServlet
         // so the dashboard stays independent of legacy servlet routing.
+        if (todayColumnModel.getWorkdayReview() != null && todayColumnModel.getWorkdayReview().isRenderSection()) {
+            printWorkdayReviewSection(out, todayColumnModel);
+        }
+
         out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
         printDevLabel(out, "QUICK CAPTURE");
         out.println("  <h2>Quick Capture</h2>");
@@ -1437,6 +1533,140 @@ public class DashboardPageRenderer {
         }
 
         printTodayActionModalScaffolding(out, appReq);
+    }
+
+    private void printWorkdayReviewSection(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {
+        DashboardTodayColumnModel.WorkdayReviewModel reviewModel = todayColumnModel.getWorkdayReview();
+        if (reviewModel == null || reviewModel.getProjectItems().isEmpty()) {
+            return;
+        }
+
+        out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+        printDevLabel(out, "WORKDAY REVIEW");
+        out.println("  <h2>Workday Review</h2>");
+        if (reviewModel.isAllReviewed()) {
+            out.println("  <p class=\"dd-workday-review-note\">Today's project review complete.</p>");
+        }
+
+        out.println("  <table class=\"dd-workday-review-table\">");
+        out.println("    <tr>");
+        out.println("      <th class=\"dd-workday-review-col-project\">Project</th>");
+        out.println("      <th class=\"dd-workday-review-col-completed\">Completed</th>");
+        out.println("      <th class=\"dd-workday-review-col-time\">Time</th>");
+        out.println("      <th class=\"dd-workday-review-col-review\">Review</th>");
+        out.println("    </tr>");
+        for (DashboardTodayColumnModel.WorkdayReviewItemModel item : reviewModel.getProjectItems()) {
+            String buttonClass = "dd-workday-review-trigger"
+                    + (item.isReviewed() ? " dd-workday-review-trigger-reviewed" : "");
+            String indicator = item.isReviewed() ? "&#10004;" : "&#9888;";
+            out.println("    <tr>");
+            out.println(
+                    "      <td class=\"dd-workday-review-col-project\">" + escapeHtml(item.getProjectName()) + "</td>");
+            out.println("      <td class=\"dd-workday-review-col-completed\">" + item.getCompletedCount() + "</td>");
+            out.println(
+                    "      <td class=\"dd-workday-review-col-time\">" + escapeHtml(item.getMinutesDisplay()) + "</td>");
+            out.println(
+                    "      <td class=\"dd-workday-review-col-review\" onclick=\"ddOpenWorkdayReviewFromCell(this, event)\">");
+            out.println("        <button type=\"button\" class=\"" + buttonClass + "\""
+                    + " onclick=\"ddOpenWorkdayReviewModal(this, event)\""
+                    + " data-project-id=\"" + item.getProjectId() + "\""
+                    + " data-project-name=\"" + escapeHtml(item.getProjectName()) + "\""
+                    + " data-note=\"" + escapeHtml(item.getNote()) + "\""
+                    + " data-decision=\"" + escapeHtml(item.getDecision()) + "\""
+                    + " data-insight=\"" + escapeHtml(item.getInsight()) + "\""
+                    + " data-risk=\"" + escapeHtml(item.getRisk()) + "\""
+                    + " data-opportunity=\"" + escapeHtml(item.getOpportunity()) + "\""
+                    + ">" + indicator + "</button>");
+            out.println("      </td>");
+            out.println("    </tr>");
+        }
+        out.println("  </table>");
+        out.println("</div>");
+
+        out.println(
+                "<div id=\"ddWorkdayReviewModal\" class=\"dd-modal-overlay\" onclick=\"ddOverlayClose(event,this)\">");
+        out.println("  <div class=\"dd-modal dd-workday-review-modal\" onclick=\"event.stopPropagation()\">");
+        out.println("    <div class=\"dd-modal-head\">");
+        out.println("      <h3 id=\"ddWorkdayReviewTitle\" class=\"dd-modal-title\">Project Review</h3>");
+        out.println(
+                "      <button class=\"dd-modal-close\" onclick=\"ddCloseActionModal('ddWorkdayReviewModal',event)\">&times;</button>");
+        out.println("    </div>");
+        out.println(
+                "    <form method=\"POST\" action=\"DandelionDashboardServlet\" class=\"dd-workday-review-modal-body\">");
+        out.println("      <input type=\"hidden\" name=\"action\" value=\"saveWorkdayProjectReview\"/>");
+        out.println("      <input type=\"hidden\" id=\"ddWorkdayReviewProjectId\" name=\"projectId\" value=\"\"/>");
+
+        out.println("      <div class=\"dd-workday-review-field\">");
+        out.println("        <label for=\"ddWorkdayReviewNote\">Notes</label>");
+        out.println("        <p>Capture anything important to remember about today's work on this project.</p>");
+        out.println("        <textarea id=\"ddWorkdayReviewNote\" name=\"note\" rows=\"4\"></textarea>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-workday-review-field\">");
+        out.println("        <label for=\"ddWorkdayReviewDecision\">Decisions</label>");
+        out.println("        <p>What decision was made, and what changed because of it?</p>");
+        out.println("        <textarea id=\"ddWorkdayReviewDecision\" name=\"decision\" rows=\"4\"></textarea>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-workday-review-field\">");
+        out.println("        <label for=\"ddWorkdayReviewInsight\">Insights</label>");
+        out.println("        <p>What new understanding or clarity emerged while working on this project?</p>");
+        out.println("        <textarea id=\"ddWorkdayReviewInsight\" name=\"insight\" rows=\"4\"></textarea>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-workday-review-field\">");
+        out.println("        <label for=\"ddWorkdayReviewRisk\">Risks</label>");
+        out.println("        <p>What could negatively affect progress, timing, or outcomes?</p>");
+        out.println("        <textarea id=\"ddWorkdayReviewRisk\" name=\"risk\" rows=\"4\"></textarea>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-workday-review-field\">");
+        out.println("        <label for=\"ddWorkdayReviewOpportunity\">Opportunities</label>");
+        out.println("        <p>What new possibility or advantage appeared that could move this forward?</p>");
+        out.println("        <textarea id=\"ddWorkdayReviewOpportunity\" name=\"opportunity\" rows=\"4\"></textarea>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-workday-review-actions\">");
+        out.println("        <button type=\"submit\" class=\"dd-btn dd-btn-primary\">Save</button>");
+        out.println(
+                "        <button type=\"button\" class=\"dd-btn dd-btn-secondary\" onclick=\"ddCloseActionModal('ddWorkdayReviewModal',event)\">Cancel</button>");
+        out.println("      </div>");
+
+        out.println("    </form>");
+        out.println("  </div>");
+        out.println("</div>");
+
+        out.println("<script>");
+        out.println("  function ddSetWorkdayReviewField(id, value) {");
+        out.println("    var field = document.getElementById(id);");
+        out.println("    if (!field) { return; }");
+        out.println("    field.value = value || '';");
+        out.println("  }");
+        out.println("  function ddOpenWorkdayReviewModal(trigger, evt) {");
+        out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+        out.println("    if (!trigger || !trigger.dataset) { return false; }");
+        out.println("    var projectId = trigger.dataset.projectId || '';");
+        out.println("    var projectName = trigger.dataset.projectName || '';");
+        out.println("    var title = document.getElementById('ddWorkdayReviewTitle');");
+        out.println("    if (title) { title.textContent = 'Project Review - ' + projectName; }");
+        out.println("    var projectIdField = document.getElementById('ddWorkdayReviewProjectId');");
+        out.println("    if (projectIdField) { projectIdField.value = projectId; }");
+        out.println("    ddSetWorkdayReviewField('ddWorkdayReviewNote', trigger.dataset.note);");
+        out.println("    ddSetWorkdayReviewField('ddWorkdayReviewDecision', trigger.dataset.decision);");
+        out.println("    ddSetWorkdayReviewField('ddWorkdayReviewInsight', trigger.dataset.insight);");
+        out.println("    ddSetWorkdayReviewField('ddWorkdayReviewRisk', trigger.dataset.risk);");
+        out.println("    ddSetWorkdayReviewField('ddWorkdayReviewOpportunity', trigger.dataset.opportunity);");
+        out.println("    ddOpenActionModal('ddWorkdayReviewModal', projectId, evt);");
+        out.println("    var noteField = document.getElementById('ddWorkdayReviewNote');");
+        out.println("    if (noteField) { noteField.focus(); }");
+        out.println("    return false;");
+        out.println("  }");
+        out.println("  function ddOpenWorkdayReviewFromCell(cell, evt) {");
+        out.println("    if (!cell) { return false; }");
+        out.println("    var button = cell.querySelector('button.dd-workday-review-trigger');");
+        out.println("    return ddOpenWorkdayReviewModal(button, evt);");
+        out.println("  }");
+        out.println("</script>");
     }
 
     private void printTodayRowActionsCell(PrintWriter out, int actionNextId, boolean canReprioritize) {
@@ -2418,6 +2648,13 @@ public class DashboardPageRenderer {
         return safe(nowColumnModel.getCurrentProject().getName());
     }
 
+    private boolean shouldRenderNowHeaderGauge(DashboardNowColumnModel nowColumnModel) {
+        return nowColumnModel != null
+                && nowColumnModel.getCurrentAction() != null
+                && nowColumnModel.getCurrentAction().isAvailable()
+                && nowColumnModel.getCurrentAction().isTrackable();
+    }
+
     private String buildTodayHeaderLabel(AppReq appReq) {
         return appReq.getWebUser().getDateFormatService().formatPattern(new java.util.Date(), "EEEE dd MMM yyyy",
                 appReq.getWebUser().getTimeZone());
@@ -2523,6 +2760,24 @@ public class DashboardPageRenderer {
         out.println(
                 "      input.addEventListener('blur', function() { setTimeout(function() { suggestionsBox.style.display = 'none'; }, 150); });");
         out.println("    }");
+        out.println("  </script>");
+    }
+
+    private void printWorkFollowUpScript(PrintWriter out) {
+        out.println("  <script>");
+        out.println(
+                "    (function(){ const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\", \"I am waiting\"]; const input = document.getElementById('workFollowUpInput'); const suggestionsBox = document.getElementById('workFollowUpSuggestions'); if (!input || !suggestionsBox) { return; } let currentSuggestions = []; let selectedIndex = -1;");
+        out.println(
+                "      function showSuggestions(suggestions) { suggestionsBox.innerHTML = ''; suggestionsBox.style.display = suggestions.length ? 'block' : 'none'; for (var i=0;i<suggestions.length;i++) { var suggestion = suggestions[i]; var div = document.createElement('div'); div.textContent = suggestion; if (i === selectedIndex) { div.style.backgroundColor = '#e0e0e0'; } div.addEventListener('click', function(evt){ var text = evt.target.textContent || ''; input.value = text + ' '; suggestionsBox.style.display = 'none'; selectedIndex = -1; input.focus(); }); suggestionsBox.appendChild(div); } }");
+        out.println(
+                "      input.addEventListener('input', function(){ var text = (input.value || '').trim(); if (text.length === 0) { currentSuggestions = actionVerbs.slice(0); selectedIndex = -1; showSuggestions(currentSuggestions); return; } var suggestions = actionVerbs.filter(function(verb){ return verb.toLowerCase().startsWith(text.toLowerCase()); }); currentSuggestions = suggestions; selectedIndex = -1; showSuggestions(suggestions); });");
+        out.println(
+                "      input.addEventListener('focus', function(){ var text = (input.value || '').trim(); if (text.length === 0) { currentSuggestions = actionVerbs.slice(0); selectedIndex = -1; showSuggestions(currentSuggestions); } });");
+        out.println(
+                "      input.addEventListener('keydown', function(e){ var visible = suggestionsBox.style.display === 'block'; if (visible && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); var count = currentSuggestions.length; if (count === 0) { return; } if (e.key === 'ArrowDown') { selectedIndex = (selectedIndex + 1) % count; } else { selectedIndex = (selectedIndex - 1 + count) % count; } showSuggestions(currentSuggestions); } if (visible && (e.key === 'Enter' || e.key === 'Tab')) { if (selectedIndex < 0) { selectedIndex = 0; } if (selectedIndex < currentSuggestions.length) { e.preventDefault(); input.value = currentSuggestions[selectedIndex] + ' '; suggestionsBox.style.display = 'none'; selectedIndex = -1; } } if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; selectedIndex = -1; } });");
+        out.println(
+                "      input.addEventListener('blur', function(){ setTimeout(function(){ suggestionsBox.style.display = 'none'; }, 150); });");
+        out.println("    })();");
         out.println("  </script>");
     }
 

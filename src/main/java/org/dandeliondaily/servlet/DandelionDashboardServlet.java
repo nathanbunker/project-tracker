@@ -3,6 +3,7 @@ package org.dandeliondaily.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.LocalDate;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -28,6 +29,8 @@ import org.dandeliondaily.dashboard.service.DashboardNowColumnService;
 import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
+import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -49,6 +52,7 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
     private final DashboardTimeGaugeService dashboardTimeGaugeService = new DashboardTimeGaugeService();
     private final DashboardNextColumnService dashboardNextColumnService = new DashboardNextColumnService();
+    private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -100,6 +104,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             if ("addCurrentActionNote".equals(action)) {
                 handleAddCurrentActionNote(appReq);
+                return;
+            }
+            if ("saveWorkdayProjectReview".equals(action)) {
+                handleSaveWorkdayProjectReview(appReq);
                 return;
             }
 
@@ -178,6 +186,37 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("nextNote", action.getNextNotes() != null ? action.getNextNotes() : "");
 
         sendJsonResponse(appReq, true, "OK", data);
+    }
+
+    private void handleSaveWorkdayProjectReview(AppReq appReq) throws Exception {
+        String projectIdString = appReq.getRequest().getParameter("projectId");
+        if (projectIdString == null || projectIdString.trim().length() == 0) {
+            appReq.addErrorMessage("Project is required for review.");
+            return;
+        }
+
+        long projectId;
+        try {
+            projectId = Long.parseLong(projectIdString.trim());
+        } catch (NumberFormatException nfe) {
+            appReq.addErrorMessage("Project is not available.");
+            return;
+        }
+
+        LocalDate reviewDate = appReq.getWebUser().getLocalDateToday();
+        ProjectNarrativeEntry entry = new ProjectNarrativeEntry();
+        entry.setNote(n(appReq.getRequest().getParameter("note")).trim());
+        entry.setDecision(n(appReq.getRequest().getParameter("decision")).trim());
+        entry.setInsight(n(appReq.getRequest().getParameter("insight")).trim());
+        entry.setRisk(n(appReq.getRequest().getParameter("risk")).trim());
+        entry.setOpportunity(n(appReq.getRequest().getParameter("opportunity")).trim());
+
+        try {
+            projectNarrativeService.saveNarrativeForProjectDate(appReq, projectId, reviewDate, entry);
+            appReq.addSuccessMessage("Project review saved.");
+        } catch (IllegalArgumentException iae) {
+            appReq.addErrorMessage(iae.getMessage());
+        }
     }
 
     private void handleEditAction(AppReq appReq) throws Exception {

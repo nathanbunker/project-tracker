@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
+import org.dandeliondaily.projectnarrative.model.ProjectNarrativeSummary;
+import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
-import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -23,9 +23,11 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class DashboardTodayColumnService {
+
+    private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
+    private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
 
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
@@ -60,10 +62,11 @@ public class DashboardTodayColumnService {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         ProjectActionNext selectedAction = appReq.getCompletingAction();
+        Project selectedProject = selectedAction == null ? null : selectedAction.getProject();
 
         List<Project> projectList = loadProjectList(webUser, dataSession);
-        ProjectActionNext nextAction = saveNewActionFromSentence(webUser, dataSession, selectedAction, projectList,
-                sentenceInput);
+        ProjectActionNext nextAction = actionSentenceImportService.saveNewActionFromSentence(webUser, dataSession,
+                selectedProject, projectList, sentenceInput);
         if (nextAction == null) {
             appReq.addErrorMessage("Unable to create action from quick capture sentence.");
             return;
@@ -102,6 +105,7 @@ public class DashboardTodayColumnService {
 
         List<ProjectActionNext> completedToday = getProjectActionListClosedToday(webUser, dataSession);
         model.setCompletedToday(toActionItems(webUser, completedToday, "Completed"));
+        model.setWorkdayReview(buildWorkdayReviewModel(webUser, dataSession, model.getActionGroups(), completedToday));
 
         List<ProjectActionNext> todayAndOverdue = new ArrayList<ProjectActionNext>();
         todayAndOverdue.addAll(overdueList);
@@ -109,6 +113,80 @@ public class DashboardTodayColumnService {
         model.setTotals(buildTotals(appReq, webUser, todayAndOverdue));
 
         return model;
+    }
+
+    private DashboardTodayColumnModel.WorkdayReviewModel buildWorkdayReviewModel(WebUser webUser, Session dataSession,
+            List<DashboardTodayColumnModel.TodayActionGroupModel> actionGroups,
+            List<ProjectActionNext> completedToday) {
+        DashboardTodayColumnModel.WorkdayReviewModel model = new DashboardTodayColumnModel.WorkdayReviewModel();
+
+        if (!isWorkdayComplete(actionGroups) || completedToday == null || completedToday.isEmpty()) {
+            model.setRenderSection(false);
+            model.setAllReviewed(false);
+            return model;
+        }
+
+        List<Integer> completedActionProjectIds = new ArrayList<Integer>();
+        for (ProjectActionNext action : completedToday) {
+            if (action == null || action.getProject() == null || action.getProject().getProjectId() <= 0) {
+                continue;
+            }
+            completedActionProjectIds.add(action.getProject().getProjectId());
+        }
+
+        List<ProjectNarrativeSummary> summaries = projectNarrativeService.listNarrativeSummariesForCompletedProjects(
+                webUser, dataSession, webUser.getLocalDateToday(), completedActionProjectIds);
+
+        List<DashboardTodayColumnModel.WorkdayReviewItemModel> reviewItems = new ArrayList<DashboardTodayColumnModel.WorkdayReviewItemModel>();
+        boolean allReviewed = !summaries.isEmpty();
+        for (ProjectNarrativeSummary summary : summaries) {
+            DashboardTodayColumnModel.WorkdayReviewItemModel item = new DashboardTodayColumnModel.WorkdayReviewItemModel();
+            item.setProjectId(summary.getProjectId());
+            item.setProjectName(summary.getProjectName());
+            item.setCompletedCount(summary.getCompletedCount());
+            item.setMinutesSpent(summary.getMinutesSpent());
+            item.setMinutesDisplay(ProjectActionNext.getTimeForDisplay(summary.getMinutesSpent()));
+            item.setReviewed(summary.isReviewed());
+            item.setNote(summary.getNarrativeEntry().getNote());
+            item.setDecision(summary.getNarrativeEntry().getDecision());
+            item.setInsight(summary.getNarrativeEntry().getInsight());
+            item.setRisk(summary.getNarrativeEntry().getRisk());
+            item.setOpportunity(summary.getNarrativeEntry().getOpportunity());
+            reviewItems.add(item);
+            if (!summary.isReviewed()) {
+                allReviewed = false;
+            }
+        }
+
+        model.setProjectItems(reviewItems);
+        model.setRenderSection(!reviewItems.isEmpty());
+        model.setAllReviewed(allReviewed && !reviewItems.isEmpty());
+        return model;
+    }
+
+    private boolean isWorkdayComplete(List<DashboardTodayColumnModel.TodayActionGroupModel> actionGroups) {
+        if (actionGroups == null || actionGroups.isEmpty()) {
+            return true;
+        }
+
+        return !hasItemsForSection(actionGroups, "Committed")
+                && !hasItemsForSection(actionGroups, "Will Meet")
+                && !hasItemsForSection(actionGroups, "Will")
+                && !hasItemsForSection(actionGroups, "Start of Work Day")
+                && !hasItemsForSection(actionGroups, "End of Work Day");
+    }
+
+    private boolean hasItemsForSection(List<DashboardTodayColumnModel.TodayActionGroupModel> actionGroups,
+            String title) {
+        for (DashboardTodayColumnModel.TodayActionGroupModel group : actionGroups) {
+            if (group == null || group.getTitle() == null) {
+                continue;
+            }
+            if (title.equals(group.getTitle()) && group.getItems() != null && !group.getItems().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private DashboardTodayColumnModel.TodayTotalsModel buildTotals(AppReq appReq, WebUser webUser,
@@ -292,271 +370,6 @@ public class DashboardTodayColumnService {
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();
         return projectList;
-    }
-
-    private ProjectActionNext saveNewActionFromSentence(WebUser webUser, Session dataSession,
-            ProjectActionNext selectedAction, List<Project> projectList, String sentenceInput) {
-        UrlExtractionResult urlResult = extractAndRemoveUrl(sentenceInput);
-        String extractedUrl = urlResult.extractedUrl;
-        sentenceInput = urlResult.cleanedText;
-
-        String projectName = "";
-        String actionPart = sentenceInput;
-        String[] parts = sentenceInput.split(":", 2);
-        if (parts.length == 2) {
-            projectName = parts[0].trim();
-            actionPart = parts[1].trim();
-        }
-
-        Project foundProject = null;
-        for (Project project : projectList) {
-            if (project.getProjectName().equalsIgnoreCase(projectName)) {
-                foundProject = project;
-                break;
-            }
-        }
-        if (foundProject == null) {
-            if (selectedAction == null || selectedAction.getProject() == null) {
-                return null;
-            }
-            foundProject = selectedAction.getProject();
-            actionPart = projectName + " " + actionPart;
-        }
-
-        String actionVerb = "I will";
-        String actionToTake = actionPart;
-        String whenToTakeAction = "";
-        int nextTimeEstimate = 20;
-        if (actionPart.startsWith("I will meet ")) {
-            actionVerb = "I will meet";
-            actionToTake = actionPart.substring("I will meet ".length()).trim();
-            nextTimeEstimate = 60;
-        } else if (actionPart.startsWith("I will ")) {
-            actionVerb = "I will";
-            actionToTake = actionPart.substring("I will ".length()).trim();
-        } else if (actionPart.startsWith("I might ")) {
-            actionVerb = "I might";
-            actionToTake = actionPart.substring("I might ".length()).trim();
-        } else if (actionPart.startsWith("I have committed ")) {
-            actionVerb = "I have committed";
-            actionToTake = actionPart.substring("I have committed ".length()).trim();
-        } else if (actionPart.startsWith("I have set goal to")) {
-            actionVerb = "I have set goal to";
-            actionToTake = actionPart.substring("I have set goal to".length()).trim();
-        } else if (actionPart.startsWith("I am waiting ") || actionPart.equals("I am waiting")
-                || actionPart.startsWith("I am waiting:")) {
-            actionVerb = "I am waiting";
-            actionToTake = actionPart.substring("I am waiting".length()).trim();
-            if (actionToTake.startsWith(":")) {
-                actionToTake = actionToTake.substring(1).trim();
-            }
-            nextTimeEstimate = 5;
-        }
-
-        String[] tokens = actionToTake.trim().split("\\s+");
-        if (tokens.length >= 1) {
-            String lastToken = tokens[tokens.length - 1];
-            String secondLastToken = tokens.length >= 2 ? tokens[tokens.length - 2] : "";
-            if (tokens.length > 3) {
-                String thirdLastToken = tokens.length >= 3 ? tokens[tokens.length - 3] : "";
-                if (thirdLastToken.equals("for") && isNumeric(secondLastToken)) {
-                    try {
-                        nextTimeEstimate = Integer.parseInt(secondLastToken);
-                    } catch (NumberFormatException e) {
-                        nextTimeEstimate = 20;
-                    }
-                    if (lastToken.equals("hours") || lastToken.equals("hour")) {
-                        nextTimeEstimate *= 60;
-                    }
-                    actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 3)).trim();
-                    tokens = actionToTake.trim().split("\\s+");
-                    lastToken = tokens.length >= 1 ? tokens[tokens.length - 1] : "";
-                    secondLastToken = tokens.length >= 2 ? tokens[tokens.length - 2] : "";
-                }
-            }
-
-            boolean foundDate = false;
-            if (lastToken.chars().filter(ch -> ch == '/').count() == 2) {
-                whenToTakeAction = lastToken;
-                foundDate = true;
-            } else {
-                String lower = lastToken.toLowerCase();
-                if (lower.equals("today") || lower.equals("tomorrow")) {
-                    whenToTakeAction = lastToken;
-                    foundDate = true;
-                } else {
-                    String[] days = { "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday" };
-                    for (String day : days) {
-                        if (lower.equals(day)) {
-                            if (secondLastToken.equalsIgnoreCase("next")) {
-                                whenToTakeAction = "next " + lastToken;
-                                actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 2))
-                                        .trim();
-                            } else {
-                                whenToTakeAction = lastToken;
-                                actionToTake = String.join(" ", java.util.Arrays.copyOf(tokens, tokens.length - 1))
-                                        .trim();
-                            }
-                            foundDate = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (foundDate && whenToTakeAction != null && actionToTake.endsWith(whenToTakeAction)) {
-                actionToTake = actionToTake.substring(0, actionToTake.length() - whenToTakeAction.length()).trim();
-            }
-        }
-
-        ProjectActionNext nextAction = new ProjectActionNext();
-        nextAction.setProject(foundProject);
-        nextAction.setProjectId(foundProject.getProjectId());
-        nextAction.setContactId(webUser.getContactId());
-        Date actionDate = parseWhenToTakeAction(webUser, whenToTakeAction);
-        if (actionVerb.equals("I will")) {
-            nextAction.setNextActionType(ProjectNextActionType.WILL);
-        } else if (actionVerb.equals("I might")) {
-            nextAction.setNextActionType(ProjectNextActionType.MIGHT);
-        } else if (actionVerb.equals("I have committed")) {
-            nextAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
-        } else if (actionVerb.equals("I will meet")) {
-            nextAction.setNextActionType(ProjectNextActionType.WILL_MEET);
-        } else if (actionVerb.equals("I have set goal to")) {
-            nextAction.setNextActionType(ProjectNextActionType.GOAL);
-        } else if (actionVerb.equals("I am waiting")) {
-            nextAction.setNextActionType(ProjectNextActionType.WAITING);
-        } else {
-            nextAction.setNextActionType(ProjectNextActionType.WILL);
-        }
-        nextAction.setNextActionDate(actionDate);
-        nextAction.setNextDescription(actionToTake);
-        nextAction.setNextTimeEstimate(nextTimeEstimate);
-        nextAction.setNextChangeDate(new Date());
-        nextAction.setProvider(webUser.getProvider());
-        nextAction.setContact(webUser.getProjectContact());
-        nextAction.setBillable(resolveBillable(dataSession, foundProject));
-        if (extractedUrl != null && extractedUrl.length() > 0) {
-            nextAction.setLinkUrl(extractedUrl);
-        }
-        defaultPersonalTimeSlot(nextAction);
-        if (nextAction.getNextActionStatus() == null) {
-            if (nextAction.hasNextDescription()) {
-                if (nextAction.hasNextActionDate()) {
-                    nextAction.setNextActionStatus(ProjectNextActionStatus.READY);
-                } else {
-                    nextAction.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
-                }
-            }
-        }
-
-        Transaction trans = dataSession.beginTransaction();
-        dataSession.saveOrUpdate(nextAction);
-        trans.commit();
-        return nextAction;
-    }
-
-    private boolean resolveBillable(Session dataSession, Project project) {
-        if (project == null || project.getBillCode() == null || project.getBillCode().equals("")) {
-            return false;
-        }
-        BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
-        return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
-    }
-
-    private Date parseWhenToTakeAction(WebUser webUser, String whenToTakeAction) {
-        Date actionDate = webUser.getCalendar().getTime();
-        if (whenToTakeAction == null || whenToTakeAction.length() == 0) {
-            return actionDate;
-        }
-
-        Calendar calendar = webUser.getCalendar();
-        String lower = whenToTakeAction.trim().toLowerCase();
-        String[] days = { "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday" };
-        boolean isNext = lower.startsWith("next ");
-        String dayName = isNext ? lower.substring(5).trim() : lower;
-        int dayOfWeek = -1;
-        for (int i = 0; i < days.length; i++) {
-            if (days[i].equals(dayName)) {
-                dayOfWeek = i + 1;
-                break;
-            }
-        }
-        if (lower.equals("today")) {
-            // keep today
-        } else if (lower.equals("tomorrow")) {
-            calendar.add(Calendar.DAY_OF_YEAR, 1);
-        } else if (dayOfWeek != -1) {
-            int currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-            int daysUntil = dayOfWeek - currentDayOfWeek;
-            if (isNext) {
-                if (daysUntil <= 0) {
-                    daysUntil += 7;
-                }
-                daysUntil += 7;
-            } else if (daysUntil < 0) {
-                daysUntil += 7;
-            }
-            calendar.add(Calendar.DAY_OF_YEAR, daysUntil);
-        } else {
-            try {
-                Date parsedDate = webUser.getDateFormat().parse(whenToTakeAction);
-                calendar.setTime(parsedDate);
-            } catch (Exception e) {
-                // leave current date as fallback
-            }
-        }
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        actionDate = calendar.getTime();
-        return actionDate;
-    }
-
-    private void defaultPersonalTimeSlot(ProjectActionNext projectAction) {
-        if (projectAction != null && !projectAction.isBillable() && projectAction.getTimeSlot() == null) {
-            projectAction.setTimeSlot(TimeSlot.AFTERNOON);
-        }
-    }
-
-    private UrlExtractionResult extractAndRemoveUrl(String text) {
-        if (text == null || text.isEmpty()) {
-            return new UrlExtractionResult(text, null);
-        }
-        int urlStartIndex = text.indexOf("https://");
-        if (urlStartIndex == -1) {
-            return new UrlExtractionResult(text, null);
-        }
-        int urlEndIndex = text.indexOf(' ', urlStartIndex);
-        if (urlEndIndex == -1) {
-            urlEndIndex = text.length();
-        }
-        String extractedUrl = text.substring(urlStartIndex, urlEndIndex);
-        String cleanedText = text.substring(0, urlStartIndex) + text.substring(urlEndIndex);
-        cleanedText = cleanedText.trim().replaceAll("\\s+", " ");
-        return new UrlExtractionResult(cleanedText, extractedUrl);
-    }
-
-    private static class UrlExtractionResult {
-        private final String cleanedText;
-        private final String extractedUrl;
-
-        private UrlExtractionResult(String cleanedText, String extractedUrl) {
-            this.cleanedText = cleanedText;
-            this.extractedUrl = extractedUrl;
-        }
-    }
-
-    private static boolean isNumeric(String str) {
-        if (str == null || str.isEmpty()) {
-            return false;
-        }
-        for (char c : str.toCharArray()) {
-            if (!Character.isDigit(c)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private String resolveStatusLabel(ProjectActionNext projectAction) {

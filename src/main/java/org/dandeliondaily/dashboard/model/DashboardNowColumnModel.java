@@ -62,6 +62,7 @@ public class DashboardNowColumnModel {
 
     public static class CurrentAction {
         private boolean available;
+        private boolean trackable;
         private int actionNextId;
         private String title = "";
         private String summary = "";
@@ -81,6 +82,14 @@ public class DashboardNowColumnModel {
 
         public void setAvailable(boolean available) {
             this.available = available;
+        }
+
+        public boolean isTrackable() {
+            return trackable;
+        }
+
+        public void setTrackable(boolean trackable) {
+            this.trackable = trackable;
         }
 
         public int getActionNextId() {

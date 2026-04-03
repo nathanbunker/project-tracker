@@ -9,6 +9,7 @@ public class DashboardTodayColumnModel {
     private TodayTotalsModel totals = new TodayTotalsModel();
     private List<TodayActionGroupModel> actionGroups = new ArrayList<TodayActionGroupModel>();
     private List<TodayActionItemModel> completedToday = new ArrayList<TodayActionItemModel>();
+    private WorkdayReviewModel workdayReview = new WorkdayReviewModel();
 
     public QuickCaptureModel getQuickCapture() {
         return quickCapture;
@@ -40,6 +41,14 @@ public class DashboardTodayColumnModel {
 
     public void setCompletedToday(List<TodayActionItemModel> completedToday) {
         this.completedToday = completedToday;
+    }
+
+    public WorkdayReviewModel getWorkdayReview() {
+        return workdayReview;
+    }
+
+    public void setWorkdayReview(WorkdayReviewModel workdayReview) {
+        this.workdayReview = workdayReview;
     }
 
     public static class QuickCaptureModel {
@@ -301,6 +310,138 @@ public class DashboardTodayColumnModel {
 
         public void setActionNextId(int actionNextId) {
             this.actionNextId = actionNextId;
+        }
+    }
+
+    public static class WorkdayReviewModel {
+        private boolean renderSection;
+        private boolean allReviewed;
+        private List<WorkdayReviewItemModel> projectItems = new ArrayList<WorkdayReviewItemModel>();
+
+        public boolean isRenderSection() {
+            return renderSection;
+        }
+
+        public void setRenderSection(boolean renderSection) {
+            this.renderSection = renderSection;
+        }
+
+        public boolean isAllReviewed() {
+            return allReviewed;
+        }
+
+        public void setAllReviewed(boolean allReviewed) {
+            this.allReviewed = allReviewed;
+        }
+
+        public List<WorkdayReviewItemModel> getProjectItems() {
+            return projectItems;
+        }
+
+        public void setProjectItems(List<WorkdayReviewItemModel> projectItems) {
+            this.projectItems = projectItems;
+        }
+    }
+
+    public static class WorkdayReviewItemModel {
+        private long projectId;
+        private String projectName = "";
+        private int completedCount;
+        private int minutesSpent;
+        private String minutesDisplay = "-";
+        private boolean reviewed;
+        private String note = "";
+        private String decision = "";
+        private String insight = "";
+        private String risk = "";
+        private String opportunity = "";
+
+        public long getProjectId() {
+            return projectId;
+        }
+
+        public void setProjectId(long projectId) {
+            this.projectId = projectId;
+        }
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public void setProjectName(String projectName) {
+            this.projectName = projectName;
+        }
+
+        public int getCompletedCount() {
+            return completedCount;
+        }
+
+        public void setCompletedCount(int completedCount) {
+            this.completedCount = completedCount;
+        }
+
+        public int getMinutesSpent() {
+            return minutesSpent;
+        }
+
+        public void setMinutesSpent(int minutesSpent) {
+            this.minutesSpent = minutesSpent;
+        }
+
+        public String getMinutesDisplay() {
+            return minutesDisplay;
+        }
+
+        public void setMinutesDisplay(String minutesDisplay) {
+            this.minutesDisplay = minutesDisplay;
+        }
+
+        public boolean isReviewed() {
+            return reviewed;
+        }
+
+        public void setReviewed(boolean reviewed) {
+            this.reviewed = reviewed;
+        }
+
+        public String getNote() {
+            return note;
+        }
+
+        public void setNote(String note) {
+            this.note = note;
+        }
+
+        public String getDecision() {
+            return decision;
+        }
+
+        public void setDecision(String decision) {
+            this.decision = decision;
+        }
+
+        public String getInsight() {
+            return insight;
+        }
+
+        public void setInsight(String insight) {
+            this.insight = insight;
+        }
+
+        public String getRisk() {
+            return risk;
+        }
+
+        public void setRisk(String risk) {
+            this.risk = risk;
+        }
+
+        public String getOpportunity() {
+            return opportunity;
+        }
+
+        public void setOpportunity(String opportunity) {
+            this.opportunity = opportunity;
         }
     }
 }

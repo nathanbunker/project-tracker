@@ -11,11 +11,13 @@ import java.util.Map;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.dandeliondaily.dashboard.service.ActionSentenceImportService;
 import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
@@ -24,11 +26,14 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
 
 public class ProjectHealthPageService {
 
     public static final String PARAM_PROJECT_ID = "projectId";
+
+    private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
 
     private static class ProjectStats {
         private int undatedOpen;
@@ -36,6 +41,30 @@ public class ProjectHealthPageService {
         private Date lastReview;
         private int updateDue;
         private boolean reviewOverdue;
+        private boolean reviewScheduledToday;
+        private boolean missingDescription;
+        private boolean missingWeeklyReviewPeriod;
+    }
+
+    public static class ReplaceUnscheduledResult {
+        private int cancelledCount;
+        private int importedCount;
+
+        public int getCancelledCount() {
+            return cancelledCount;
+        }
+
+        public void setCancelledCount(int cancelledCount) {
+            this.cancelledCount = cancelledCount;
+        }
+
+        public int getImportedCount() {
+            return importedCount;
+        }
+
+        public void setImportedCount(int importedCount) {
+            this.importedCount = importedCount;
+        }
     }
 
     public ProjectHealthPageModel buildModel(AppReq appReq) {
@@ -44,7 +73,7 @@ public class ProjectHealthPageService {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         List<Project> projects = loadProjects(webUser, dataSession);
-        int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser);
+        int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser, dataSession);
         model.setSelectedProjectId(selectedProjectId);
 
         Map<Integer, ProjectStats> statsMap = buildStatsByProject(projects, webUser, dataSession);
@@ -59,7 +88,7 @@ public class ProjectHealthPageService {
             if (item.isSelected()) {
                 selectedProject = project;
             }
-            if (isPersonalProject(project, webUser)) {
+            if (isPersonalProject(project, dataSession)) {
                 personalProjects.add(item);
             } else {
                 workProjects.add(item);
@@ -97,13 +126,13 @@ public class ProjectHealthPageService {
             return new ArrayList<ProjectListItemModel>();
         }
 
-        boolean personal = isPersonalProject(selected, webUser);
+        boolean personal = isPersonalProject(selected, dataSession);
         List<ProjectListItemModel> candidates = new ArrayList<ProjectListItemModel>();
         for (Project project : all) {
             if (project.getProjectId() == projectId) {
                 continue;
             }
-            if (isPersonalProject(project, webUser) != personal) {
+            if (isPersonalProject(project, dataSession) != personal) {
                 continue;
             }
             ProjectListItemModel item = new ProjectListItemModel();
@@ -134,14 +163,14 @@ public class ProjectHealthPageService {
             return "Project was not found";
         }
 
-        boolean personal = isPersonalProject(selected, webUser);
-        if (isPersonalProject(before, webUser) != personal) {
+        boolean personal = isPersonalProject(selected, dataSession);
+        if (isPersonalProject(before, dataSession) != personal) {
             return "Projects must be in the same section";
         }
 
         List<Project> bucket = new ArrayList<Project>();
         for (Project project : all) {
-            if (isPersonalProject(project, webUser) == personal) {
+            if (isPersonalProject(project, dataSession) == personal) {
                 bucket.add(project);
             }
         }
@@ -174,8 +203,12 @@ public class ProjectHealthPageService {
         Session dataSession = appReq.getDataSession();
 
         Project project = (Project) dataSession.get(Project.class, projectId);
-        if (project == null || project.getProvider() == null
-                || project.getProvider().getProviderId() != webUser.getProvider().getProviderId()) {
+        if (project == null || project.getProvider() == null || webUser == null || webUser.getProvider() == null) {
+            return "Project is not available";
+        }
+        String projectProviderId = project.getProvider().getProviderId();
+        String userProviderId = webUser.getProvider().getProviderId();
+        if (projectProviderId == null || userProviderId == null || !projectProviderId.equals(userProviderId)) {
             return "Project is not available";
         }
 
@@ -198,7 +231,7 @@ public class ProjectHealthPageService {
             reviewAction.setNextTimeEstimate(30);
             reviewAction.setNextActionStatus(ProjectNextActionStatus.READY);
             reviewAction.setNextChangeDate(new Date());
-            reviewAction.setBillable(project.getBillCode() != null && project.getBillCode().trim().length() > 0);
+            reviewAction.setBillable(isWorkProject(project, dataSession));
 
             dataSession.save(reviewAction);
             transaction.commit();
@@ -237,6 +270,122 @@ public class ProjectHealthPageService {
         }
     }
 
+    public int bulkImportActions(AppReq appReq, int projectId, String bulkImportText) {
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+        if (bulkImportText == null || bulkImportText.trim().length() == 0) {
+            throw new IllegalArgumentException("Bulk import text is required");
+        }
+
+        Project selectedProject = null;
+        List<Project> projects = loadProjects(webUser, dataSession);
+        for (Project project : projects) {
+            if (project.getProjectId() == projectId) {
+                selectedProject = project;
+                break;
+            }
+        }
+        if (selectedProject == null) {
+            throw new IllegalArgumentException("Project is not available");
+        }
+
+        return actionSentenceImportService.importActionsFromText(webUser, dataSession, selectedProject, projects,
+                bulkImportText);
+    }
+
+    public List<ProjectActionNext> loadUnscheduledReviewActions(AppReq appReq) {
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+        Query query = dataSession.createQuery(
+                "select distinct pan from ProjectActionNext pan "
+                        + "left join fetch pan.project "
+                        + "left join fetch pan.contact "
+                        + "left join fetch pan.nextProjectContact "
+                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "and pan.nextDescription <> '' "
+                        + "and pan.nextActionStatusString = :status "
+                        + "and pan.nextActionDate is null "
+                        + "order by pan.project.projectName, pan.priorityLevel desc, pan.nextChangeDate");
+        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("nextContactId", webUser.getContactId());
+        query.setParameter("status", ProjectNextActionStatus.READY.getId());
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> actions = query.list();
+        return actions;
+    }
+
+    public ReplaceUnscheduledResult replaceUnscheduledActions(AppReq appReq, int defaultProjectId,
+            List<Integer> selectedActionIds, String bulkImportText) {
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+
+        if (selectedActionIds == null || selectedActionIds.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one unscheduled action to replace");
+        }
+        if (bulkImportText == null || bulkImportText.trim().length() == 0) {
+            throw new IllegalArgumentException("Bulk import text is required");
+        }
+
+        List<Project> projects = loadProjects(webUser, dataSession);
+        Project defaultProject = null;
+        for (Project project : projects) {
+            if (project.getProjectId() == defaultProjectId) {
+                defaultProject = project;
+                break;
+            }
+        }
+        if (defaultProject == null) {
+            throw new IllegalArgumentException("Default project is not available");
+        }
+
+        Query query = dataSession.createQuery(
+                "select distinct pan from ProjectActionNext pan "
+                        + "where pan.actionNextId in (:ids) "
+                        + "and pan.provider = :provider "
+                        + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "and pan.nextActionStatusString = :status "
+                        + "and pan.nextActionDate is null");
+        query.setParameterList("ids", selectedActionIds);
+        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("nextContactId", webUser.getContactId());
+        query.setParameter("status", ProjectNextActionStatus.READY.getId());
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> selectedActions = query.list();
+
+        if (selectedActions.isEmpty()) {
+            throw new IllegalArgumentException("Selected actions were not available for replacement");
+        }
+
+        Transaction cancelTransaction = dataSession.beginTransaction();
+        int cancelledCount = 0;
+        try {
+            Date now = new Date();
+            for (ProjectActionNext action : selectedActions) {
+                action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+                action.setNextChangeDate(now);
+                dataSession.update(action);
+                cancelledCount++;
+            }
+            cancelTransaction.commit();
+        } catch (Exception e) {
+            cancelTransaction.rollback();
+            throw new IllegalArgumentException("Unable to cancel selected actions: " + e.getMessage());
+        }
+
+        int importedCount = actionSentenceImportService.importActionsFromText(webUser, dataSession, defaultProject,
+                projects, bulkImportText);
+        if (importedCount <= 0) {
+            throw new IllegalArgumentException("No actions were imported");
+        }
+
+        ReplaceUnscheduledResult result = new ReplaceUnscheduledResult();
+        result.setCancelledCount(cancelledCount);
+        result.setImportedCount(importedCount);
+        return result;
+    }
+
     private List<Project> loadProjects(WebUser webUser, Session dataSession) {
         Query query = dataSession.createQuery(
                 "from Project where provider = :provider and (phaseCode is null or phaseCode <> 'Clos') order by priorityLevel desc, projectName");
@@ -246,7 +395,8 @@ public class ProjectHealthPageService {
         return projects;
     }
 
-    private int resolveSelectedProjectId(AppReq appReq, List<Project> projects, WebUser webUser) {
+    private int resolveSelectedProjectId(AppReq appReq, List<Project> projects, WebUser webUser,
+            Session dataSession) {
         String selectedProjectIdStr = appReq.getRequest().getParameter(PARAM_PROJECT_ID);
         if (selectedProjectIdStr != null && selectedProjectIdStr.trim().length() > 0) {
             try {
@@ -262,7 +412,7 @@ public class ProjectHealthPageService {
         }
 
         for (Project project : projects) {
-            if (!isPersonalProject(project, webUser)) {
+            if (!isPersonalProject(project, dataSession)) {
                 return project.getProjectId();
             }
         }
@@ -274,22 +424,26 @@ public class ProjectHealthPageService {
         Map<Integer, ProjectStats> statsMap = new HashMap<Integer, ProjectStats>();
 
         Date today = stripTime(webUser.getToday());
-        Calendar staleThreshold = webUser.getCalendar();
-        staleThreshold.setTime(today);
-        staleThreshold.add(Calendar.DAY_OF_MONTH, -30);
 
         for (Project project : projects) {
             ProjectStats stats = new ProjectStats();
             stats.undatedOpen = countOpenUndated(dataSession, project);
             stats.overdueOpen = countOpenOverdue(dataSession, project, today);
             stats.lastReview = loadLastReview(dataSession, webUser, project);
+            stats.reviewScheduledToday = hasReviewScheduledToday(dataSession, project, today);
 
             ProjectContactAssigned assigned = loadProjectContactAssigned(webUser, dataSession, project);
             if (assigned != null && assigned.getUpdateDue() != null) {
                 stats.updateDue = assigned.getUpdateDue();
             }
 
-            if (stats.updateDue > 0) {
+            stats.missingDescription = project.getDescription() == null
+                    || project.getDescription().trim().length() == 0;
+            stats.missingWeeklyReviewPeriod = !hasWeeklyReviewPeriod(stats.updateDue);
+
+            if (stats.reviewScheduledToday) {
+                stats.reviewOverdue = false;
+            } else if (stats.updateDue > 0) {
                 if (stats.lastReview == null) {
                     stats.reviewOverdue = true;
                 } else {
@@ -316,7 +470,8 @@ public class ProjectHealthPageService {
         item.setUndatedOpenCount(stats.undatedOpen);
         item.setReviewOverdue(stats.reviewOverdue);
 
-        if (stats.overdueOpen > 0 || stats.reviewOverdue) {
+        if (stats.missingDescription || stats.missingWeeklyReviewPeriod || stats.overdueOpen > 0
+                || stats.reviewOverdue) {
             item.setHealthLevel(ProjectListItemModel.HealthLevel.ATTENTION_NEEDED);
             item.setHealthLabel("attention needed");
         } else if (stats.undatedOpen > 0) {
@@ -372,6 +527,22 @@ public class ProjectHealthPageService {
 
     private List<ProjectHealthIssueModel> buildIssues(ProjectReportModel report, ProjectStats stats) {
         List<ProjectHealthIssueModel> issues = new ArrayList<ProjectHealthIssueModel>();
+
+        if (stats.missingDescription || stats.missingWeeklyReviewPeriod) {
+            StringBuilder detail = new StringBuilder();
+            if (stats.missingDescription) {
+                detail.append("Description is missing.");
+            }
+            if (stats.missingWeeklyReviewPeriod) {
+                if (detail.length() > 0) {
+                    detail.append(" ");
+                }
+                detail.append("Weekly review period is not configured (set Update Every to 7 days or less).");
+            }
+            issues.add(makeIssue(ProjectHealthIssueModel.Severity.CRITICAL,
+                    "Project setup incomplete",
+                    detail.toString()));
+        }
 
         if (stats.reviewOverdue) {
             issues.add(makeIssue(ProjectHealthIssueModel.Severity.CRITICAL,
@@ -496,6 +667,27 @@ public class ProjectHealthPageService {
         return (Date) query.uniqueResult();
     }
 
+    private boolean hasReviewScheduledToday(Session dataSession, Project project, Date today) {
+        Calendar tomorrow = Calendar.getInstance();
+        tomorrow.setTime(today);
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+
+        Query query = dataSession.createQuery(
+                "select count(*) from ProjectActionNext pan "
+                        + "where pan.projectId = :projectId "
+                        + "and pan.nextActionStatusString = :status "
+                        + "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow "
+                        + "and (pan.nextActionType = :reviewType or lower(pan.nextDescription) = :reviewDescription)");
+        query.setParameter("projectId", project.getProjectId());
+        query.setParameter("status", ProjectNextActionStatus.READY.getId());
+        query.setParameter("today", today);
+        query.setParameter("tomorrow", tomorrow.getTime());
+        query.setParameter("reviewType", ProjectNextActionType.WILL_REVIEW);
+        query.setParameter("reviewDescription", "project review");
+        Number result = (Number) query.uniqueResult();
+        return result != null && result.intValue() > 0;
+    }
+
     private String buildReportText(ProjectReportModel report) {
         StringBuilder text = new StringBuilder();
         text.append("Project Briefing\n");
@@ -549,12 +741,16 @@ public class ProjectHealthPageService {
         return text.toString();
     }
 
-    private boolean isPersonalProject(Project project, WebUser webUser) {
-        String categoryCode = project.getCategoryCode();
-        if (categoryCode == null) {
+    private boolean isPersonalProject(Project project, Session dataSession) {
+        return !isWorkProject(project, dataSession);
+    }
+
+    private boolean isWorkProject(Project project, Session dataSession) {
+        if (project == null) {
             return false;
         }
-        return categoryCode.equals("PER-" + webUser.getContactId());
+        BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
+        return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 
     private Date stripTime(Date date) {
@@ -585,6 +781,10 @@ public class ProjectHealthPageService {
             }
         }
         return Integer.toString(days) + " days";
+    }
+
+    private boolean hasWeeklyReviewPeriod(int updateDue) {
+        return updateDue > 0 && updateDue <= 7;
     }
 
     private String n(String value) {

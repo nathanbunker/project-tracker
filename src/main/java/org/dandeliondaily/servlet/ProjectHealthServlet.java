@@ -14,6 +14,7 @@ import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.render.ProjectHealthPageRenderer;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
+import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -48,6 +49,18 @@ public class ProjectHealthServlet extends ClientServlet {
             }
             if ("markProjectReviewedNow".equals(action)) {
                 handleMarkProjectReviewedNow(appReq);
+                return;
+            }
+            if ("bulkImportActions".equals(action)) {
+                handleBulkImportActions(appReq);
+                return;
+            }
+            if ("loadUnscheduledReviewData".equals(action)) {
+                handleLoadUnscheduledReviewData(appReq);
+                return;
+            }
+            if ("replaceUnscheduledActions".equals(action)) {
+                handleReplaceUnscheduledActions(appReq);
                 return;
             }
 
@@ -182,6 +195,119 @@ public class ProjectHealthServlet extends ClientServlet {
             return;
         }
         sendJson(appReq, true, "Project review timestamp updated", null);
+    }
+
+    private void handleBulkImportActions(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String bulkImportText = appReq.getRequest().getParameter("bulkImportText");
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Project id is required", null);
+            return;
+        }
+
+        int projectId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid project id", null);
+            return;
+        }
+
+        int importedCount;
+        try {
+            importedCount = pageService.bulkImportActions(appReq, projectId, bulkImportText);
+        } catch (IllegalArgumentException iae) {
+            sendJson(appReq, false, iae.getMessage(), null);
+            return;
+        }
+
+        if (importedCount <= 0) {
+            sendJson(appReq, false, "No actions were imported", null);
+            return;
+        }
+
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        data.put("importedCount", importedCount);
+        sendJson(appReq, true, "Imported " + importedCount + " actions", data);
+    }
+
+    private void handleLoadUnscheduledReviewData(AppReq appReq) throws Exception {
+        List<ProjectActionNext> actions = pageService.loadUnscheduledReviewActions(appReq);
+        Map<Integer, Map<String, Object>> grouped = new LinkedHashMap<Integer, Map<String, Object>>();
+        for (ProjectActionNext action : actions) {
+            if (action.getProject() == null) {
+                continue;
+            }
+            int projectId = action.getProject().getProjectId();
+            Map<String, Object> projectRow = grouped.get(projectId);
+            if (projectRow == null) {
+                projectRow = new LinkedHashMap<String, Object>();
+                projectRow.put("projectId", projectId);
+                projectRow.put("projectName", action.getProject().getProjectName());
+                projectRow.put("actions", new ArrayList<Map<String, Object>>());
+                grouped.put(projectId, projectRow);
+            }
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> projectActions = (List<Map<String, Object>>) projectRow.get("actions");
+            Map<String, Object> actionRow = new LinkedHashMap<String, Object>();
+            actionRow.put("actionId", action.getActionNextId());
+            actionRow.put("descriptionHtml",
+                    action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact()));
+            projectActions.add(actionRow);
+        }
+
+        List<Map<String, Object>> projectRows = new ArrayList<Map<String, Object>>(grouped.values());
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        data.put("projects", projectRows);
+        sendJson(appReq, true, "OK", data);
+    }
+
+    private void handleReplaceUnscheduledActions(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String[] selectedActionIdsRaw = appReq.getRequest().getParameterValues("selectedActionId");
+        String bulkImportText = appReq.getRequest().getParameter("bulkImportText");
+
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Project id is required", null);
+            return;
+        }
+        int projectId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid project id", null);
+            return;
+        }
+
+        List<Integer> selectedActionIds = new ArrayList<Integer>();
+        if (selectedActionIdsRaw != null) {
+            for (String idRaw : selectedActionIdsRaw) {
+                if (idRaw == null || idRaw.trim().length() == 0) {
+                    continue;
+                }
+                try {
+                    selectedActionIds.add(Integer.parseInt(idRaw.trim()));
+                } catch (NumberFormatException nfe) {
+                    // skip invalid id
+                }
+            }
+        }
+
+        ProjectHealthPageService.ReplaceUnscheduledResult result;
+        try {
+            result = pageService.replaceUnscheduledActions(appReq, projectId, selectedActionIds, bulkImportText);
+        } catch (IllegalArgumentException iae) {
+            sendJson(appReq, false, iae.getMessage(), null);
+            return;
+        }
+
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        data.put("cancelledCount", result.getCancelledCount());
+        data.put("importedCount", result.getImportedCount());
+        sendJson(appReq, true,
+                "Cancelled " + result.getCancelledCount() + " actions and imported " + result.getImportedCount()
+                        + " actions",
+                data);
     }
 
     private void sendJson(AppReq appReq, boolean success, String message, Map<String, Object> data) throws Exception {

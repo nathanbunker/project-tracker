@@ -62,6 +62,7 @@ public class DashboardNowColumnService {
         }
 
         model.setAvailable(true);
+        model.setTrackable(currentAction.isBillable());
         model.setActionNextId(currentAction.getActionNextId());
         model.setTitle(n(currentAction.getNextDescription(), "No action description"));
         model.setSummary(n(currentAction.getNextSummary(), ""));

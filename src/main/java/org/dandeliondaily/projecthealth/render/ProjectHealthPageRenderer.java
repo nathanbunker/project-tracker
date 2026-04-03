@@ -56,6 +56,8 @@ public class ProjectHealthPageRenderer {
         }
         printReprioritizeModal(out, model);
         printScheduleReviewModal(out, model);
+        printBulkImportModal(out, model);
+        printReviewUnscheduledModal(out, model);
         printScripts(out, model);
         out.println("</div>");
     }
@@ -217,9 +219,9 @@ public class ProjectHealthPageRenderer {
         out.println(
                 "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewScheduleModal(event)\">Schedule Project Review</button>");
         out.println(
-                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phBulkImportPlaceholder(event)\">Bulk Import Actions</button>");
+                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenBulkImportModal(event)\">Bulk Import Actions</button>");
         out.println(
-                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phReviewUnscheduled(event)\">Review Unscheduled Actions</button>");
+                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewUnscheduledModal(event)\">Review Unscheduled Actions</button>");
         out.println(
                 "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReprioritizeProjectModal(event)\">Reprioritize Project</button>");
         out.println(
@@ -262,6 +264,61 @@ public class ProjectHealthPageRenderer {
                 "      <div class=\"ph-form-field\">\n        <label for=\"phReviewDate\">Review Date (MM/DD/YYYY)</label>\n        <input id=\"phReviewDate\" name=\"reviewDate\" type=\"text\" value=\"\" />\n      </div>");
         out.println(
                 "      <div class=\"ph-form-actions\">\n        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Schedule</button>\n        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseScheduleReviewModal(event)\">Cancel</button>\n      </div>");
+        out.println("    </form>");
+        out.println("  </div>");
+        out.println("</div>");
+    }
+
+    private void printBulkImportModal(PrintWriter out, ProjectHealthPageModel model) {
+        out.println(
+                "<div id=\"phBulkImportModal\" class=\"ph-modal-overlay\" onclick=\"phCloseBulkImportModal(event)\">");
+        out.println("  <div class=\"ph-modal\" onclick=\"event.stopPropagation()\">");
+        out.println("    <div class=\"ph-modal-head\">");
+        out.println("      <h3 class=\"ph-modal-title\">Bulk Import Actions</h3>");
+        out.println(
+                "      <button class=\"ph-modal-close\" onclick=\"phCloseBulkImportModal(event)\">&times;</button>");
+        out.println("    </div>");
+        out.println(
+                "    <p class=\"ph-subtle\">Paste one action per line. Prefix with \"Project Name:\" to route a line to another project.</p>");
+        out.println("    <form id=\"phBulkImportForm\" onsubmit=\"return phSubmitBulkImport(event)\">");
+        out.println("      <input type=\"hidden\" name=\"action\" value=\"bulkImportActions\" />");
+        out.println(
+                "      <input type=\"hidden\" name=\"projectId\" value=\"" + model.getSelectedProjectId() + "\" />");
+        out.println("      <div class=\"ph-form-field\">");
+        out.println("        <label for=\"phBulkImportText\">Actions</label>");
+        out.println(
+                "        <textarea id=\"phBulkImportText\" name=\"bulkImportText\" rows=\"10\" placeholder=\"I will draft timeline tomorrow&#10;Client Project: I might review notes friday\"></textarea>");
+        out.println("      </div>");
+        out.println(
+                "      <div class=\"ph-form-actions\">\n        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Import Actions</button>\n        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseBulkImportModal(event)\">Cancel</button>\n      </div>");
+        out.println("    </form>");
+        out.println("  </div>");
+        out.println("</div>");
+    }
+
+    private void printReviewUnscheduledModal(PrintWriter out, ProjectHealthPageModel model) {
+        out.println(
+                "<div id=\"phReviewUnscheduledModal\" class=\"ph-modal-overlay\" onclick=\"phCloseReviewUnscheduledModal(event)\">");
+        out.println("  <div class=\"ph-modal ph-review-unscheduled-modal\" onclick=\"event.stopPropagation()\">");
+        out.println("    <div class=\"ph-modal-head\">");
+        out.println("      <h3 class=\"ph-modal-title\">Review Unscheduled Actions</h3>");
+        out.println(
+                "      <button class=\"ph-modal-close\" onclick=\"phCloseReviewUnscheduledModal(event)\">&times;</button>");
+        out.println("    </div>");
+        out.println(
+                "    <p class=\"ph-subtle\">Select unscheduled actions to cancel, then paste replacement actions to bulk import.</p>");
+        out.println("    <form id=\"phReviewUnscheduledForm\" onsubmit=\"return phSubmitReviewUnscheduled(event)\">");
+        out.println("      <input type=\"hidden\" name=\"action\" value=\"replaceUnscheduledActions\" />");
+        out.println(
+                "      <input type=\"hidden\" name=\"projectId\" value=\"" + model.getSelectedProjectId() + "\" />");
+        out.println("      <div id=\"phReviewUnscheduledList\" class=\"ph-review-list\"></div>");
+        out.println("      <div class=\"ph-form-field\">");
+        out.println("        <label for=\"phReviewBulkImportText\">Replacement Actions</label>");
+        out.println(
+                "        <textarea id=\"phReviewBulkImportText\" name=\"bulkImportText\" rows=\"8\" placeholder=\"I will rewrite proposal tomorrow&#10;Another Project: I might call vendor friday\"></textarea>");
+        out.println("      </div>");
+        out.println(
+                "      <div class=\"ph-form-actions\">\n        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Delete and Bulk Import</button>\n        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseReviewUnscheduledModal(event)\">Cancel</button>\n      </div>");
         out.println("    </form>");
         out.println("  </div>");
         out.println("</div>");
@@ -508,7 +565,7 @@ public class ProjectHealthPageRenderer {
                 "  function phCloseReprioritizeModal(evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var m=document.getElementById('phReprioritizeModal'); if (m) { m.classList.remove('ph-modal-open'); } return false; }");
 
         out.println(
-                "  function phOpenReviewScheduleModal(evt) { if (evt) { evt.preventDefault(); } var m=document.getElementById('phScheduleReviewModal'); if (m) { m.classList.add('ph-modal-open'); } }");
+                "  function phOpenReviewScheduleModal(evt) { if (evt) { evt.preventDefault(); } var m=document.getElementById('phScheduleReviewModal'); if (m) { m.classList.add('ph-modal-open'); } var d=document.getElementById('phReviewDate'); if (d && (!d.value || d.value.trim() === '')) { var t=new Date(); var mm=('0' + (t.getMonth()+1)).slice(-2); var dd=('0' + t.getDate()).slice(-2); var yyyy=t.getFullYear(); d.value = mm + '/' + dd + '/' + yyyy; } }");
         out.println(
                 "  function phCloseScheduleReviewModal(evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var m=document.getElementById('phScheduleReviewModal'); if (m) { m.classList.remove('ph-modal-open'); } return false; }");
         out.println("  function phSubmitScheduleReview(evt) {");
@@ -525,9 +582,68 @@ public class ProjectHealthPageRenderer {
         out.println("  }");
 
         out.println(
-                "  function phBulkImportPlaceholder(evt) { if (evt) { evt.preventDefault(); } alert('Bulk Import Actions will live on Project Health. Workflow is scaffolded in this first cut.'); return false; }");
+                "  function phOpenBulkImportModal(evt) { if (evt) { evt.preventDefault(); } if (!window.phSelectedProjectId) { alert('Select a project before bulk importing actions.'); return false; } var m=document.getElementById('phBulkImportModal'); if (m) { m.classList.add('ph-modal-open'); } var t=document.getElementById('phBulkImportText'); if (t) { t.focus(); } return false; }");
         out.println(
-                "  function phReviewUnscheduled(evt) { if (evt) { evt.preventDefault(); } var el=document.getElementById('phUnscheduledActions'); if (el && el.scrollIntoView) { el.scrollIntoView({ behavior:'smooth', block:'start' }); } return false; }");
+                "  function phCloseBulkImportModal(evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var m=document.getElementById('phBulkImportModal'); if (m) { m.classList.remove('ph-modal-open'); } return false; }");
+        out.println("  function phSubmitBulkImport(evt) {");
+        out.println(
+                "    evt.preventDefault(); var f = document.getElementById('phBulkImportForm'); if (!f) { return false; }");
+        out.println("    var formData = new URLSearchParams(new FormData(f));");
+        out.println(
+                "    fetch('ProjectHealthServlet', { method:'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+        out.println("      .then(function(r){ return r.json(); })");
+        out.println(
+                "      .then(function(data){ if (data && data.success) { var count = data.importedCount || 0; alert('Imported ' + count + ' actions.'); window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to import actions'); } })");
+        out.println("      .catch(function(){ alert('Unable to import actions'); });");
+        out.println("    return false;");
+        out.println("  }");
+
+        out.println(
+                "  function phOpenReviewUnscheduledModal(evt) { if (evt) { evt.preventDefault(); } if (!window.phSelectedProjectId) { alert('Select a project before reviewing unscheduled actions.'); return false; } var m=document.getElementById('phReviewUnscheduledModal'); if (m) { m.classList.add('ph-modal-open'); } phLoadReviewUnscheduledList(); return false; }");
+        out.println(
+                "  function phCloseReviewUnscheduledModal(evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var m=document.getElementById('phReviewUnscheduledModal'); if (m) { m.classList.remove('ph-modal-open'); } return false; }");
+        out.println("  function phLoadReviewUnscheduledList() {");
+        out.println(
+                "    var list=document.getElementById('phReviewUnscheduledList'); if (!list) { return; } list.innerHTML = '<p class=\\\"ph-subtle\\\">Loading unscheduled actions...</p>'; ");
+        out.println(
+                "    var formData = new URLSearchParams(); formData.append('action','loadUnscheduledReviewData');");
+        out.println(
+                "    fetch('ProjectHealthServlet', { method:'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+        out.println("      .then(function(r){ return r.json(); })");
+        out.println("      .then(function(data){");
+        out.println(
+                "        if (!data || !data.success) { list.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load unscheduled actions.</p>'; return; }");
+        out.println(
+                "        var projects = data.projects || []; if (projects.length === 0) { list.innerHTML = '<p class=\\\"ph-subtle\\\">No unscheduled actions found.</p>'; return; }");
+        out.println("        var html = ''; ");
+        out.println(
+                "        for (var i=0;i<projects.length;i++){ var p=projects[i]; html += '<div class=\\\"ph-review-project\\\">'; html += '<div class=\\\"ph-review-project-title\\\">' + phEscapeHtml(p.projectName || 'Project') + '</div>'; var actions = p.actions || []; for (var j=0;j<actions.length;j++){ var a=actions[j]; html += '<label class=\\\"ph-review-action\\\"><input type=\\\"checkbox\\\" name=\\\"selectedActionId\\\" value=\\\"' + a.actionId + '\\\" /> <span>' + (a.descriptionHtml || '') + '</span></label>'; } html += '</div>'; }");
+        out.println("        list.innerHTML = html;");
+        out.println("      })");
+        out.println(
+                "      .catch(function(){ list.innerHTML = '<p class=\\\"ph-subtle\\\">Could not load unscheduled actions.</p>'; });");
+        out.println("  }");
+        out.println("  function phSubmitReviewUnscheduled(evt) {");
+        out.println(
+                "    evt.preventDefault(); var form = document.getElementById('phReviewUnscheduledForm'); if (!form) { return false; }");
+        out.println(
+                "    var checked = form.querySelectorAll('input[name=\\\"selectedActionId\\\"]:checked'); if (!checked || checked.length === 0) { alert('Select at least one unscheduled action to delete.'); return false; }");
+        out.println("    var formData = new URLSearchParams();");
+        out.println(
+                "    formData.append('action', 'replaceUnscheduledActions'); formData.append('projectId', window.phSelectedProjectId || '0');");
+        out.println(
+                "    var bulkText = document.getElementById('phReviewBulkImportText'); formData.append('bulkImportText', bulkText ? (bulkText.value || '') : '');");
+        out.println(
+                "    for (var i=0;i<checked.length;i++) { formData.append('selectedActionId', checked[i].value); }");
+        out.println(
+                "    fetch('ProjectHealthServlet', { method:'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+        out.println("      .then(function(r){ return r.json(); })");
+        out.println(
+                "      .then(function(data){ if (data && data.success) { var cancelled = data.cancelledCount || 0; var imported = data.importedCount || 0; alert('Cancelled ' + cancelled + ' actions and imported ' + imported + ' actions.'); window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to replace unscheduled actions'); } })");
+        out.println("      .catch(function(){ alert('Unable to replace unscheduled actions'); });");
+        out.println("    return false;");
+        out.println("  }");
+
         out.println(
                 "  function phEscapeHtml(value) { return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;'); }");
         out.println("</script>");
@@ -616,6 +732,13 @@ public class ProjectHealthPageRenderer {
                 "  .ph-form-field input, .ph-form-field select, .ph-form-field textarea { width: 100%; box-sizing: border-box; padding: 6px 7px; border: 1px solid #d2c8ba; border-radius: 4px; }");
         out.println("  .ph-form-actions { display: flex; gap: 8px; margin-top: 10px; }");
         out.println("  .ph-reprio-choices { margin-top: 8px; }");
+        out.println("  .ph-review-unscheduled-modal { width: min(860px, calc(100vw - 30px)); }");
+        out.println(
+                "  .ph-review-list { border: 1px solid #d9ccb8; border-radius: 6px; background: #fffdfa; padding: 8px; margin-bottom: 10px; max-height: 300px; overflow: auto; }");
+        out.println("  .ph-review-project { margin-bottom: 10px; }");
+        out.println("  .ph-review-project-title { font-weight: bold; color: #415341; margin: 4px 0 6px 0; }");
+        out.println("  .ph-review-action { display: block; margin: 4px 0; font-size: 12px; color: #364033; }");
+        out.println("  .ph-review-action input { margin-right: 6px; }");
 
         out.println(
                 "  .ph-dev-label { display: none; font-size: 10px; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; color: #796f62; margin-bottom: 4px; }");
