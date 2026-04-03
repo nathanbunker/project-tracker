@@ -22,3 +22,7 @@ CREATE TABLE project_issue (
 ALTER TABLE project
     ADD COLUMN outcome_text TEXT NULL,
     ADD COLUMN success_criteria_text TEXT NULL;
+
+-- Persist the exact prompt payload used for tracker narrative generation so it can be inspected.
+ALTER TABLE tracker_narrative
+    ADD COLUMN prompt_used_text TEXT NULL;

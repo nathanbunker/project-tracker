@@ -2,10 +2,13 @@ package org.openimmunizationsoftware.pt.manager;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -18,6 +21,8 @@ import org.openimmunizationsoftware.pt.CentralControl;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ProjectIssue;
+import org.openimmunizationsoftware.pt.model.ProjectIssueStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
@@ -89,11 +94,17 @@ public class TrackerNarrativeGenerator {
                 Map<Integer, String> projectNames = loadProjectNames(session, timeByProject.keySet(), completedActions);
                 List<ProjectNarrative> projectNarratives = loadProjectNarratives(session, startDate, endDate);
                 List<ProjectActionNext> waitingActions = loadWaitingActions(session, startDate, endDate);
+                Set<Integer> projectIds = collectProjectIds(timeByProject, completedActions, projectNarratives,
+                        waitingActions);
+                Map<Integer, Project> projectsById = loadProjectsById(session, projectIds);
+                Map<Integer, List<String>> openIssuesByProject = loadOpenIssuesByProject(session, projectIds);
 
                 String prompt = buildPrompt(narrative, periodStart, periodEnd, completedActions, timeByProject,
-                        projectNames, projectNarratives, waitingActions);
+                        projectNames, projectsById, openIssuesByProject, projectNarratives, waitingActions);
                 GenerationContext context = new GenerationContext(periodStart, periodEnd, prompt, completedActions,
-                        timeByProject, projectNames, projectNarratives, waitingActions);
+                        timeByProject, projectNames, projectsById, openIssuesByProject, projectNarratives,
+                        waitingActions);
+                String promptUsedText = OpenAiNarrativeGenerator.buildPromptForInspection(context);
                 String markdownGenerated = createGenerator().generateDailyMarkdown(context);
 
                 transaction = session.beginTransaction();
@@ -106,6 +117,7 @@ public class TrackerNarrativeGenerator {
                 refresh.setDateGenerated(new Date());
                 refresh.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
                 refresh.setLastUpdated(new Date());
+                refresh.setPromptUsedText(promptUsedText);
                 if (isEmpty(refresh.getMarkdownFinal())) {
                     refresh.setMarkdownFinal(markdownGenerated);
                 }
@@ -181,6 +193,51 @@ public class TrackerNarrativeGenerator {
         return names;
     }
 
+    private static Map<Integer, Project> loadProjectsById(Session session, Set<Integer> projectIds) {
+        Map<Integer, Project> projectsById = new LinkedHashMap<Integer, Project>();
+        for (Integer projectId : projectIds) {
+            if (projectId == null || projectId.intValue() <= 0 || projectsById.containsKey(projectId)) {
+                continue;
+            }
+            Project project = (Project) session.get(Project.class, projectId);
+            if (project != null) {
+                projectsById.put(projectId, project);
+            }
+        }
+        return projectsById;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Integer, List<String>> loadOpenIssuesByProject(Session session, Set<Integer> projectIds) {
+        Map<Integer, List<String>> openIssuesByProject = new LinkedHashMap<Integer, List<String>>();
+        if (projectIds == null || projectIds.isEmpty()) {
+            return openIssuesByProject;
+        }
+
+        Query query = session.createQuery(
+                "from ProjectIssue where issueStatusString = :status and project.projectId in (:projectIds) "
+                        + "order by project.projectId asc, createdDate asc");
+        query.setString("status", ProjectIssueStatus.OPEN.name());
+        query.setParameterList("projectIds", projectIds);
+        List<ProjectIssue> issues = query.list();
+
+        for (ProjectIssue issue : issues) {
+            if (issue == null || issue.getProject() == null || issue.getProject().getProjectId() <= 0
+                    || isEmpty(issue.getIssueText())) {
+                continue;
+            }
+            int projectId = issue.getProject().getProjectId();
+            List<String> lines = openIssuesByProject.get(projectId);
+            if (lines == null) {
+                lines = new ArrayList<String>();
+                openIssuesByProject.put(projectId, lines);
+            }
+            lines.add(issue.getIssueText().trim());
+        }
+
+        return openIssuesByProject;
+    }
+
     @SuppressWarnings("unchecked")
     private static List<ProjectNarrative> loadProjectNarratives(Session session, Date startDate, Date endDate) {
         Query query = session.createQuery(
@@ -207,7 +264,8 @@ public class TrackerNarrativeGenerator {
 
     private static String buildPrompt(TrackerNarrative narrative, LocalDate periodStart, LocalDate periodEnd,
             List<ProjectActionTaken> completedActions, Map<Integer, Integer> timeByProject,
-            Map<Integer, String> projectNames, List<ProjectNarrative> projectNarratives,
+            Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
+            Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
             List<ProjectActionNext> waitingActions) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are writing a tracker narrative for period ")
@@ -245,6 +303,8 @@ public class TrackerNarrativeGenerator {
             sb.append("\n");
         }
 
+        appendProjectContextSection(sb, timeByProject, projectNames, projectsById, openIssuesByProject);
+
         appendNarrativeSection(sb, "Notes", ProjectNarrativeVerb.NOTE, projectNarratives);
         appendNarrativeSection(sb, "Decisions", ProjectNarrativeVerb.DECISION, projectNarratives);
         appendNarrativeSection(sb, "Insights", ProjectNarrativeVerb.INSIGHT, projectNarratives);
@@ -266,6 +326,108 @@ public class TrackerNarrativeGenerator {
         }
 
         return sb.toString();
+    }
+
+    private static void appendProjectContextSection(StringBuilder sb, Map<Integer, Integer> timeByProject,
+            Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
+            Map<Integer, List<String>> openIssuesByProject) {
+        sb.append("# Project Context\n");
+        boolean addedAny = false;
+
+        for (Integer projectId : projectNames.keySet()) {
+            Project project = projectsById.get(projectId);
+            List<String> openIssues = openIssuesByProject.get(projectId);
+
+            String description = project == null ? null : project.getDescription();
+            String outcome = project == null ? null : project.getOutcomeText();
+            String successCriteria = project == null ? null : project.getSuccessCriteriaText();
+
+            boolean hasDescription = !isEmpty(description);
+            boolean hasOutcome = !isEmpty(outcome);
+            boolean hasSuccess = !splitNonEmptyLines(successCriteria).isEmpty();
+            boolean hasOpenIssues = openIssues != null && !openIssues.isEmpty();
+
+            if (!hasDescription && !hasOutcome && !hasSuccess && !hasOpenIssues) {
+                continue;
+            }
+
+            addedAny = true;
+            String projectName = projectNames.get(projectId);
+            sb.append("## ").append(isEmpty(projectName) ? "Project " + projectId : projectName).append("\n");
+
+            if (hasDescription) {
+                sb.append("### Project Description\n");
+                sb.append(description.trim()).append("\n\n");
+            }
+            if (hasOutcome) {
+                sb.append("### Project Outcome\n");
+                sb.append(outcome.trim()).append("\n\n");
+            }
+            if (hasSuccess) {
+                sb.append("### Project Success Criteria\n");
+                for (String line : splitNonEmptyLines(successCriteria)) {
+                    sb.append("- ").append(line).append("\n");
+                }
+                sb.append("\n");
+            }
+            if (hasOpenIssues) {
+                sb.append("### Open Issues\n");
+                for (String issue : openIssues) {
+                    if (isEmpty(issue)) {
+                        continue;
+                    }
+                    sb.append("- ").append(issue.trim()).append("\n");
+                }
+                sb.append("\n");
+            }
+        }
+
+        if (!addedAny) {
+            sb.append("- None recorded.\n\n");
+        }
+    }
+
+    private static List<String> splitNonEmptyLines(String value) {
+        List<String> lines = new ArrayList<String>();
+        if (isEmpty(value)) {
+            return lines;
+        }
+        String[] parts = value.split("\\r?\\n");
+        for (String part : parts) {
+            if (part == null) {
+                continue;
+            }
+            String trimmed = part.trim();
+            if (trimmed.length() > 0) {
+                lines.add(trimmed);
+            }
+        }
+        return lines;
+    }
+
+    private static Set<Integer> collectProjectIds(Map<Integer, Integer> timeByProject,
+            List<ProjectActionTaken> completedActions, List<ProjectNarrative> projectNarratives,
+            List<ProjectActionNext> waitingActions) {
+        Set<Integer> projectIds = new HashSet<Integer>();
+        projectIds.addAll(timeByProject.keySet());
+
+        for (ProjectActionTaken action : completedActions) {
+            if (action != null && action.getProject() != null) {
+                projectIds.add(action.getProject().getProjectId());
+            }
+        }
+        for (ProjectNarrative narrative : projectNarratives) {
+            if (narrative != null && narrative.getProjectId() > 0) {
+                projectIds.add(narrative.getProjectId());
+            }
+        }
+        for (ProjectActionNext action : waitingActions) {
+            if (action != null && action.getProject() != null) {
+                projectIds.add(action.getProject().getProjectId());
+            }
+        }
+
+        return projectIds;
     }
 
     private static void appendNarrativeSection(StringBuilder sb, String title, ProjectNarrativeVerb verb,

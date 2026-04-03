@@ -10,6 +10,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
+import org.openimmunizationsoftware.pt.model.Project;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -68,7 +69,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
 
     @Override
     public String generateDailyMarkdown(GenerationContext ctx) {
-        String input = buildDailyInput(ctx);
+        String input = buildDailyInputText(ctx);
         ResponseCreateParams params = ResponseCreateParams.builder()
                 .model(MODEL)
                 .instructions(SYSTEM_PROMPT)
@@ -101,7 +102,16 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         }
     }
 
-    private String buildDailyInput(GenerationContext ctx) {
+    public static String buildPromptForInspection(GenerationContext ctx) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== SYSTEM INSTRUCTIONS ===\n");
+        sb.append(SYSTEM_PROMPT).append("\n\n");
+        sb.append("=== INPUT PAYLOAD ===\n");
+        sb.append(buildDailyInputText(ctx));
+        return sb.toString();
+    }
+
+    private static String buildDailyInputText(GenerationContext ctx) {
         StringBuilder sb = new StringBuilder();
         sb.append("Date: ").append(ctx.getPeriodStart()).append(" to ").append(ctx.getPeriodEnd()).append("\n");
         sb.append("\nTime Summary\n");
@@ -121,6 +131,8 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
                     .append(": ").append(TimeTracker.formatTime(entry.getValue())).append("\n");
         }
         sb.append("Total: ").append(TimeTracker.formatTime(totalMinutes)).append("\n\n");
+
+        appendProjectContext(sb, ctx, timeEntries);
 
         sb.append("Completed Actions\n");
         Map<String, List<String>> completedByProject = new LinkedHashMap<String, List<String>>();
@@ -154,6 +166,67 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         return sb.toString();
     }
 
+    private static void appendProjectContext(StringBuilder sb, GenerationContext ctx,
+            List<Map.Entry<Integer, Integer>> orderedTimeEntries) {
+        sb.append("Project Context\n");
+        boolean addedAny = false;
+
+        for (Map.Entry<Integer, Integer> entry : orderedTimeEntries) {
+            Integer projectId = entry.getKey();
+            String projectName = ctx.getProjectNames().get(projectId);
+            Project project = ctx.getProjectsById().get(projectId);
+            List<String> openIssues = ctx.getOpenIssuesByProject().get(projectId);
+
+            String description = project == null ? null : project.getDescription();
+            String outcomeText = project == null ? null : project.getOutcomeText();
+            String successCriteriaText = project == null ? null : project.getSuccessCriteriaText();
+
+            List<String> successCriteriaLines = splitNonEmptyLines(successCriteriaText);
+
+            boolean hasDescription = !isEmpty(description);
+            boolean hasOutcome = !isEmpty(outcomeText);
+            boolean hasSuccessCriteria = !successCriteriaLines.isEmpty();
+            boolean hasOpenIssues = openIssues != null && !openIssues.isEmpty();
+
+            if (!hasDescription && !hasOutcome && !hasSuccessCriteria && !hasOpenIssues) {
+                continue;
+            }
+
+            addedAny = true;
+            sb.append("Project: ").append(projectName == null ? "Project " + projectId : projectName).append("\n");
+
+            if (hasDescription) {
+                sb.append("Project Description\n");
+                sb.append(description.trim()).append("\n");
+            }
+            if (hasOutcome) {
+                sb.append("Project Outcome\n");
+                sb.append(outcomeText.trim()).append("\n");
+            }
+            if (hasSuccessCriteria) {
+                sb.append("Project Success Criteria\n");
+                for (String line : successCriteriaLines) {
+                    sb.append("- ").append(line).append("\n");
+                }
+            }
+            if (hasOpenIssues) {
+                sb.append("Open Issues\n");
+                for (String issue : openIssues) {
+                    if (isEmpty(issue)) {
+                        continue;
+                    }
+                    sb.append("- ").append(issue.trim()).append("\n");
+                }
+            }
+
+            sb.append("\n");
+        }
+
+        if (!addedAny) {
+            sb.append("- None\n\n");
+        }
+    }
+
     private static void appendProjectList(StringBuilder sb, Map<String, List<String>> grouped) {
         if (grouped.isEmpty()) {
             sb.append("- None\n");
@@ -165,6 +238,28 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
                 sb.append("  - ").append(item).append("\n");
             }
         }
+    }
+
+    private static List<String> splitNonEmptyLines(String value) {
+        List<String> lines = new ArrayList<String>();
+        if (isEmpty(value)) {
+            return lines;
+        }
+        String[] parts = value.split("\\r?\\n");
+        for (String part : parts) {
+            if (part == null) {
+                continue;
+            }
+            String trimmed = part.trim();
+            if (trimmed.length() > 0) {
+                lines.add(trimmed);
+            }
+        }
+        return lines;
+    }
+
+    private static boolean isEmpty(String value) {
+        return value == null || value.trim().length() == 0;
     }
 
     private static void appendNarrativeGroup(StringBuilder sb, String label, ProjectNarrativeVerb verb,

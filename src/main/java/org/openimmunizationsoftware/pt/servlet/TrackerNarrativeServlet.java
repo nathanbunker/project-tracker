@@ -443,6 +443,20 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("  </tr>\n");
         out.println("</table></div><br/>\n");
 
+        String promptUsedId = "promptUsed" + narrative.getNarrativeId();
+        out.println("<p><a class=\"button\" href=\"javascript:toggleLayer('" + promptUsedId
+                + "')\">Toggle Prompt Used</a></p>\n");
+        out.println("<div id=\"" + promptUsedId + "\" style=\"display:none;\">\n");
+        out.println("<table class=\"boxed-fill\">\n");
+        out.println("  <tr class=\"boxed\">\n");
+        out.println("    <th class=\"title\">Prompt Used (read-only)</th>\n");
+        out.println("  </tr>\n");
+        out.println("  <tr class=\"boxed\">\n");
+        out.println("    <td class=\"boxed\"><div class=\"scrollbox\"><pre>"
+                + escapeHtml(n(narrative.getPromptUsedText())) + "</pre></div></td>\n");
+        out.println("  </tr>\n");
+        out.println("</table></div><br/>\n");
+
         out.println("<p>");
         if (editMode) {
             out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE

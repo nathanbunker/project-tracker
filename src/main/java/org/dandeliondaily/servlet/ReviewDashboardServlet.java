@@ -45,6 +45,7 @@ public class ReviewDashboardServlet extends ClientServlet {
     private static final String VIEW_RENDERED = "rendered";
     private static final String VIEW_RAW = "raw";
     private static final String VIEW_EDIT = "edit";
+    private static final String VIEW_PROMPT = "prompt";
 
     private final TimeReviewService timeReviewService = new TimeReviewService();
     // ReviewDashboard is the editor-first narrative experience using shared
@@ -185,6 +186,9 @@ public class ReviewDashboardServlet extends ClientServlet {
         }
         if (VIEW_EDIT.equalsIgnoreCase(narrativeView)) {
             return VIEW_EDIT;
+        }
+        if (VIEW_PROMPT.equalsIgnoreCase(narrativeView)) {
+            return VIEW_PROMPT;
         }
         return VIEW_RENDERED;
     }

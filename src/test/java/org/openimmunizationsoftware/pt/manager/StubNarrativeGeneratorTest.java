@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
@@ -20,11 +21,13 @@ public class StubNarrativeGeneratorTest {
         List<ProjectActionTaken> completed = Collections.emptyList();
         Map<Integer, Integer> timeByProject = new LinkedHashMap<Integer, Integer>();
         Map<Integer, String> projectNames = new LinkedHashMap<Integer, String>();
+        Map<Integer, Project> projectsById = new LinkedHashMap<Integer, Project>();
+        Map<Integer, List<String>> openIssuesByProject = new LinkedHashMap<Integer, List<String>>();
         List<ProjectNarrative> projectNarratives = Collections.emptyList();
         List<ProjectActionNext> waiting = Collections.emptyList();
 
         GenerationContext ctx = new GenerationContext(day, day, "", completed, timeByProject, projectNames,
-                projectNarratives, waiting);
+                projectsById, openIssuesByProject, projectNarratives, waiting);
         NarrativeGenerator generator = new StubNarrativeGenerator();
 
         String markdown = generator.generateDailyMarkdown(ctx);

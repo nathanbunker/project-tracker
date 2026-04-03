@@ -775,6 +775,7 @@ CREATE TABLE `tracker_narrative` (
   `date_approved` datetime DEFAULT NULL,
   `prompt_version` varchar(50) DEFAULT NULL,
   `model_name` varchar(50) DEFAULT NULL,
+  `prompt_used_text` mediumtext,
   `project_id` int NOT NULL,
   `contact_id` int NOT NULL,
   `last_updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

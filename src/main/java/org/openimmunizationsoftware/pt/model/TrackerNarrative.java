@@ -21,6 +21,7 @@ public class TrackerNarrative implements java.io.Serializable {
     private Date dateApproved;
     private String promptVersion;
     private String modelName;
+    private String promptUsedText;
 
     public int getNarrativeId() {
         return narrativeId;
@@ -148,5 +149,13 @@ public class TrackerNarrative implements java.io.Serializable {
 
     public void setModelName(String modelName) {
         this.modelName = modelName;
+    }
+
+    public String getPromptUsedText() {
+        return promptUsedText;
+    }
+
+    public void setPromptUsedText(String promptUsedText) {
+        this.promptUsedText = promptUsedText;
     }
 }

@@ -41,6 +41,7 @@ public class TimeReviewRenderer {
     private static final String VIEW_RENDERED = "rendered";
     private static final String VIEW_RAW = "raw";
     private static final String VIEW_EDIT = "edit";
+    private static final String VIEW_PROMPT = "prompt";
 
     public static class EditFormModel {
         private int billId;
@@ -196,6 +197,10 @@ public class TimeReviewRenderer {
             printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(), 0,
                     ACTION_NARRATIVE_GENERATE, "Generate", "rd-btn");
         } else {
+            out.println("<a class=\"rd-btn rd-btn-light\" href=\""
+                    + buildCenterLink(dayModel.getSelectedDateIso(), scope.getNarrativeType(),
+                            activeNarrative.getNarrativeId(), VIEW_RENDERED, false)
+                    + "\">View</a>");
             printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
                     activeNarrative.getNarrativeId(), ACTION_NARRATIVE_REGENERATE, "Regenerate", "rd-btn rd-btn-light");
             printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
@@ -212,6 +217,12 @@ public class TimeReviewRenderer {
                             activeNarrative.getNarrativeId(), VIEW_RAW.equals(narrativeView) ? VIEW_RENDERED : VIEW_RAW,
                             false)
                     + "\">Raw</a>");
+            out.println("<a class=\"rd-btn rd-btn-light\" href=\""
+                    + buildCenterLink(dayModel.getSelectedDateIso(), scope.getNarrativeType(),
+                            activeNarrative.getNarrativeId(),
+                            VIEW_PROMPT.equals(narrativeView) ? VIEW_RENDERED : VIEW_PROMPT,
+                            false)
+                    + "\">Prompt</a>");
         }
         out.println("</div>");
         out.println("</div>");
@@ -268,6 +279,17 @@ public class TimeReviewRenderer {
         if (VIEW_RAW.equals(narrativeView)) {
             out.println(
                     "<pre class=\"rd-raw-markdown\">" + escapeHtml(n(activeNarrative.getMarkdownFinal())) + "</pre>");
+            out.println("</div>");
+            return;
+        }
+
+        if (VIEW_PROMPT.equals(narrativeView)) {
+            String promptUsed = n(activeNarrative.getPromptUsedText());
+            if (promptUsed.length() == 0) {
+                out.println("<p class=\"rd-subtle\">Prompt text is not yet captured for this narrative.</p>");
+            } else {
+                out.println("<pre class=\"rd-raw-markdown\">" + escapeHtml(promptUsed) + "</pre>");
+            }
             out.println("</div>");
             return;
         }

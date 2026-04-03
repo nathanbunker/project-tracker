@@ -7,6 +7,7 @@ import java.util.Map;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
+import org.openimmunizationsoftware.pt.model.Project;
 
 public class GenerationContext {
 
@@ -16,12 +17,15 @@ public class GenerationContext {
     private final List<ProjectActionTaken> completedActions;
     private final Map<Integer, Integer> timeByProject;
     private final Map<Integer, String> projectNames;
+    private final Map<Integer, Project> projectsById;
+    private final Map<Integer, List<String>> openIssuesByProject;
     private final List<ProjectNarrative> projectNarratives;
     private final List<ProjectActionNext> waitingActions;
 
     public GenerationContext(LocalDate periodStart, LocalDate periodEnd, String prompt,
             List<ProjectActionTaken> completedActions, Map<Integer, Integer> timeByProject,
-            Map<Integer, String> projectNames, List<ProjectNarrative> projectNarratives,
+            Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
+            Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
             List<ProjectActionNext> waitingActions) {
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
@@ -29,6 +33,8 @@ public class GenerationContext {
         this.completedActions = completedActions;
         this.timeByProject = timeByProject;
         this.projectNames = projectNames;
+        this.projectsById = projectsById;
+        this.openIssuesByProject = openIssuesByProject;
         this.projectNarratives = projectNarratives;
         this.waitingActions = waitingActions;
     }
@@ -55,6 +61,14 @@ public class GenerationContext {
 
     public Map<Integer, String> getProjectNames() {
         return projectNames;
+    }
+
+    public Map<Integer, Project> getProjectsById() {
+        return projectsById;
+    }
+
+    public Map<Integer, List<String>> getOpenIssuesByProject() {
+        return openIssuesByProject;
     }
 
     public List<ProjectNarrative> getProjectNarratives() {

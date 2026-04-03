@@ -49,5 +49,8 @@
     <property name="modelName" type="string">
       <column name="model_name" length="50" not-null="false" />
     </property>
+    <property name="promptUsedText" type="text">
+      <column name="prompt_used_text" not-null="false" />
+    </property>
   </class>
 </hibernate-mapping>
