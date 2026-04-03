@@ -327,7 +327,7 @@ public class ClientServlet extends HttpServlet {
     if (timeTracker != null && timeTracker.isRunningClock()) {
       return "TrackServlet?action=StopTimer";
     }
-    StringBuilder link = new StringBuilder("ProjectActionServlet");
+    StringBuilder link = new StringBuilder("DandelionDashboardServlet");
     boolean hasParam = false;
     if (project != null || completingAction != null) {
       link.append("?");
@@ -339,7 +339,7 @@ public class ClientServlet extends HttpServlet {
         if (hasParam) {
           link.append("&");
         }
-        link.append(ProjectActionServlet.PARAM_COMPLETING_ACTION_NEXT_ID)
+        link.append("completingActionNextId")
             .append("=")
             .append(completingAction.getActionNextId());
         hasParam = true;
@@ -347,11 +347,10 @@ public class ClientServlet extends HttpServlet {
       if (hasParam) {
         link.append("&");
       }
-      link.append(ProjectActionServlet.PARAM_ACTION).append("=")
-          .append(ProjectActionServlet.ACTION_START_TIMER);
+      link.append("action=StartTimer");
       return link.toString();
     }
-    return "ProjectActionServlet";
+    return "DandelionDashboardServlet";
   }
 
   protected void printDandelionLocation(PrintWriter out, String sectionName) {

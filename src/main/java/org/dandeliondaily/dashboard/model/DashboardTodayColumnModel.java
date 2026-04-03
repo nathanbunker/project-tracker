@@ -214,6 +214,7 @@ public class DashboardTodayColumnModel {
     public static class TodayActionItemModel {
         private int actionNextId;
         private String projectName = "";
+        private String descriptionText = "";
         private String descriptionHtml = "";
         private String estimateDisplay = "";
         private String actualDisplay = "";
@@ -236,6 +237,14 @@ public class DashboardTodayColumnModel {
 
         public void setDescriptionHtml(String descriptionHtml) {
             this.descriptionHtml = descriptionHtml;
+        }
+
+        public String getDescriptionText() {
+            return descriptionText;
+        }
+
+        public void setDescriptionText(String descriptionText) {
+            this.descriptionText = descriptionText;
         }
 
         public String getEstimateDisplay() {

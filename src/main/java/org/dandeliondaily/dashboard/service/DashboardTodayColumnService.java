@@ -203,6 +203,7 @@ public class DashboardTodayColumnService {
         for (ProjectActionNext action : actions) {
             DashboardTodayColumnModel.TodayActionItemModel item = new DashboardTodayColumnModel.TodayActionItemModel();
             item.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName(), ""));
+            item.setDescriptionText(n(action.getNextDescription(), ""));
             item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
             item.setActionNextId(action.getActionNextId());
             item.setEstimateDisplay(displayTime(action.getNextTimeEstimateForDisplay()));

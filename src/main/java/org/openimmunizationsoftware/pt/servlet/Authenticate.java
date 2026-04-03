@@ -10,7 +10,5 @@ package org.openimmunizationsoftware.pt.servlet;
  */
 public class Authenticate {
 
-
-
-  public static final String APP_DEFAULT_HOME = "HomeServlet";
+  public static final String APP_DEFAULT_HOME = "DandelionDashboardServlet";
 }

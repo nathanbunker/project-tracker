@@ -14,6 +14,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
@@ -28,9 +29,18 @@ import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
+import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
+import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 public class DandelionDashboardServlet extends ClientServlet {
 
@@ -79,11 +89,20 @@ public class DandelionDashboardServlet extends ClientServlet {
                 handleRescheduleAction(appReq);
                 return;
             }
+            if ("saveProjectEdit".equals(action)) {
+                handleSaveProjectEdit(appReq);
+                return;
+            }
+            if ("saveProjectCreate".equals(action)) {
+                handleSaveProjectCreate(appReq);
+                return;
+            }
             if ("refreshHeaderGauges".equals(action)) {
                 handleRefreshHeaderGauges(appReq);
                 return;
             }
             if ("addCurrentActionNote".equals(action)) {
+                import org.openimmunizationsoftware.pt.manager.TimeTracker;
                 handleAddCurrentActionNote(appReq);
                 return;
             }
@@ -149,6 +168,9 @@ public class DandelionDashboardServlet extends ClientServlet {
                 ? action.getProject().getProjectName()
                 : "");
         Integer nextContactId = action.getNextContactId();
+        if ("StartTimer".equals(action)) {
+            handleStartTimer(appReq);
+        }
         data.put("nextContactId", nextContactId != null && nextContactId.intValue() > 0 ? nextContactId : "");
         data.put("nextDescription", action.getNextDescription() != null ? action.getNextDescription() : "");
         data.put("nextTimeEstimate", action.getNextTimeEstimate() != null ? action.getNextTimeEstimate() : 0);
@@ -188,6 +210,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             String nextDeadlineDate = appReq.getRequest().getParameter("nextDeadlineDate");
             String linkUrl = appReq.getRequest().getParameter("linkUrl");
             String nextNote = appReq.getRequest().getParameter("nextNote");
+            String saveMode = appReq.getRequest().getParameter("saveMode");
+            boolean saveAndStart = "saveAndStart".equals(saveMode);
 
             // Parse and set dates
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
@@ -224,6 +248,53 @@ public class DandelionDashboardServlet extends ClientServlet {
                     // Ignore parse errors
                 }
             }
+                    private void handleStartTimer(AppReq appReq) {
+                        TimeTracker timeTracker = appReq.getTimeTracker();
+                        if (timeTracker == null) {
+                            return;
+                        }
+
+                        Session dataSession = appReq.getDataSession();
+                        Project project = appReq.getProject();
+                        ProjectActionNext completingAction = appReq.getCompletingAction();
+
+                        String actionIdStr = appReq.getRequest().getParameter("completingActionNextId");
+                        if (actionIdStr != null && actionIdStr.trim().length() > 0) {
+                            try {
+                                int actionNextId = Integer.parseInt(actionIdStr.trim());
+                                ProjectActionNext selected = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+                                if (selected != null) {
+                                    completingAction = selected;
+                                    appReq.setCompletingAction(selected);
+                                    if (selected.getProject() != null) {
+                                        project = selected.getProject();
+                                        appReq.setProject(project);
+                                    }
+                                }
+                            } catch (NumberFormatException nfe) {
+                                // Ignore invalid action id and continue with session state.
+                            }
+                        }
+
+                        if (project == null) {
+                            String projectIdStr = appReq.getRequest().getParameter("projectId");
+                            if (projectIdStr != null && projectIdStr.trim().length() > 0) {
+                                try {
+                                    int projectId = Integer.parseInt(projectIdStr.trim());
+                                    project = (Project) dataSession.get(Project.class, projectId);
+                                    if (project != null) {
+                                        appReq.setProject(project);
+                                    }
+                                } catch (NumberFormatException nfe) {
+                                    // Ignore invalid project id and continue with session state.
+                                }
+                            }
+                        }
+
+                        if (project != null) {
+                            timeTracker.startClock(project, completingAction, dataSession);
+                        }
+                    }
 
             if (nextTargetDate != null && nextTargetDate.length() > 0) {
                 try {
@@ -249,9 +320,24 @@ public class DandelionDashboardServlet extends ClientServlet {
                 action.setNextNotes(nextNote);
             }
 
+            if (saveAndStart) {
+                // When work starts now, schedule date is forced to the user's current day.
+                WebUser webUser = appReq.getWebUser();
+                action.setNextActionDate(webUser.getToday());
+            }
+
+            action.setNextChangeDate(new Date());
+
             // Save the updated action
             dataSession.update(action);
             transaction.commit();
+
+            if (saveAndStart) {
+                appReq.setCompletingAction(action);
+                if (action.getProject() != null) {
+                    appReq.setProject(action.getProject());
+                }
+            }
 
             sendJsonResponse(appReq, true, "Action saved successfully", null);
         } catch (Exception e) {
@@ -386,41 +472,50 @@ public class DandelionDashboardServlet extends ClientServlet {
         // Build the today model to get all actions in the same section as this one
         DashboardTodayColumnModel todayModel = dashboardTodayColumnService.buildModel(appReq);
 
-        // Find which section this action belongs to
+        // Find which section/table this action belongs to
         String currentActionSection = null;
-        List<Integer> sectionActionIds = new ArrayList<>();
+        List<DashboardTodayColumnModel.TodayActionItemModel> sectionItems = null;
 
-        // Check in action groups
         for (DashboardTodayColumnModel.TodayActionGroupModel group : todayModel.getActionGroups()) {
-            boolean foundInGroup = false;
             for (DashboardTodayColumnModel.TodayActionItemModel item : group.getItems()) {
                 if (item.getActionNextId() == actionNextId) {
                     currentActionSection = group.getTitle();
-                    foundInGroup = true;
+                    sectionItems = group.getItems();
                     break;
                 }
-                sectionActionIds.add(item.getActionNextId());
             }
-            if (foundInGroup)
+            if (sectionItems != null) {
                 break;
+            }
         }
 
-        // If not found in action groups, check completed section
-        if (currentActionSection == null) {
+        if (sectionItems == null) {
             for (DashboardTodayColumnModel.TodayActionItemModel item : todayModel.getCompletedToday()) {
                 if (item.getActionNextId() == actionNextId) {
                     currentActionSection = "Completed";
+                    sectionItems = todayModel.getCompletedToday();
                     break;
                 }
-                sectionActionIds.add(item.getActionNextId());
             }
+        }
+
+        if (sectionItems == null || currentActionSection == null) {
+            sendJsonResponse(appReq, false, "Action is not available in a today section", null);
+            return;
+        }
+
+        if (!isReprioritizableTodaySection(currentActionSection)) {
+            sendJsonResponse(appReq, false, "This section cannot be reprioritized", null);
+            return;
         }
 
         // Load all actions in the section (excluding current one)
         List<Map<String, Object>> actionList = new ArrayList<>();
-        for (Integer id : sectionActionIds) {
-            if (id != actionNextId) {
-                ProjectActionNext sectionAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, id);
+        for (DashboardTodayColumnModel.TodayActionItemModel itemModel : sectionItems) {
+            int sectionActionId = itemModel.getActionNextId();
+            if (sectionActionId != actionNextId) {
+                ProjectActionNext sectionAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                        sectionActionId);
                 if (sectionAction != null) {
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("id", sectionAction.getActionNextId());
@@ -446,6 +541,15 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("actions", actionList);
 
         sendJsonResponse(appReq, true, "OK", data);
+    }
+
+    private boolean isReprioritizableTodaySection(String sectionTitle) {
+        return !"Completed".equals(sectionTitle)
+                && !"Overdue".equals(sectionTitle)
+                && !"Personal (Wake)".equals(sectionTitle)
+                && !"Personal (Morning)".equals(sectionTitle)
+                && !"Personal (Afternoon & Evening)".equals(sectionTitle)
+                && !"Other".equals(sectionTitle);
     }
 
     private void handleReprioritizeAction(AppReq appReq) throws Exception {
@@ -710,6 +814,189 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("todayGaugeHtml", renderGaugeHtml(todayGaugeModel));
         data.put("todayCurrentTime", formatCurrentUserTime(appReq.getWebUser()));
         sendJsonResponse(appReq, true, "OK", data);
+    }
+
+    private void handleSaveProjectEdit(AppReq appReq) throws Exception {
+        handleSaveProject(appReq, false);
+    }
+
+    private void handleSaveProjectCreate(AppReq appReq) throws Exception {
+        handleSaveProject(appReq, true);
+    }
+
+    private void handleSaveProject(AppReq appReq, boolean createMode) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        if (!createMode && (projectIdStr == null || projectIdStr.trim().length() == 0)) {
+            sendJsonResponse(appReq, false, "Project id is required", null);
+            return;
+        }
+
+        int projectId = 0;
+        if (!createMode) {
+            try {
+                projectId = Integer.parseInt(projectIdStr.trim());
+            } catch (NumberFormatException nfe) {
+                sendJsonResponse(appReq, false, "Invalid project id", null);
+                return;
+            }
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            WebUser webUser = appReq.getWebUser();
+            Project project;
+            if (createMode) {
+                project = new Project();
+                project.setProvider(webUser.getProvider());
+            } else {
+                project = (Project) dataSession.get(Project.class, projectId);
+                if (project == null) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Project not found", null);
+                    return;
+                }
+                if (project.getProvider() == null
+                        || project.getProvider().getProviderId() != webUser.getProvider().getProviderId()) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Project is not available for this user", null);
+                    return;
+                }
+            }
+
+            String projectName = clip(appReq.getRequest().getParameter("projectName"), 100);
+            String categoryCode = clip(appReq.getRequest().getParameter("categoryCode"), 15);
+            String priorityLevelStr = clip(appReq.getRequest().getParameter("priorityLevel"), 8);
+            String projectIcon = clip(appReq.getRequest().getParameter("projectIcon"), 8);
+            String description = clip(appReq.getRequest().getParameter("description"), 1200);
+            String phaseCode = clip(appReq.getRequest().getParameter("phaseCode"), 8);
+            String billCode = clip(appReq.getRequest().getParameter("billCode"), 15);
+            String updateEveryStr = clip(appReq.getRequest().getParameter("updateEvery"), 8);
+
+            if (projectName.length() == 0) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Project name is required", null);
+                return;
+            }
+
+            Query uniqueQuery = dataSession.createQuery(
+                    "select count(*) from Project where provider = :provider and lower(projectName) = :projectName and projectId <> :projectId");
+            uniqueQuery.setParameter("provider", webUser.getProvider());
+            uniqueQuery.setParameter("projectName", projectName.toLowerCase());
+            uniqueQuery.setParameter("projectId", createMode ? -1 : projectId);
+            Number duplicateCount = (Number) uniqueQuery.uniqueResult();
+            if (duplicateCount != null && duplicateCount.intValue() > 0) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Project name must be unique", null);
+                return;
+            }
+
+            int priorityLevel = 0;
+            if (priorityLevelStr.length() > 0) {
+                try {
+                    priorityLevel = Integer.parseInt(priorityLevelStr);
+                } catch (NumberFormatException nfe) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Priority level must be a number", null);
+                    return;
+                }
+            }
+
+            int updateEvery = 0;
+            if (updateEveryStr.length() > 0) {
+                try {
+                    updateEvery = Integer.parseInt(updateEveryStr);
+                } catch (NumberFormatException nfe) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Update Every must be a number", null);
+                    return;
+                }
+            }
+            if (updateEvery < 0) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Update Every must be zero or greater", null);
+                return;
+            }
+
+            if (projectIcon.length() == 0) {
+                projectIcon = null;
+            }
+            if (billCode.length() == 0) {
+                billCode = null;
+            }
+
+            project.setProjectName(projectName);
+            project.setCategoryCode(categoryCode.length() > 0 ? categoryCode : null);
+            project.setPriorityLevel(priorityLevel);
+            project.setProjectIcon(projectIcon);
+            project.setDescription(description);
+            project.setPhaseCode(phaseCode.length() > 0 ? phaseCode : null);
+            if (webUser.isTrackTime()) {
+                project.setBillCode(billCode);
+            }
+            project.setWebUser(webUser);
+
+            dataSession.saveOrUpdate(project);
+            if (createMode) {
+                dataSession.flush();
+            }
+
+            ProjectContactAssigned projectContactAssigned = ProjectServlet.getProjectContactAssigned(webUser,
+                    dataSession, project);
+            if (projectContactAssigned == null) {
+                projectContactAssigned = new ProjectContactAssigned();
+                projectContactAssigned.setId(new ProjectContactAssignedId());
+                projectContactAssigned.getId().setContactId(webUser.getContactId());
+                projectContactAssigned.getId().setProjectId(project.getProjectId());
+                projectContactAssigned.setEmailAlert("Y");
+                dataSession.save(projectContactAssigned);
+            }
+            projectContactAssigned.setUpdateDue(updateEvery);
+            dataSession.saveOrUpdate(projectContactAssigned);
+
+            ProjectActionNext setupAction = null;
+            if (createMode) {
+                setupAction = new ProjectActionNext();
+                setupAction.setProject(project);
+                setupAction.setProjectId(project.getProjectId());
+                setupAction.setContactId(webUser.getContactId());
+                setupAction.setContact(webUser.getProjectContact());
+                setupAction.setProvider(webUser.getProvider());
+                setupAction.setNextActionType(ProjectNextActionType.WILL);
+                setupAction.setNextActionDate(webUser.getToday());
+                setupAction.setNextDescription("setup new project");
+                setupAction.setNextTimeEstimate(5);
+                setupAction.setNextActionStatus(ProjectNextActionStatus.READY);
+                setupAction.setNextChangeDate(new Date());
+                setupAction.setBillable(
+                        project.getBillCode() != null && project.getBillCode().trim().length() > 0 ? "Y" : "N");
+                dataSession.save(setupAction);
+            }
+
+            transaction.commit();
+
+            appReq.setProject(project);
+            if (createMode && setupAction != null) {
+                appReq.setCompletingAction(setupAction);
+            }
+            sendJsonResponse(appReq, true, createMode ? "Project created" : "Project saved", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJsonResponse(appReq, false,
+                    (createMode ? "Unable to create project: " : "Unable to save project: ") + e.getMessage(),
+                    null);
+        }
+    }
+
+    private String clip(String value, int maxLen) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= maxLen) {
+            return trimmed;
+        }
+        return trimmed.substring(0, maxLen);
     }
 
     private String formatCurrentUserTime(WebUser webUser) {

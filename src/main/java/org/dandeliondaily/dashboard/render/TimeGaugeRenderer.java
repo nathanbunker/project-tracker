@@ -123,7 +123,7 @@ public class TimeGaugeRenderer {
         out.println("    text-align: right;");
         out.println("  }");
         out.println("  .dd-gauge-today-header .dd-time-gauge-ratio {");
-        out.println("    flex: 0 0 72px;");
+        out.println("    flex: 0 0 88px;");
         out.println("    font-size: 12px;");
         out.println("    font-weight: bold;");
         out.println("    margin: 0;");
@@ -165,6 +165,9 @@ public class TimeGaugeRenderer {
     }
 
     private void renderInlineBarLong(PrintWriter out, TimeGaugeModel model) {
+        if (model.getRows().isEmpty()) {
+            return;
+        }
         out.println("<div class=\"dd-time-gauge dd-gauge-inline-bar-long\">");
         for (TimeGaugeModel.GaugeRow row : model.getRows()) {
             String stateClass = "dd-state-" + row.getState().name().toLowerCase();
@@ -181,6 +184,9 @@ public class TimeGaugeRenderer {
     }
 
     private void renderStandardGauge(PrintWriter out, TimeGaugeModel model) {
+        if (model.getTargetMinutes() <= 0) {
+            return;
+        }
         String variantClass = model.getVariant() == TimeGaugeVariant.INLINE ? "dd-gauge-inline" : "dd-gauge-stacked";
         String stateClass = "dd-state-" + model.getState().name().toLowerCase();
         out.println("<div class=\"dd-time-gauge " + variantClass + " " + stateClass + "\">");

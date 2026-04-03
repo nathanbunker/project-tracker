@@ -182,6 +182,7 @@ public class DashboardNowColumnModel {
 
     public static class CurrentProject {
         private boolean available;
+        private int projectId;
         private String name = "";
         private String description = "";
         private String fallbackMessage = "No current project selected";
@@ -192,6 +193,14 @@ public class DashboardNowColumnModel {
 
         public void setAvailable(boolean available) {
             this.available = available;
+        }
+
+        public int getProjectId() {
+            return projectId;
+        }
+
+        public void setProjectId(int projectId) {
+            this.projectId = projectId;
         }
 
         public String getName() {

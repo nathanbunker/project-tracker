@@ -15,9 +15,16 @@ import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeState;
 import org.dandeliondaily.dashboard.model.TimeGaugeVariant;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
+import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
+import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 public class DashboardPageRenderer {
 
@@ -109,7 +116,7 @@ public class DashboardPageRenderer {
         out.println("    <div class=\"dd-dashboard-columns\">");
         out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-now\">");
         out.println("        <!-- Real data wiring starts here for the dashboard now column. -->");
-        printNowColumn(out, nowColumnModel);
+        printNowColumn(out, nowColumnModel, appReq);
         out.println("      </div>");
         out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-today\">");
         out.println("        <!-- Real data wiring starts here for the dashboard today column. -->");
@@ -274,9 +281,9 @@ public class DashboardPageRenderer {
         out.println("    flex: 0 0 210px;");
         out.println("  }");
         out.println("  .dd-header-today .dd-header-gauge-wrap {");
-        out.println("    flex: 1;");
-        out.println("    width: auto;");
-        out.println("    min-width: 0;");
+        out.println("    flex: 0 0 280px;");
+        out.println("    width: 280px;");
+        out.println("    min-width: 280px;");
         out.println("    overflow: hidden;");
         out.println("  }");
         out.println("  .dd-dashboard-columns {");
@@ -672,6 +679,35 @@ public class DashboardPageRenderer {
         out.println("  .dd-row-action-btn:hover {");
         out.println("    opacity: 1;");
         out.println("  }");
+        out.println("  .dd-current-action-tools {");
+        out.println("    float: right;");
+        out.println("    display: inline-flex;");
+        out.println("    align-items: center;");
+        out.println("    gap: 8px;");
+        out.println("    margin: 0 0 8px 12px;");
+        out.println("  }");
+        out.println("  .dd-current-action-tool {");
+        out.println("    display: inline-flex;");
+        out.println("    align-items: center;");
+        out.println("    justify-content: center;");
+        out.println("    width: 26px;");
+        out.println("    height: 26px;");
+        out.println("    text-decoration: none;");
+        out.println("    background: #f0ebe0;");
+        out.println("    border: 1px solid #cfbea6;");
+        out.println("    border-radius: 4px;");
+        out.println("    cursor: pointer;");
+        out.println("    font-size: 15px;");
+        out.println("    line-height: 1;");
+        out.println("    color: #2d3a2d;");
+        out.println("  }");
+        out.println("  .dd-current-action-tool:hover {");
+        out.println("    background: #e8e1d3;");
+        out.println("    border-color: #bfa982;");
+        out.println("  }");
+        out.println("  .dd-current-action-form-main {");
+        out.println("    clear: both;");
+        out.println("  }");
         out.println("  .dd-modal-overlay {");
         out.println("    position: fixed;");
         out.println("    inset: 0;");
@@ -787,17 +823,25 @@ public class DashboardPageRenderer {
         out.println("</style>");
     }
 
-    private void printNowColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
+    private void printNowColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel, AppReq appReq) {
         // Future refinement point for project backlog logic lives in the service/model
         // layer so this renderer stays focused on layout.
         out.println("<div class=\"dd-now-action-wrap dd-panel dd-panel-open\">");
         printDevLabel(out, "CURRENT ACTION");
         if (nowColumnModel.getCurrentAction().isAvailable()) {
+            int currentActionNextId = nowColumnModel.getCurrentAction().getActionNextId();
             out.println("  <form method=\"POST\" action=\"DandelionDashboardServlet\">");
-            if (nowColumnModel.getCurrentAction().getNotes().isEmpty()) {
-                out.println(
-                        "    <p><a href=\"javascript:void(0);\" class=\"edit-link\" onclick=\"ddOpenCurrentActionNoteModal(); return false;\">Add Note</a></p>");
-            } else {
+            out.println("    <div class=\"dd-current-action-tools\">");
+            out.println(
+                    "      <a href=\"javascript:void(0);\" class=\"dd-current-action-tool\" title=\"Add note\" onclick=\"ddOpenCurrentActionNoteModal(); return false;\">📓</a>");
+            out.println(
+                    "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Change date\" onclick=\"ddOpenActionModal('rescheduleModal',"
+                            + currentActionNextId + ",event)\">📅</button>");
+            out.println(
+                    "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Edit action\" onclick=\"ddOpenActionModal('editActionModal',"
+                            + currentActionNextId + ",event)\">✏️</button>");
+            out.println("    </div>");
+            if (!nowColumnModel.getCurrentAction().getNotes().isEmpty()) {
                 out.println("    <ul>");
                 for (String note : nowColumnModel.getCurrentAction().getNotes()) {
                     out.println("      <li>" + escapeHtml(note) + "</li>");
@@ -817,6 +861,7 @@ public class DashboardPageRenderer {
                 out.println("    <p>Deadline: " + escapeHtml(nowColumnModel.getCurrentAction().getDeadlineDisplay())
                         + "</p>");
             }
+            out.println("    <div class=\"dd-current-action-form-main\">");
             out.println("    <p>What action was taken:</p>");
             out.println("    <input type=\"text\" id=\"workProgressInput\" name=\"nextSummary\" value=\""
                     + escapeHtml(nowColumnModel.getCurrentAction().getSummary())
@@ -839,66 +884,66 @@ public class DashboardPageRenderer {
                     "      <button type=\"submit\" name=\"action\" value=\"WorkNext\" style=\"margin-left: 8px;\">Next</button>");
             out.println("    </div>");
             out.println("    <input type=\"hidden\" name=\"completingActionNextId\" value=\""
-                    + nowColumnModel.getCurrentAction().getActionNextId() + "\"/>");
+                    + currentActionNextId + "\"/>");
             out.println("    <input type=\"hidden\" name=\"editActionNextId\" value=\""
-                    + nowColumnModel.getCurrentAction().getActionNextId() + "\"/>");
+                    + currentActionNextId + "\"/>");
+            out.println("    </div>");
             out.println("  </form>");
 
-            if (nowColumnModel.getCurrentAction().getNotes().isEmpty()) {
-                out.println(
-                        "  <div id=\"ddCurrentActionNoteModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseCurrentActionNoteModal(event)\">");
-                out.println("    <div class=\"dd-modal\" onclick=\"event.stopPropagation()\">");
-                out.println("      <div class=\"dd-modal-head\">");
-                out.println("        <h3 class=\"dd-modal-title\">Add Note</h3>");
-                out.println(
-                        "        <button class=\"dd-modal-close\" onclick=\"ddCloseCurrentActionNoteModal(event)\">&times;</button>");
-                out.println("      </div>");
-                out.println("      <div style=\"padding: 16px;\">");
-                out.println(
-                        "        <textarea id=\"ddCurrentActionNoteInput\" rows=\"5\" style=\"width: 100%; box-sizing: border-box;\"></textarea>");
-                out.println("        <div style=\"margin-top: 12px; display: flex; gap: 8px;\">");
-                out.println(
-                        "          <button class=\"dd-btn dd-btn-primary\" onclick=\"ddSubmitCurrentActionNote(event, "
-                                + nowColumnModel.getCurrentAction().getActionNextId() + ")\">Add Note</button>");
-                out.println(
-                        "          <button class=\"dd-btn dd-btn-secondary\" onclick=\"ddCloseCurrentActionNoteModal(event)\">Cancel</button>");
-                out.println("        </div>");
-                out.println("      </div>");
-                out.println("    </div>");
-                out.println("  </div>");
-                out.println("  <script>");
-                out.println("    function ddOpenCurrentActionNoteModal() {");
-                out.println("      var modal = document.getElementById('ddCurrentActionNoteModal');");
-                out.println("      if (modal) { modal.classList.add('dd-modal-open'); }");
-                out.println("      var input = document.getElementById('ddCurrentActionNoteInput');");
-                out.println("      if (input) { input.focus(); }");
-                out.println("    }");
-                out.println("    function ddCloseCurrentActionNoteModal(evt) {");
-                out.println("      if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
-                out.println("      var modal = document.getElementById('ddCurrentActionNoteModal');");
-                out.println("      if (modal) { modal.classList.remove('dd-modal-open'); }");
-                out.println("    }");
-                out.println("    function ddSubmitCurrentActionNote(evt, actionNextId) {");
-                out.println("      evt.preventDefault();");
-                out.println("      var input = document.getElementById('ddCurrentActionNoteInput');");
-                out.println("      if (!input || !input.value || input.value.trim().length === 0) { return; }");
-                out.println("      var formData = new FormData();");
-                out.println("      formData.append('action', 'addCurrentActionNote');");
-                out.println("      formData.append('actionNextId', actionNextId);");
-                out.println("      formData.append('nextNote', input.value.trim());");
-                out.println("      fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
-                out.println("        .then(function(response) { return response.json(); })");
-                out.println("        .then(function(data) {");
-                out.println("          if (data && data.success) {");
-                out.println("            window.location.reload();");
-                out.println("          } else {");
-                out.println("            alert('Unable to add note.');");
-                out.println("          }");
-                out.println("        })");
-                out.println("        .catch(function() { alert('Unable to add note.'); });");
-                out.println("    }");
-                out.println("  </script>");
-            }
+            out.println(
+                    "  <div id=\"ddCurrentActionNoteModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseCurrentActionNoteModal(event)\">");
+            out.println("    <div class=\"dd-modal\" onclick=\"event.stopPropagation()\">");
+            out.println("      <div class=\"dd-modal-head\">");
+            out.println("        <h3 class=\"dd-modal-title\">Add Note</h3>");
+            out.println(
+                    "        <button class=\"dd-modal-close\" onclick=\"ddCloseCurrentActionNoteModal(event)\">&times;</button>");
+            out.println("      </div>");
+            out.println("      <div style=\"padding: 16px;\">");
+            out.println(
+                    "        <textarea id=\"ddCurrentActionNoteInput\" rows=\"5\" style=\"width: 100%; box-sizing: border-box;\"></textarea>");
+            out.println("        <div style=\"margin-top: 12px; display: flex; gap: 8px;\">");
+            out.println(
+                    "          <button class=\"dd-btn dd-btn-primary\" onclick=\"ddSubmitCurrentActionNote(event, "
+                            + currentActionNextId + ")\">Add Note</button>");
+            out.println(
+                    "          <button class=\"dd-btn dd-btn-secondary\" onclick=\"ddCloseCurrentActionNoteModal(event)\">Cancel</button>");
+            out.println("        </div>");
+            out.println("      </div>");
+            out.println("    </div>");
+            out.println("  </div>");
+            out.println("  <script>");
+            out.println("    function ddOpenCurrentActionNoteModal() {");
+            out.println("      var modal = document.getElementById('ddCurrentActionNoteModal');");
+            out.println("      if (modal) { modal.classList.add('dd-modal-open'); }");
+            out.println("      var input = document.getElementById('ddCurrentActionNoteInput');");
+            out.println("      if (input) { input.focus(); }");
+            out.println("    }");
+            out.println("    function ddCloseCurrentActionNoteModal(evt) {");
+            out.println("      if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+            out.println("      var modal = document.getElementById('ddCurrentActionNoteModal');");
+            out.println("      if (modal) { modal.classList.remove('dd-modal-open'); }");
+            out.println("    }");
+            out.println("    function ddSubmitCurrentActionNote(evt, actionNextId) {");
+            out.println("      evt.preventDefault();");
+            out.println("      var input = document.getElementById('ddCurrentActionNoteInput');");
+            out.println("      if (!input || !input.value || input.value.trim().length === 0) { return; }");
+            out.println("      var formData = new URLSearchParams();");
+            out.println("      formData.append('action', 'addCurrentActionNote');");
+            out.println("      formData.append('actionNextId', actionNextId);");
+            out.println("      formData.append('nextNote', input.value.trim());");
+            out.println(
+                    "      fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+            out.println("        .then(function(response) { return response.json(); })");
+            out.println("        .then(function(data) {");
+            out.println("          if (data && data.success) {");
+            out.println("            window.location.reload();");
+            out.println("          } else {");
+            out.println("            alert('Unable to add note.');");
+            out.println("          }");
+            out.println("        })");
+            out.println("        .catch(function() { alert('Unable to add note.'); });");
+            out.println("    }");
+            out.println("  </script>");
         } else {
             out.println("  <p class=\"dd-subtle\">" + nowColumnModel.getCurrentAction().getFallbackMessage() + "</p>");
         }
@@ -907,12 +952,24 @@ public class DashboardPageRenderer {
         out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
         printDevLabel(out, "CURRENT PROJECT");
         if (nowColumnModel.getCurrentProject().isAvailable()) {
-            out.println("  <span class=\"dd-emphasis\">" + nowColumnModel.getCurrentProject().getName() + "</span>");
-            out.println("  <p>" + nowColumnModel.getCurrentProject().getDescription() + "</p>");
+            out.println("  <div class=\"dd-current-action-tools\">");
+            out.println(
+                    "    <button type=\"button\" class=\"dd-current-action-tool\" title=\"Edit project\" onclick=\"ddOpenCurrentProjectEditModal(event)\">✏️</button>");
+            out.println(
+                    "    <button type=\"button\" class=\"dd-current-action-tool\" title=\"Add project\" onclick=\"ddOpenCurrentProjectCreateModal(event)\">➕</button>");
+            out.println("  </div>");
+            out.println("  <div class=\"dd-current-action-form-main\">");
+            out.println("    <span class=\"dd-emphasis\">" + nowColumnModel.getCurrentProject().getName() + "</span>");
+            out.println("    <p>" + escapeHtml(nowColumnModel.getCurrentProject().getDescription()) + "</p>");
+            out.println("  </div>");
         } else {
             out.println("  <p class=\"dd-subtle\">" + nowColumnModel.getCurrentProject().getFallbackMessage() + "</p>");
         }
         out.println("</div>");
+
+        if (nowColumnModel.getCurrentProject().isAvailable()) {
+            printCurrentProjectEditModal(out, appReq, nowColumnModel.getCurrentProject());
+        }
 
         out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
         printDevLabel(out, "PROJECT BACKLOG");
@@ -921,6 +978,251 @@ public class DashboardPageRenderer {
         printBacklogTemplated(out, nowColumnModel.getTemplatedActions());
         printBacklogRecentCompleted(out, nowColumnModel.getRecentCompleted());
         out.println("</div>");
+    }
+
+    @SuppressWarnings("unchecked")
+    private void printCurrentProjectEditModal(PrintWriter out, AppReq appReq,
+            DashboardNowColumnModel.CurrentProject currentProjectModel) {
+        if (currentProjectModel == null || currentProjectModel.getProjectId() <= 0) {
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project project = (Project) dataSession.get(Project.class, currentProjectModel.getProjectId());
+        if (project == null) {
+            return;
+        }
+        ProjectContactAssigned projectContactAssigned = ProjectServlet.getProjectContactAssigned(webUser,
+                dataSession, project);
+        int updateEvery = projectContactAssigned != null ? projectContactAssigned.getUpdateDue() : 0;
+
+        out.println(
+                "<div id=\"ddCurrentProjectEditModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseCurrentProjectEditModal(event)\">");
+        out.println("  <div class=\"dd-modal dd-edit-action-modal\" onclick=\"event.stopPropagation()\">");
+        out.println("    <div class=\"dd-modal-head\">");
+        out.println("      <h3 id=\"ddCurrentProjectModalTitle\" class=\"dd-modal-title\">Edit Project</h3>");
+        out.println(
+                "      <button class=\"dd-modal-close\" onclick=\"ddCloseCurrentProjectEditModal(event)\">&times;</button>");
+        out.println("    </div>");
+        out.println(
+                "    <form id=\"ddCurrentProjectEditForm\" class=\"dd-edit-form\" method=\"POST\" action=\"DandelionDashboardServlet\" onsubmit=\"return ddSubmitCurrentProjectEditForm(event)\">");
+        out.println(
+                "      <input id=\"ddCurrentProjectFormAction\" type=\"hidden\" name=\"action\" value=\"saveProjectEdit\">");
+        out.println("      <input id=\"ddCurrentProjectId\" type=\"hidden\" name=\"projectId\" value=\""
+                + project.getProjectId() + "\">");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Project Name:</label>");
+        out.println(
+                "        <input id=\"ddCurrentProjectName\" type=\"text\" name=\"projectName\" class=\"dd-form-input\" value=\""
+                        + escapeHtml(project.getProjectName()) + "\">");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Category:</label>");
+        out.println("        <select id=\"ddCurrentProjectCategory\" name=\"categoryCode\" class=\"dd-form-input\">");
+        Query categoryQuery = dataSession.createQuery(
+                "from ProjectCategory where provider = :provider order by sortOrder, clientName");
+        categoryQuery.setParameter("provider", webUser.getProvider());
+        List<ProjectCategory> projectCategoryList = categoryQuery.list();
+        for (ProjectCategory projectCategory : projectCategoryList) {
+            String categoryCode = projectCategory.getCategoryCode();
+            if (categoryCode != null && categoryCode.startsWith("PER-")) {
+                String expectedPersonalCategory = "PER-" + webUser.getContactId();
+                if (!categoryCode.equals(expectedPersonalCategory)) {
+                    continue;
+                }
+            }
+            String selected = categoryCode != null && categoryCode.equals(project.getCategoryCode()) ? " selected"
+                    : "";
+            out.println("          <option value=\"" + escapeHtml(safe(categoryCode)) + "\"" + selected + ">"
+                    + escapeHtml(projectCategory.getClientNameForDropdown()) + "</option>");
+        }
+        out.println("        </select>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Priority Level:</label>");
+        out.println(
+                "        <input id=\"ddCurrentProjectPriority\" type=\"text\" name=\"priorityLevel\" class=\"dd-form-input-small\" value=\""
+                        + project.getPriorityLevel() + "\">");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Project Icon:</label>");
+        out.println(
+                "        <input id=\"ddCurrentProjectIcon\" type=\"text\" name=\"projectIcon\" class=\"dd-form-input\" value=\""
+                        + escapeHtml(safe(project.getProjectIcon())) + "\">");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Description:</label>");
+        out.println(
+                "        <textarea id=\"ddCurrentProjectDescription\" name=\"description\" class=\"dd-form-textarea\" rows=\"4\">"
+                        + escapeHtml(safe(project.getDescription())) + "</textarea>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Phase:</label>");
+        out.println("        <select id=\"ddCurrentProjectPhase\" name=\"phaseCode\" class=\"dd-form-input\">");
+        Query phaseQuery = dataSession.createQuery("from ProjectPhase");
+        List<ProjectPhase> projectPhaseList = phaseQuery.list();
+        for (ProjectPhase projectPhase : projectPhaseList) {
+            String selected = projectPhase.getPhaseCode() != null
+                    && projectPhase.getPhaseCode().equals(project.getPhaseCode()) ? " selected" : "";
+            out.println("          <option value=\"" + escapeHtml(safe(projectPhase.getPhaseCode())) + "\"" + selected
+                    + ">" + escapeHtml(projectPhase.getPhaseLabel()) + "</option>");
+        }
+        out.println("        </select>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Bill Code:</label>");
+        out.println("        <select id=\"ddCurrentProjectBillCode\" name=\"billCode\" class=\"dd-form-input\">");
+        out.println("          <option value=\"\">(none)</option>");
+        Query billCodeQuery = dataSession.createQuery(
+                "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
+        billCodeQuery.setParameter("provider", webUser.getProvider());
+        List<BillCode> billCodeList = billCodeQuery.list();
+        for (BillCode billCode : billCodeList) {
+            String selected = billCode.getBillCode() != null && billCode.getBillCode().equals(project.getBillCode())
+                    ? " selected"
+                    : "";
+            out.println("          <option value=\"" + escapeHtml(safe(billCode.getBillCode())) + "\"" + selected
+                    + ">" + escapeHtml(billCode.getBillLabel()) + "</option>");
+        }
+        out.println("        </select>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-field\">");
+        out.println("        <label class=\"dd-form-label\">Update Every:</label>");
+        out.println("        <select id=\"ddCurrentProjectUpdateEvery\" name=\"updateEvery\" class=\"dd-form-input\">");
+        out.println("          <option value=\"0\">none</option>");
+        boolean selectedInterval = false;
+        if (updateEvery == 0) {
+            selectedInterval = true;
+        }
+        for (Interval interval : Interval.values()) {
+            boolean selected = !selectedInterval && updateEvery > 0 && updateEvery <= interval.getDays();
+            out.println("          <option value=\"" + interval.getDays() + "\"" + (selected ? " selected" : "")
+                    + ">" + escapeHtml(interval.getDescription()) + "</option>");
+            if (selected) {
+                selectedInterval = true;
+            }
+        }
+        out.println("        </select>");
+        out.println("      </div>");
+
+        out.println("      <div class=\"dd-form-actions\">");
+        out.println(
+                "        <button id=\"ddCurrentProjectSubmitBtn\" type=\"submit\" class=\"dd-btn dd-btn-primary\">Save Project</button>");
+        out.println(
+                "        <button type=\"button\" class=\"dd-btn dd-btn-secondary\" onclick=\"ddCloseCurrentProjectEditModal(event)\">Cancel</button>");
+        out.println("      </div>");
+        out.println("    </form>");
+        out.println("  </div>");
+        out.println("</div>");
+
+        out.println("<script>");
+        out.println("  var ddCurrentProjectDefaults = {");
+        out.println("    projectId: '" + project.getProjectId() + "',");
+        out.println("    projectName: '" + escapeJsString(project.getProjectName()) + "',");
+        out.println("    categoryCode: '" + escapeJsString(safe(project.getCategoryCode())) + "',");
+        out.println("    priorityLevel: '" + project.getPriorityLevel() + "',");
+        out.println("    projectIcon: '" + escapeJsString(safe(project.getProjectIcon())) + "',");
+        out.println("    description: '" + escapeJsString(safe(project.getDescription())) + "',");
+        out.println("    phaseCode: '" + escapeJsString(safe(project.getPhaseCode())) + "',");
+        out.println("    billCode: '" + escapeJsString(safe(project.getBillCode())) + "',");
+        out.println("    updateEvery: '" + updateEvery + "'");
+        out.println("  };");
+        out.println("  function ddSetCurrentProjectFormMode(isCreate) {");
+        out.println("    var actionField = document.getElementById('ddCurrentProjectFormAction');");
+        out.println("    var projectIdField = document.getElementById('ddCurrentProjectId');");
+        out.println("    var title = document.getElementById('ddCurrentProjectModalTitle');");
+        out.println("    var submitBtn = document.getElementById('ddCurrentProjectSubmitBtn');");
+        out.println("    if (actionField) { actionField.value = isCreate ? 'saveProjectCreate' : 'saveProjectEdit'; }");
+        out.println(
+                "    if (projectIdField) { projectIdField.value = isCreate ? '' : ddCurrentProjectDefaults.projectId; }");
+        out.println("    if (title) { title.textContent = isCreate ? 'Add Project' : 'Edit Project'; }");
+        out.println("    if (submitBtn) { submitBtn.textContent = isCreate ? 'Add Project' : 'Save Project'; }");
+        out.println("  }");
+        out.println("  function ddFillCurrentProjectFormFromDefaults() {");
+        out.println("    var form = document.getElementById('ddCurrentProjectEditForm');");
+        out.println("    if (!form) { return; }");
+        out.println(
+                "    document.getElementById('ddCurrentProjectName').value = ddCurrentProjectDefaults.projectName;");
+        out.println(
+                "    document.getElementById('ddCurrentProjectCategory').value = ddCurrentProjectDefaults.categoryCode;");
+        out.println(
+                "    document.getElementById('ddCurrentProjectPriority').value = ddCurrentProjectDefaults.priorityLevel;");
+        out.println(
+                "    document.getElementById('ddCurrentProjectIcon').value = ddCurrentProjectDefaults.projectIcon;");
+        out.println(
+                "    document.getElementById('ddCurrentProjectDescription').value = ddCurrentProjectDefaults.description;");
+        out.println("    document.getElementById('ddCurrentProjectPhase').value = ddCurrentProjectDefaults.phaseCode;");
+        out.println(
+                "    document.getElementById('ddCurrentProjectBillCode').value = ddCurrentProjectDefaults.billCode;");
+        out.println(
+                "    document.getElementById('ddCurrentProjectUpdateEvery').value = ddCurrentProjectDefaults.updateEvery;");
+        out.println("  }");
+        out.println("  function ddClearCurrentProjectFormForCreate() {");
+        out.println("    var form = document.getElementById('ddCurrentProjectEditForm');");
+        out.println("    if (!form) { return; }");
+        out.println("    form.reset();");
+        out.println("    var billCode = document.getElementById('ddCurrentProjectBillCode');");
+        out.println("    if (billCode) { billCode.value = ''; }");
+        out.println("    var updateEvery = document.getElementById('ddCurrentProjectUpdateEvery');");
+        out.println("    if (updateEvery) { updateEvery.value = '0'; }");
+        out.println("  }");
+        out.println("  function ddOpenCurrentProjectEditModal(evt) {");
+        out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+        out.println("    ddFillCurrentProjectFormFromDefaults();");
+        out.println("    ddSetCurrentProjectFormMode(false);");
+        out.println("    var modal = document.getElementById('ddCurrentProjectEditModal');");
+        out.println("    if (modal) { modal.classList.add('dd-modal-open'); }");
+        out.println("    return false;");
+        out.println("  }");
+        out.println("  function ddOpenCurrentProjectCreateModal(evt) {");
+        out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+        out.println("    ddClearCurrentProjectFormForCreate();");
+        out.println("    ddSetCurrentProjectFormMode(true);");
+        out.println("    var modal = document.getElementById('ddCurrentProjectEditModal');");
+        out.println("    if (modal) { modal.classList.add('dd-modal-open'); }");
+        out.println("    return false;");
+        out.println("  }");
+        out.println("  function ddCloseCurrentProjectEditModal(evt) {");
+        out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+        out.println("    var modal = document.getElementById('ddCurrentProjectEditModal');");
+        out.println("    if (modal) { modal.classList.remove('dd-modal-open'); }");
+        out.println("    return false;");
+        out.println("  }");
+        out.println("  function ddSubmitCurrentProjectEditForm(evt) {");
+        out.println("    evt.preventDefault();");
+        out.println("    var form = document.getElementById('ddCurrentProjectEditForm');");
+        out.println("    if (!form) { return false; }");
+        out.println("    var formData = new URLSearchParams(new FormData(form));");
+        out.println(
+                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+        out.println("      .then(response => response.json())");
+        out.println("      .then(data => {");
+        out.println("        if (data && data.success) {");
+        out.println("          ddCloseCurrentProjectEditModal();");
+        out.println("          window.location.reload();");
+        out.println("        } else {");
+        out.println("          alert((data && data.message) ? data.message : 'Unable to save project');");
+        out.println("          form.reset();");
+        out.println("          ddCloseCurrentProjectEditModal();");
+        out.println("        }");
+        out.println("      })");
+        out.println("      .catch(() => {");
+        out.println("        alert('Unable to save project');");
+        out.println("        form.reset();");
+        out.println("        ddCloseCurrentProjectEditModal();");
+        out.println("      });");
+        out.println("    return false;");
+        out.println("  }");
+        out.println("</script>");
     }
 
     private void printBacklogScheduled(PrintWriter out,
@@ -1082,6 +1384,7 @@ public class DashboardPageRenderer {
                 boolean completedSection = "completed".equals(section.getId());
                 boolean personalSection = "personal-morning".equals(section.getId())
                         || "personal-afternoon-evening".equals(section.getId());
+                boolean canReprioritizeSection = canReprioritizeTodaySection(section.getId());
                 out.println("<div id=\"dd-today-section-" + section.getId()
                         + "\" class=\"dd-today-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "TODAY SECTION " + section.getTitle().toUpperCase());
@@ -1093,12 +1396,10 @@ public class DashboardPageRenderer {
                 out.println("      <tr>");
                 out.println("        <th class=\"dd-today-cell-action-main\">Description</th>");
                 out.println("        <th class=\"dd-today-cell-project\">Project</th>");
-                if (completedSection) {
-                    out.println("        <th class=\"dd-today-cell-action-placeholder\">Action</th>");
-                } else if (personalSection) {
+                if (personalSection) {
                     out.println("        <th class=\"dd-today-cell-time-slot\">Time Slot</th>");
                     out.println("        <th class=\"dd-today-cell-action-placeholder\">Action</th>");
-                } else {
+                } else if (!completedSection) {
                     out.println("        <th class=\"dd-today-cell-gauge\">Time Gauge</th>");
                     out.println("        <th class=\"dd-today-cell-action-placeholder\">Action</th>");
                 }
@@ -1107,22 +1408,20 @@ public class DashboardPageRenderer {
                     String todayRowOnclick = " onclick=\"window.location='DandelionDashboardServlet?action=SelectAction&completingActionNextId="
                             + item.getActionNextId() + "'\"";
                     out.println("      <tr class=\"dd-row-clickable\"" + todayRowOnclick + ">");
-                    out.println(
-                            "        <td class=\"dd-today-cell-action-main\">" + item.getDescriptionHtml() + "</td>");
+                    out.println("        <td class=\"dd-today-cell-action-main\">"
+                            + escapeHtml(item.getDescriptionText()) + "</td>");
                     out.println("        <td class=\"dd-today-cell-project\">" + escapeHtml(item.getProjectName())
                             + "</td>");
-                    if (completedSection) {
-                        printTodayRowActionsCell(out, item.getActionNextId());
-                    } else if (personalSection) {
+                    if (personalSection) {
                         out.println(
                                 "        <td class=\"dd-today-cell-time-slot\">" + escapeHtml(item.getContextLabel())
                                         + "</td>");
-                        printTodayRowActionsCell(out, item.getActionNextId());
-                    } else {
+                        printTodayRowActionsCell(out, item.getActionNextId(), canReprioritizeSection);
+                    } else if (!completedSection) {
                         out.println("        <td class=\"dd-today-cell-gauge\">");
                         timeGaugeRenderer.render(out, buildInlineTodayGauge(item));
                         out.println("        </td>");
-                        printTodayRowActionsCell(out, item.getActionNextId());
+                        printTodayRowActionsCell(out, item.getActionNextId(), canReprioritizeSection);
                     }
                     out.println("      </tr>");
                 }
@@ -1141,12 +1440,14 @@ public class DashboardPageRenderer {
         printTodayActionModalScaffolding(out, appReq);
     }
 
-    private void printTodayRowActionsCell(PrintWriter out, int actionNextId) {
+    private void printTodayRowActionsCell(PrintWriter out, int actionNextId, boolean canReprioritize) {
         out.println("        <td class=\"dd-today-cell-action-placeholder\">");
         out.println("          <span class=\"dd-row-actions\">");
-        out.println(
-                "            <button class=\"dd-row-action-btn\" title=\"Reprioritize for today\" onclick=\"ddOpenActionModal('reprioritizeModal',"
-                        + actionNextId + ",event)\">↕️</button>");
+        if (canReprioritize) {
+            out.println(
+                    "            <button class=\"dd-row-action-btn\" title=\"Reprioritize for today\" onclick=\"ddOpenActionModal('reprioritizeModal',"
+                            + actionNextId + ",event)\">↕️</button>");
+        }
         out.println(
                 "            <button class=\"dd-row-action-btn\" title=\"Reschedule\" onclick=\"ddOpenActionModal('rescheduleModal',"
                         + actionNextId + ",event)\">📅</button>");
@@ -1157,6 +1458,14 @@ public class DashboardPageRenderer {
         out.println("        </td>");
     }
 
+    private boolean canReprioritizeTodaySection(String sectionId) {
+        return !"completed".equals(sectionId)
+                && !"overdue".equals(sectionId)
+                && !"personal-morning".equals(sectionId)
+                && !"personal-afternoon-evening".equals(sectionId)
+                && !"other".equals(sectionId);
+    }
+
     private void printTodayActionModalScaffolding(PrintWriter out, AppReq appReq) {
         printTodayReprioritizeModal(out, appReq);
         printTodayRescheduleModal(out, appReq);
@@ -1165,6 +1474,31 @@ public class DashboardPageRenderer {
         out.println("<script>");
         out.println("  window.ddSelectedActionId = null;");
         out.println("  window.ddActionDataCache = {};");
+        out.println("  function ddCreateDashboardParams() {");
+        out.println("    return new URLSearchParams();");
+        out.println("  }");
+        out.println("  function ddFetchDashboardJson(formData, contextLabel) {");
+        out.println(
+                "    return fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+        out.println("      .then(function(response) {");
+        out.println("        return response.text().then(function(text) {");
+        out.println("          if (!response.ok) {");
+        out.println(
+                "            throw new Error(contextLabel + ' HTTP ' + response.status + ': ' + text.substring(0, 400));");
+        out.println("          }");
+        out.println("          try {");
+        out.println("            return JSON.parse(text);");
+        out.println("          } catch (parseError) {");
+        out.println("            throw new Error(contextLabel + ' invalid JSON: ' + text.substring(0, 400));");
+        out.println("          }");
+        out.println("        });");
+        out.println("      });");
+        out.println("  }");
+        out.println("  function ddReportDashboardLoadError(contextLabel, err) {");
+        out.println("    console.log(contextLabel + ' error:', err);");
+        out.println(
+                "    alert(contextLabel + ' failed to load. Check the browser console for the response details.');");
+        out.println("  }");
         out.println("  function ddOpenActionModal(modalId, actionId, evt) {");
         out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
         out.println("    window.ddSelectedActionId = actionId;");
@@ -1261,11 +1595,10 @@ public class DashboardPageRenderer {
         out.println("  window.ddReprioritizeCurrentActionId = null;");
         out.println("  function ddLoadReprioritizeData(actionId) {");
         out.println("    window.ddReprioritizeCurrentActionId = actionId;");
-        out.println("    var formData = new FormData();");
+        out.println("    var formData = ddCreateDashboardParams();");
         out.println("    formData.append('action', 'loadReprioritizeData');");
         out.println("    formData.append('actionNextId', actionId);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
-        out.println("      .then(response => response.json())");
+        out.println("    ddFetchDashboardJson(formData, 'Reprioritize preload')");
         out.println("      .then(data => {");
         out.println("        if (data.success) {");
         out.println(
@@ -1285,16 +1618,17 @@ public class DashboardPageRenderer {
         out.println("          }");
         out.println("        }");
         out.println("      })");
-        out.println("      .catch(err => console.log('Error loading reprioritize data:', err));");
+        out.println("      .catch(err => ddReportDashboardLoadError('Reprioritize preload', err));");
         out.println("  }");
         out.println("  function ddPerformMove(moveType) {");
         out.println("    var actionId = window.ddReprioritizeCurrentActionId;");
         out.println("    if (!actionId) return;");
-        out.println("    var formData = new FormData();");
+        out.println("    var formData = ddCreateDashboardParams();");
         out.println("    formData.append('action', 'reprioritizeAction');");
         out.println("    formData.append('actionNextId', actionId);");
         out.println("    formData.append('moveType', moveType);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
+        out.println(
+                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
         out.println("      .then(response => response.json())");
         out.println("      .then(data => {");
         out.println("        if (data.success) {");
@@ -1314,12 +1648,13 @@ public class DashboardPageRenderer {
         out.println("  function ddMoveDown(evt) { evt.preventDefault(); ddPerformMove('down'); }");
         out.println("  function ddMoveToLast(evt) { evt.preventDefault(); ddPerformMove('last'); }");
         out.println("  function ddMoveBeforeAction(evt, targetActionId) { evt.preventDefault(); ");
-        out.println("    var formData = new FormData();");
+        out.println("    var formData = ddCreateDashboardParams();");
         out.println("    formData.append('action', 'reprioritizeAction');");
         out.println("    formData.append('actionNextId', window.ddReprioritizeCurrentActionId);");
         out.println("    formData.append('moveType', 'before');");
         out.println("    formData.append('targetActionId', targetActionId);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
+        out.println(
+                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
         out.println("      .then(response => response.json())");
         out.println("      .then(data => {");
         out.println("        if (data.success) {");
@@ -1478,11 +1813,10 @@ public class DashboardPageRenderer {
         out.println("    var todayISO = ddGetTodayISO();");
         out.println("    // Set min attribute to block past dates");
         out.println("    document.getElementById('ddRescheduleNewDate').setAttribute('min', todayISO);");
-        out.println("    var formData = new FormData();");
+        out.println("    var formData = ddCreateDashboardParams();");
         out.println("    formData.append('action', 'loadRescheduleData');");
         out.println("    formData.append('actionNextId', actionId);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
-        out.println("      .then(response => response.json())");
+        out.println("    ddFetchDashboardJson(formData, 'Reschedule preload')");
         out.println("      .then(data => {");
         out.println("        if (data.success) {");
         out.println(
@@ -1504,7 +1838,7 @@ public class DashboardPageRenderer {
                 "          document.getElementById('ddRescheduleNewDate').setAttribute('data-action-id', actionId);");
         out.println("        }");
         out.println("      })");
-        out.println("      .catch(err => console.log('Error loading reschedule data:', err));");
+        out.println("      .catch(err => ddReportDashboardLoadError('Reschedule preload', err));");
         out.println("  }");
         out.println("  document.addEventListener('change', function(evt) {");
         out.println("    if (evt && evt.target && evt.target.id === 'ddRescheduleNewDate') {");
@@ -1525,11 +1859,12 @@ public class DashboardPageRenderer {
         out.println("    var parts = selectedDate.split('-');");
         out.println("    if (parts.length === 3) {");
         out.println("      var formattedDate = parts[1] + '/' + parts[2] + '/' + parts[0];");
-        out.println("      var formData = new FormData();");
+        out.println("      var formData = ddCreateDashboardParams();");
         out.println("      formData.append('action', 'rescheduleAction');");
         out.println("      formData.append('actionNextId', actionId);");
         out.println("      formData.append('nextActionDate', formattedDate);");
-        out.println("      fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
+        out.println(
+                "      fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
         out.println("        .then(response => response.json())");
         out.println("        .then(data => {");
         out.println("          if (data.success) {");
@@ -1561,6 +1896,7 @@ public class DashboardPageRenderer {
         out.println("      <input type=\"hidden\" name=\"action\" value=\"editAction\">");
         out.println("      <input type=\"hidden\" name=\"actionNextId\" id=\"ddEditActionId\" value=\"\">");
         out.println("      <input type=\"hidden\" id=\"ddEditActionDateOriginal\" value=\"\">");
+        out.println("      <input type=\"hidden\" name=\"saveMode\" id=\"ddEditActionSaveMode\" value=\"save\">");
 
         out.println("      <div class=\"dd-form-field\">");
         out.println("        <label class=\"dd-form-label\">When:</label>");
@@ -1686,7 +2022,10 @@ public class DashboardPageRenderer {
         out.println("      </div>");
 
         out.println("      <div class=\"dd-form-actions\">");
-        out.println("        <button type=\"submit\" class=\"dd-btn dd-btn-primary\">Save Action</button>");
+        out.println(
+                "        <button type=\"submit\" class=\"dd-btn dd-btn-primary\" onclick=\"ddSetEditSubmitMode('save')\">Save Action</button>");
+        out.println(
+                "        <button type=\"submit\" class=\"dd-btn dd-btn-primary\" onclick=\"ddSetEditSubmitMode('saveAndStart')\">Save and Start</button>");
         out.println(
                 "        <button type=\"button\" class=\"dd-btn dd-btn-secondary\" onclick=\"ddCloseActionModal('editActionModal')\">Cancel</button>");
         out.println("      </div>");
@@ -1793,11 +2132,10 @@ public class DashboardPageRenderer {
         out.println("  }");
         out.println("  function ddLoadEditFormData(actionId) {");
         out.println("    document.getElementById('ddEditActionId').value = actionId;");
-        out.println("    var formData = new FormData();");
+        out.println("    var formData = ddCreateDashboardParams();");
         out.println("    formData.append('action', 'loadActionData');");
         out.println("    formData.append('actionNextId', actionId);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
-        out.println("      .then(response => response.json())");
+        out.println("    ddFetchDashboardJson(formData, 'Edit preload')");
         out.println("      .then(data => {");
         out.println("        if (data.success) {");
         out.println("          var loadedDate = data.nextActionDate || '';");
@@ -1816,7 +2154,7 @@ public class DashboardPageRenderer {
         out.println("          console.log('Error loading action data:', data.message || 'Unknown error');");
         out.println("        }");
         out.println("      })");
-        out.println("      .catch(err => console.log('Error loading action data:', err));");
+        out.println("      .catch(err => ddReportDashboardLoadError('Edit preload', err));");
         out.println("  }");
         out.println("  function ddSetActionType(type) {");
         out.println("    document.getElementById('ddEditActionType').value = type;");
@@ -1824,6 +2162,10 @@ public class DashboardPageRenderer {
         out.println("  }");
         out.println("  function ddSetTimeEstimate(minutes) {");
         out.println("    document.getElementById('ddEditActionTime').value = minutes;");
+        out.println("  }");
+        out.println("  function ddSetEditSubmitMode(mode) {");
+        out.println("    var field = document.getElementById('ddEditActionSaveMode');");
+        out.println("    if (field) { field.value = mode || 'save'; }");
         out.println("  }");
         out.println("  function ddSubmitEditActionForm(evt) {");
         out.println("    evt.preventDefault();");
@@ -1834,8 +2176,13 @@ public class DashboardPageRenderer {
                 "    if (dateField && (!dateField.value || dateField.value.trim().length === 0) && originalDateField && originalDateField.value) {");
         out.println("      dateField.value = originalDateField.value;");
         out.println("    }");
-        out.println("    var formData = new FormData(form);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
+        out.println("    var saveModeField = document.getElementById('ddEditActionSaveMode');");
+        out.println("    if (saveModeField && (!saveModeField.value || saveModeField.value.length === 0)) {");
+        out.println("      saveModeField.value = 'save';");
+        out.println("    }");
+        out.println("    var formData = new URLSearchParams(new FormData(form));");
+        out.println(
+                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
         out.println("      .then(response => response.json())");
         out.println("      .then(data => {");
         out.println("        if (data.success) {");
@@ -1936,14 +2283,16 @@ public class DashboardPageRenderer {
         int currentMinutes = Math.max(0, item.getActualMinutes());
         int targetMinutes = Math.max(0, item.getEstimateMinutes());
 
+        if (targetMinutes <= 0) {
+            return model;
+        }
+
         TimeGaugeState state = TimeGaugeState.UNKNOWN;
-        if (targetMinutes > 0) {
-            if (currentMinutes > targetMinutes) {
-                state = TimeGaugeState.OVER;
-            } else {
-                int percent = (int) Math.round((currentMinutes * 100.0) / targetMinutes);
-                state = percent >= TODAY_GAUGE_WARNING_PERCENT ? TimeGaugeState.WARNING : TimeGaugeState.NORMAL;
-            }
+        if (currentMinutes > targetMinutes) {
+            state = TimeGaugeState.OVER;
+        } else {
+            int percent = (int) Math.round((currentMinutes * 100.0) / targetMinutes);
+            state = percent >= TODAY_GAUGE_WARNING_PERCENT ? TimeGaugeState.WARNING : TimeGaugeState.NORMAL;
         }
 
         TimeGaugeModel.GaugeRow row = new TimeGaugeModel.GaugeRow(null, currentMinutes, targetMinutes);
@@ -2040,6 +2389,17 @@ public class DashboardPageRenderer {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    private String escapeJsString(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n");
     }
 
     private String buildNowHeaderLine(DashboardNowColumnModel nowColumnModel) {
@@ -2310,10 +2670,11 @@ public class DashboardPageRenderer {
         out.println("  function ddOpenNextTaskDetails(actionId, evt) {");
         out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
         out.println("    window.ddNextTaskDetailActionId = actionId;");
-        out.println("    var formData = new FormData();");
+        out.println("    var formData = ddCreateDashboardParams();");
         out.println("    formData.append('action', 'loadActionData');");
         out.println("    formData.append('actionNextId', actionId);");
-        out.println("    fetch('DandelionDashboardServlet', { method: 'POST', body: formData })");
+        out.println(
+                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
         out.println("      .then(function(response) { return response.json(); })");
         out.println("      .then(function(data) {");
         out.println("        if (!data || !data.success) { alert('Unable to load details'); return; }");

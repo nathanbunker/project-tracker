@@ -86,6 +86,7 @@ public class DashboardNowColumnService {
         }
 
         model.setAvailable(true);
+        model.setProjectId(currentProject.getProjectId());
         model.setName(n(currentProject.getProjectName(), "Unnamed project"));
         model.setDescription(n(currentProject.getDescription(), "No project description available yet."));
         return model;
