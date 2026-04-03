@@ -93,7 +93,6 @@ public class HomeServlet extends ClientServlet {
 
         out.println("<h2>Additional</h2>");
         out.println("<ul>");
-        out.println("  <li><a href=\"ProjectReviewServlet\">Project Review</a></li>");
         out.println("  <li><a href=\"TemplateScheduleServlet\">Template Schedule</a></li>");
         if (webUser.isUserTypeAdmin()) {
           out.println("  <li><a href=\"AdminSettingsServlet\">Admin Settings</a></li>");

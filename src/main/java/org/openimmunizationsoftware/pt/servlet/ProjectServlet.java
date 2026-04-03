@@ -187,7 +187,7 @@ public class ProjectServlet extends ClientServlet {
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Update Every</th>");
           out.println("    <td class=\"boxed\">"
-              + ProjectReviewServlet.makeLabel(projectContactAssignedForThisUser.getUpdateDue())
+              + projectContactAssignedForThisUser.getUpdateDue() + " days"
               + "</td>");
           out.println("  </tr>");
         }

@@ -26,9 +26,9 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
-import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
 
 public class ProjectHealthPageService {
 
@@ -762,7 +762,7 @@ public class ProjectHealthPageService {
         if (days <= 0) {
             return "none";
         }
-        for (Interval interval : Interval.values()) {
+        for (ReviewInterval interval : ReviewInterval.values()) {
             if (days <= interval.getDays()) {
                 return interval.getDescription();
             }

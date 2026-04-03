@@ -22,8 +22,8 @@ import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
+import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
 
 /**
  * 
@@ -232,7 +232,7 @@ public class ProjectEditServlet extends ClientServlet {
             && projectContactAssignedForThisUser.getUpdateDue() == 0) {
           found = true;
         }
-        for (Interval interval : Interval.values()) {
+        for (ReviewInterval interval : ReviewInterval.values()) {
           if (!found && projectContactAssignedForThisUser != null
               && projectContactAssignedForThisUser.getUpdateDue() <= interval.getDays()) {
             out.println("      <option value=\"" + interval.getDays() + "\" selected>"

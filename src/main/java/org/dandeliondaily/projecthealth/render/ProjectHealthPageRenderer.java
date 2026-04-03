@@ -16,8 +16,8 @@ import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
+import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
 
 public class ProjectHealthPageRenderer {
 
@@ -448,7 +448,7 @@ public class ProjectHealthPageRenderer {
                 if (updateEvery == 0) {
                         selectedInterval = true;
                 }
-                for (Interval interval : Interval.values()) {
+                for (ReviewInterval interval : ReviewInterval.values()) {
                         boolean selected = !selectedInterval && updateEvery > 0 && updateEvery <= interval.getDays();
                         out.println("        <option value=\"" + interval.getDays() + "\""
                                         + (selected ? " selected" : "") + ">"

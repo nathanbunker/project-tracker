@@ -102,16 +102,8 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.TemplateScheduleServlet</servlet-class>
   </servlet>
   <servlet>
-    <servlet-name>GoalReviewServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.GoalReviewServlet</servlet-class>
-  </servlet>
-  <servlet>
     <servlet-name>ProjectEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectEditServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>ProjectReviewServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet</servlet-class>
   </servlet>
   <servlet>
     <servlet-name>ProjectContactServlet</servlet-name>
@@ -342,16 +334,8 @@
     <url-pattern>/TemplateScheduleServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>GoalReviewServlet</servlet-name>
-    <url-pattern>/GoalReviewServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
     <servlet-name>ProjectEditServlet</servlet-name>
     <url-pattern>/ProjectEditServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>ProjectReviewServlet</servlet-name>
-    <url-pattern>/ProjectReviewServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ProjectContactServlet</servlet-name>
