@@ -375,12 +375,13 @@ public class ClientServlet extends HttpServlet {
     }
     BillCodeId billCodeId = new BillCodeId(provider.getProviderId(), billCodeString);
     return (BillCode) dataSession.get(BillCode.class, billCodeId);
-    menuList.add(new String[] { "ProjectHealthServlet", "Project Health" });
-    menuList.add(new String[] { "ReviewDashboardServlet", "Review & Report" });
-    return null;
-  }return
+  }
 
-  resolveBillCode(dataSession, project.getProvider(), project.getBillCode());
+  public static BillCode resolveBillCode(Session dataSession, Project project) {
+    if (project == null) {
+      return null;
+    }
+    return resolveBillCode(dataSession, project.getProvider(), project.getBillCode());
   }
 
   private static int calculateWeeklyRoundedMinutesLikeTrackServlet(Session dataSession,
