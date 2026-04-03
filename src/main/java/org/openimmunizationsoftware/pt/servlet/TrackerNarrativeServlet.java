@@ -53,6 +53,9 @@ public class TrackerNarrativeServlet extends ClientServlet {
     private static final String PARAM_VIEW = "view";
     private static final String PARAM_MARKDOWN_FINAL = "markdownFinal";
 
+        private static final String GENERATION_UNAVAILABLE_MESSAGE = TrackerNarrativeGenerator
+            .getGenerationUnavailableMessage();
+
     private static final String ACTION_SAVE = "Save";
     private static final String ACTION_APPROVE = "Approve";
     private static final String ACTION_REGENERATE = "Regenerate";
@@ -91,6 +94,9 @@ public class TrackerNarrativeServlet extends ClientServlet {
             boolean editMode = VIEW_EDIT.equalsIgnoreCase(n(request.getParameter(PARAM_VIEW)));
 
             appReq.setTitle("Narrative");
+            if (!TrackerNarrativeGenerator.isGenerationAvailable()) {
+                appReq.addWarningMessage(GENERATION_UNAVAILABLE_MESSAGE);
+            }
             printHtmlHead(appReq);
 
             PrintWriter out = appReq.getOut();
@@ -133,6 +139,15 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 appReq.setMessageConfirmation("Narrative approved.");
             }
             response.sendRedirect(buildEditorLink(narrativeId, type, selectedDate));
+            return;
+        }
+
+        if ((ACTION_GENERATE.equals(action) || ACTION_REGENERATE.equals(action))
+                && !TrackerNarrativeGenerator.isGenerationAvailable()) {
+            String unavailableRedirect = ACTION_REGENERATE.equals(action)
+                    ? buildEditorLink(narrativeId, type, selectedDate)
+                    : buildListLink(type, selectedDate);
+            response.sendRedirect(unavailableRedirect);
             return;
         }
 
@@ -217,6 +232,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
     private void printList(PrintWriter out, WebUser webUser, TrackerNarrativeDao narrativeDao, String type,
             LocalDate selectedDate, PeriodRange period) {
+        boolean generationAvailable = TrackerNarrativeGenerator.isGenerationAvailable();
         out.println("<h2>Tracker Narratives</h2>");
 
         out.println("<form method=\"GET\" action=\"TrackerNarrativeServlet\">");
@@ -247,12 +263,16 @@ public class TrackerNarrativeServlet extends ClientServlet {
         printRapidSelectCalendar(out, narrativeDao, webUser, selectedDate);
         out.println("<br/>");
 
-        out.println("<form method=\"POST\" action=\"TrackerNarrativeServlet\">\n");
-        out.println("<input type=\"hidden\" name=\"" + PARAM_TYPE + "\" value=\"" + type + "\">\n");
-        out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + selectedDate + "\">\n");
-        out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_GENERATE
+        if (generationAvailable) {
+            out.println("<form method=\"POST\" action=\"TrackerNarrativeServlet\">\n");
+            out.println("<input type=\"hidden\" name=\"" + PARAM_TYPE + "\" value=\"" + type + "\">\n");
+            out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + selectedDate + "\">\n");
+            out.println("<input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_GENERATE
                 + "\">\n");
-        out.println("</form><br/>\n");
+            out.println("</form><br/>\n");
+        } else {
+            out.println("<p class=\"fail\">" + escapeHtml(GENERATION_UNAVAILABLE_MESSAGE) + "</p><br/>\n");
+        }
 
         String periodLabel = formatPeriod(webUser, period);
         out.println("<table class=\"boxed\">");
@@ -384,9 +404,14 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
     private void printEditor(PrintWriter out, WebUser webUser, TrackerNarrative narrative, String type,
             LocalDate selectedDate, boolean editMode) {
+        boolean generationAvailable = TrackerNarrativeGenerator.isGenerationAvailable();
         out.println("<h2>Tracker Narrative</h2>");
         out.println("<p><a class=\"button\" href=\"" + buildListLink(type, selectedDate)
                 + "\">Back to list</a></p>");
+
+        if (!generationAvailable) {
+            out.println("<p class=\"fail\">" + escapeHtml(GENERATION_UNAVAILABLE_MESSAGE) + "</p>");
+        }
 
         out.println("<form method=\"POST\" action=\"TrackerNarrativeServlet\">\n");
         out.println("<input type=\"hidden\" name=\"" + PARAM_ID + "\" value=\""
@@ -463,8 +488,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
         }
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_APPROVE
                 + "\">\n");
-        out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REGENERATE
+        if (generationAvailable) {
+            out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REGENERATE
                 + "\">\n");
+        }
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REJECT + "\">\n");
         out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\">\n");
         out.println("</p>\n");

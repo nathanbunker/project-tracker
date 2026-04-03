@@ -26,8 +26,6 @@ import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 
 public class TrackerNarrativeGenerator {
 
-    private static final NarrativeGenerator GENERATOR = new OpenAiNarrativeGenerator();
-
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(new ThreadFactory() {
         @Override
         public Thread newThread(Runnable runnable) {
@@ -44,6 +42,14 @@ public class TrackerNarrativeGenerator {
         EXECUTOR.submit(new GenerateTask(trackerNarrativeId));
     }
 
+    public static boolean isGenerationAvailable() {
+        return OpenAiNarrativeGenerator.isConfigured();
+    }
+
+    public static String getGenerationUnavailableMessage() {
+        return OpenAiNarrativeGenerator.getMissingConfigurationMessage();
+    }
+
     private static class GenerateTask implements Runnable {
 
         private final long trackerNarrativeId;
@@ -54,6 +60,10 @@ public class TrackerNarrativeGenerator {
 
         @Override
         public void run() {
+            if (!isGenerationAvailable()) {
+                System.out.println("[TrackerNarrativeGenerator] " + getGenerationUnavailableMessage());
+                return;
+            }
             SessionFactory factory = CentralControl.getSessionFactory();
             Session session = factory.openSession();
             Transaction transaction = null;
@@ -84,7 +94,7 @@ public class TrackerNarrativeGenerator {
                         projectNames, projectNarratives, waitingActions);
                 GenerationContext context = new GenerationContext(periodStart, periodEnd, prompt, completedActions,
                         timeByProject, projectNames, projectNarratives, waitingActions);
-                String markdownGenerated = GENERATOR.generateDailyMarkdown(context);
+                String markdownGenerated = createGenerator().generateDailyMarkdown(context);
 
                 transaction = session.beginTransaction();
                 TrackerNarrative refresh = (TrackerNarrative) session.get(TrackerNarrative.class,
@@ -110,6 +120,10 @@ public class TrackerNarrativeGenerator {
                 session.close();
             }
         }
+    }
+
+    private static NarrativeGenerator createGenerator() {
+        return new OpenAiNarrativeGenerator();
     }
 
     @SuppressWarnings("unchecked")

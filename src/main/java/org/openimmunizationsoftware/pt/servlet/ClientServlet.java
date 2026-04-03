@@ -248,7 +248,6 @@ public class ClientServlet extends HttpServlet {
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "&#9776;" });
       menuList.add(new String[] { "DandelionDashboardServlet", "Dashboard" });
       menuList.add(new String[] { "ProjectHealthServlet", "Projects" });
-      menuList.add(new String[] { "ProjectActionServlet", "Actions" });
       menuList.add(new String[] { "BillEntriesServlet", "Time" });
       menuList.add(new String[] { "m/todo?filterSubmitted=Y&showPersonal=Y", "Mobile" });
     } else {

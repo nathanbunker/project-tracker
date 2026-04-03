@@ -19,6 +19,8 @@ import com.openai.models.responses.ResponseCreateParams;
 
 public class OpenAiNarrativeGenerator implements NarrativeGenerator {
 
+    public static final String API_KEY_ENV = "CHATGPT_API_KEY_TOMCAT";
+
     private static final ChatModel MODEL = ChatModel.GPT_5_2;
 
     private static final String SYSTEM_PROMPT = "You are generating an operational daily summary report for a personal Dandelion workspace.\n"
@@ -51,11 +53,17 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
     private final OpenAIClient client;
 
     public OpenAiNarrativeGenerator() {
-        String apiKey = System.getenv("CHATGPT_API_KEY_TOMCAT");
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new RuntimeException("Missing CHATGPT_API_KEY_TOMCAT environment variable for OpenAI API.");
-        }
+        String apiKey = readApiKey();
         this.client = OpenAIOkHttpClient.builder().apiKey(apiKey).build();
+    }
+
+    public static boolean isConfigured() {
+        return readConfiguredApiKey() != null;
+    }
+
+    public static String getMissingConfigurationMessage() {
+        return "Tracker narrative generation is not available because the OpenAI API key is not configured. "
+                + "Set " + API_KEY_ENV + " for the Tomcat process and restart Tomcat.";
     }
 
     @Override
@@ -217,6 +225,23 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             }
         }
         return cleaned.trim();
+    }
+
+    private static String readApiKey() {
+        String apiKey = readConfiguredApiKey();
+        if (apiKey == null) {
+            throw new IllegalStateException(getMissingConfigurationMessage());
+        }
+        return apiKey;
+    }
+
+    private static String readConfiguredApiKey() {
+        String apiKey = System.getenv(API_KEY_ENV);
+        if (apiKey == null) {
+            return null;
+        }
+        apiKey = apiKey.trim();
+        return apiKey.length() == 0 ? null : apiKey;
     }
 
     private static String tryExtractStatusCode(Exception e) {
