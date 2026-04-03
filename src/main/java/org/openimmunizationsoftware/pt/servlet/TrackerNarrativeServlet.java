@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
 import java.util.Date;
 import java.util.List;
@@ -20,24 +19,27 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.dandeliondaily.narrative.model.TrackerNarrativeScope;
+import org.dandeliondaily.narrative.service.TrackerNarrativeService;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
-import org.openimmunizationsoftware.pt.manager.NarrativePeriods;
-import org.openimmunizationsoftware.pt.manager.NarrativePeriods.PeriodRange;
 import org.openimmunizationsoftware.pt.manager.TrackerNarrativeGenerator;
-import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
- * Tracker narrative list + editor
- * 
+ * Tracker narrative list + editor.
+ *
+ * Legacy/alternate narrative view. New editor-first workflow is surfaced in
+ * ReviewDashboard,
+ * and shared narrative behavior should be implemented in
+ * TrackerNarrativeService.
+ *
  * @author nathan
  */
 public class TrackerNarrativeServlet extends ClientServlet {
@@ -69,6 +71,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
     private static final String VIEW_EDIT = "edit";
 
+    private final TrackerNarrativeService narrativeService = new TrackerNarrativeService();
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         AppReq appReq = new AppReq(request, response);
@@ -87,9 +91,9 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 return;
             }
 
-            String type = resolveType(request);
-            LocalDate selectedDate = resolveDate(request, appReq, webUser);
-            PeriodRange period = resolvePeriod(type, selectedDate);
+            String type = narrativeService.normalizeType(request.getParameter(PARAM_TYPE));
+            LocalDate selectedDate = narrativeService.resolveDate(request.getParameter(PARAM_DATE), appReq, webUser);
+            TrackerNarrativeScope scope = narrativeService.resolveScope(type, selectedDate);
             long narrativeId = readLong(request.getParameter(PARAM_ID));
             boolean editMode = VIEW_EDIT.equalsIgnoreCase(n(request.getParameter(PARAM_VIEW)));
 
@@ -110,7 +114,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
                     printEditor(out, webUser, narrative, type, selectedDate, editMode);
                 }
             } else {
-                printList(out, webUser, narrativeDao, type, selectedDate, period);
+                printList(out, webUser, narrativeDao, scope);
             }
 
             printHtmlFoot(appReq);
@@ -125,8 +129,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
             TrackerNarrativeDao narrativeDao) throws IOException {
         String action = appReq.getAction();
         long narrativeId = readLong(request.getParameter(PARAM_ID));
-        String type = resolveType(request);
-        LocalDate selectedDate = resolveDate(request, appReq, appReq.getWebUser());
+        String type = narrativeService.normalizeType(request.getParameter(PARAM_TYPE));
+        LocalDate selectedDate = narrativeService.resolveDate(request.getParameter(PARAM_DATE), appReq,
+                appReq.getWebUser());
+        TrackerNarrativeScope scope = narrativeService.resolveScope(type, selectedDate);
 
         if (action == null || action.trim().length() == 0) {
             response.sendRedirect(buildListLink(type, selectedDate));
@@ -135,7 +141,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
         if (ACTION_APPROVE.equals(action)) {
             if (narrativeId > 0) {
-                narrativeDao.approve(narrativeId, appReq.getWebUser().getLocalDateTimeNow());
+                narrativeService.approve(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
                 appReq.setMessageConfirmation("Narrative approved.");
             }
             response.sendRedirect(buildEditorLink(narrativeId, type, selectedDate));
@@ -151,88 +157,42 @@ public class TrackerNarrativeServlet extends ClientServlet {
             return;
         }
 
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = null;
         String redirect = buildListLink(type, selectedDate);
-        long queuedNarrativeId = 0;
-        try {
-            transaction = dataSession.beginTransaction();
-
-            if (ACTION_SAVE.equals(action)) {
-                String markdownFinal = n(request.getParameter(PARAM_MARKDOWN_FINAL));
-                narrativeDao.updateFinalText(narrativeId, normalizeMarkdown(markdownFinal));
-                appReq.setMessageConfirmation("Narrative updated.");
-                redirect = buildEditorLink(narrativeId, type, selectedDate);
-            } else if (ACTION_REJECT.equals(action)) {
-                narrativeDao.reject(narrativeId);
-                appReq.setMessageConfirmation("Narrative rejected.");
-                redirect = buildEditorLink(narrativeId, type, selectedDate);
-            } else if (ACTION_DELETE.equals(action)) {
-                narrativeDao.softDelete(narrativeId);
-                appReq.setMessageConfirmation("Narrative deleted.");
-                redirect = buildEditorLink(narrativeId, type, selectedDate);
-            } else if (ACTION_GENERATE.equals(action)) {
-                int projectId = resolveProjectId(appReq);
-                int contactId = resolveContactId(appReq.getWebUser());
-                if (projectId <= 0 || contactId <= 0) {
-                    appReq.setMessageProblem("Unable to determine project/contact for narrative.");
-                    transaction.rollback();
-                    response.sendRedirect(redirect);
-                    return;
-                }
-                PeriodRange period = resolvePeriod(type, selectedDate);
-                TrackerNarrative newNarrative = buildNewNarrative(type, period, projectId, contactId,
-                        appReq.getWebUser());
-                queuedNarrativeId = narrativeDao.insert(newNarrative);
+        if (ACTION_SAVE.equals(action)) {
+            String markdownFinal = n(request.getParameter(PARAM_MARKDOWN_FINAL));
+            narrativeService.saveMarkdown(appReq.getDataSession(), narrativeId, markdownFinal);
+            appReq.setMessageConfirmation("Narrative updated.");
+            redirect = buildEditorLink(narrativeId, type, selectedDate);
+        } else if (ACTION_REJECT.equals(action)) {
+            narrativeService.reject(appReq.getDataSession(), narrativeId);
+            appReq.setMessageConfirmation("Narrative rejected.");
+            redirect = buildEditorLink(narrativeId, type, selectedDate);
+        } else if (ACTION_DELETE.equals(action)) {
+            narrativeService.delete(appReq.getDataSession(), narrativeId);
+            appReq.setMessageConfirmation("Narrative deleted.");
+            redirect = buildEditorLink(narrativeId, type, selectedDate);
+        } else if (ACTION_GENERATE.equals(action)) {
+            long newId = narrativeService.generate(appReq, scope);
+            if (newId > 0) {
                 appReq.setMessageConfirmation("Generation requested.");
-                redirect = buildEditorLink(queuedNarrativeId, type, selectedDate);
-            } else if (ACTION_REGENERATE.equals(action)) {
-                TrackerNarrative existing = (TrackerNarrative) dataSession.get(TrackerNarrative.class,
-                        (int) narrativeId);
-                if (existing == null) {
-                    appReq.setMessageProblem("Narrative not found.");
-                } else {
-                    int projectId = existing.getProjectId();
-                    int contactId = existing.getContactId();
-                    if (projectId <= 0 || contactId <= 0) {
-                        projectId = resolveProjectId(appReq);
-                        contactId = resolveContactId(appReq.getWebUser());
-                    }
-                    if (projectId <= 0 || contactId <= 0) {
-                        appReq.setMessageProblem("Unable to determine project/contact for narrative.");
-                        transaction.rollback();
-                        response.sendRedirect(redirect);
-                        return;
-                    }
-                    PeriodRange period = new PeriodRange(appReq.getWebUser().toLocalDate(existing.getPeriodStart()),
-                            appReq.getWebUser().toLocalDate(existing.getPeriodEnd()));
-                    TrackerNarrative replacement = buildNewNarrative(existing.getNarrativeType(), period,
-                            projectId, contactId, appReq.getWebUser());
-                    long newId = narrativeDao.insert(replacement);
-                    queuedNarrativeId = newId;
-                    appReq.setMessageConfirmation("Generation requested.");
-                    redirect = buildEditorLink(newId, type, selectedDate);
-                }
+                redirect = buildEditorLink(newId, type, selectedDate);
             }
-
-            transaction.commit();
-        } catch (RuntimeException exception) {
-            if (transaction != null) {
-                transaction.rollback();
+        } else if (ACTION_REGENERATE.equals(action)) {
+            long newId = narrativeService.regenerate(appReq, narrativeId);
+            if (newId > 0) {
+                appReq.setMessageConfirmation("Generation requested.");
+                redirect = buildEditorLink(newId, type, selectedDate);
             }
-            throw exception;
-        }
-
-        if (queuedNarrativeId > 0) {
-            TrackerNarrativeGenerator.enqueue(queuedNarrativeId);
         }
 
         response.sendRedirect(redirect);
     }
 
-    private void printList(PrintWriter out, WebUser webUser, TrackerNarrativeDao narrativeDao, String type,
-            LocalDate selectedDate, PeriodRange period) {
+    private void printList(PrintWriter out, WebUser webUser, TrackerNarrativeDao narrativeDao,
+            TrackerNarrativeScope scope) {
         boolean generationAvailable = TrackerNarrativeGenerator.isGenerationAvailable();
+        String type = scope.getNarrativeType();
+        LocalDate selectedDate = scope.getSelectedDate();
         out.println("<h2>Tracker Narratives</h2>");
 
         out.println("<form method=\"GET\" action=\"TrackerNarrativeServlet\">");
@@ -274,7 +234,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
             out.println("<p class=\"fail\">" + escapeHtml(GENERATION_UNAVAILABLE_MESSAGE) + "</p><br/>\n");
         }
 
-        String periodLabel = formatPeriod(webUser, period);
+        String periodLabel = formatPeriod(webUser, scope.getPeriodStart(), scope.getPeriodEnd());
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"title\" colspan=\"4\">Period: " + periodLabel + "</th>");
@@ -286,8 +246,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">View</th>");
         out.println("  </tr>");
 
-        List<TrackerNarrative> narratives = narrativeDao.findByTypeAndPeriod(type, period.getStart(), period.getEnd());
-        TrackerNarrative approved = narrativeDao.findApprovedByTypeAndPeriod(type, period.getStart(), period.getEnd());
+        List<TrackerNarrative> narratives = narrativeDao.findByTypeAndPeriod(type, scope.getPeriodStart(),
+                scope.getPeriodEnd());
+        TrackerNarrative approved = narrativeDao.findApprovedByTypeAndPeriod(type, scope.getPeriodStart(),
+                scope.getPeriodEnd());
         int approvedId = approved == null ? 0 : approved.getNarrativeId();
 
         if (narratives.isEmpty()) {
@@ -513,8 +475,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
         return "<option value=\"" + value + "\"" + mark + ">" + value + "</option>";
     }
 
-    private static String formatPeriod(WebUser webUser, PeriodRange period) {
-        return formatDate(webUser, period.getStart()) + " - " + formatDate(webUser, period.getEnd());
+    private static String formatPeriod(WebUser webUser, LocalDate periodStart, LocalDate periodEnd) {
+        return formatDate(webUser, periodStart) + " - " + formatDate(webUser, periodEnd);
     }
 
     private static String formatDate(WebUser webUser, LocalDate date) {
@@ -530,82 +492,6 @@ public class TrackerNarrativeServlet extends ClientServlet {
             return "";
         }
         return webUser.getTimeFormat().format(date);
-    }
-
-    private static TrackerNarrative buildNewNarrative(String type, PeriodRange period, int projectId,
-            int contactId, WebUser webUser) {
-        TrackerNarrative narrative = new TrackerNarrative();
-        narrative.setProjectId(projectId);
-        narrative.setContactId(contactId);
-        narrative.setNarrativeType(type);
-        narrative.setPeriodStart(webUser.toDate(period.getStart()));
-        narrative.setPeriodEnd(webUser.toDate(period.getEnd()));
-        narrative.setDisplayTitle(buildDisplayTitle(type, period));
-        narrative.setReviewStatus(TrackerNarrativeReviewStatus.GENERATING);
-        narrative.setMarkdownGenerated(null);
-        narrative.setMarkdownFinal(null);
-        return narrative;
-    }
-
-    private static int resolveProjectId(AppReq appReq) {
-        Project project = appReq.getProject();
-        if (project == null) {
-            project = appReq.getProjectSelected();
-        }
-        if (project == null) {
-            project = appReq.getProjectTrackTime();
-        }
-        return project == null ? 0 : project.getProjectId();
-    }
-
-    private static int resolveContactId(WebUser webUser) {
-        return webUser == null ? 0 : webUser.getContactId();
-    }
-
-    private static String buildDisplayTitle(String type, PeriodRange period) {
-        if (TYPE_WEEKLY.equals(type)) {
-            return "Weekly Summary - " + period.getStart() + " to " + period.getEnd();
-        }
-        if (TYPE_MONTHLY.equals(type)) {
-            return "Monthly Summary - " + period.getStart().getYear() + "-"
-                    + String.format("%02d", period.getStart().getMonthValue());
-        }
-        return "Daily Summary - " + period.getStart();
-    }
-
-    private static PeriodRange resolvePeriod(String type, LocalDate date) {
-        if (TYPE_WEEKLY.equals(type)) {
-            return NarrativePeriods.forWeekly(date);
-        }
-        if (TYPE_MONTHLY.equals(type)) {
-            return NarrativePeriods.forMonthly(YearMonth.from(date));
-        }
-        return NarrativePeriods.forDaily(date);
-    }
-
-    private static String resolveType(HttpServletRequest request) {
-        String type = request.getParameter(PARAM_TYPE);
-        if (type == null || type.trim().length() == 0) {
-            return TYPE_DAILY;
-        }
-        String normalized = type.trim().toUpperCase();
-        if (TYPE_WEEKLY.equals(normalized) || TYPE_MONTHLY.equals(normalized) || TYPE_DAILY.equals(normalized)) {
-            return normalized;
-        }
-        return TYPE_DAILY;
-    }
-
-    private static LocalDate resolveDate(HttpServletRequest request, AppReq appReq, WebUser webUser) {
-        String dateParam = request.getParameter(PARAM_DATE);
-        if (dateParam == null || dateParam.trim().length() == 0) {
-            return webUser.getLocalDateToday();
-        }
-        try {
-            return LocalDate.parse(dateParam.trim());
-        } catch (DateTimeParseException e) {
-            appReq.setMessageProblem("Invalid date format. Use yyyy-MM-dd.");
-            return webUser.getLocalDateToday();
-        }
     }
 
     private static String escapeHtml(String text) {
@@ -634,14 +520,6 @@ public class TrackerNarrativeServlet extends ClientServlet {
         } catch (NumberFormatException e) {
             return 0;
         }
-    }
-
-    private static String normalizeMarkdown(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : value;
     }
 
     private static String buildListLink(String type, LocalDate date) {
