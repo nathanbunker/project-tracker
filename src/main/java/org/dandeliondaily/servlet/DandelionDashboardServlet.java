@@ -864,13 +864,13 @@ public class DandelionDashboardServlet extends ClientServlet {
             return;
         }
 
-        org.openimmunizationsoftware.pt.model.ProjectIssueType issueType =
-                org.openimmunizationsoftware.pt.model.ProjectIssueType.fromString(issueTypeStr);
+        org.openimmunizationsoftware.pt.model.ProjectIssueType issueType = org.openimmunizationsoftware.pt.model.ProjectIssueType
+                .fromString(issueTypeStr);
 
         Transaction transaction = dataSession.beginTransaction();
         try {
-            org.openimmunizationsoftware.pt.doa.ProjectIssueDao dao =
-                    new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(dataSession);
+            org.openimmunizationsoftware.pt.doa.ProjectIssueDao dao = new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(
+                    dataSession);
             dao.createIssue(project, issueText, issueType);
             transaction.commit();
             sendJsonResponse(appReq, true, "Issue created", null);
@@ -911,16 +911,16 @@ public class DandelionDashboardServlet extends ClientServlet {
         boolean resolve = "1".equals(resolvedStr);
 
         Session dataSession = appReq.getDataSession();
-        org.openimmunizationsoftware.pt.doa.ProjectIssueDao dao =
-                new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(dataSession);
+        org.openimmunizationsoftware.pt.doa.ProjectIssueDao dao = new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(
+                dataSession);
         org.openimmunizationsoftware.pt.model.ProjectIssue issue = dao.getById(issueId);
         if (issue == null) {
             sendJsonResponse(appReq, false, "Issue not found", null);
             return;
         }
 
-        org.openimmunizationsoftware.pt.model.ProjectIssueType issueType =
-                org.openimmunizationsoftware.pt.model.ProjectIssueType.fromString(issueTypeStr);
+        org.openimmunizationsoftware.pt.model.ProjectIssueType issueType = org.openimmunizationsoftware.pt.model.ProjectIssueType
+                .fromString(issueTypeStr);
 
         Transaction transaction = dataSession.beginTransaction();
         try {

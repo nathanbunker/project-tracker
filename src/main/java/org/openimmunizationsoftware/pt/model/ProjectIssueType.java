@@ -16,9 +16,12 @@ public enum ProjectIssueType {
 
     public String toDisplayEmoji() {
         switch (this) {
-            case BLOCKER: return "⛔";
-            case NOTE:    return "📝";
-            default:      return "❓";
+            case BLOCKER:
+                return "⛔";
+            case NOTE:
+                return "📝";
+            default:
+                return "❓";
         }
     }
 }

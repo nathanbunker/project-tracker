@@ -1380,8 +1380,10 @@ public class DashboardPageRenderer {
                                                 + escapeJsString(issue.getIssueText()) + "', '"
                                                 + issue.getIssueTypeValue() + "')\">");
                                 out.println("      <td>" + escapeHtml(issue.getIssueText()) + "</td>");
-                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji() + "</td>");
-                                out.println("      <td class=\"dd-issues-col-date\">" + escapeHtml(issue.getCreatedDisplay()) + "</td>");
+                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji()
+                                                + "</td>");
+                                out.println("      <td class=\"dd-issues-col-date\">"
+                                                + escapeHtml(issue.getCreatedDisplay()) + "</td>");
                                 out.println("    </tr>");
                         }
                         out.println("  </table>");
