@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectIssue" table="project_issue">
+        <id name="projectIssueId" type="int">
+            <column name="project_issue_id" />
+            <generator class="native" />
+        </id>
+        <many-to-one name="project" column="project_id" class="Project" not-null="true" />
+        <property name="issueText" type="string">
+            <column name="issue_text" length="1200" not-null="true" />
+        </property>
+        <property name="issueTypeString" type="string">
+            <column name="issue_type" length="20" not-null="true" />
+        </property>
+        <property name="issueStatusString" type="string">
+            <column name="issue_status" length="20" not-null="true" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" not-null="true" />
+        </property>
+        <property name="updatedDate" type="timestamp">
+            <column name="updated_date" not-null="true" />
+        </property>
+        <property name="resolvedDate" type="timestamp">
+            <column name="resolved_date" />
+        </property>
+    </class>
+</hibernate-mapping>

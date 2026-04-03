@@ -1,6 +1,7 @@
 package org.dandeliondaily.dashboard.model;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class DashboardNowColumnModel {
@@ -11,6 +12,7 @@ public class DashboardNowColumnModel {
     private List<UnscheduledActionItem> unscheduledActions = new ArrayList<>();
     private List<TemplatedActionItem> templatedActions = new ArrayList<>();
     private List<RecentCompletedItem> recentCompleted = new ArrayList<>();
+    private List<OpenIssueItem> openIssues = new ArrayList<>();
 
     public CurrentAction getCurrentAction() {
         return currentAction;
@@ -58,6 +60,14 @@ public class DashboardNowColumnModel {
 
     public void setRecentCompleted(List<RecentCompletedItem> recentCompleted) {
         this.recentCompleted = recentCompleted;
+    }
+
+    public List<OpenIssueItem> getOpenIssues() {
+        return openIssues;
+    }
+
+    public void setOpenIssues(List<OpenIssueItem> openIssues) {
+        this.openIssues = openIssues;
     }
 
     public static class CurrentAction {
@@ -354,6 +364,63 @@ public class DashboardNowColumnModel {
 
         public void setWhatHappened(String whatHappened) {
             this.whatHappened = whatHappened;
+        }
+    }
+
+    public static class OpenIssueItem {
+        private int projectIssueId;
+        private String issueText = "";
+        private String issueTypeEmoji = "";
+        private String issueTypeValue = "";
+        private String createdDisplay = "";
+        private Date createdDate;
+
+        public int getProjectIssueId() {
+            return projectIssueId;
+        }
+
+        public void setProjectIssueId(int projectIssueId) {
+            this.projectIssueId = projectIssueId;
+        }
+
+        public String getIssueText() {
+            return issueText;
+        }
+
+        public void setIssueText(String issueText) {
+            this.issueText = issueText;
+        }
+
+        public String getIssueTypeEmoji() {
+            return issueTypeEmoji;
+        }
+
+        public void setIssueTypeEmoji(String issueTypeEmoji) {
+            this.issueTypeEmoji = issueTypeEmoji;
+        }
+
+        public String getIssueTypeValue() {
+            return issueTypeValue;
+        }
+
+        public void setIssueTypeValue(String issueTypeValue) {
+            this.issueTypeValue = issueTypeValue;
+        }
+
+        public String getCreatedDisplay() {
+            return createdDisplay;
+        }
+
+        public void setCreatedDisplay(String createdDisplay) {
+            this.createdDisplay = createdDisplay;
+        }
+
+        public Date getCreatedDate() {
+            return createdDate;
+        }
+
+        public void setCreatedDate(Date createdDate) {
+            this.createdDate = createdDate;
         }
     }
 }

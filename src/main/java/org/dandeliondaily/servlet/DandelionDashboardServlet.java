@@ -116,6 +116,15 @@ public class DandelionDashboardServlet extends ClientServlet {
                 handleSaveWorkdayProjectReview(appReq);
             }
 
+            if ("addIssue".equals(action)) {
+                handleAddIssue(appReq);
+                return;
+            }
+            if ("editIssue".equals(action)) {
+                handleEditIssue(appReq);
+                return;
+            }
+
             if ("StartTimer".equals(action)) {
                 handleStartTimer(appReq);
             }
@@ -820,6 +829,109 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("todayGaugeHtml", renderGaugeHtml(todayGaugeModel));
         data.put("todayCurrentTime", formatCurrentUserTime(appReq.getWebUser()));
         sendJsonResponse(appReq, true, "OK", data);
+    }
+
+    private void handleAddIssue(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String issueText = clip(appReq.getRequest().getParameter("issueText"), 1200);
+        String issueTypeStr = clip(appReq.getRequest().getParameter("issueType"), 20);
+
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "Project id is required", null);
+            return;
+        }
+        if (issueText.length() == 0) {
+            sendJsonResponse(appReq, false, "Issue text is required", null);
+            return;
+        }
+        if (issueTypeStr.length() == 0) {
+            sendJsonResponse(appReq, false, "Issue type is required", null);
+            return;
+        }
+
+        int projectId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid project id", null);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Project project = (Project) dataSession.get(Project.class, projectId);
+        if (project == null) {
+            sendJsonResponse(appReq, false, "Project not found", null);
+            return;
+        }
+
+        org.openimmunizationsoftware.pt.model.ProjectIssueType issueType =
+                org.openimmunizationsoftware.pt.model.ProjectIssueType.fromString(issueTypeStr);
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            org.openimmunizationsoftware.pt.doa.ProjectIssueDao dao =
+                    new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(dataSession);
+            dao.createIssue(project, issueText, issueType);
+            transaction.commit();
+            sendJsonResponse(appReq, true, "Issue created", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            e.printStackTrace();
+            sendJsonResponse(appReq, false, "Error creating issue: " + e.getMessage(), null);
+        }
+    }
+
+    private void handleEditIssue(AppReq appReq) throws Exception {
+        String issueIdStr = appReq.getRequest().getParameter("projectIssueId");
+        String issueText = clip(appReq.getRequest().getParameter("issueText"), 1200);
+        String issueTypeStr = clip(appReq.getRequest().getParameter("issueType"), 20);
+        String resolvedStr = appReq.getRequest().getParameter("resolved");
+
+        if (issueIdStr == null || issueIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "Issue id is required", null);
+            return;
+        }
+        if (issueText.length() == 0) {
+            sendJsonResponse(appReq, false, "Issue text is required", null);
+            return;
+        }
+        if (issueTypeStr.length() == 0) {
+            sendJsonResponse(appReq, false, "Issue type is required", null);
+            return;
+        }
+
+        int issueId;
+        try {
+            issueId = Integer.parseInt(issueIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid issue id", null);
+            return;
+        }
+
+        boolean resolve = "1".equals(resolvedStr);
+
+        Session dataSession = appReq.getDataSession();
+        org.openimmunizationsoftware.pt.doa.ProjectIssueDao dao =
+                new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(dataSession);
+        org.openimmunizationsoftware.pt.model.ProjectIssue issue = dao.getById(issueId);
+        if (issue == null) {
+            sendJsonResponse(appReq, false, "Issue not found", null);
+            return;
+        }
+
+        org.openimmunizationsoftware.pt.model.ProjectIssueType issueType =
+                org.openimmunizationsoftware.pt.model.ProjectIssueType.fromString(issueTypeStr);
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            dao.updateIssue(issue, issueText, issueType, resolve);
+            transaction.commit();
+            sendJsonResponse(appReq, true, "Issue updated", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            e.printStackTrace();
+            sendJsonResponse(appReq, false, "Error updating issue: " + e.getMessage(), null);
+        }
     }
 
     private void handleSaveProjectEdit(AppReq appReq) throws Exception {

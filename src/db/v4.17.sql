@@ -1,0 +1,18 @@
+-- v4.17: Project Issue capture
+-- Adds the project_issue table for lightweight issue tracking against projects.
+-- Supports BLOCKER / UNKNOWN / NOTE types and OPEN / RESOLVED status.
+
+CREATE TABLE project_issue (
+    project_issue_id  INT          NOT NULL AUTO_INCREMENT,
+    project_id        INT          NOT NULL,
+    issue_text        VARCHAR(1200) NOT NULL,
+    issue_type        VARCHAR(20)  NOT NULL DEFAULT 'UNKNOWN',
+    issue_status      VARCHAR(20)  NOT NULL DEFAULT 'OPEN',
+    created_date      DATETIME     NOT NULL,
+    updated_date      DATETIME     NOT NULL,
+    resolved_date     DATETIME     NULL,
+    PRIMARY KEY (project_issue_id),
+    INDEX idx_pi_project   (project_id),
+    INDEX idx_pi_status    (issue_status),
+    INDEX idx_pi_created   (project_id, issue_status, created_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

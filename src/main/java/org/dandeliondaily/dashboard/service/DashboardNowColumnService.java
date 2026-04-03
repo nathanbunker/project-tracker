@@ -15,8 +15,10 @@ import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -53,6 +55,7 @@ public class DashboardNowColumnService {
             model.setUnscheduledActions(buildUnscheduledItems(webUser, openActions, currentAction));
             model.setTemplatedActions(buildTemplatedItems(webUser, openActions));
             model.setRecentCompleted(buildRecentCompleted(webUser, dataSession, currentProject));
+            model.setOpenIssues(buildOpenIssueItems(webUser, dataSession, currentProject));
         }
 
         return model;
@@ -308,5 +311,24 @@ public class DashboardNowColumnService {
             }
         }
         return noteList;
+    }
+
+    private List<DashboardNowColumnModel.OpenIssueItem> buildOpenIssueItems(WebUser webUser, Session dataSession,
+            Project currentProject) {
+        ProjectIssueDao dao = new ProjectIssueDao(dataSession);
+        List<ProjectIssue> issues = dao.listOpenIssuesForProject(currentProject);
+        List<DashboardNowColumnModel.OpenIssueItem> items = new ArrayList<>();
+        for (ProjectIssue issue : issues) {
+            DashboardNowColumnModel.OpenIssueItem item = new DashboardNowColumnModel.OpenIssueItem();
+            item.setProjectIssueId(issue.getProjectIssueId());
+            item.setIssueText(n(issue.getIssueText(), ""));
+            item.setIssueTypeEmoji(issue.getIssueType().toDisplayEmoji());
+            item.setIssueTypeValue(issue.getIssueType().name());
+            item.setCreatedDate(issue.getCreatedDate());
+            item.setCreatedDisplay(webUser.getDateFormatService().formatPattern(issue.getCreatedDate(),
+                    webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            items.add(item);
+        }
+        return items;
     }
 }

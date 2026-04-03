@@ -1088,6 +1088,15 @@ public class DashboardPageRenderer {
                 }
 
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "OPEN ISSUES");
+                if (nowColumnModel.getCurrentProject().isAvailable()) {
+                        printOpenIssuesSection(out, appReq, nowColumnModel);
+                } else {
+                        out.println("  <p class=\"dd-subtle\">Select a project to view issues.</p>");
+                }
+                out.println("</div>");
+
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "PROJECT BACKLOG");
                 printBacklogScheduled(out, nowColumnModel.getScheduledActions());
                 printBacklogUnscheduled(out, nowColumnModel.getUnscheduledActions());
@@ -1344,6 +1353,176 @@ public class DashboardPageRenderer {
                 out.println("        ddCloseCurrentProjectEditModal();");
                 out.println("      });");
                 out.println("    return false;");
+                out.println("  }");
+                out.println("</script>");
+        }
+
+        private void printOpenIssuesSection(PrintWriter out, AppReq appReq,
+                        DashboardNowColumnModel nowColumnModel) {
+                int projectId = nowColumnModel.getCurrentProject().getProjectId();
+                List<DashboardNowColumnModel.OpenIssueItem> issues = nowColumnModel.getOpenIssues();
+
+                out.println("  <div class=\"dd-open-issues-header\">");
+                out.println("    <button type=\"button\" class=\"dd-current-action-tool\" title=\"Add Issue\""
+                                + " onclick=\"ddOpenAddIssueModal(event)\">➕ Add Issue</button>");
+                out.println("  </div>");
+
+                if (!issues.isEmpty()) {
+                        out.println("  <table class=\"dd-today-table dd-backlog-table dd-issues-table\">");
+                        out.println("    <tr>");
+                        out.println("      <th>Issue</th>");
+                        out.println("      <th class=\"dd-issues-col-type\">Type</th>");
+                        out.println("      <th class=\"dd-issues-col-date\">Created</th>");
+                        out.println("    </tr>");
+                        for (DashboardNowColumnModel.OpenIssueItem issue : issues) {
+                                out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenEditIssueModal(event, "
+                                                + issue.getProjectIssueId() + ", '"
+                                                + escapeJsString(issue.getIssueText()) + "', '"
+                                                + issue.getIssueTypeValue() + "')\">");
+                                out.println("      <td>" + escapeHtml(issue.getIssueText()) + "</td>");
+                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji() + "</td>");
+                                out.println("      <td class=\"dd-issues-col-date\">" + escapeHtml(issue.getCreatedDisplay()) + "</td>");
+                                out.println("    </tr>");
+                        }
+                        out.println("  </table>");
+                }
+
+                // Add Issue modal
+                out.println("<div id=\"ddAddIssueModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseAddIssueModal(event)\">");
+                out.println("  <div class=\"dd-modal\" onclick=\"event.stopPropagation()\">");
+                out.println("    <div class=\"dd-modal-head\">");
+                out.println("      <h3 class=\"dd-modal-title\">Add Issue</h3>");
+                out.println("      <button class=\"dd-modal-close\" onclick=\"ddCloseAddIssueModal(event)\">&times;</button>");
+                out.println("    </div>");
+                out.println("    <div style=\"padding: 16px;\">");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Issue:</label>");
+                out.println("        <textarea id=\"ddAddIssueText\" rows=\"3\" class=\"dd-form-textarea\""
+                                + " placeholder=\"Describe the issue...\"></textarea>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Type:</label>");
+                out.println("        <select id=\"ddAddIssueType\" class=\"dd-form-input\">");
+                out.println("          <option value=\"UNKNOWN\">❓ Unknown</option>");
+                out.println("          <option value=\"BLOCKER\">⛔ Blocker</option>");
+                out.println("          <option value=\"NOTE\">📝 Note</option>");
+                out.println("        </select>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-actions\">");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-primary\""
+                                + " onclick=\"ddSubmitAddIssue(event, " + projectId + ")\">Save</button>");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-secondary\""
+                                + " onclick=\"ddCloseAddIssueModal(event)\">Cancel</button>");
+                out.println("      </div>");
+                out.println("    </div>");
+                out.println("  </div>");
+                out.println("</div>");
+
+                // Edit Issue modal
+                out.println("<div id=\"ddEditIssueModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseEditIssueModal(event)\">");
+                out.println("  <div class=\"dd-modal\" onclick=\"event.stopPropagation()\">");
+                out.println("    <div class=\"dd-modal-head\">");
+                out.println("      <h3 class=\"dd-modal-title\">Edit Issue</h3>");
+                out.println("      <button class=\"dd-modal-close\" onclick=\"ddCloseEditIssueModal(event)\">&times;</button>");
+                out.println("    </div>");
+                out.println("    <div style=\"padding: 16px;\">");
+                out.println("      <input type=\"hidden\" id=\"ddEditIssueId\" value=\"\">");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Issue:</label>");
+                out.println("        <textarea id=\"ddEditIssueText\" rows=\"3\" class=\"dd-form-textarea\"></textarea>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Type:</label>");
+                out.println("        <select id=\"ddEditIssueType\" class=\"dd-form-input\">");
+                out.println("          <option value=\"UNKNOWN\">❓ Unknown</option>");
+                out.println("          <option value=\"BLOCKER\">⛔ Blocker</option>");
+                out.println("          <option value=\"NOTE\">📝 Note</option>");
+                out.println("        </select>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">");
+                out.println("          <input type=\"checkbox\" id=\"ddEditIssueResolved\"> Mark as Resolved");
+                out.println("        </label>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-actions\">");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-primary\""
+                                + " onclick=\"ddSubmitEditIssue(event)\">Save</button>");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-secondary\""
+                                + " onclick=\"ddCloseEditIssueModal(event)\">Cancel</button>");
+                out.println("      </div>");
+                out.println("    </div>");
+                out.println("  </div>");
+                out.println("</div>");
+
+                out.println("<script>");
+                out.println("  function ddOpenAddIssueModal(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddAddIssueModal');");
+                out.println("    var txt = document.getElementById('ddAddIssueText');");
+                out.println("    var sel = document.getElementById('ddAddIssueType');");
+                out.println("    if (txt) txt.value = '';");
+                out.println("    if (sel) sel.value = 'UNKNOWN';");
+                out.println("    if (modal) modal.classList.add('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddCloseAddIssueModal(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddAddIssueModal');");
+                out.println("    if (modal) modal.classList.remove('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddSubmitAddIssue(evt, projectId) {");
+                out.println("    if (evt) evt.preventDefault();");
+                out.println("    var issueText = document.getElementById('ddAddIssueText').value.trim();");
+                out.println("    var issueType = document.getElementById('ddAddIssueType').value;");
+                out.println("    if (!issueText) { alert('Issue text is required.'); return; }");
+                out.println("    if (!issueType) { alert('Issue type is required.'); return; }");
+                out.println("    var body = 'action=addIssue&projectId=' + encodeURIComponent(projectId)");
+                out.println("      + '&issueText=' + encodeURIComponent(issueText)");
+                out.println("      + '&issueType=' + encodeURIComponent(issueType);");
+                out.println("    fetch('DandelionDashboardServlet', { method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body })");
+                out.println("      .then(r => r.json())");
+                out.println("      .then(data => {");
+                out.println("        if (data && data.success) { ddCloseAddIssueModal(); window.location.reload(); }");
+                out.println("        else { alert((data && data.message) ? data.message : 'Unable to save issue.'); }");
+                out.println("      })");
+                out.println("      .catch(() => alert('Unable to save issue.'));");
+                out.println("  }");
+                out.println("  function ddOpenEditIssueModal(evt, issueId, issueText, issueType) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddEditIssueModal');");
+                out.println("    document.getElementById('ddEditIssueId').value = issueId;");
+                out.println("    document.getElementById('ddEditIssueText').value = issueText;");
+                out.println("    document.getElementById('ddEditIssueType').value = issueType;");
+                out.println("    document.getElementById('ddEditIssueResolved').checked = false;");
+                out.println("    if (modal) modal.classList.add('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddCloseEditIssueModal(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddEditIssueModal');");
+                out.println("    if (modal) modal.classList.remove('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddSubmitEditIssue(evt) {");
+                out.println("    if (evt) evt.preventDefault();");
+                out.println("    var issueId   = document.getElementById('ddEditIssueId').value;");
+                out.println("    var issueText = document.getElementById('ddEditIssueText').value.trim();");
+                out.println("    var issueType = document.getElementById('ddEditIssueType').value;");
+                out.println("    var resolved  = document.getElementById('ddEditIssueResolved').checked ? '1' : '0';");
+                out.println("    if (!issueText) { alert('Issue text is required.'); return; }");
+                out.println("    if (!issueType) { alert('Issue type is required.'); return; }");
+                out.println("    var body = 'action=editIssue&projectIssueId=' + encodeURIComponent(issueId)");
+                out.println("      + '&issueText=' + encodeURIComponent(issueText)");
+                out.println("      + '&issueType=' + encodeURIComponent(issueType)");
+                out.println("      + '&resolved=' + encodeURIComponent(resolved);");
+                out.println("    fetch('DandelionDashboardServlet', { method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body })");
+                out.println("      .then(r => r.json())");
+                out.println("      .then(data => {");
+                out.println("        if (data && data.success) { ddCloseEditIssueModal(); window.location.reload(); }");
+                out.println("        else { alert((data && data.message) ? data.message : 'Unable to update issue.'); }");
+                out.println("      })");
+                out.println("      .catch(() => alert('Unable to update issue.'));");
                 out.println("  }");
                 out.println("</script>");
         }
