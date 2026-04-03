@@ -316,6 +316,7 @@ public class DashboardTodayColumnModel {
     public static class WorkdayReviewModel {
         private boolean renderSection;
         private boolean allReviewed;
+        private boolean topPriority;
         private List<WorkdayReviewItemModel> projectItems = new ArrayList<WorkdayReviewItemModel>();
 
         public boolean isRenderSection() {
@@ -332,6 +333,14 @@ public class DashboardTodayColumnModel {
 
         public void setAllReviewed(boolean allReviewed) {
             this.allReviewed = allReviewed;
+        }
+
+        public boolean isTopPriority() {
+            return topPriority;
+        }
+
+        public void setTopPriority(boolean topPriority) {
+            this.topPriority = topPriority;
         }
 
         public List<WorkdayReviewItemModel> getProjectItems() {
@@ -355,6 +364,7 @@ public class DashboardTodayColumnModel {
         private String insight = "";
         private String risk = "";
         private String opportunity = "";
+        private java.util.List<String> completedActions = new java.util.ArrayList<>();
 
         public long getProjectId() {
             return projectId;
@@ -442,6 +452,14 @@ public class DashboardTodayColumnModel {
 
         public void setOpportunity(String opportunity) {
             this.opportunity = opportunity;
+        }
+
+        public java.util.List<String> getCompletedActions() {
+            return completedActions;
+        }
+
+        public void setCompletedActions(java.util.List<String> completedActions) {
+            this.completedActions = completedActions;
         }
     }
 }

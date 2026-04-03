@@ -3,13 +3,15 @@ package org.dandeliondaily.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.LocalDate;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -90,6 +92,10 @@ public class DandelionDashboardServlet extends ClientServlet {
                 handleRescheduleAction(appReq);
                 return;
             }
+            if ("startActionNow".equals(action)) {
+                handleStartActionNow(appReq);
+                return;
+            }
             if ("saveProjectEdit".equals(action)) {
                 handleSaveProjectEdit(appReq);
                 return;
@@ -108,7 +114,6 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             if ("saveWorkdayProjectReview".equals(action)) {
                 handleSaveWorkdayProjectReview(appReq);
-                return;
             }
 
             if ("StartTimer".equals(action)) {
@@ -156,6 +161,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         String actionNextIdStr = appReq.getRequest().getParameter("actionNextId");
         int actionNextId = Integer.parseInt(actionNextIdStr);
 
+        WebUser webUser = appReq.getWebUser();
+
         ProjectActionNext action = (ProjectActionNext) appReq.getDataSession()
                 .get(ProjectActionNext.class, actionNextId);
 
@@ -163,14 +170,9 @@ public class DandelionDashboardServlet extends ClientServlet {
             sendJsonResponse(appReq, false, "Action not found", null);
             return;
         }
-
-        // Build response JSON
-        String dateFormat = "MM/dd/yyyy";
-        SimpleDateFormat sdf = new SimpleDateFormat(dateFormat);
-
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("success", true);
-        data.put("nextActionDate", action.getNextActionDate() != null ? sdf.format(action.getNextActionDate()) : "");
+        data.put("nextActionDate", formatUserDate(webUser, action.getNextActionDate()));
         data.put("nextActionType", action.getNextActionType() != null ? action.getNextActionType() : "");
         data.put("projectName", action.getProject() != null && action.getProject().getProjectName() != null
                 ? action.getProject().getProjectName()
@@ -179,9 +181,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("nextContactId", nextContactId != null && nextContactId.intValue() > 0 ? nextContactId : "");
         data.put("nextDescription", action.getNextDescription() != null ? action.getNextDescription() : "");
         data.put("nextTimeEstimate", action.getNextTimeEstimate() != null ? action.getNextTimeEstimate() : 0);
-        data.put("nextTargetDate", action.getNextTargetDate() != null ? sdf.format(action.getNextTargetDate()) : "");
-        data.put("nextDeadlineDate",
-                action.getNextDeadlineDate() != null ? sdf.format(action.getNextDeadlineDate()) : "");
+        data.put("nextTargetDate", formatUserDate(webUser, action.getNextTargetDate()));
+        data.put("nextDeadlineDate", formatUserDate(webUser, action.getNextDeadlineDate()));
         data.put("linkUrl", action.getLinkUrl() != null ? action.getLinkUrl() : "");
         data.put("nextNote", action.getNextNotes() != null ? action.getNextNotes() : "");
 
@@ -249,14 +250,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             String saveMode = appReq.getRequest().getParameter("saveMode");
             boolean saveAndStart = "saveAndStart".equals(saveMode);
 
-            // Parse and set dates
-            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
-
             if (nextActionDate != null && nextActionDate.length() > 0) {
-                try {
-                    action.setNextActionDate(sdf.parse(nextActionDate));
-                } catch (Exception e) {
-                    // Ignore parse errors
+                Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
+                if (parsedDate != null) {
+                    action.setNextActionDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
                 }
             }
 
@@ -286,18 +283,16 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             if (nextTargetDate != null && nextTargetDate.length() > 0) {
-                try {
-                    action.setNextTargetDate(sdf.parse(nextTargetDate));
-                } catch (Exception e) {
-                    // Ignore parse errors
+                Date parsedDate = appReq.getWebUser().parseDate(nextTargetDate);
+                if (parsedDate != null) {
+                    action.setNextTargetDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
                 }
             }
 
             if (nextDeadlineDate != null && nextDeadlineDate.length() > 0) {
-                try {
-                    action.setNextDeadlineDate(sdf.parse(nextDeadlineDate));
-                } catch (Exception e) {
-                    // Ignore parse errors
+                Date parsedDate = appReq.getWebUser().parseDate(nextDeadlineDate);
+                if (parsedDate != null) {
+                    action.setNextDeadlineDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
                 }
             }
 
@@ -312,7 +307,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             if (saveAndStart) {
                 // When work starts now, schedule date is forced to the user's current day.
                 WebUser webUser = appReq.getWebUser();
-                action.setNextActionDate(webUser.getToday());
+                action.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
             }
 
             action.setNextChangeDate(new Date());
@@ -689,6 +684,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         String actionNextIdStr = appReq.getRequest().getParameter("actionNextId");
         int actionNextId = Integer.parseInt(actionNextIdStr);
 
+        WebUser webUser = appReq.getWebUser();
+
         ProjectActionNext action = (ProjectActionNext) appReq.getDataSession()
                 .get(ProjectActionNext.class, actionNextId);
 
@@ -696,14 +693,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             sendJsonResponse(appReq, false, "Action not found", null);
             return;
         }
-
-        String dateFormat = "MM/dd/yyyy";
-        SimpleDateFormat sdf = new SimpleDateFormat(dateFormat);
-
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("success", true);
         data.put("description", action.getNextDescription() != null ? action.getNextDescription() : "");
-        data.put("nextActionDate", action.getNextActionDate() != null ? sdf.format(action.getNextActionDate()) : "");
+        data.put("nextActionDate", formatUserDate(webUser, action.getNextActionDate()));
 
         sendJsonResponse(appReq, true, "OK", data);
     }
@@ -726,42 +719,23 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
 
-            // Parse and validate the new date
-            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
             if (nextActionDateStr != null && nextActionDateStr.length() > 0) {
-                try {
-                    java.util.Date newDate = sdf.parse(nextActionDateStr);
-                    // Validate that the new date is not in the past
-                    java.util.Date today = new java.util.Date();
-                    // Reset time components for comparison (midnight)
-                    java.util.Calendar todayCalendar = java.util.Calendar.getInstance();
-                    todayCalendar.setTime(today);
-                    todayCalendar.set(java.util.Calendar.HOUR_OF_DAY, 0);
-                    todayCalendar.set(java.util.Calendar.MINUTE, 0);
-                    todayCalendar.set(java.util.Calendar.SECOND, 0);
-                    todayCalendar.set(java.util.Calendar.MILLISECOND, 0);
-
-                    java.util.Calendar newCalendar = java.util.Calendar.getInstance();
-                    newCalendar.setTime(newDate);
-                    newCalendar.set(java.util.Calendar.HOUR_OF_DAY, 0);
-                    newCalendar.set(java.util.Calendar.MINUTE, 0);
-                    newCalendar.set(java.util.Calendar.SECOND, 0);
-                    newCalendar.set(java.util.Calendar.MILLISECOND, 0);
-
-                    if (newCalendar.before(todayCalendar)) {
-                        transaction.rollback();
-                        sendJsonResponse(appReq, false, "Cannot schedule action to a past date", null);
-                        return;
-                    }
-
-                    action.setNextActionDate(newDate);
-                    action.setNextChangeDate(new Date());
-
-                } catch (java.text.ParseException e) {
+                Date parsedDate = appReq.getWebUser().parseDate(nextActionDateStr);
+                if (parsedDate == null) {
                     transaction.rollback();
                     sendJsonResponse(appReq, false, "Invalid date format", null);
                     return;
                 }
+
+                LocalDate newDate = toStoredLocalDate(parsedDate, appReq.getWebUser());
+                if (newDate != null && newDate.isBefore(appReq.getWebUser().getLocalDateToday())) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Cannot schedule action to a past date", null);
+                    return;
+                }
+
+                action.setNextActionDate(java.sql.Date.valueOf(newDate));
+                action.setNextChangeDate(new Date());
             }
 
             // Save the updated action
@@ -773,6 +747,49 @@ public class DandelionDashboardServlet extends ClientServlet {
             transaction.rollback();
             e.printStackTrace();
             sendJsonResponse(appReq, false, "Error rescheduling action: " + e.getMessage(), null);
+        }
+    }
+
+    private void handleStartActionNow(AppReq appReq) throws Exception {
+        String actionNextIdStr = appReq.getRequest().getParameter("actionNextId");
+        if (actionNextIdStr == null || actionNextIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "Action is required", null);
+            return;
+        }
+
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(actionNextIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid action", null);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Action not found", null);
+                return;
+            }
+
+            WebUser webUser = appReq.getWebUser();
+            action.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+
+            appReq.setCompletingAction(action);
+            if (action.getProject() != null) {
+                appReq.setProject(action.getProject());
+            }
+
+            sendJsonResponse(appReq, true, "Action started", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJsonResponse(appReq, false, "Unable to start action: " + e.getMessage(), null);
         }
     }
 
@@ -951,7 +968,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 setupAction.setContact(webUser.getProjectContact());
                 setupAction.setProvider(webUser.getProvider());
                 setupAction.setNextActionType(ProjectNextActionType.WILL);
-                setupAction.setNextActionDate(webUser.getToday());
+                setupAction.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
                 setupAction.setNextDescription("setup new project");
                 setupAction.setNextTimeEstimate(5);
                 setupAction.setNextActionStatus(ProjectNextActionStatus.READY);
@@ -994,6 +1011,31 @@ public class DandelionDashboardServlet extends ClientServlet {
         id.setContactId(webUser.getContactId());
         id.setProjectId(project.getProjectId());
         return (ProjectContactAssigned) dataSession.get(ProjectContactAssigned.class, id);
+    }
+
+    private String formatUserDate(WebUser webUser, Date date) {
+        LocalDate localDate = toStoredLocalDate(date, webUser);
+        if (localDate == null) {
+            return "";
+        }
+        return localDate.format(DateTimeFormatter.ofPattern(webUser.getDateEntryPattern()));
+    }
+
+    private Date normalizeUserDate(WebUser webUser, Date date) {
+        LocalDate localDate = toStoredLocalDate(date, webUser);
+        if (localDate == null) {
+            return null;
+        }
+        return java.sql.Date.valueOf(localDate);
+    }
+
+    private LocalDate toStoredLocalDate(Date date, WebUser webUser) {
+        if (date == null) {
+            return null;
+        }
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return LocalDate.parse(sdf.format(date));
     }
 
     private String formatCurrentUserTime(WebUser webUser) {

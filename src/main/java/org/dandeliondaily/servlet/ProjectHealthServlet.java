@@ -1,6 +1,7 @@
 package org.dandeliondaily.servlet;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -311,10 +312,13 @@ public class ProjectHealthServlet extends ClientServlet {
     }
 
     private void sendJson(AppReq appReq, boolean success, String message, Map<String, Object> data) throws Exception {
+        appReq.getResponse().setContentType("application/json; charset=UTF-8");
+        PrintWriter out = appReq.getResponse().getWriter();
+
         StringBuilder json = new StringBuilder();
         json.append("{");
-        json.append("\"success\":").append(success);
-        json.append(",\"message\":\"").append(escapeJson(message)).append("\"");
+        json.append("\"success\":").append(success).append(",");
+        json.append("\"message\":\"").append(escapeJson(message)).append("\"");
         if (data != null) {
             for (Map.Entry<String, Object> entry : data.entrySet()) {
                 json.append(",\"").append(escapeJson(entry.getKey())).append("\":");
@@ -323,11 +327,11 @@ public class ProjectHealthServlet extends ClientServlet {
         }
         json.append("}");
 
-        appReq.getResponse().setContentType("application/json");
-        appReq.getResponse().setCharacterEncoding("UTF-8");
-        appReq.getOut().print(json.toString());
+        out.println(json.toString());
+        out.flush();
     }
 
+    @SuppressWarnings("unchecked")
     private void appendJsonValue(StringBuilder json, Object value) {
         if (value == null) {
             json.append("null");
@@ -341,12 +345,25 @@ public class ProjectHealthServlet extends ClientServlet {
             json.append(value.toString());
             return;
         }
-        if (value instanceof List<?>) {
-            @SuppressWarnings("unchecked")
-            List<Object> list = (List<Object>) value;
+        if (value instanceof Map<?, ?>) {
+            Map<Object, Object> map = (Map<Object, Object>) value;
+            json.append("{");
+            boolean first = true;
+            for (Map.Entry<Object, Object> entry : map.entrySet()) {
+                if (!first) {
+                    json.append(",");
+                }
+                json.append("\"").append(escapeJson(String.valueOf(entry.getKey()))).append("\":");
+                appendJsonValue(json, entry.getValue());
+                first = false;
+            }
+            json.append("}");
+            return;
+        }
+        if (value instanceof Iterable<?>) {
             json.append("[");
             boolean first = true;
-            for (Object item : list) {
+            for (Object item : (Iterable<Object>) value) {
                 if (!first) {
                     json.append(",");
                 }
@@ -356,20 +373,16 @@ public class ProjectHealthServlet extends ClientServlet {
             json.append("]");
             return;
         }
-        if (value instanceof Map<?, ?>) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = (Map<String, Object>) value;
-            json.append("{");
-            boolean first = true;
-            for (Map.Entry<String, Object> entry : map.entrySet()) {
-                if (!first) {
+        if (value.getClass().isArray()) {
+            json.append("[");
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                if (i > 0) {
                     json.append(",");
                 }
-                json.append("\"").append(escapeJson(entry.getKey())).append("\":");
-                appendJsonValue(json, entry.getValue());
-                first = false;
+                appendJsonValue(json, java.lang.reflect.Array.get(value, i));
             }
-            json.append("}");
+            json.append("]");
             return;
         }
         json.append("\"").append(escapeJson(value.toString())).append("\"");
@@ -379,10 +392,40 @@ public class ProjectHealthServlet extends ClientServlet {
         if (value == null) {
             return "";
         }
-        return value.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        StringBuilder escaped = new StringBuilder(value.length() + 16);
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            switch (ch) {
+                case '\\':
+                    escaped.append("\\\\");
+                    break;
+                case '"':
+                    escaped.append("\\\"");
+                    break;
+                case '\b':
+                    escaped.append("\\b");
+                    break;
+                case '\f':
+                    escaped.append("\\f");
+                    break;
+                case '\n':
+                    escaped.append("\\n");
+                    break;
+                case '\r':
+                    escaped.append("\\r");
+                    break;
+                case '\t':
+                    escaped.append("\\t");
+                    break;
+                default:
+                    if (ch < 0x20) {
+                        escaped.append(String.format("\\u%04x", (int) ch));
+                    } else {
+                        escaped.append(ch);
+                    }
+                    break;
+            }
+        }
+        return escaped.toString();
     }
 }

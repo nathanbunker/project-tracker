@@ -1,7 +1,7 @@
 package org.dandeliondaily.dashboard.service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -13,7 +13,6 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
-import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -250,53 +249,53 @@ public class DashboardCurrentActionService {
         if (orderedList.isEmpty()) {
             return null;
         }
-        sortProjectActionListByCompletionOrder(orderedList);
+        sortProjectActionListByCompletionOrder(orderedList, webUser);
         return orderedList.get(0);
     }
 
     private List<ProjectActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
-        Date today = TimeTracker.createToday(webUser).getTime();
-        Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
-        if (dayOffset > 0) {
-            Calendar calendar = webUser.getCalendar(today);
-            calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-            today = calendar.getTime();
-            calendar.setTime(tomorrow);
-            calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-            tomorrow = calendar.getTime();
-        } else if (dayOffset < 0) {
-            Calendar calendar = webUser.getCalendar(today);
-            calendar.add(Calendar.YEAR, -1);
-            today = calendar.getTime();
-            calendar.setTime(tomorrow);
-            calendar.add(Calendar.DAY_OF_MONTH, dayOffset);
-            tomorrow = calendar.getTime();
+        LocalDate today = webUser.getLocalDateToday();
+        Query query;
+        if (dayOffset < 0) {
+            LocalDate oldestDate = today.minusYears(1);
+            query = dataSession.createQuery(
+                    "select distinct pan from ProjectActionNext pan "
+                            + "left join fetch pan.project "
+                            + "left join fetch pan.contact "
+                            + "left join fetch pan.nextProjectContact "
+                            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "and pan.nextDescription <> '' "
+                            + "and pan.nextActionStatusString = :nextActionStatus "
+                            + "and pan.nextActionDate >= :oldestDate and pan.nextActionDate < :cutoffDate "
+                            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+            query.setParameter("oldestDate", java.sql.Date.valueOf(oldestDate));
+            query.setParameter("cutoffDate", java.sql.Date.valueOf(today));
+        } else {
+            LocalDate targetDate = today.plusDays(dayOffset);
+            query = dataSession.createQuery(
+                    "select distinct pan from ProjectActionNext pan "
+                            + "left join fetch pan.project "
+                            + "left join fetch pan.contact "
+                            + "left join fetch pan.nextProjectContact "
+                            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "and pan.nextDescription <> '' "
+                            + "and pan.nextActionStatusString = :nextActionStatus "
+                            + "and pan.nextActionDate = :targetDate "
+                            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+            query.setParameter("targetDate", java.sql.Date.valueOf(targetDate));
         }
-
-        Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionStatusString = :nextActionStatus "
-                        + "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow "
-                        + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
         query.setParameter("provider", webUser.getProvider());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
-        query.setParameter("today", today);
-        query.setParameter("tomorrow", tomorrow);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> projectActionList = query.list();
-        sortProjectActionList(projectActionList);
+        sortProjectActionList(projectActionList, webUser);
         return projectActionList;
     }
 
     private List<ProjectActionNext> getProjectActionListForTodayOrEarlier(WebUser webUser, Session dataSession) {
-        Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
+        LocalDate tomorrow = webUser.getLocalDateToday().plusDays(1);
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
@@ -310,7 +309,7 @@ public class DashboardCurrentActionService {
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
-        query.setParameter("tomorrow", tomorrow);
+        query.setParameter("tomorrow", java.sql.Date.valueOf(tomorrow));
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> projectActionList = query.list();
         return projectActionList;
@@ -336,7 +335,7 @@ public class DashboardCurrentActionService {
         Map<Integer, List<ProjectActionNext>> existingByBucket = new HashMap<Integer, List<ProjectActionNext>>();
         Map<Integer, List<ProjectActionNext>> newByBucket = new HashMap<Integer, List<ProjectActionNext>>();
         for (ProjectActionNext projectAction : candidateList) {
-            int bucket = getCompletionBucket(projectAction);
+            int bucket = getCompletionBucket(projectAction, webUser);
             if (projectAction.getCompletionOrder() > 0) {
                 existingByBucket.computeIfAbsent(bucket, k -> new ArrayList<ProjectActionNext>()).add(projectAction);
             } else {
@@ -380,7 +379,7 @@ public class DashboardCurrentActionService {
         return projectList;
     }
 
-    private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {
+    private static void sortProjectActionList(List<ProjectActionNext> projectActionList, WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
             int c2 = pa2.getCompletionOrder();
@@ -390,8 +389,8 @@ public class DashboardCurrentActionService {
             if (c2 > 0 && c1 <= 0) {
                 return 1;
             }
-            int bucket1 = getCompletionBucket(pa1);
-            int bucket2 = getCompletionBucket(pa2);
+            int bucket1 = getCompletionBucket(pa1, webUser);
+            int bucket2 = getCompletionBucket(pa2, webUser);
             if (bucket1 != bucket2) {
                 return bucket1 - bucket2;
             }
@@ -399,7 +398,8 @@ public class DashboardCurrentActionService {
         });
     }
 
-    private static void sortProjectActionListByCompletionOrder(List<ProjectActionNext> projectActionList) {
+    private static void sortProjectActionListByCompletionOrder(List<ProjectActionNext> projectActionList,
+            WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
             int c2 = pa2.getCompletionOrder();
@@ -409,8 +409,8 @@ public class DashboardCurrentActionService {
             if (c2 > 0 && c1 <= 0) {
                 return 1;
             }
-            int bucket1 = getCompletionBucket(pa1);
-            int bucket2 = getCompletionBucket(pa2);
+            int bucket1 = getCompletionBucket(pa1, webUser);
+            int bucket2 = getCompletionBucket(pa2, webUser);
             if (bucket1 != bucket2) {
                 return bucket1 - bucket2;
             }
@@ -474,7 +474,7 @@ public class DashboardCurrentActionService {
         return pa1.getActionNextId() - pa2.getActionNextId();
     }
 
-    private static int getCompletionBucket(ProjectActionNext projectAction) {
+    private static int getCompletionBucket(ProjectActionNext projectAction, WebUser webUser) {
         if (projectAction == null) {
             return 99;
         }
@@ -487,16 +487,9 @@ public class DashboardCurrentActionService {
                 return BUCKET_END_OF_WORK_DAY;
             }
         }
-        Date actionDate = projectAction.getNextActionDate();
-        if (actionDate != null) {
-            Calendar actionCal = Calendar.getInstance();
-            actionCal.setTime(actionDate);
-            setMidnight(actionCal);
-            Calendar todayCal = Calendar.getInstance();
-            setMidnight(todayCal);
-            if (actionCal.before(todayCal)) {
-                return BUCKET_OVERDUE;
-            }
+        LocalDate actionDate = toStoredLocalDate(projectAction.getNextActionDate(), webUser);
+        if (actionDate != null && actionDate.isBefore(webUser.getLocalDateToday())) {
+            return BUCKET_OVERDUE;
         }
         if (!projectAction.isBillable()) {
             TimeSlot timeSlot = projectAction.getTimeSlot();
@@ -538,11 +531,14 @@ public class DashboardCurrentActionService {
         return BUCKET_OTHER;
     }
 
-    private static void setMidnight(Calendar calendar) {
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
+    private static LocalDate toStoredLocalDate(Date date, WebUser webUser) {
+        if (date == null) {
+            return null;
+        }
+        if (date instanceof java.sql.Date) {
+            return ((java.sql.Date) date).toLocalDate();
+        }
+        return webUser.toLocalDate(date);
     }
 
     private String n(String value) {

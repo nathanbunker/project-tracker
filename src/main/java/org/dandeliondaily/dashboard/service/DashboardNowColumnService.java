@@ -1,11 +1,15 @@
 package org.dandeliondaily.dashboard.service;
 
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.hibernate.Query;
@@ -101,8 +105,7 @@ public class DashboardNowColumnService {
                 continue;
             }
             DashboardNowColumnModel.ScheduledActionItem item = new DashboardNowColumnModel.ScheduledActionItem();
-            item.setDateLabel(webUser.getDateFormatService().formatPattern(action.getNextActionDate(),
-                    webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            item.setDateLabel(formatDateOnly(webUser, action.getNextActionDate()));
             item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
             item.setActionNextId(action.getActionNextId());
             item.setCurrentSelection(currentAction != null
@@ -142,6 +145,23 @@ public class DashboardNowColumnService {
             items.add(item);
         }
         return items;
+    }
+
+    private String formatDateOnly(WebUser webUser, Date date) {
+        LocalDate localDate = toStoredLocalDate(date, webUser);
+        if (localDate == null) {
+            return "";
+        }
+        return localDate.format(DateTimeFormatter.ofPattern(webUser.getDateDisplayPatternWithWeekdayShort()));
+    }
+
+    private LocalDate toStoredLocalDate(Date date, WebUser webUser) {
+        if (date == null) {
+            return null;
+        }
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return LocalDate.parse(sdf.format(date));
     }
 
     private List<DashboardNowColumnModel.RecentCompletedItem> buildRecentCompleted(WebUser webUser,

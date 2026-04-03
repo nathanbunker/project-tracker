@@ -654,6 +654,16 @@ public class DashboardPageRenderer {
         out.println("    font-family: inherit;");
         out.println("    font-size: 13px;");
         out.println("  }");
+        out.println("  #ddWorkdayReviewCompletedActionsList {");
+        out.println("    list-style-type: disc;");
+        out.println("    margin: 0 0 0 20px;");
+        out.println("    padding: 0;");
+        out.println("    color: #4f4a42;");
+        out.println("    font-size: 13px;");
+        out.println("  }");
+        out.println("  #ddWorkdayReviewCompletedActionsList li {");
+        out.println("    margin-bottom: 4px;");
+        out.println("  }");
         out.println("  .dd-workday-review-actions {");
         out.println("    display: flex;");
         out.println("    gap: 8px;");
@@ -767,11 +777,11 @@ public class DashboardPageRenderer {
         out.println("    opacity: 1;");
         out.println("  }");
         out.println("  .dd-current-action-tools {");
-        out.println("    float: right;");
-        out.println("    display: inline-flex;");
+        out.println("    display: flex;");
         out.println("    align-items: center;");
         out.println("    gap: 8px;");
-        out.println("    margin: 0 0 8px 12px;");
+        out.println("    margin: 0 0 0 12px;");
+        out.println("    flex-shrink: 0;");
         out.println("  }");
         out.println("  .dd-current-action-tool {");
         out.println("    display: inline-flex;");
@@ -793,7 +803,7 @@ public class DashboardPageRenderer {
         out.println("    border-color: #bfa982;");
         out.println("  }");
         out.println("  .dd-current-action-form-main {");
-        out.println("    clear: both;");
+        out.println("    flex: 1;");
         out.println("  }");
         out.println("  .dd-modal-overlay {");
         out.println("    position: fixed;");
@@ -1044,15 +1054,18 @@ public class DashboardPageRenderer {
         out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
         printDevLabel(out, "CURRENT PROJECT");
         if (nowColumnModel.getCurrentProject().isAvailable()) {
-            out.println("  <div class=\"dd-current-action-tools\">");
+            out.println("  <div style=\"display: flex; align-items: center; justify-content: space-between;\">");
+            out.println("    <div class=\"dd-current-action-form-main\">");
             out.println(
-                    "    <button type=\"button\" class=\"dd-current-action-tool\" title=\"Edit project\" onclick=\"ddOpenCurrentProjectEditModal(event)\">✏️</button>");
+                    "      <span class=\"dd-emphasis\">" + nowColumnModel.getCurrentProject().getName() + "</span>");
+            out.println("      <p>" + escapeHtml(nowColumnModel.getCurrentProject().getDescription()) + "</p>");
+            out.println("    </div>");
+            out.println("    <div class=\"dd-current-action-tools\">");
             out.println(
-                    "    <button type=\"button\" class=\"dd-current-action-tool\" title=\"Add project\" onclick=\"ddOpenCurrentProjectCreateModal(event)\">➕</button>");
-            out.println("  </div>");
-            out.println("  <div class=\"dd-current-action-form-main\">");
-            out.println("    <span class=\"dd-emphasis\">" + nowColumnModel.getCurrentProject().getName() + "</span>");
-            out.println("    <p>" + escapeHtml(nowColumnModel.getCurrentProject().getDescription()) + "</p>");
+                    "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Edit project\" onclick=\"ddOpenCurrentProjectEditModal(event)\">✏️</button>");
+            out.println(
+                    "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Add project\" onclick=\"ddOpenCurrentProjectCreateModal(event)\">➕</button>");
+            out.println("    </div>");
             out.println("  </div>");
         } else {
             out.println("  <p class=\"dd-subtle\">" + nowColumnModel.getCurrentProject().getFallbackMessage() + "</p>");
@@ -1413,7 +1426,7 @@ public class DashboardPageRenderer {
         // Quick capture submit handling intentionally posts to
         // DandelionDashboardServlet
         // so the dashboard stays independent of legacy servlet routing.
-        if (todayColumnModel.getWorkdayReview() != null && todayColumnModel.getWorkdayReview().isRenderSection()) {
+        if (shouldRenderWorkdayReviewAtTop(todayColumnModel)) {
             printWorkdayReviewSection(out, todayColumnModel);
         }
 
@@ -1532,7 +1545,21 @@ public class DashboardPageRenderer {
             }
         }
 
+        if (shouldRenderWorkdayReviewAtBottom(todayColumnModel)) {
+            printWorkdayReviewSection(out, todayColumnModel);
+        }
+
         printTodayActionModalScaffolding(out, appReq);
+    }
+
+    private boolean shouldRenderWorkdayReviewAtTop(DashboardTodayColumnModel todayColumnModel) {
+        DashboardTodayColumnModel.WorkdayReviewModel reviewModel = todayColumnModel.getWorkdayReview();
+        return reviewModel != null && reviewModel.isRenderSection() && reviewModel.isTopPriority();
+    }
+
+    private boolean shouldRenderWorkdayReviewAtBottom(DashboardTodayColumnModel todayColumnModel) {
+        DashboardTodayColumnModel.WorkdayReviewModel reviewModel = todayColumnModel.getWorkdayReview();
+        return reviewModel != null && reviewModel.isRenderSection() && !reviewModel.isTopPriority();
     }
 
     private void printWorkdayReviewSection(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {
@@ -1576,6 +1603,8 @@ public class DashboardPageRenderer {
                     + " data-insight=\"" + escapeHtml(item.getInsight()) + "\""
                     + " data-risk=\"" + escapeHtml(item.getRisk()) + "\""
                     + " data-opportunity=\"" + escapeHtml(item.getOpportunity()) + "\""
+                    + " data-completed-actions=\""
+                    + escapeHtmlAttribute(buildCompletedActionsJson(item.getCompletedActions())) + "\""
                     + ">" + indicator + "</button>");
             out.println("      </td>");
             out.println("    </tr>");
@@ -1595,6 +1624,12 @@ public class DashboardPageRenderer {
                 "    <form method=\"POST\" action=\"DandelionDashboardServlet\" class=\"dd-workday-review-modal-body\">");
         out.println("      <input type=\"hidden\" name=\"action\" value=\"saveWorkdayProjectReview\"/>");
         out.println("      <input type=\"hidden\" id=\"ddWorkdayReviewProjectId\" name=\"projectId\" value=\"\"/>");
+
+        out.println(
+                "      <div id=\"ddWorkdayReviewCompletedActionsContainer\" class=\"dd-workday-review-field\" style=\"display:none;\">");
+        out.println("        <p><strong>Completed actions:</strong></p>");
+        out.println("        <ul id=\"ddWorkdayReviewCompletedActionsList\"></ul>");
+        out.println("      </div>");
 
         out.println("      <div class=\"dd-workday-review-field\">");
         out.println("        <label for=\"ddWorkdayReviewNote\">Notes</label>");
@@ -1656,10 +1691,32 @@ public class DashboardPageRenderer {
         out.println("    ddSetWorkdayReviewField('ddWorkdayReviewInsight', trigger.dataset.insight);");
         out.println("    ddSetWorkdayReviewField('ddWorkdayReviewRisk', trigger.dataset.risk);");
         out.println("    ddSetWorkdayReviewField('ddWorkdayReviewOpportunity', trigger.dataset.opportunity);");
+        out.println("    ddPopulateCompletedActions(trigger.dataset.completedActions);");
         out.println("    ddOpenActionModal('ddWorkdayReviewModal', projectId, evt);");
         out.println("    var noteField = document.getElementById('ddWorkdayReviewNote');");
         out.println("    if (noteField) { noteField.focus(); }");
         out.println("    return false;");
+        out.println("  }");
+        out.println("  function ddPopulateCompletedActions(actionsJson) {");
+        out.println("    var container = document.getElementById('ddWorkdayReviewCompletedActionsContainer');");
+        out.println("    var list = document.getElementById('ddWorkdayReviewCompletedActionsList');");
+        out.println("    if (!container || !list) { return; }");
+        out.println("    list.innerHTML = '';");
+        out.println("    try {");
+        out.println("      var actions = JSON.parse(actionsJson || '[]');");
+        out.println("      if (actions.length === 0) {");
+        out.println("        container.style.display = 'none';");
+        out.println("      } else {");
+        out.println("        for (var i = 0; i < actions.length; i++) {");
+        out.println("          var li = document.createElement('li');");
+        out.println("          li.textContent = actions[i];");
+        out.println("          list.appendChild(li);");
+        out.println("        }");
+        out.println("        container.style.display = 'block';");
+        out.println("      }");
+        out.println("    } catch(e) {");
+        out.println("      container.style.display = 'none';");
+        out.println("    }");
         out.println("  }");
         out.println("  function ddOpenWorkdayReviewFromCell(cell, evt) {");
         out.println("    if (!cell) { return false; }");
@@ -2594,6 +2651,33 @@ public class DashboardPageRenderer {
                 .replace("\n", "\\n");
     }
 
+    private String buildCompletedActionsJson(java.util.List<String> actions) {
+        if (actions == null || actions.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < actions.size(); i++) {
+            if (i > 0) {
+                json.append(",");
+            }
+            json.append("\"").append(escapeJsString(actions.get(i))).append("\"");
+        }
+        json.append("]");
+        return json.toString();
+    }
+
+    private String escapeHtmlAttribute(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
     private String buildNowHeaderLine(DashboardNowColumnModel nowColumnModel) {
         if (nowColumnModel.getCurrentAction() == null || !nowColumnModel.getCurrentAction().isAvailable()) {
             return "No current action";
@@ -2879,6 +2963,8 @@ public class DashboardPageRenderer {
         out.println("      </div>");
         out.println("      <div class=\"dd-form-actions\" style=\"margin-top:12px;\">");
         out.println(
+                "        <button type=\"button\" class=\"dd-btn dd-btn-secondary\" onclick=\"ddStartTaskFromDetail(event)\">Start</button>");
+        out.println(
                 "        <button type=\"button\" class=\"dd-btn dd-btn-primary\" onclick=\"ddOpenEditFromTaskDetail(event)\">Edit</button>");
         out.println("      </div>");
         out.println("    </div>");
@@ -2936,6 +3022,24 @@ public class DashboardPageRenderer {
         out.println("    if (!window.ddNextTaskDetailActionId) { return false; }");
         out.println("    ddCloseActionModal('ddNextTaskDetailModal', evt);");
         out.println("    ddOpenActionModal('editActionModal', window.ddNextTaskDetailActionId, evt);");
+        out.println("    return false;");
+        out.println("  }");
+        out.println("  function ddStartTaskFromDetail(evt) {");
+        out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+        out.println("    if (!window.ddNextTaskDetailActionId) { return false; }");
+        out.println("    var formData = ddCreateDashboardParams();");
+        out.println("    formData.append('action', 'startActionNow');");
+        out.println("    formData.append('actionNextId', window.ddNextTaskDetailActionId);");
+        out.println("    ddFetchDashboardJson(formData, 'Start action')");
+        out.println("      .then(function(data) {");
+        out.println("        if (!data || !data.success) {");
+        out.println("          alert((data && data.message) ? data.message : 'Unable to start action');");
+        out.println("          return;");
+        out.println("        }");
+        out.println("        ddCloseActionModal('ddNextTaskDetailModal', evt);");
+        out.println("        window.location.reload();");
+        out.println("      })");
+        out.println("      .catch(function(err) { ddReportDashboardLoadError('Start action', err); });");
         out.println("    return false;");
         out.println("  }");
         out.println("</script>");

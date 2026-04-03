@@ -1,6 +1,7 @@
 package org.dandeliondaily.projecthealth.service;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -423,7 +424,8 @@ public class ProjectHealthPageService {
             Session dataSession) {
         Map<Integer, ProjectStats> statsMap = new HashMap<Integer, ProjectStats>();
 
-        Date today = stripTime(webUser.getToday());
+        LocalDate today = webUser.getLocalDateToday();
+        Date todayDate = webUser.toDate(today);
 
         for (Project project : projects) {
             ProjectStats stats = new ProjectStats();
@@ -450,7 +452,7 @@ public class ProjectHealthPageService {
                     Calendar dueDate = webUser.getCalendar();
                     dueDate.setTime(stats.lastReview);
                     dueDate.add(Calendar.DAY_OF_MONTH, stats.updateDue);
-                    stats.reviewOverdue = today.after(dueDate.getTime());
+                    stats.reviewOverdue = todayDate.after(dueDate.getTime());
                 }
             }
 
@@ -649,12 +651,12 @@ public class ProjectHealthPageService {
         return result == null ? 0 : result.intValue();
     }
 
-    private int countOpenOverdue(Session dataSession, Project project, Date today) {
+    private int countOpenOverdue(Session dataSession, Project project, LocalDate today) {
         Query query = dataSession.createQuery(
                 "select count(*) from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionStatusString = :status and pan.nextDescription <> '' and pan.nextActionDate is not null and pan.nextActionDate < :today");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
-        query.setParameter("today", today);
+        query.setParameter("today", java.sql.Date.valueOf(today));
         Number result = (Number) query.uniqueResult();
         return result == null ? 0 : result.intValue();
     }
@@ -667,21 +669,16 @@ public class ProjectHealthPageService {
         return (Date) query.uniqueResult();
     }
 
-    private boolean hasReviewScheduledToday(Session dataSession, Project project, Date today) {
-        Calendar tomorrow = Calendar.getInstance();
-        tomorrow.setTime(today);
-        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
-
+    private boolean hasReviewScheduledToday(Session dataSession, Project project, LocalDate today) {
         Query query = dataSession.createQuery(
                 "select count(*) from ProjectActionNext pan "
                         + "where pan.projectId = :projectId "
                         + "and pan.nextActionStatusString = :status "
-                        + "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow "
+                        + "and pan.nextActionDate = :today "
                         + "and (pan.nextActionType = :reviewType or lower(pan.nextDescription) = :reviewDescription)");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
-        query.setParameter("today", today);
-        query.setParameter("tomorrow", tomorrow.getTime());
+        query.setParameter("today", java.sql.Date.valueOf(today));
         query.setParameter("reviewType", ProjectNextActionType.WILL_REVIEW);
         query.setParameter("reviewDescription", "project review");
         Number result = (Number) query.uniqueResult();
@@ -751,16 +748,6 @@ public class ProjectHealthPageService {
         }
         BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
-    }
-
-    private Date stripTime(Date date) {
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(date);
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        return calendar.getTime();
     }
 
     private String formatDate(WebUser webUser, Date date) {
