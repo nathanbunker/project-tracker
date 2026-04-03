@@ -2,6 +2,7 @@ package org.dandeliondaily.projecthealth.service;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -18,14 +19,17 @@ import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
+import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
@@ -514,6 +518,8 @@ public class ProjectHealthPageService {
         report.setRecentCompleted(loadCompletedLines(dataSession, webUser, project));
         report.setScheduledOpen(loadScheduledOpenLines(dataSession, webUser, project));
         report.setUnscheduledOpen(loadUnscheduledOpenLines(dataSession, webUser, project));
+        report.setOpenProjectIssues(loadOpenProjectIssueLines(dataSession, project));
+        report.setRecentNarratives(loadRecentNarrativeLines(dataSession, webUser, project));
 
         List<String> recommendations = new ArrayList<String>();
         if (stats.overdueOpen > 0) {
@@ -662,6 +668,54 @@ public class ProjectHealthPageService {
         return lines;
     }
 
+    private List<ProjectReportModel.ReportActionLine> loadOpenProjectIssueLines(Session dataSession, Project project) {
+        ProjectIssueDao issueDao = new ProjectIssueDao(dataSession);
+        List<ProjectIssue> issues = issueDao.listOpenIssuesForProject(project);
+        List<ProjectReportModel.ReportActionLine> lines = new ArrayList<ProjectReportModel.ReportActionLine>();
+        for (ProjectIssue issue : issues) {
+            ProjectReportModel.ReportActionLine line = new ProjectReportModel.ReportActionLine();
+            line.setActionId(issue.getProjectIssueId());
+            line.setWhenLabel("");
+            String issueType = issue.getIssueType() == null ? "Unknown" : issue.getIssueType().name();
+            line.setDescription(issueType + ": " + n(issue.getIssueText()));
+            lines.add(line);
+        }
+        return lines;
+    }
+
+    private List<ProjectReportModel.ReportActionLine> loadRecentNarrativeLines(Session dataSession, WebUser webUser,
+            Project project) {
+        Date now = new Date();
+        LocalDate today = now.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        Date ninetyDaysAgo = java.sql.Date.valueOf(today.minusDays(90));
+
+        Query query = dataSession.createQuery(
+                "from ProjectNarrative where projectId = :projectId "
+                        + "and narrativeDate >= :start and narrativeDate <= :end "
+                        + "order by narrativeDate desc, narrativeId desc");
+        query.setParameter("projectId", project.getProjectId());
+        query.setTimestamp("start", ninetyDaysAgo);
+        query.setTimestamp("end", now);
+        @SuppressWarnings("unchecked")
+        List<ProjectNarrative> narratives = query.list();
+
+        List<ProjectReportModel.ReportActionLine> lines = new ArrayList<ProjectReportModel.ReportActionLine>();
+        for (ProjectNarrative narrative : narratives) {
+            String text = n(narrative.getNarrativeText());
+            if (text.trim().length() == 0) {
+                continue;
+            }
+            ProjectReportModel.ReportActionLine line = new ProjectReportModel.ReportActionLine();
+            line.setActionId(narrative.getNarrativeId());
+            line.setWhenLabel(formatDate(webUser, narrative.getNarrativeDate()));
+            String verbLabel = narrative.getNarrativeVerb() == null ? "Narrative"
+                    : narrative.getNarrativeVerb().getLabel();
+            line.setDescription(verbLabel + ": " + text);
+            lines.add(line);
+        }
+        return lines;
+    }
+
     private int countOpenUndated(Session dataSession, Project project) {
         Query query = dataSession.createQuery(
                 "select count(*) from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionStatusString = :status and pan.nextDescription <> '' and pan.nextActionDate is null");
@@ -739,6 +793,25 @@ public class ProjectHealthPageService {
         } else {
             for (ProjectReportModel.ReportActionLine line : report.getUnscheduledOpen()) {
                 text.append("- ").append(n(line.getDescription())).append("\n");
+            }
+        }
+
+        text.append("\nOpen Project Issues\n");
+        if (report.getOpenProjectIssues().isEmpty()) {
+            text.append("- none\n");
+        } else {
+            for (ProjectReportModel.ReportActionLine line : report.getOpenProjectIssues()) {
+                text.append("- ").append(n(line.getDescription())).append("\n");
+            }
+        }
+
+        text.append("\nProject Narrative (Last 90 Days)\n");
+        if (report.getRecentNarratives().isEmpty()) {
+            text.append("- none\n");
+        } else {
+            for (ProjectReportModel.ReportActionLine line : report.getRecentNarratives()) {
+                text.append("- ").append(n(line.getWhenLabel(), "date unknown"))
+                        .append(": ").append(n(line.getDescription())).append("\n");
             }
         }
 

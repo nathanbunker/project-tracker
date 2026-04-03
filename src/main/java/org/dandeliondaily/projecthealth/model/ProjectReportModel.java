@@ -49,6 +49,8 @@ public class ProjectReportModel {
     private List<ReportActionLine> recentCompleted = new ArrayList<ReportActionLine>();
     private List<ReportActionLine> scheduledOpen = new ArrayList<ReportActionLine>();
     private List<ReportActionLine> unscheduledOpen = new ArrayList<ReportActionLine>();
+    private List<ReportActionLine> openProjectIssues = new ArrayList<ReportActionLine>();
+    private List<ReportActionLine> recentNarratives = new ArrayList<ReportActionLine>();
     private List<String> nextRecommendations = new ArrayList<String>();
 
     public int getProjectId() {
@@ -153,6 +155,22 @@ public class ProjectReportModel {
 
     public void setUnscheduledOpen(List<ReportActionLine> unscheduledOpen) {
         this.unscheduledOpen = unscheduledOpen;
+    }
+
+    public List<ReportActionLine> getOpenProjectIssues() {
+        return openProjectIssues;
+    }
+
+    public void setOpenProjectIssues(List<ReportActionLine> openProjectIssues) {
+        this.openProjectIssues = openProjectIssues;
+    }
+
+    public List<ReportActionLine> getRecentNarratives() {
+        return recentNarratives;
+    }
+
+    public void setRecentNarratives(List<ReportActionLine> recentNarratives) {
+        this.recentNarratives = recentNarratives;
     }
 
     public List<String> getNextRecommendations() {

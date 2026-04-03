@@ -165,6 +165,12 @@ public class ProjectHealthPageRenderer {
                 out.println("  <h3 id=\"phUnscheduledActions\">Current Unscheduled / Backlog Actions</h3>");
                 printReportActionList(out, report.getUnscheduledOpen(), "No unscheduled open actions.");
 
+                out.println("  <h3>Open Project Issues</h3>");
+                printReportActionList(out, report.getOpenProjectIssues(), "No open project issues.");
+
+                out.println("  <h3>Project Narrative (Last 90 Days)</h3>");
+                printReportActionList(out, report.getRecentNarratives(), "No narrative entries in the last 90 days.");
+
                 out.println("  <h3>What Needs To Be Done Next</h3>");
                 out.println("  <ul class=\"ph-list\">");
                 for (String recommendation : report.getNextRecommendations()) {
