@@ -1191,21 +1191,6 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
 
                 out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Project Outcome:</label>");
-                out.println(
-                                "        <textarea id=\"ddCurrentProjectOutcomeText\" name=\"outcomeText\" class=\"dd-form-textarea\" rows=\"4\">"
-                                                + escapeHtml(safe(project.getOutcomeText())) + "</textarea>");
-                out.println("      </div>");
-
-                out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Success Criteria:</label>");
-                out.println(
-                                "        <textarea id=\"ddCurrentProjectSuccessCriteriaText\" name=\"successCriteriaText\" class=\"dd-form-textarea\" rows=\"5\">"
-                                                + escapeHtml(safe(project.getSuccessCriteriaText())) + "</textarea>");
-                out.println("        <div class=\"dd-form-help dd-subtle\">Enter one success criterion per line.</div>");
-                out.println("      </div>");
-
-                out.println("      <div class=\"dd-form-field\">");
                 out.println("        <label class=\"dd-form-label\">Phase:</label>");
                 out.println("        <select id=\"ddCurrentProjectPhase\" name=\"phaseCode\" class=\"dd-form-input\">");
                 Query phaseQuery = dataSession.createQuery("from ProjectPhase");
@@ -1279,10 +1264,6 @@ public class DashboardPageRenderer {
                 out.println("    priorityLevel: '" + project.getPriorityLevel() + "',");
                 out.println("    projectIcon: '" + escapeJsString(safe(project.getProjectIcon())) + "',");
                 out.println("    description: '" + escapeJsString(safe(project.getDescription())) + "',");
-                out.println("    outcomeText: '" + escapeJsString(safe(project.getOutcomeText())) + "',");
-                out.println(
-                                "    successCriteriaText: '" + escapeJsString(safe(project.getSuccessCriteriaText()))
-                                                + "',");
                 out.println("    phaseCode: '" + escapeJsString(safe(project.getPhaseCode())) + "',");
                 out.println("    billCode: '" + escapeJsString(safe(project.getBillCode())) + "',");
                 out.println("    updateEvery: '" + updateEvery + "'");
@@ -1311,10 +1292,6 @@ public class DashboardPageRenderer {
                                 "    document.getElementById('ddCurrentProjectIcon').value = ddCurrentProjectDefaults.projectIcon;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectDescription').value = ddCurrentProjectDefaults.description;");
-                out.println(
-                                "    document.getElementById('ddCurrentProjectOutcomeText').value = ddCurrentProjectDefaults.outcomeText;");
-                out.println(
-                                "    document.getElementById('ddCurrentProjectSuccessCriteriaText').value = ddCurrentProjectDefaults.successCriteriaText;");
                 out.println("    document.getElementById('ddCurrentProjectPhase').value = ddCurrentProjectDefaults.phaseCode;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectBillCode').value = ddCurrentProjectDefaults.billCode;");
@@ -1385,32 +1362,31 @@ public class DashboardPageRenderer {
                 int projectId = nowColumnModel.getCurrentProject().getProjectId();
                 List<DashboardNowColumnModel.OpenIssueItem> issues = nowColumnModel.getOpenIssues();
 
-                out.println("  <div class=\"dd-open-issues-header\">");
-                out.println("    <button type=\"button\" class=\"dd-current-action-tool\" title=\"Add Issue\""
-                                + " onclick=\"ddOpenAddIssueModal(event)\">➕ Add Issue</button>");
-                out.println("  </div>");
-
+                out.println("  <h3 class=\"dd-backlog-section-title\">ISSUES</h3>");
+                out.println("  <table class=\"dd-today-table dd-backlog-table dd-issues-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-issues-col-type\">Type</th>");
+                out.println("      <th>Text</th>");
+                out.println("      <th class=\"dd-issues-col-date\">Created</th>");
+                out.println("    </tr>");
                 if (!issues.isEmpty()) {
-                        out.println("  <table class=\"dd-today-table dd-backlog-table dd-issues-table\">");
-                        out.println("    <tr>");
-                        out.println("      <th>Issue</th>");
-                        out.println("      <th class=\"dd-issues-col-type\">Type</th>");
-                        out.println("      <th class=\"dd-issues-col-date\">Created</th>");
-                        out.println("    </tr>");
                         for (DashboardNowColumnModel.OpenIssueItem issue : issues) {
                                 out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenEditIssueModal(event, "
                                                 + issue.getProjectIssueId() + ", '"
                                                 + escapeJsString(issue.getIssueText()) + "', '"
                                                 + issue.getIssueTypeValue() + "')\">");
+                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji() + "</td>");
                                 out.println("      <td>" + escapeHtml(issue.getIssueText()) + "</td>");
-                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji()
-                                                + "</td>");
-                                out.println("      <td class=\"dd-issues-col-date\">"
-                                                + escapeHtml(issue.getCreatedDisplay()) + "</td>");
+                                out.println("      <td class=\"dd-issues-col-date\">" + escapeHtml(issue.getCreatedDisplay()) + "</td>");
                                 out.println("    </tr>");
                         }
-                        out.println("  </table>");
+                } else {
+                        out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenAddIssueModal(event)\">");
+                        out.println("      <td colspan=\"3\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\""
+                                        + " onclick=\"ddOpenAddIssueModal(event)\">Add Issue</a></td>");
+                        out.println("    </tr>");
                 }
+                out.println("  </table>");
 
                 // Add Issue modal
                 out.println("<div id=\"ddAddIssueModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseAddIssueModal(event)\">");
@@ -2426,6 +2402,7 @@ public class DashboardPageRenderer {
                                 "    <form id=\"ddEditActionForm\" class=\"dd-edit-form\" method=\"POST\" action=\"DandelionDashboardServlet\" onsubmit=\"return ddSubmitEditActionForm(event)\">");
                 out.println("      <input type=\"hidden\" name=\"action\" value=\"editAction\">");
                 out.println("      <input type=\"hidden\" name=\"actionNextId\" id=\"ddEditActionId\" value=\"\">");
+                out.println("      <input type=\"hidden\" id=\"ddEditActionDateOriginal\" value=\"\">");
                 out.println("      <input type=\"hidden\" name=\"saveMode\" id=\"ddEditActionSaveMode\" value=\"save\">");
 
                 out.println("      <div class=\"dd-form-field\">");
@@ -2675,6 +2652,7 @@ public class DashboardPageRenderer {
                 out.println("        if (data.success) {");
                 out.println("          var loadedDate = data.nextActionDate || '';");
                 out.println("          document.getElementById('ddEditActionDate').value = loadedDate;");
+                out.println("          document.getElementById('ddEditActionDateOriginal').value = loadedDate;");
                 out.println("          document.getElementById('ddEditActionType').value = data.nextActionType || '';");
                 out.println("          ddUpdateActionTypeButtons(data.nextActionType || '');");
                 out.println("          document.getElementById('ddEditActionContact').value = data.nextContactId || '';");
@@ -2704,6 +2682,12 @@ public class DashboardPageRenderer {
                 out.println("  function ddSubmitEditActionForm(evt) {");
                 out.println("    evt.preventDefault();");
                 out.println("    var form = document.getElementById('ddEditActionForm');");
+                out.println("    var dateField = document.getElementById('ddEditActionDate');");
+                out.println("    var originalDateField = document.getElementById('ddEditActionDateOriginal');");
+                out.println(
+                                "    if (dateField && (!dateField.value || dateField.value.trim().length === 0) && originalDateField && originalDateField.value) {");
+                out.println("      dateField.value = originalDateField.value;");
+                out.println("    }");
                 out.println("    var saveModeField = document.getElementById('ddEditActionSaveMode');");
                 out.println("    if (saveModeField && (!saveModeField.value || saveModeField.value.length === 0)) {");
                 out.println("      saveModeField.value = 'save';");

@@ -218,15 +218,15 @@ public class ProjectNarrativeDao {
         return results;
     }
 
-    public List<ReviewItem> listReviewItemsForDate(LocalDate date) {
+    public List<ReviewItem> listReviewItemsForDate(LocalDate date, int contactId) {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
 
         Query minutesQuery = session.createQuery(
-                "select be.projectId, p.projectName, sum(be.billMins) "
+                "select be.projectId, p.projectName, sum(be.billMins), p.outcomeText, p.successCriteriaText "
                         + "from BillEntry be, Project p "
                         + "where be.projectId = p.projectId and be.startTime >= :start and be.startTime < :end "
-                        + "group by be.projectId, p.projectName "
+                        + "group by be.projectId, p.projectName, p.outcomeText, p.successCriteriaText "
                         + "having sum(be.billMins) >= :minMinutes "
                         + "order by sum(be.billMins) desc");
         minutesQuery.setTimestamp("start", start);
@@ -249,19 +249,42 @@ public class ProjectNarrativeDao {
             }
         }
 
+        Query updateDueQuery = session.createQuery(
+                "select pca.id.projectId, pca.updateDue from ProjectContactAssigned pca where pca.id.contactId = :contactId");
+        updateDueQuery.setInteger("contactId", contactId);
+        @SuppressWarnings("unchecked")
+        List<Object[]> updateDueRows = updateDueQuery.list();
+        Map<Long, Integer> updateDueByProject = new LinkedHashMap<Long, Integer>();
+        for (Object[] row : updateDueRows) {
+            if (row == null || row.length < 2 || row[0] == null) {
+                continue;
+            }
+            Number projectId = (Number) row[0];
+            Number updateDue = (Number) row[1];
+            updateDueByProject.put(projectId.longValue(), updateDue == null ? 0 : updateDue.intValue());
+        }
+
         List<ReviewItem> results = new ArrayList<ReviewItem>();
         for (Object[] row : rows) {
-            if (row == null || row.length < 3) {
+            if (row == null || row.length < 5) {
                 continue;
             }
             Number projectId = (Number) row[0];
             String projectName = (String) row[1];
             Number minutes = (Number) row[2];
+            String outcomeText = (String) row[3];
+            String successCriteriaText = (String) row[4];
             if (projectId == null) {
                 continue;
             }
             int minuteValue = minutes == null ? 0 : minutes.intValue();
-            boolean reviewed = reviewedLookup.contains(projectId.longValue());
+            int updateDue = updateDueByProject.containsKey(projectId.longValue())
+                    ? updateDueByProject.get(projectId.longValue()).intValue()
+                    : 0;
+            boolean setupComplete = updateDue > 0
+                    && hasText(outcomeText)
+                    && hasText(successCriteriaText);
+            boolean reviewed = reviewedLookup.contains(projectId.longValue()) && setupComplete;
             results.add(new ReviewItem(projectId.longValue(), projectName, minuteValue, reviewed));
         }
         return results;
@@ -277,6 +300,10 @@ public class ProjectNarrativeDao {
 
     private static String normalizeText(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && value.trim().length() > 0;
     }
 
     public static class Action {

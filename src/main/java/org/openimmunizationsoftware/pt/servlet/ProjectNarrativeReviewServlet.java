@@ -79,7 +79,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
 
             PrintWriter out = appReq.getOut();
             printDandelionLocation(out, "Time Management & Reporting / Review");
-            List<ReviewItem> reviewItems = narrativeDao.listReviewItemsForDate(reviewDate);
+            List<ReviewItem> reviewItems = narrativeDao.listReviewItemsForDate(reviewDate, webUser.getContactId());
             long selectedProjectId = readLong(request.getParameter(PARAM_PROJECT_ID));
             ReviewItem selectedItem = selectReviewItem(reviewItems, selectedProjectId);
 
@@ -117,7 +117,8 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         if (selectProjectIdParam != null && selectProjectIdParam.trim().length() > 0) {
             redirectProjectId = readLong(selectProjectIdParam);
         } else {
-            List<ReviewItem> reviewItems = narrativeDao.listReviewItemsForDate(reviewDate);
+            List<ReviewItem> reviewItems = narrativeDao.listReviewItemsForDate(reviewDate,
+                    appReq.getWebUser().getContactId());
             ReviewItem next = findNextUnreviewed(reviewItems, projectId);
             if (next != null) {
                 redirectProjectId = next.getProjectId();
@@ -325,7 +326,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
     private void printReviewList(PrintWriter out, ProjectNarrativeDao narrativeDao, List<ReviewItem> reviewItems,
             long selectedProjectId, LocalDate reviewDate, WebUser webUser) {
         LocalDate today = webUser.getLocalDateToday();
-        LocalDate previousDate = getPreviousReviewDate(narrativeDao, reviewDate);
+        LocalDate previousDate = getPreviousReviewDate(narrativeDao, reviewDate, webUser.getContactId());
         LocalDate nextDate = reviewDate.plusDays(1);
 
         out.println("<table class=\"boxed float-right\">\n");
@@ -380,10 +381,11 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         return dayName + " " + reviewDate;
     }
 
-    private LocalDate getPreviousReviewDate(ProjectNarrativeDao narrativeDao, LocalDate reviewDate) {
+    private LocalDate getPreviousReviewDate(ProjectNarrativeDao narrativeDao, LocalDate reviewDate,
+            int contactId) {
         LocalDate previousDate = reviewDate.minusDays(1);
         while (previousDate.isAfter(LocalDate.of(2000, 1, 1))) {
-            if (!narrativeDao.listReviewItemsForDate(previousDate).isEmpty()) {
+            if (!narrativeDao.listReviewItemsForDate(previousDate, contactId).isEmpty()) {
                 return previousDate;
             }
             previousDate = previousDate.minusDays(1);
