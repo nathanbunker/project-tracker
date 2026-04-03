@@ -3,6 +3,7 @@ package org.openimmunizationsoftware.pt.model;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Calendar;
 
 public class ProjectActionNext implements java.io.Serializable {
 
@@ -353,7 +354,26 @@ public class ProjectActionNext implements java.io.Serializable {
     }
 
     public void setNextActionDate(Date nextActionDate) {
+        if (nextTimeActual != null && nextTimeActual.intValue() != 0
+                && isActionDateChanged(this.nextActionDate, nextActionDate)) {
+            nextTimeActual = Integer.valueOf(0);
+        }
         this.nextActionDate = nextActionDate;
+    }
+
+    private boolean isActionDateChanged(Date currentDate, Date updatedDate) {
+        if (currentDate == null && updatedDate == null) {
+            return false;
+        }
+        if (currentDate == null || updatedDate == null) {
+            return true;
+        }
+        Calendar current = Calendar.getInstance();
+        current.setTime(currentDate);
+        Calendar updated = Calendar.getInstance();
+        updated.setTime(updatedDate);
+        return current.get(Calendar.YEAR) != updated.get(Calendar.YEAR)
+                || current.get(Calendar.DAY_OF_YEAR) != updated.get(Calendar.DAY_OF_YEAR);
     }
 
     public Date getNextDeadlineDate() {
