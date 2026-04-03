@@ -987,6 +987,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             String priorityLevelStr = clip(appReq.getRequest().getParameter("priorityLevel"), 8);
             String projectIcon = clip(appReq.getRequest().getParameter("projectIcon"), 8);
             String description = clip(appReq.getRequest().getParameter("description"), 1200);
+            String outcomeText = clip(appReq.getRequest().getParameter("outcomeText"), 12000);
+            String successCriteriaText = clip(appReq.getRequest().getParameter("successCriteriaText"), 12000);
             String phaseCode = clip(appReq.getRequest().getParameter("phaseCode"), 8);
             String billCode = clip(appReq.getRequest().getParameter("billCode"), 15);
             String updateEveryStr = clip(appReq.getRequest().getParameter("updateEvery"), 8);
@@ -1048,6 +1050,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             project.setPriorityLevel(priorityLevel);
             project.setProjectIcon(projectIcon);
             project.setDescription(description);
+            // Collected now for future Project Health reporting and project briefing use.
+            project.setOutcomeText(outcomeText.length() > 0 ? outcomeText : null);
+            // Intentionally store raw newline-separated criteria text for now.
+            project.setSuccessCriteriaText(successCriteriaText.length() > 0 ? successCriteriaText : null);
             project.setPhaseCode(phaseCode.length() > 0 ? phaseCode : null);
             if (webUser.isTrackTime()) {
                 project.setBillCode(billCode);

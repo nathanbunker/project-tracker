@@ -20,6 +20,12 @@
         <property name="description" type="string">
             <column name="description" length="1200" />
         </property>
+        <property name="outcomeText" type="text">
+            <column name="outcome_text" />
+        </property>
+        <property name="successCriteriaText" type="text">
+            <column name="success_criteria_text" />
+        </property>
         <property name="phaseCode" type="string">
             <column name="phase_code" length="4" />
         </property>

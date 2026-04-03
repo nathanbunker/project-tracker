@@ -15,6 +15,8 @@ public class Project implements java.io.Serializable {
   private String projectName;
   private String providerName;
   private String description;
+  private String outcomeText;
+  private String successCriteriaText;
   private String phaseCode;
   private Integer profileId;
   private String billCode;
@@ -108,6 +110,22 @@ public class Project implements java.io.Serializable {
 
   public void setDescription(String description) {
     this.description = description;
+  }
+
+  public String getOutcomeText() {
+    return this.outcomeText;
+  }
+
+  public void setOutcomeText(String outcomeText) {
+    this.outcomeText = outcomeText;
+  }
+
+  public String getSuccessCriteriaText() {
+    return this.successCriteriaText;
+  }
+
+  public void setSuccessCriteriaText(String successCriteriaText) {
+    this.successCriteriaText = successCriteriaText;
   }
 
   public String getPhaseCode() {

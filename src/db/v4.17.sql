@@ -16,3 +16,9 @@ CREATE TABLE project_issue (
     INDEX idx_pi_status    (issue_status),
     INDEX idx_pi_created   (project_id, issue_status, created_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Extend project metadata capture for future Project Health reporting.
+-- success_criteria_text is intentionally stored as raw newline-separated text for now.
+ALTER TABLE project
+    ADD COLUMN outcome_text TEXT NULL,
+    ADD COLUMN success_criteria_text TEXT NULL;
