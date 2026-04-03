@@ -67,6 +67,15 @@ public class TimeAdder {
         return otherEst;
     }
 
+    static int calculateRemainingEstimate(Integer nextTimeEstimate, Integer nextTimeActual) {
+        if (nextTimeEstimate == null) {
+            return 0;
+        }
+        int estimate = nextTimeEstimate;
+        int actual = nextTimeActual == null ? 0 : nextTimeActual;
+        return Math.max(estimate - actual, 0);
+    }
+
     public TimeAdder(List<ProjectActionNext> projectActionList, AppReq appReq) {
         this(projectActionList, appReq, null);
     }
@@ -102,13 +111,7 @@ public class TimeAdder {
                 continue;
             }
             if (pa.getNextTimeEstimate() != null) {
-                int nextTimeEstimate = pa.getNextTimeEstimate();
-                int nextTimeActual = pa.getNextTimeActual() == null ? 0 : pa.getNextTimeActual();
-                if (nextTimeActual <= nextTimeEstimate) {
-                    nextTimeEstimate = nextTimeEstimate - nextTimeActual;
-                } else {
-                    nextTimeEstimate = nextTimeActual;
-                }
+                int nextTimeEstimate = calculateRemainingEstimate(pa.getNextTimeEstimate(), pa.getNextTimeActual());
                 if (ProjectNextActionType.COMMITTED_TO.equals(pa.getNextActionType())
                         || ProjectNextActionType.OVERDUE_TO.equals(pa.getNextActionType())) {
                     committedEst += nextTimeEstimate;

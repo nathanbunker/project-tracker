@@ -238,23 +238,24 @@ public class DashboardTodayColumnService {
         int committedEst = timeAdderScheduled.getCommittedEst();
         int willEst = timeAdderScheduled.getWillEst();
         int willMeetEst = timeAdderScheduled.getWillMeetEst();
-        int committedWillTotal = committedEst + willEst + willMeetEst;
+        int remainingPlannedTotal = committedEst + willEst + willMeetEst;
+        int plannedTotal = completedAct + remainingPlannedTotal;
 
         totals.setCompletedDisplay(ProjectActionNext.getTimeForDisplay(completedAct));
         totals.setCommittedDisplay(ProjectActionNext.getTimeForDisplay(committedEst));
         totals.setWillDisplay(ProjectActionNext.getTimeForDisplay(willEst));
         totals.setWillMeetDisplay(ProjectActionNext.getTimeForDisplay(willMeetEst));
-        totals.setTotalPlannedDisplay(ProjectActionNext.getTimeForDisplay(committedWillTotal));
+        totals.setTotalPlannedDisplay(ProjectActionNext.getTimeForDisplay(plannedTotal));
         totals.setCompletedMinutes(completedAct);
-        totals.setPlannedMinutes(committedWillTotal);
+        totals.setPlannedMinutes(plannedTotal);
 
-        if (committedWillTotal == 0) {
+        if (plannedTotal == 0) {
             totals.setGuidanceMessage("You have finished everything you said you would do today.");
             totals.setOverCommitted(false);
         } else if (completedAct > (8 * 60)) {
             totals.setGuidanceMessage("You have already logged more than a full workday.");
             totals.setOverCommitted(true);
-        } else if (completedAct + committedWillTotal > (8 * 60)) {
+        } else if (plannedTotal > (8 * 60)) {
             totals.setGuidanceMessage("You are over committed for today. Consider re-planning.");
             totals.setOverCommitted(true);
         } else if (completedAct < 30) {
