@@ -403,7 +403,7 @@ public class ProjectHealthPageService {
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :status "
                         + "and pan.nextActionDate is null "
-                        + "order by pan.project.projectName, pan.priorityLevel desc, pan.nextChangeDate");
+                        + "order by pan.projectId, pan.priorityLevel desc, pan.nextChangeDate");
         query.setParameter("provider", webUser.getProvider());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
@@ -934,13 +934,10 @@ public class ProjectHealthPageService {
                 "select count(*) from ProjectActionNext pan "
                         + "where pan.projectId = :projectId "
                         + "and pan.nextActionStatusString = :status "
-                        + "and pan.nextActionDate = :today "
-                        + "and (pan.nextActionType = :reviewType or lower(pan.nextDescription) = :reviewDescription)");
+                        + "and pan.nextActionDate = :today");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setParameter("today", java.sql.Date.valueOf(today));
-        query.setParameter("reviewType", ProjectNextActionType.WILL_REVIEW);
-        query.setParameter("reviewDescription", "project review");
         Number result = (Number) query.uniqueResult();
         return result != null && result.intValue() > 0;
     }

@@ -1027,7 +1027,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             Query uniqueQuery = dataSession.createQuery(
-                    "select count(*) from Project where provider = :provider and lower(projectName) = :projectName and projectId <> :projectId");
+                    "select count(*) from Project where provider = :provider and lower(projectName) = :projectName and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
             uniqueQuery.setParameter("provider", webUser.getProvider());
             uniqueQuery.setParameter("projectName", projectName.toLowerCase());
             uniqueQuery.setParameter("projectId", createMode ? -1 : projectId);
