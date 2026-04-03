@@ -29,18 +29,15 @@ import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
-import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 public class DandelionDashboardServlet extends ClientServlet {
 
@@ -102,9 +99,12 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
             if ("addCurrentActionNote".equals(action)) {
-                import org.openimmunizationsoftware.pt.manager.TimeTracker;
                 handleAddCurrentActionNote(appReq);
                 return;
+            }
+
+            if ("StartTimer".equals(action)) {
+                handleStartTimer(appReq);
             }
 
             dashboardCurrentActionService.handleSelectAction(appReq);
@@ -168,9 +168,6 @@ public class DandelionDashboardServlet extends ClientServlet {
                 ? action.getProject().getProjectName()
                 : "");
         Integer nextContactId = action.getNextContactId();
-        if ("StartTimer".equals(action)) {
-            handleStartTimer(appReq);
-        }
         data.put("nextContactId", nextContactId != null && nextContactId.intValue() > 0 ? nextContactId : "");
         data.put("nextDescription", action.getNextDescription() != null ? action.getNextDescription() : "");
         data.put("nextTimeEstimate", action.getNextTimeEstimate() != null ? action.getNextTimeEstimate() : 0);
@@ -248,53 +245,6 @@ public class DandelionDashboardServlet extends ClientServlet {
                     // Ignore parse errors
                 }
             }
-                    private void handleStartTimer(AppReq appReq) {
-                        TimeTracker timeTracker = appReq.getTimeTracker();
-                        if (timeTracker == null) {
-                            return;
-                        }
-
-                        Session dataSession = appReq.getDataSession();
-                        Project project = appReq.getProject();
-                        ProjectActionNext completingAction = appReq.getCompletingAction();
-
-                        String actionIdStr = appReq.getRequest().getParameter("completingActionNextId");
-                        if (actionIdStr != null && actionIdStr.trim().length() > 0) {
-                            try {
-                                int actionNextId = Integer.parseInt(actionIdStr.trim());
-                                ProjectActionNext selected = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
-                                if (selected != null) {
-                                    completingAction = selected;
-                                    appReq.setCompletingAction(selected);
-                                    if (selected.getProject() != null) {
-                                        project = selected.getProject();
-                                        appReq.setProject(project);
-                                    }
-                                }
-                            } catch (NumberFormatException nfe) {
-                                // Ignore invalid action id and continue with session state.
-                            }
-                        }
-
-                        if (project == null) {
-                            String projectIdStr = appReq.getRequest().getParameter("projectId");
-                            if (projectIdStr != null && projectIdStr.trim().length() > 0) {
-                                try {
-                                    int projectId = Integer.parseInt(projectIdStr.trim());
-                                    project = (Project) dataSession.get(Project.class, projectId);
-                                    if (project != null) {
-                                        appReq.setProject(project);
-                                    }
-                                } catch (NumberFormatException nfe) {
-                                    // Ignore invalid project id and continue with session state.
-                                }
-                            }
-                        }
-
-                        if (project != null) {
-                            timeTracker.startClock(project, completingAction, dataSession);
-                        }
-                    }
 
             if (nextTargetDate != null && nextTargetDate.length() > 0) {
                 try {
@@ -941,8 +891,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 dataSession.flush();
             }
 
-            ProjectContactAssigned projectContactAssigned = ProjectServlet.getProjectContactAssigned(webUser,
-                    dataSession, project);
+            ProjectContactAssigned projectContactAssigned = loadProjectContactAssigned(webUser, dataSession, project);
             if (projectContactAssigned == null) {
                 projectContactAssigned = new ProjectContactAssigned();
                 projectContactAssigned.setId(new ProjectContactAssignedId());
@@ -968,8 +917,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 setupAction.setNextTimeEstimate(5);
                 setupAction.setNextActionStatus(ProjectNextActionStatus.READY);
                 setupAction.setNextChangeDate(new Date());
-                setupAction.setBillable(
-                        project.getBillCode() != null && project.getBillCode().trim().length() > 0 ? "Y" : "N");
+                setupAction.setBillable(project.getBillCode() != null && project.getBillCode().trim().length() > 0);
                 dataSession.save(setupAction);
             }
 
@@ -997,6 +945,16 @@ public class DandelionDashboardServlet extends ClientServlet {
             return trimmed;
         }
         return trimmed.substring(0, maxLen);
+    }
+
+    private ProjectContactAssigned loadProjectContactAssigned(WebUser webUser, Session dataSession, Project project) {
+        if (webUser == null || project == null) {
+            return null;
+        }
+        ProjectContactAssignedId id = new ProjectContactAssignedId();
+        id.setContactId(webUser.getContactId());
+        id.setProjectId(project.getProjectId());
+        return (ProjectContactAssigned) dataSession.get(ProjectContactAssigned.class, id);
     }
 
     private String formatCurrentUserTime(WebUser webUser) {
@@ -1047,6 +1005,54 @@ public class DandelionDashboardServlet extends ClientServlet {
         } catch (Exception e) {
             transaction.rollback();
             sendJsonResponse(appReq, false, "Unable to add note", null);
+        }
+    }
+
+    private void handleStartTimer(AppReq appReq) {
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        if (timeTracker == null) {
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Project project = appReq.getProject();
+        ProjectActionNext completingAction = appReq.getCompletingAction();
+
+        String actionIdStr = appReq.getRequest().getParameter("completingActionNextId");
+        if (actionIdStr != null && actionIdStr.trim().length() > 0) {
+            try {
+                int actionNextId = Integer.parseInt(actionIdStr.trim());
+                ProjectActionNext selected = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+                if (selected != null) {
+                    completingAction = selected;
+                    appReq.setCompletingAction(selected);
+                    if (selected.getProject() != null) {
+                        project = selected.getProject();
+                        appReq.setProject(project);
+                    }
+                }
+            } catch (NumberFormatException nfe) {
+                // Ignore invalid action id and continue with session state.
+            }
+        }
+
+        if (project == null) {
+            String projectIdStr = appReq.getRequest().getParameter("projectId");
+            if (projectIdStr != null && projectIdStr.trim().length() > 0) {
+                try {
+                    int projectId = Integer.parseInt(projectIdStr.trim());
+                    project = (Project) dataSession.get(Project.class, projectId);
+                    if (project != null) {
+                        appReq.setProject(project);
+                    }
+                } catch (NumberFormatException nfe) {
+                    // Ignore invalid project id and continue with session state.
+                }
+            }
+        }
+
+        if (project != null) {
+            timeTracker.startClock(project, completingAction, dataSession);
         }
     }
 }

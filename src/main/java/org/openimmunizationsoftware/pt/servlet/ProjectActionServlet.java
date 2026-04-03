@@ -2565,17 +2565,6 @@ public class ProjectActionServlet extends ClientServlet {
         webUser.getTimeZone());
   }
 
-  private void printSendEmailSelection(PrintWriter out, String formName, List<ProjectContact> projectContactList) {
-    out.println("<h3>Send Email</h3>");
-    for (ProjectContact projectContact1 : projectContactList) {
-      out.println("<span class=\"together\"><input type=\"checkbox\" name=\"" + PARAM_SEND_EMAIL_TO
-          + projectContact1.getContactId() + "\" value=\"Y\"/>");
-      out.println("<font size=\"-1\"><a href=\"javascript: void clickForEmail" + formName + "('"
-          + projectContact1.getContactId() + "');\" class=\"button\">" + projectContact1.getName()
-          + "</a></font></span>");
-    }
-  }
-
   private void printEditNextAction(HttpServletRequest request, WebUser webUser, PrintWriter out,
       ProjectActionNext projectAction, Project project, String formName, String disabled,
       List<ProjectContact> projectContactList,
@@ -2934,18 +2923,6 @@ public class ProjectActionServlet extends ClientServlet {
       List<ProjectContact> projectContactList,
       String formName, List<Project> projectList) {
     SimpleDateFormat sdf11 = webUser.getDateFormat();
-    String postponeLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_POSTPONE_NEXT_WORKING_DAY
-        + "&" + PARAM_POSTPONE_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
-    String morningLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_SET_TIME_SLOT_MORNING
-        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
-    String afternoonLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_SET_TIME_SLOT_AFTERNOON
-        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
-    String eveningLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_SET_TIME_SLOT_EVENING
-        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
-    String moveUpLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_UP
-        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
-    String moveDownLink = "ProjectActionServlet?" + PARAM_ACTION + "=" + ACTION_MOVE_COMPLETION_DOWN
-        + "&" + PARAM_COMPLETING_ACTION_NEXT_ID + "=" + completingAction.getActionNextId();
     String timeString = getTimeString(appReq, completingAction);
     out.println("<h3>" + completingAction.getNextDescriptionForDisplay(webUser.getProjectContact())
         + (timeString.isEmpty() ? ""

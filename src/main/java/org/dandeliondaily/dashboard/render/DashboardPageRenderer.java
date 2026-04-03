@@ -19,18 +19,18 @@ import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
+import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ProjectReviewServlet.Interval;
-import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 public class DashboardPageRenderer {
 
     // Temporary layout aid: keep true while iterating dashboard structure.
     // Set to false to disable all developer panel labels in one place.
-    private static final boolean DEV_LABELS_ENABLED = true;
+    private static final boolean DEV_LABELS_ENABLED = false;
     private static final int TODAY_GAUGE_WARNING_PERCENT = 85;
     private static final String TODAY_SECTION_PARAM = "todaySection";
     private static final String TODAY_SECTION_ALL = "all";
@@ -993,8 +993,7 @@ public class DashboardPageRenderer {
         if (project == null) {
             return;
         }
-        ProjectContactAssigned projectContactAssigned = ProjectServlet.getProjectContactAssigned(webUser,
-                dataSession, project);
+        ProjectContactAssigned projectContactAssigned = loadProjectContactAssigned(webUser, dataSession, project);
         int updateEvery = projectContactAssigned != null ? projectContactAssigned.getUpdateDue() : 0;
 
         out.println(
@@ -2238,43 +2237,6 @@ public class DashboardPageRenderer {
         return "";
     }
 
-    private void printTodayTotals(PrintWriter out, DashboardTodayColumnModel.TodayTotalsModel totals) {
-        out.println("  <div class=\"dd-totals-grid\">");
-        out.println("    <div class=\"dd-totals-cell\"><strong>Completed</strong><br/>" + totals.getCompletedDisplay()
-                + "</div>");
-        out.println("    <div class=\"dd-totals-cell\"><strong>Committed</strong><br/>" + totals.getCommittedDisplay()
-                + "</div>");
-        out.println("    <div class=\"dd-totals-cell\"><strong>Will</strong><br/>" + totals.getWillDisplay()
-                + "</div>");
-        out.println("    <div class=\"dd-totals-cell\"><strong>Will Meet</strong><br/>" + totals.getWillMeetDisplay()
-                + "</div>");
-        out.println("    <div class=\"dd-totals-cell\"><strong>Today Planned</strong><br/>"
-                + totals.getTotalPlannedDisplay() + "</div>");
-        out.println("  </div>");
-        String overClass = totals.isOverCommitted() ? " dd-over-under-over" : "";
-        out.println("  <p class=\"dd-over-under" + overClass + "\">" + escapeHtml(totals.getGuidanceMessage())
-                + "</p>");
-    }
-
-    private void printTodayActionList(PrintWriter out, List<DashboardTodayColumnModel.TodayActionItemModel> items) {
-        out.println("  <ul class=\"dd-action-list\">");
-        for (DashboardTodayColumnModel.TodayActionItemModel item : items) {
-            out.println("    <li class=\"dd-action-item\">");
-            if (item.getProjectName() != null && item.getProjectName().length() > 0) {
-                out.println("      <div class=\"dd-action-project\">" + escapeHtml(item.getProjectName()) + "</div>");
-            }
-            out.println("      <div class=\"dd-action-desc\">" + item.getDescriptionHtml() + "</div>");
-            out.println("      <div class=\"dd-meta-row\">");
-            out.println(
-                    "        <span class=\"dd-meta-pill\">Est: " + escapeHtml(item.getEstimateDisplay()) + "</span>");
-            out.println("        <span class=\"dd-meta-pill\">Act: " + escapeHtml(item.getActualDisplay()) + "</span>");
-            out.println("        <span class=\"dd-meta-pill\">" + escapeHtml(item.getStatusLabel()) + "</span>");
-            out.println("      </div>");
-            out.println("    </li>");
-        }
-        out.println("  </ul>");
-    }
-
     private TimeGaugeModel buildInlineTodayGauge(DashboardTodayColumnModel.TodayActionItemModel item) {
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.INLINE_BAR_LONG);
@@ -2471,6 +2433,16 @@ public class DashboardPageRenderer {
             return "";
         }
         return value.trim();
+    }
+
+    private ProjectContactAssigned loadProjectContactAssigned(WebUser webUser, Session dataSession, Project project) {
+        if (webUser == null || project == null) {
+            return null;
+        }
+        ProjectContactAssignedId id = new ProjectContactAssignedId();
+        id.setContactId(webUser.getContactId());
+        id.setProjectId(project.getProjectId());
+        return (ProjectContactAssigned) dataSession.get(ProjectContactAssigned.class, id);
     }
 
     private void printQuickCaptureScript(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {

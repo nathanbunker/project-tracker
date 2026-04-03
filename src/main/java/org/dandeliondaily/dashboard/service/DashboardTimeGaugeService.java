@@ -103,7 +103,6 @@ public class DashboardTimeGaugeService {
 
     public void updateTodayGaugePlanned(TimeGaugeModel todayGaugeModel, int plannedMinutes) {
         if (todayGaugeModel.getRows().size() >= 2) {
-            TimeGaugeModel.GaugeRow plannedRow = todayGaugeModel.getRows().get(1);
             // Recreate the row with updated minutes
             TimeGaugeModel.GaugeRow updatedRow = new TimeGaugeModel.GaugeRow("Planned", plannedMinutes,
                     DAILY_TARGET_MINUTES);

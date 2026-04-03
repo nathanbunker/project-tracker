@@ -3,7 +3,6 @@ package org.dandeliondaily.dashboard.render;
 import java.io.PrintWriter;
 
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
-import org.dandeliondaily.dashboard.model.TimeGaugeState;
 import org.dandeliondaily.dashboard.model.TimeGaugeVariant;
 
 public class TimeGaugeRenderer {
@@ -208,10 +207,6 @@ public class TimeGaugeRenderer {
         }
 
         out.println("</div>");
-    }
-
-    private int calculateFillPercent(TimeGaugeModel model) {
-        return calculateFillPercent(model.getCurrentMinutes(), model.getTargetMinutes());
     }
 
     private int calculateFillPercent(int currentMinutes, int targetMinutes) {
