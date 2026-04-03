@@ -152,7 +152,9 @@ public class TimeGaugeRenderer {
             if (row.getLabel() != null && row.getLabel().length() > 0) {
                 out.println("    <span class=\"dd-time-gauge-row-label\">" + escapeHtml(row.getLabel()) + "</span>");
             }
-            String ratioText = formatDuration(row.getCurrentMinutes()) + " / " + formatTarget(row.getTargetMinutes());
+            String ratioText = model.isShowTargetRange()
+                    ? formatDuration(row.getCurrentMinutes()) + " / " + formatTarget(row.getTargetMinutes())
+                    : formatDuration(row.getCurrentMinutes());
             out.println("    <span class=\"dd-time-gauge-ratio\">" + ratioText + "</span>");
             int fillPercent = calculateFillPercent(row.getCurrentMinutes(), row.getTargetMinutes());
             out.println("    <div class=\"dd-time-gauge-bar-wrap\">\n"
@@ -171,7 +173,9 @@ public class TimeGaugeRenderer {
         for (TimeGaugeModel.GaugeRow row : model.getRows()) {
             String stateClass = "dd-state-" + row.getState().name().toLowerCase();
             out.println("  <div class=\"dd-time-gauge-row " + stateClass + "\">");
-            String ratioText = formatDuration(row.getCurrentMinutes()) + " / " + formatTarget(row.getTargetMinutes());
+            String ratioText = model.isShowTargetRange()
+                    ? formatDuration(row.getCurrentMinutes()) + " / " + formatTarget(row.getTargetMinutes())
+                    : formatDuration(row.getCurrentMinutes());
             out.println("    <span class=\"dd-time-gauge-ratio\">" + ratioText + "</span>");
             int fillPercent = calculateFillPercent(row.getCurrentMinutes(), row.getTargetMinutes());
             out.println("    <div class=\"dd-time-gauge-bar-wrap\">\n"
@@ -194,7 +198,9 @@ public class TimeGaugeRenderer {
             out.println("  <div class=\"dd-time-gauge-title\">" + escapeHtml(model.getTitle()) + "</div>");
         }
 
-        String ratioText = formatDuration(model.getCurrentMinutes()) + " / " + formatTarget(model.getTargetMinutes());
+        String ratioText = model.isShowTargetRange()
+                ? formatDuration(model.getCurrentMinutes()) + " / " + formatTarget(model.getTargetMinutes())
+                : formatDuration(model.getCurrentMinutes());
         out.println("  <div class=\"dd-time-gauge-ratio\">" + ratioText + "</div>");
 
         int fillPercent = calculateFillPercent(model.getCurrentMinutes(), model.getTargetMinutes());

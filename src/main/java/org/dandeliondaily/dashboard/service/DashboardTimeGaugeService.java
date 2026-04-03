@@ -59,6 +59,7 @@ public class DashboardTimeGaugeService {
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.TODAY_HEADER);
         model.setShowTitle(false);
+        model.setShowTargetRange(false);
 
         // This reuses the same source used by the global app header time display.
         int spentToday = 0;
@@ -84,6 +85,7 @@ public class DashboardTimeGaugeService {
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.STACKED);
         model.setShowTitle(false);
+        model.setShowTargetRange(false);
         model.setCurrentMinutes(Math.max(0, plannedMinutes));
         model.setTargetMinutes(DAILY_TARGET_MINUTES);
         model.setState(determineState(plannedMinutes, DAILY_TARGET_MINUTES));

@@ -45,6 +45,7 @@ public class TimeGaugeModel {
     private String statusText = "";
     private boolean showTitle = true;
     private boolean showStatus = true;
+    private boolean showTargetRange = true;
     private TimeGaugeState state = TimeGaugeState.UNKNOWN;
     private List<GaugeRow> rows = new ArrayList<GaugeRow>();
 
@@ -102,6 +103,14 @@ public class TimeGaugeModel {
 
     public void setShowStatus(boolean showStatus) {
         this.showStatus = showStatus;
+    }
+
+    public boolean isShowTargetRange() {
+        return showTargetRange;
+    }
+
+    public void setShowTargetRange(boolean showTargetRange) {
+        this.showTargetRange = showTargetRange;
     }
 
     public TimeGaugeState getState() {

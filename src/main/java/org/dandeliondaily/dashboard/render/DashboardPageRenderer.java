@@ -751,7 +751,13 @@ public class DashboardPageRenderer {
                 out.println("    color: #756b5e;");
                 out.println("  }");
                 out.println("  .dd-today-cell-gauge {");
-                out.println("    width: 30%;");
+                out.println("    width: 22%;");
+                out.println("  }");
+                out.println("  .dd-today-cell-time {");
+                out.println("    width: 8%;");
+                out.println("    text-align: center;");
+                out.println("    color: #6f6659;");
+                out.println("    font-weight: 500;");
                 out.println("  }");
                 out.println("  .dd-today-cell-time-slot {");
                 out.println("    width: 30%;");
@@ -1746,6 +1752,7 @@ public class DashboardPageRenderer {
                                         out.println("        <th class=\"dd-today-cell-action-placeholder\">Action</th>");
                                 } else if (!completedSection) {
                                         out.println("        <th class=\"dd-today-cell-gauge\">Time Gauge</th>");
+                                        out.println("        <th class=\"dd-today-cell-time\">Time</th>");
                                         out.println("        <th class=\"dd-today-cell-action-placeholder\">Action</th>");
                                 }
                                 out.println("      </tr>");
@@ -1769,6 +1776,9 @@ public class DashboardPageRenderer {
                                                 out.println("        <td class=\"dd-today-cell-gauge\">");
                                                 timeGaugeRenderer.render(out, buildInlineTodayGauge(item));
                                                 out.println("        </td>");
+                                                out.println("        <td class=\"dd-today-cell-time\">"
+                                                                + formatActualTimeDisplay(item.getActualMinutes())
+                                                                + "</td>");
                                                 printTodayRowActionsCell(out, item.getActionNextId(),
                                                                 canReprioritizeSection);
                                         }
@@ -2779,22 +2789,24 @@ public class DashboardPageRenderer {
                 model.setVariant(TimeGaugeVariant.INLINE_BAR_LONG);
                 model.setShowTitle(false);
                 model.setShowStatus(false);
-                int currentMinutes = Math.max(0, item.getActualMinutes());
-                int targetMinutes = Math.max(0, item.getEstimateMinutes());
+                model.setShowTargetRange(false);
+                int estimatedMinutes = Math.max(0, item.getEstimateMinutes());
+                int dailyTargetMinutes = 8 * 60; // 8 hours = 480 minutes
 
-                if (targetMinutes <= 0) {
+                if (estimatedMinutes <= 0) {
                         return model;
                 }
 
-                TimeGaugeState state = TimeGaugeState.UNKNOWN;
-                if (currentMinutes > targetMinutes) {
+                TimeGaugeState state = TimeGaugeState.NORMAL;
+                // All states based on estimated vs daily target
+                int percent = (int) Math.round((estimatedMinutes * 100.0) / dailyTargetMinutes);
+                if (percent >= 100) {
                         state = TimeGaugeState.OVER;
-                } else {
-                        int percent = (int) Math.round((currentMinutes * 100.0) / targetMinutes);
-                        state = percent >= TODAY_GAUGE_WARNING_PERCENT ? TimeGaugeState.WARNING : TimeGaugeState.NORMAL;
+                } else if (percent >= TODAY_GAUGE_WARNING_PERCENT) {
+                        state = TimeGaugeState.WARNING;
                 }
 
-                TimeGaugeModel.GaugeRow row = new TimeGaugeModel.GaugeRow(null, currentMinutes, targetMinutes);
+                TimeGaugeModel.GaugeRow row = new TimeGaugeModel.GaugeRow(null, estimatedMinutes, dailyTargetMinutes);
                 row.setState(state);
                 model.addRow(row);
 
@@ -2878,6 +2890,15 @@ public class DashboardPageRenderer {
                 public List<DashboardTodayColumnModel.TodayActionItemModel> getItems() {
                         return items;
                 }
+        }
+
+        private String formatActualTimeDisplay(int actualMinutes) {
+                if (actualMinutes <= 0) {
+                        return "";
+                }
+                int hours = actualMinutes / 60;
+                int minutes = actualMinutes % 60;
+                return hours + ":" + String.format("%02d", minutes);
         }
 
         private String escapeHtml(String value) {
