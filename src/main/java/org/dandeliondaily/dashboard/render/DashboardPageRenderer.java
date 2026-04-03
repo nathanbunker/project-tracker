@@ -1375,17 +1375,18 @@ public class DashboardPageRenderer {
                                                 + issue.getProjectIssueId() + ", '"
                                                 + escapeJsString(issue.getIssueText()) + "', '"
                                                 + issue.getIssueTypeValue() + "')\">");
-                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji() + "</td>");
+                                out.println("      <td class=\"dd-issues-col-type\">" + issue.getIssueTypeEmoji()
+                                                + "</td>");
                                 out.println("      <td>" + escapeHtml(issue.getIssueText()) + "</td>");
-                                out.println("      <td class=\"dd-issues-col-date\">" + escapeHtml(issue.getCreatedDisplay()) + "</td>");
+                                out.println("      <td class=\"dd-issues-col-date\">"
+                                                + escapeHtml(issue.getCreatedDisplay()) + "</td>");
                                 out.println("    </tr>");
                         }
-                } else {
-                        out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenAddIssueModal(event)\">");
-                        out.println("      <td colspan=\"3\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\""
-                                        + " onclick=\"ddOpenAddIssueModal(event)\">Add Issue</a></td>");
-                        out.println("    </tr>");
                 }
+                out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenAddIssueModal(event)\">");
+                out.println("      <td colspan=\"3\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\""
+                                + " onclick=\"ddOpenAddIssueModal(event)\">Add Issue</a></td>");
+                out.println("    </tr>");
                 out.println("  </table>");
 
                 // Add Issue modal
