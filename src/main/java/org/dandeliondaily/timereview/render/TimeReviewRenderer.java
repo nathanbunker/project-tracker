@@ -3,8 +3,6 @@ package org.dandeliondaily.timereview.render;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
 import org.dandeliondaily.timereview.model.TimeEntryModel;
 import org.dandeliondaily.timereview.model.TimeReviewDayModel;
@@ -49,11 +47,8 @@ public class TimeReviewRenderer {
             PrintWriter out,
             WebUser webUser,
             TimeReviewDayModel dayModel,
-            List<Date> trackedDays,
-            Map<String, List<Date>> daysByMonth,
             String quickScope,
             EditFormModel editForm,
-            String selectedIsoDay,
             String pageMessage) {
 
         printStyles(out);
@@ -70,7 +65,7 @@ public class TimeReviewRenderer {
         out.println("  <div class=\"rd-shell\">");
 
         out.println("    <div class=\"rd-col rd-col-left\">");
-        printLeftColumn(out, webUser, trackedDays, daysByMonth, selectedIsoDay, quickScope);
+        printLeftColumn(out, webUser, dayModel, quickScope);
         out.println("    </div>");
 
         out.println("    <div class=\"rd-col rd-col-center\">");
@@ -88,9 +83,7 @@ public class TimeReviewRenderer {
     private void printLeftColumn(
             PrintWriter out,
             WebUser webUser,
-            List<Date> trackedDays,
-            Map<String, List<Date>> daysByMonth,
-            String selectedIsoDay,
+            TimeReviewDayModel dayModel,
             String quickScope) {
 
         out.println("<div class=\"rd-panel\">");
@@ -99,36 +92,24 @@ public class TimeReviewRenderer {
 
         out.println("<div class=\"rd-quick-jump\">");
         out.println("<h3>Quick Jump</h3>");
+        printQuickLink(out, "Yesterday", "yesterday", quickScope);
         printQuickLink(out, "Today", "today", quickScope);
         printQuickLink(out, "This Week", "week", quickScope);
         printQuickLink(out, "This Month", "month", quickScope);
         out.println("</div>");
 
         out.println("<div class=\"rd-day-nav\">");
-        out.println("<h3>Tracked Days</h3>");
-        SimpleDateFormat isoFormat = webUser.getDateFormatService().createLegacyFormatter("yyyy-MM-dd",
-                webUser.getTimeZone());
-        if (trackedDays.isEmpty()) {
-            out.println("<p class=\"rd-subtle\">No tracked days yet.</p>");
-        } else {
-            for (Map.Entry<String, List<Date>> monthEntry : daysByMonth.entrySet()) {
-                out.println("<div class=\"rd-month\">");
-                out.println("<div class=\"rd-month-label\">" + escapeHtml(monthEntry.getKey()) + "</div>");
-                out.println("<div class=\"rd-day-list\">");
-                for (Date day : monthEntry.getValue()) {
-                    String dayIso = isoFormat.format(day);
-                    String css = "rd-day-link";
-                    if (dayIso.equals(selectedIsoDay)) {
-                        css += " rd-day-link-selected";
-                    }
-                    String label = webUser.getDateFormatService().formatPattern(day, "EEE dd", webUser.getTimeZone());
-                    out.println("<a class=\"" + css + "\" href=\"ReviewDashboardServlet?reviewDate=" + dayIso
-                            + "\">" + escapeHtml(label) + "</a>");
-                }
-                out.println("</div>");
-                out.println("</div>");
-            }
-        }
+        out.println("<h3>Select Date</h3>");
+        out.println("<form action=\"ReviewDashboardServlet\" method=\"GET\" class=\"rd-date-form\">");
+        out.println("<label for=\"rdReviewDate\">Date</label>");
+        out.println("<input type=\"text\" id=\"rdReviewDate\" name=\"reviewDate\" value=\""
+                + escapeHtml(formatPreferredDate(webUser, dayModel.getSelectedDate())) + "\">");
+        out.println("<div class=\"rd-date-form-actions\">");
+        out.println("<input type=\"submit\" value=\"Refresh\" class=\"rd-btn rd-btn-light\">");
+        out.println("</div>");
+        out.println("<p class=\"rd-subtle\">Use your preferred date format. Current selection: "
+                + escapeHtml(dayModel.getSelectedDateLabel()) + "</p>");
+        out.println("</form>");
         out.println("</div>");
 
         out.println("</div>");
@@ -187,24 +168,26 @@ public class TimeReviewRenderer {
             out.println("<table class=\"rd-table\">");
             out.println("  <tr>");
             out.println("    <th>Start</th>");
-            out.println("    <th>End</th>");
             out.println("    <th>Duration</th>");
-            out.println("    <th>Project</th>");
-            out.println("    <th>Description</th>");
+            out.println("    <th>Work</th>");
             out.println("    <th>Edit</th>");
             out.println("  </tr>");
 
             for (TimeEntryModel entry : session.getEntries()) {
                 out.println("  <tr>");
                 out.println("    <td>" + escapeHtml(timeFormat.format(entry.getStartTime())) + "</td>");
-                out.println("    <td>" + escapeHtml(timeFormat.format(entry.getEndTime())) + "</td>");
                 out.println("    <td>" + escapeHtml(entry.getDurationDisplay()) + "</td>");
-                String projectLink = entry.getProjectId() > 0
-                        ? "<a href=\"ProjectServlet?projectId=" + entry.getProjectId() + "\">"
-                                + escapeHtml(entry.getProjectName()) + "</a>"
-                        : escapeHtml(entry.getProjectName());
-                out.println("    <td>" + projectLink + "</td>");
-                out.println("    <td>" + escapeHtml(entry.getActionDescription()) + "</td>");
+                String projectName = entry.getProjectName();
+                String actionDescription = entry.getActionDescription();
+                String workText = "";
+                if (projectName.length() > 0 && actionDescription.length() > 0) {
+                    workText = projectName + ": " + actionDescription;
+                } else if (projectName.length() > 0) {
+                    workText = projectName;
+                } else {
+                    workText = actionDescription;
+                }
+                out.println("    <td class=\"rd-work-cell\">" + escapeHtml(workText) + "</td>");
                 if (dayModel.getLockedBillEntryId() != null
                         && dayModel.getLockedBillEntryId().intValue() == entry.getBillId()) {
                     out.println("    <td><span class=\"rd-subtle\">Active</span></td>");
@@ -276,22 +259,23 @@ public class TimeReviewRenderer {
         out.println(
                 ".rd-quick-link { display: inline-block; margin: 0 6px 6px 0; padding: 4px 9px; border-radius: 999px; border: 1px solid #d2c3ab; text-decoration: none; color: #3a4c37; background: #efe8dc; font-size: 12px; }");
         out.println(".rd-quick-link-selected { background: #dfeeda; border-color: #a8c7a5; }");
-        out.println(".rd-month { margin-bottom: 8px; }");
+        out.println(".rd-date-form label { display: block; margin-bottom: 4px; font-size: 12px; color: #4f4b43; }");
         out.println(
-                ".rd-month-label { font-weight: bold; font-size: 12px; color: #5a6356; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }");
-        out.println(".rd-day-list { display: flex; flex-wrap: wrap; gap: 6px; }");
-        out.println(
-                ".rd-day-link { display: inline-block; padding: 4px 8px; border: 1px solid #d8ccba; border-radius: 6px; text-decoration: none; color: #364234; font-size: 12px; background: #fffdfa; }");
-        out.println(".rd-day-link-selected { background: #e8f2e2; border-color: #a9c79f; font-weight: bold; }");
+                ".rd-date-form input[type=text] { width: 100%; box-sizing: border-box; padding: 6px 7px; border: 1px solid #d2c8ba; border-radius: 4px; background: #fffdfa; }");
+        out.println(".rd-date-form-actions { margin-top: 8px; }");
         out.println(
                 ".rd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }");
         out.println(".rd-total { font-size: 12px; color: #5a6557; }");
         out.println(".rd-break { margin: 2px 0 6px 0; color: #6d654f; font-size: 12px; }");
-        out.println(".rd-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }");
+        out.println(".rd-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; }");
         out.println(
                 ".rd-table th, .rd-table td { border-bottom: 1px solid #e3d9cb; padding: 6px 5px; font-size: 12px; vertical-align: top; }");
         out.println(
                 ".rd-table th { text-align: left; color: #596355; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }");
+        out.println(".rd-table th:nth-child(1), .rd-table td:nth-child(1) { width: 58px; white-space: nowrap; }");
+        out.println(".rd-table th:nth-child(2), .rd-table td:nth-child(2) { width: 62px; white-space: nowrap; }");
+        out.println(".rd-table th:nth-child(4), .rd-table td:nth-child(4) { width: 46px; white-space: nowrap; }");
+        out.println(".rd-work-cell { white-space: normal; word-break: break-word; }");
         out.println(".rd-edit-link { text-decoration: none; color: #2e5732; }");
         out.println(".rd-edit-link:hover { text-decoration: underline; }");
         out.println(".rd-session-total { margin: 0 0 10px 0; font-size: 12px; color: #4d5949; }");
@@ -326,6 +310,13 @@ public class TimeReviewRenderer {
             return value.toUpperCase();
         }
         return value.substring(0, 1).toUpperCase() + value.substring(1).toLowerCase();
+    }
+
+    private String formatPreferredDate(WebUser webUser, Date date) {
+        if (date == null) {
+            return "";
+        }
+        return webUser.getDateFormat().format(date);
     }
 
     private String escapeHtml(String value) {

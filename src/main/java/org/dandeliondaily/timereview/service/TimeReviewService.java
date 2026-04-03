@@ -48,6 +48,17 @@ public class TimeReviewService {
         }
     }
 
+    public Date parseReviewDay(WebUser webUser, String reviewDateText) {
+        if (reviewDateText == null || reviewDateText.trim().length() == 0) {
+            return null;
+        }
+        Date parsed = webUser.parseDate(reviewDateText.trim());
+        if (parsed != null) {
+            return regularizationService.toDayStart(webUser, parsed);
+        }
+        return parseIsoDay(webUser, reviewDateText);
+    }
+
     public String formatIsoDay(WebUser webUser, Date date) {
         SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd");
         iso.setTimeZone(webUser.getTimeZone());
@@ -71,6 +82,58 @@ public class TimeReviewService {
         }
 
         return today;
+    }
+
+    public Date resolveDefaultSelectedDay(WebUser webUser, Session dataSession) {
+        Date today = regularizationService.toDayStart(webUser, webUser.now());
+        if (hasTrackedTimeOnDay(webUser, dataSession, today)) {
+            return today;
+        }
+        Date mostRecentTrackedDay = findMostRecentTrackedDay(webUser, dataSession);
+        if (mostRecentTrackedDay != null) {
+            return mostRecentTrackedDay;
+        }
+        return today;
+    }
+
+    public boolean hasTrackedTimeOnDay(WebUser webUser, Session dataSession, Date day) {
+        Date dayStart = regularizationService.toDayStart(webUser, day);
+        Date dayEnd = regularizationService.toNextDay(webUser, dayStart);
+        Query query = dataSession.createQuery(
+                "select 1 from BillEntry where webUser = :webUser and startTime >= :dayStart and startTime < :dayEnd and billMins > 0");
+        query.setParameter("webUser", webUser);
+        query.setParameter("dayStart", dayStart);
+        query.setParameter("dayEnd", dayEnd);
+        query.setMaxResults(1);
+        return !query.list().isEmpty();
+    }
+
+    public Date findMostRecentTrackedDay(WebUser webUser, Session dataSession) {
+        Query query = dataSession.createQuery(
+                "select startTime from BillEntry where webUser = :webUser and billMins > 0 order by startTime desc");
+        query.setParameter("webUser", webUser);
+        query.setMaxResults(1);
+        Object value = query.uniqueResult();
+        if (value instanceof Date) {
+            return regularizationService.toDayStart(webUser, (Date) value);
+        }
+        return null;
+    }
+
+    public Date findMostRecentTrackedDayInRange(WebUser webUser, Session dataSession, Date rangeStart, Date rangeEnd) {
+        Date start = regularizationService.toDayStart(webUser, rangeStart);
+        Date endExclusive = regularizationService.toNextDay(webUser, rangeEnd);
+        Query query = dataSession.createQuery(
+                "select startTime from BillEntry where webUser = :webUser and billMins > 0 and startTime >= :rangeStart and startTime < :rangeEnd order by startTime desc");
+        query.setParameter("webUser", webUser);
+        query.setParameter("rangeStart", start);
+        query.setParameter("rangeEnd", endExclusive);
+        query.setMaxResults(1);
+        Object value = query.uniqueResult();
+        if (value instanceof Date) {
+            return regularizationService.toDayStart(webUser, (Date) value);
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

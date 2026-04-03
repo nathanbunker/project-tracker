@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -48,14 +46,15 @@ public class ReviewDashboardServlet extends ClientServlet {
 
             String quickScope = normalizeScope(request.getParameter(PARAM_SCOPE));
             String selectedDateParam = request.getParameter(PARAM_REVIEW_DATE);
-            Date requestedDate = timeReviewService.parseIsoDay(webUser, selectedDateParam);
+            Date requestedDate = timeReviewService.parseReviewDay(webUser, selectedDateParam);
             String action = appReq.getAction();
 
-            List<Date> trackedDays = timeReviewService.listTrackedDays(webUser, dataSession);
-            Date selectedDay = timeReviewService.resolveSelectedDay(webUser, requestedDate, trackedDays);
+            Date selectedDay = requestedDate != null
+                    ? requestedDate
+                    : timeReviewService.resolveDefaultSelectedDay(webUser, dataSession);
 
             if (selectedDateParam == null || selectedDateParam.trim().length() == 0) {
-                selectedDay = resolveSelectedDayFromScope(webUser, selectedDay, trackedDays, quickScope);
+                selectedDay = resolveSelectedDayFromScope(webUser, dataSession, selectedDay, quickScope);
             }
 
             Integer lockedBillEntryId = timeTracker == null ? null : timeTracker.getBillEntryId();
@@ -67,12 +66,10 @@ public class ReviewDashboardServlet extends ClientServlet {
 
             TimeReviewDayModel dayModel = timeReviewService.buildDayModel(webUser, dataSession, selectedDay,
                     lockedBillEntryId);
-            Map<String, List<Date>> groupedDays = timeReviewService.groupTrackedDaysByMonth(webUser, trackedDays);
             TimeReviewRenderer.EditFormModel editForm = buildEditForm(request, dayModel, webUser, dataSession);
 
             printHtmlHead(appReq);
-            renderer.renderPage(appReq.getOut(), webUser, dayModel, trackedDays, groupedDays, quickScope, editForm,
-                    dayModel.getSelectedDateIso(), pageMessage);
+            renderer.renderPage(appReq.getOut(), webUser, dayModel, quickScope, editForm, pageMessage);
             printHtmlFoot(appReq);
 
             if (timeTracker != null && webUser.isSameDay(selectedDay, webUser.getToday())) {
@@ -127,34 +124,28 @@ public class ReviewDashboardServlet extends ClientServlet {
         return formModel;
     }
 
-    private Date resolveSelectedDayFromScope(WebUser webUser, Date defaultDay, List<Date> trackedDays, String scope) {
+    private Date resolveSelectedDayFromScope(WebUser webUser, Session dataSession, Date defaultDay, String scope) {
+        if ("yesterday".equals(scope)) {
+            return webUser.addDays(webUser.getToday(), -1);
+        }
         if ("today".equals(scope)) {
-            return defaultDay;
+            return webUser.getToday();
         }
         if ("week".equals(scope)) {
             Date weekStart = getWeekStart(webUser, defaultDay);
-            Date candidate = null;
-            for (Date trackedDay : trackedDays) {
-                if (!trackedDay.before(weekStart) && !trackedDay.after(defaultDay)) {
-                    if (candidate == null || trackedDay.after(candidate)) {
-                        candidate = trackedDay;
-                    }
-                }
-            }
+            Date candidate = timeReviewService.findMostRecentTrackedDayInRange(webUser, dataSession, weekStart,
+                    defaultDay);
             return candidate != null ? candidate : defaultDay;
         }
         if ("month".equals(scope)) {
             Calendar selectedMonth = webUser.getCalendar(defaultDay);
-            Date candidate = null;
-            for (Date trackedDay : trackedDays) {
-                Calendar trackedCal = webUser.getCalendar(trackedDay);
-                if (selectedMonth.get(Calendar.YEAR) == trackedCal.get(Calendar.YEAR)
-                        && selectedMonth.get(Calendar.MONTH) == trackedCal.get(Calendar.MONTH)) {
-                    if (candidate == null || trackedDay.after(candidate)) {
-                        candidate = trackedDay;
-                    }
-                }
-            }
+            selectedMonth.set(Calendar.DAY_OF_MONTH, 1);
+            selectedMonth.set(Calendar.HOUR_OF_DAY, 0);
+            selectedMonth.set(Calendar.MINUTE, 0);
+            selectedMonth.set(Calendar.SECOND, 0);
+            selectedMonth.set(Calendar.MILLISECOND, 0);
+            Date candidate = timeReviewService.findMostRecentTrackedDayInRange(webUser, dataSession,
+                    selectedMonth.getTime(), defaultDay);
             return candidate != null ? candidate : defaultDay;
         }
         return defaultDay;
@@ -177,7 +168,10 @@ public class ReviewDashboardServlet extends ClientServlet {
             return "today";
         }
         String normalized = scope.trim().toLowerCase();
-        if ("today".equals(normalized) || "week".equals(normalized) || "month".equals(normalized)) {
+        if ("yesterday".equals(normalized)
+                || "today".equals(normalized)
+                || "week".equals(normalized)
+                || "month".equals(normalized)) {
             return normalized;
         }
         return "today";

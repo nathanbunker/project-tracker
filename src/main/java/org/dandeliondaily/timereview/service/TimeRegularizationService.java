@@ -25,14 +25,16 @@ public class TimeRegularizationService {
         if (value != null) {
             calendar.setTime(value);
         }
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTime();
     }
 
     public Date toNextDay(WebUser webUser, Date value) {
         Calendar calendar = TimeTracker.createToday(webUser);
-        if (value != null) {
-            calendar.setTime(value);
-        }
+        calendar.setTime(toDayStart(webUser, value));
         calendar.add(Calendar.DAY_OF_MONTH, 1);
         return calendar.getTime();
     }
