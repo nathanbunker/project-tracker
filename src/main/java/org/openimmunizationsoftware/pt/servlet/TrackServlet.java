@@ -38,6 +38,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.dandeliondaily.timereview.service.TimeRegularizationService;
 
 /**
  * @author nathan
@@ -54,6 +55,7 @@ public class TrackServlet extends ClientServlet {
   public static final float YEARLY_HOURS = 1800.0f;
 
   private static final String PARAM_BILL_DATE = "billDate";
+  private final TimeRegularizationService timeRegularizationService = new TimeRegularizationService();
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -86,22 +88,8 @@ public class TrackServlet extends ClientServlet {
           if (timeTracker != null) {
             timeTracker.stopClock(dataSession);
           }
-          Transaction trans = dataSession.beginTransaction();
-          try {
-            Query cleanupQuery;
-            if (lockedBillEntryId != null) {
-              cleanupQuery = dataSession.createQuery(
-                  "delete from BillEntry where webUser = :webUser and billMins = 0 and billId <> :billId");
-              cleanupQuery.setParameter("billId", lockedBillEntryId);
-            } else {
-              cleanupQuery = dataSession
-                  .createQuery("delete from BillEntry where webUser = :webUser and billMins = 0");
-            }
-            cleanupQuery.setParameter("webUser", webUser);
-            cleanupQuery.executeUpdate();
-          } finally {
-            trans.commit();
-          }
+          // Shared cleanup location for stop-tracking and review flows.
+          timeRegularizationService.cleanupZeroMinuteEntries(webUser, dataSession, lockedBillEntryId);
           response.sendRedirect("BillEntriesServlet?billDate=" + sdf.format(new Date()));
           return;
         }

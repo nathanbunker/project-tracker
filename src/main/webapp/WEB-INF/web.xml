@@ -29,6 +29,10 @@
     <servlet-class>org.dandeliondaily.servlet.ProjectHealthServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ReviewDashboardServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.ReviewDashboardServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>CssServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.CssServlet</servlet-class>
   </servlet>
@@ -264,6 +268,10 @@
   <servlet-mapping>
     <servlet-name>ProjectHealthServlet</servlet-name>
     <url-pattern>/ProjectHealthServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ReviewDashboardServlet</servlet-name>
+    <url-pattern>/ReviewDashboardServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>CssServlet</servlet-name>

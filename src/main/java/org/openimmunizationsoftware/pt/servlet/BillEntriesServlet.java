@@ -7,12 +7,9 @@ package org.openimmunizationsoftware.pt.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -20,7 +17,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -30,6 +26,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.dandeliondaily.timereview.service.TimeRegularizationService;
 
 /**
  * 
@@ -37,8 +34,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  */
 public class BillEntriesServlet extends ClientServlet {
 
-  private static final Logger LOGGER = Logger.getLogger(BillEntriesServlet.class.getName());
-  private static final long SAFETY_MILLIS = 2L * 60L * 1000L;
+  private final TimeRegularizationService timeRegularizationService = new TimeRegularizationService();
 
   /**
    * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -96,13 +92,18 @@ public class BillEntriesServlet extends ClientServlet {
       @SuppressWarnings("unchecked")
       List<BillEntry> billEntryList = query.list();
       TimeTracker timeTracker = appReq.getTimeTracker();
+      Integer lockedBillEntryId = timeTracker == null ? null : timeTracker.getBillEntryId();
       if (!billEntryList.isEmpty()) {
-        normalizeBillEntriesForDay(webUser, dataSession, billEntryList, today, tomorrow);
+        // Legacy bill entry display still lives here, but normalization now routes
+        // through shared
+        // time-review services to keep behavior coordinated with ReviewDashboard.
+        timeRegularizationService.normalizeDayEntries(webUser, dataSession, billEntryList, today, tomorrow,
+            lockedBillEntryId);
+        billEntryList = timeRegularizationService.loadEntriesForDay(webUser, dataSession, today);
       }
       if (timeTracker != null && webUser.isSameDay(today, webUser.getToday())) {
         timeTracker.init(webUser, dataSession);
       }
-      Integer lockedBillEntryId = timeTracker == null ? null : timeTracker.getBillEntryId();
 
       printHtmlHead(appReq);
 
@@ -167,234 +168,6 @@ public class BillEntriesServlet extends ClientServlet {
     return null;
   }
 
-  private static void normalizeBillEntriesForDay(
-      WebUser webUser,
-      Session dataSession,
-      List<BillEntry> billEntryList,
-      Date dayStart,
-      Date dayEnd) {
-    if (billEntryList == null || billEntryList.isEmpty()) {
-      return;
-    }
-
-    Date now = new Date();
-    boolean isToday = now.after(dayStart) && now.before(dayEnd);
-    BillEntry lastEntry = billEntryList.get(billEntryList.size() - 1);
-    boolean preserveLastEnd = isToday && within10Minutes(lastEntry.getEndTime(), now);
-
-    List<Chain> chains = buildChains(billEntryList);
-    List<BillEntry> changedEntries = new ArrayList<BillEntry>();
-
-    for (BillEntry entry : billEntryList) {
-      boolean preserveLastEntry = isToday && entry == lastEntry;
-      if (preserveLastEntry) {
-        continue;
-      }
-      updateStartTime(entry, truncateToMinute(webUser, entry.getStartTime()), dayStart, dayEnd,
-          changedEntries);
-      updateEndTime(entry, truncateToMinute(webUser, entry.getEndTime()), dayStart, dayEnd, isToday,
-          now, false, changedEntries);
-    }
-
-    for (Chain chain : chains) {
-      BillEntry firstEntry = billEntryList.get(chain.startIndex);
-      BillEntry lastEntryInChain = billEntryList.get(chain.endIndex);
-
-      Date roundedStart = roundDown10(webUser, firstEntry.getStartTime());
-      updateStartTime(firstEntry, roundedStart, dayStart, dayEnd, changedEntries);
-
-      boolean allowFutureEnd = preserveLastEnd && lastEntryInChain == lastEntry;
-      if (!allowFutureEnd) {
-        Date roundedEnd = roundUp10(webUser, lastEntryInChain.getEndTime());
-        updateEndTime(lastEntryInChain, roundedEnd, dayStart, dayEnd, isToday, now, allowFutureEnd,
-            changedEntries);
-      }
-    }
-
-    for (int i = 0; i < chains.size() - 1; i++) {
-      BillEntry aLast = billEntryList.get(chains.get(i).endIndex);
-      BillEntry bFirst = billEntryList.get(chains.get(i + 1).startIndex);
-      Date aEnd = aLast.getEndTime();
-      Date bStart = bFirst.getStartTime();
-
-      if (bStart == null || aEnd == null) {
-        continue;
-      }
-
-      if (!bStart.after(aEnd)) {
-        if (bStart.getTime() != aEnd.getTime()) {
-          updateStartTime(bFirst, aEnd, dayStart, dayEnd, changedEntries);
-        }
-      } else {
-        if (sameTenMinuteBucket(webUser, aEnd, bStart)) {
-          updateStartTime(bFirst, aEnd, dayStart, dayEnd, changedEntries);
-        } else {
-          Date roundedAEnd = roundUp10(webUser, aEnd);
-          if (roundedAEnd.after(bStart)) {
-            roundedAEnd = bStart;
-          }
-          updateEndTime(aLast, roundedAEnd, dayStart, dayEnd, isToday, now, false, changedEntries);
-          Date newAEnd = aLast.getEndTime();
-          long gapMillis = bStart.getTime() - newAEnd.getTime();
-          if (gapMillis < 10L * 60L * 1000L
-              && (bFirst.getStartTime().after(newAEnd) || bFirst.getStartTime().before(newAEnd))) {
-            updateStartTime(bFirst, newAEnd, dayStart, dayEnd, changedEntries);
-          }
-        }
-      }
-    }
-
-    BillEntry previous = null;
-    for (BillEntry entry : billEntryList) {
-      Date startTime = clampToDay(entry.getStartTime(), dayStart, dayEnd);
-      Date endTime = clampToDay(entry.getEndTime(), dayStart, dayEnd);
-
-      if (previous != null && startTime.before(previous.getEndTime())) {
-        startTime = previous.getEndTime();
-      }
-      if (startTime.after(endTime)) {
-        endTime = startTime;
-      }
-
-      updateStartTime(entry, startTime, dayStart, dayEnd, changedEntries);
-      boolean allowFutureEnd = preserveLastEnd && entry == lastEntry;
-      updateEndTime(entry, endTime, dayStart, dayEnd, isToday, now, allowFutureEnd, changedEntries);
-      previous = entry;
-    }
-
-    if (changedEntries.isEmpty()) {
-      return;
-    }
-
-    for (BillEntry entry : billEntryList) {
-      entry.setBillMins(TimeTracker.calculateMins(entry));
-    }
-
-    Transaction trans = dataSession.beginTransaction();
-    try {
-      for (BillEntry entry : billEntryList) {
-        dataSession.update(entry);
-      }
-    } finally {
-      trans.commit();
-    }
-
-    if (LOGGER.isLoggable(Level.FINE)) {
-      LOGGER.log(Level.FINE,
-          "Normalized bill entries for user={0}, dayStart={1}, dayEnd={2}, chains={3}, updates={4}",
-          new Object[] { webUser.getUsername(), dayStart, dayEnd, chains.size(), changedEntries.size() });
-    }
-  }
-
-  private static List<Chain> buildChains(List<BillEntry> billEntryList) {
-    List<Chain> chains = new ArrayList<Chain>();
-    int chainStart = 0;
-    for (int i = 1; i < billEntryList.size(); i++) {
-      BillEntry previous = billEntryList.get(i - 1);
-      BillEntry current = billEntryList.get(i);
-      if (!isSameMinute(previous.getEndTime(), current.getStartTime())) {
-        chains.add(new Chain(chainStart, i - 1));
-        chainStart = i;
-      }
-    }
-    chains.add(new Chain(chainStart, billEntryList.size() - 1));
-    return chains;
-  }
-
-  private static void updateStartTime(BillEntry entry, Date newStart, Date dayStart, Date dayEnd,
-      List<BillEntry> changedEntries) {
-    Date clamped = clampToDay(newStart, dayStart, dayEnd);
-    if (entry.getStartTime() == null || entry.getStartTime().getTime() != clamped.getTime()) {
-      entry.setStartTime(clamped);
-      if (!changedEntries.contains(entry)) {
-        changedEntries.add(entry);
-      }
-    }
-  }
-
-  private static void updateEndTime(BillEntry entry, Date newEnd, Date dayStart, Date dayEnd,
-      boolean isToday, Date now, boolean allowFutureEnd, List<BillEntry> changedEntries) {
-    Date adjusted = clampToDay(newEnd, dayStart, dayEnd);
-    if (isToday && !allowFutureEnd) {
-      Date cap = new Date(now.getTime() + SAFETY_MILLIS);
-      if (adjusted.after(cap)) {
-        adjusted = now;
-      }
-    }
-    if (entry.getEndTime() == null || entry.getEndTime().getTime() != adjusted.getTime()) {
-      entry.setEndTime(adjusted);
-      if (!changedEntries.contains(entry)) {
-        changedEntries.add(entry);
-      }
-    }
-  }
-
-  private static Date clampToDay(Date value, Date dayStart, Date dayEnd) {
-    if (value == null) {
-      return dayStart;
-    }
-    if (value.before(dayStart)) {
-      return dayStart;
-    }
-    if (value.after(dayEnd)) {
-      return dayEnd;
-    }
-    return value;
-  }
-
-  private static Date truncateToMinute(WebUser webUser, Date time) {
-    if (time == null) {
-      return null;
-    }
-    Calendar calendar = webUser.getCalendar();
-    calendar.setTime(time);
-    calendar.set(Calendar.SECOND, 0);
-    calendar.set(Calendar.MILLISECOND, 0);
-    return calendar.getTime();
-  }
-
-  private static Date roundDown10(WebUser webUser, Date time) {
-    Calendar calendar = webUser.getCalendar();
-    calendar.setTime(time);
-    calendar.set(Calendar.SECOND, 0);
-    calendar.set(Calendar.MILLISECOND, 0);
-    int minute = calendar.get(Calendar.MINUTE);
-    int roundedMinute = (minute / 10) * 10;
-    calendar.set(Calendar.MINUTE, roundedMinute);
-    return calendar.getTime();
-  }
-
-  private static Date roundUp10(WebUser webUser, Date time) {
-    Calendar calendar = webUser.getCalendar();
-    calendar.setTime(time);
-    int minute = calendar.get(Calendar.MINUTE);
-    int mod = minute % 10;
-    calendar.set(Calendar.SECOND, 0);
-    calendar.set(Calendar.MILLISECOND, 0);
-    if (mod == 0) {
-      return calendar.getTime();
-    }
-    calendar.add(Calendar.MINUTE, 10 - mod);
-    return calendar.getTime();
-  }
-
-  private static boolean sameTenMinuteBucket(WebUser webUser, Date first, Date second) {
-    Calendar calendar = webUser.getCalendar();
-    calendar.setTime(first);
-    int firstBucket = calendar.get(Calendar.HOUR_OF_DAY) * 6 + calendar.get(Calendar.MINUTE) / 10;
-    calendar.setTime(second);
-    int secondBucket = calendar.get(Calendar.HOUR_OF_DAY) * 6 + calendar.get(Calendar.MINUTE) / 10;
-    return firstBucket == secondBucket;
-  }
-
-  private static boolean within10Minutes(Date first, Date second) {
-    if (first == null || second == null) {
-      return false;
-    }
-    long diff = Math.abs(first.getTime() - second.getTime());
-    return diff <= 10L * 60L * 1000L;
-  }
-
   private static int calculateMins(Date startTime, Date endTime) {
     if (startTime == null || endTime == null) {
       return 0;
@@ -404,16 +177,6 @@ public class BillEntriesServlet extends ClientServlet {
       return 0;
     }
     return (int) (elapsedTime / 60000.0 + 0.5);
-  }
-
-  private static final class Chain {
-    private final int startIndex;
-    private final int endIndex;
-
-    private Chain(int startIndex, int endIndex) {
-      this.startIndex = startIndex;
-      this.endIndex = endIndex;
-    }
   }
 
   private static void printBillEntriesSection(
