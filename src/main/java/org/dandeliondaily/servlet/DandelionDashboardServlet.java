@@ -993,8 +993,15 @@ public class DandelionDashboardServlet extends ClientServlet {
                     sendJsonResponse(appReq, false, "Project not found", null);
                     return;
                 }
-                if (project.getProvider() == null
-                        || project.getProvider().getProviderId() != webUser.getProvider().getProviderId()) {
+                if (project.getProvider() == null || webUser == null || webUser.getProvider() == null) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Project is not available for this user", null);
+                    return;
+                }
+                String projectProviderId = project.getProvider().getProviderId();
+                String userProviderId = webUser.getProvider().getProviderId();
+                if (projectProviderId == null || userProviderId == null
+                        || !projectProviderId.equals(userProviderId)) {
                     transaction.rollback();
                     sendJsonResponse(appReq, false, "Project is not available for this user", null);
                     return;

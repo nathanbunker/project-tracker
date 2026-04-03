@@ -44,6 +44,8 @@ public class ProjectHealthPageService {
         private boolean reviewOverdue;
         private boolean reviewScheduledToday;
         private boolean missingDescription;
+        private boolean missingOutcome;
+        private boolean missingSuccessCriteria;
         private boolean missingWeeklyReviewPeriod;
     }
 
@@ -441,6 +443,10 @@ public class ProjectHealthPageService {
 
             stats.missingDescription = project.getDescription() == null
                     || project.getDescription().trim().length() == 0;
+            stats.missingOutcome = project.getOutcomeText() == null
+                    || project.getOutcomeText().trim().length() == 0;
+            stats.missingSuccessCriteria = project.getSuccessCriteriaText() == null
+                    || project.getSuccessCriteriaText().trim().length() == 0;
             stats.missingWeeklyReviewPeriod = !hasWeeklyReviewPeriod(stats.updateDue);
 
             if (stats.reviewScheduledToday) {
@@ -472,7 +478,8 @@ public class ProjectHealthPageService {
         item.setUndatedOpenCount(stats.undatedOpen);
         item.setReviewOverdue(stats.reviewOverdue);
 
-        if (stats.missingDescription || stats.missingWeeklyReviewPeriod || stats.overdueOpen > 0
+        if (stats.missingDescription || stats.missingOutcome || stats.missingSuccessCriteria
+                || stats.missingWeeklyReviewPeriod || stats.overdueOpen > 0
                 || stats.reviewOverdue) {
             item.setHealthLevel(ProjectListItemModel.HealthLevel.ATTENTION_NEEDED);
             item.setHealthLabel("attention needed");
@@ -530,10 +537,23 @@ public class ProjectHealthPageService {
     private List<ProjectHealthIssueModel> buildIssues(ProjectReportModel report, ProjectStats stats) {
         List<ProjectHealthIssueModel> issues = new ArrayList<ProjectHealthIssueModel>();
 
-        if (stats.missingDescription || stats.missingWeeklyReviewPeriod) {
+        if (stats.missingDescription || stats.missingOutcome || stats.missingSuccessCriteria
+                || stats.missingWeeklyReviewPeriod) {
             StringBuilder detail = new StringBuilder();
             if (stats.missingDescription) {
                 detail.append("Description is missing.");
+            }
+            if (stats.missingOutcome) {
+                if (detail.length() > 0) {
+                    detail.append(" ");
+                }
+                detail.append("Project outcome is missing.");
+            }
+            if (stats.missingSuccessCriteria) {
+                if (detail.length() > 0) {
+                    detail.append(" ");
+                }
+                detail.append("Success criteria are missing.");
             }
             if (stats.missingWeeklyReviewPeriod) {
                 if (detail.length() > 0) {
