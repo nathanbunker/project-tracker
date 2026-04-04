@@ -33,6 +33,10 @@
     <servlet-class>org.dandeliondaily.servlet.ReviewDashboardServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>PlanAheadServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.PlanAheadServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>CssServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.CssServlet</servlet-class>
   </servlet>
@@ -264,6 +268,10 @@
   <servlet-mapping>
     <servlet-name>ReviewDashboardServlet</servlet-name>
     <url-pattern>/ReviewDashboardServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>PlanAheadServlet</servlet-name>
+    <url-pattern>/PlanAheadServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>CssServlet</servlet-name>

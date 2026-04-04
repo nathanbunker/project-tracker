@@ -115,6 +115,19 @@ public class DashboardTodayColumnService {
         return model;
     }
 
+    public List<String> listQuickCaptureProjectNames(AppReq appReq) {
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+        List<Project> quickCaptureProjects = loadProjectList(webUser, dataSession);
+        List<String> projectNames = new ArrayList<String>();
+        for (Project project : quickCaptureProjects) {
+            if (project != null && project.getProjectName() != null) {
+                projectNames.add(project.getProjectName());
+            }
+        }
+        return projectNames;
+    }
+
     private DashboardTodayColumnModel.WorkdayReviewModel buildWorkdayReviewModel(WebUser webUser, Session dataSession,
             List<DashboardTodayColumnModel.TodayActionGroupModel> actionGroups,
             List<ProjectActionNext> completedToday) {

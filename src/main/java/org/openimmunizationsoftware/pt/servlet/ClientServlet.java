@@ -179,10 +179,11 @@ public class ClientServlet extends HttpServlet {
       return;
     }
     out.println("<style>");
-    out.println("  .pm-stack { display:flex; flex-direction:column; gap:6px; margin:8px 0; }");
+    out.println("  .pm-stack { display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin:8px 0; }");
     out.println("  .pm-stack.pm-overlay { position:fixed; z-index:10000; }");
     out.println("  .pm-msg { display:flex; align-items:flex-start; justify-content:space-between;");
-    out.println("            padding:10px 14px; border-radius:4px; font-size:13px; line-height:1.4; }");
+    out.println("            padding:10px 14px; border-radius:4px; font-size:13px; line-height:1.4;");
+    out.println("            width:auto; max-width:min(70ch, calc(100vw - 32px)); }");
     out.println("  .pm-success { background:#e8f5e9; border-left:4px solid #388e3c; color:#1b5e20; }");
     out.println("  .pm-info    { background:#e3f2fd; border-left:4px solid #1976d2; color:#0d47a1; }");
     out.println("  .pm-warning { background:#fff8e1; border-left:4px solid #f9a825; color:#6d4c00; }");
@@ -199,7 +200,6 @@ public class ClientServlet extends HttpServlet {
     out.println("    var rect = stack.getBoundingClientRect();");
     out.println("    stack.style.top = rect.top + 'px';");
     out.println("    stack.style.left = rect.left + 'px';");
-    out.println("    stack.style.width = rect.width + 'px';");
     out.println("    stack.classList.add('pm-overlay');");
     out.println("  }");
     out.println("  function pmDismiss(btn) {");
@@ -247,6 +247,7 @@ public class ClientServlet extends HttpServlet {
     if (loggedIn) {
       menuList.add(new String[] { Authenticate.APP_DEFAULT_HOME, "&#9776;" });
       menuList.add(new String[] { "DandelionDashboardServlet", "Dandelion Dashboard" });
+      menuList.add(new String[] { "PlanAheadServlet", "Plan Ahead" });
       menuList.add(new String[] { "ProjectHealthServlet", "Project Health" });
       menuList.add(new String[] { "ReviewDashboardServlet", "Review &amp; Report" });
     } else {

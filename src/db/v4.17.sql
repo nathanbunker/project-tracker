@@ -2,6 +2,8 @@
 -- Adds the project_issue table for lightweight issue tracking against projects.
 -- Supports BLOCKER / UNKNOWN / NOTE types and OPEN / RESOLVED status.
 
+DROP TABLE IF EXISTS project_action;
+
 CREATE TABLE project_issue (
     project_issue_id  INT          NOT NULL AUTO_INCREMENT,
     project_id        INT          NOT NULL,

@@ -136,7 +136,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             dashboardTodayColumnService.handleQuickCapture(appReq);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
-            appReq.setTitle("Dashboard");
+            appReq.setTitle("Dandelion Dashboard");
             DashboardNowColumnModel nowColumnModel = dashboardNowColumnService.buildModel(appReq);
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
             TimeGaugeModel nowGaugeModel = dashboardTimeGaugeService.buildNowGauge(appReq);
