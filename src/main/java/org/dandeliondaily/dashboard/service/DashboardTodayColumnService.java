@@ -102,10 +102,11 @@ public class DashboardTodayColumnService {
         // Real data wiring starts here for the middle Today column.
         List<ProjectActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
         List<ProjectActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
+        List<ProjectActionNext> ideasList = getWouldLikeToIdeasList(webUser, dataSession);
         sortProjectActionListByCompletionOrder(dueTodayList, webUser);
         sortProjectActionListByCompletionOrder(overdueList, webUser);
 
-        model.setActionGroups(buildTodayGroups(webUser, dueTodayList, overdueList));
+        model.setActionGroups(buildTodayGroups(webUser, dueTodayList, overdueList, ideasList));
 
         List<ProjectActionNext> completedToday = getProjectActionListClosedToday(webUser, dataSession);
         model.setCompletedToday(toActionItems(webUser, completedToday, "Completed"));
@@ -286,7 +287,8 @@ public class DashboardTodayColumnService {
     }
 
     private List<DashboardTodayColumnModel.TodayActionGroupModel> buildTodayGroups(WebUser webUser,
-            List<ProjectActionNext> dueTodayList, List<ProjectActionNext> overdueList) {
+            List<ProjectActionNext> dueTodayList, List<ProjectActionNext> overdueList,
+            List<ProjectActionNext> ideasList) {
         Map<Integer, List<ProjectActionNext>> bucketMap = new HashMap<Integer, List<ProjectActionNext>>();
         for (int bucket = BUCKET_START_OF_WORK_DAY; bucket <= BUCKET_OTHER; bucket++) {
             bucketMap.put(bucket, new ArrayList<ProjectActionNext>());
@@ -317,10 +319,32 @@ public class DashboardTodayColumnService {
         addGroup(groups, "Will Meet", toActionItems(webUser, bucketMap.get(BUCKET_WILL_MEET), "Will Meet"));
         addGroup(groups, "End of Work Day",
                 toActionItems(webUser, bucketMap.get(BUCKET_END_OF_WORK_DAY), "End of Work Day"));
-        addGroup(groups, "Personal (Afternoon & Evening)",
-                toActionItems(webUser, bucketMap.get(BUCKET_PERSONAL_LATE), "Personal"));
+        addGroup(groups, "Ideas", toActionItems(webUser, ideasList, "Ideas"));
         addGroup(groups, "Other", toActionItems(webUser, bucketMap.get(BUCKET_OTHER), "Other"));
         return groups;
+    }
+
+    private List<ProjectActionNext> getWouldLikeToIdeasList(WebUser webUser, Session dataSession) {
+        Query query = dataSession.createQuery(
+                "select distinct pan from ProjectActionNext pan "
+                        + "left join fetch pan.project "
+                        + "left join fetch pan.contact "
+                        + "left join fetch pan.nextProjectContact "
+                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "and pan.nextDescription <> '' "
+                        + "and pan.nextActionStatusString = :nextActionStatus "
+                        + "and pan.nextActionType = :nextActionType "
+                        + "and pan.billable = :billable "
+                        + "order by pan.actionNextId DESC");
+        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("nextContactId", webUser.getContactId());
+        query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
+        query.setParameter("nextActionType", ProjectNextActionType.WOULD_LIKE_TO);
+        query.setParameter("billable", true);
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> projectActionList = query.list();
+        return projectActionList;
     }
 
     private void addGroup(List<DashboardTodayColumnModel.TodayActionGroupModel> groups, String title,

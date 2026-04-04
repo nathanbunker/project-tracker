@@ -1755,8 +1755,7 @@ public class DashboardPageRenderer {
                                         continue;
                                 }
                                 boolean completedSection = "completed".equals(section.getId());
-                                boolean personalSection = "personal-morning".equals(section.getId())
-                                                || "personal-afternoon-evening".equals(section.getId());
+                                boolean personalSection = "personal-morning".equals(section.getId());
                                 boolean canReprioritizeSection = canReprioritizeTodaySection(section.getId());
                                 out.println("<div id=\"dd-today-section-" + section.getId()
                                                 + "\" class=\"dd-today-section dd-panel dd-panel-open\">");
@@ -2026,7 +2025,6 @@ public class DashboardPageRenderer {
                 return !"completed".equals(sectionId)
                                 && !"overdue".equals(sectionId)
                                 && !"personal-morning".equals(sectionId)
-                                && !"personal-afternoon-evening".equals(sectionId)
                                 && !"other".equals(sectionId);
         }
 
@@ -2849,9 +2847,7 @@ public class DashboardPageRenderer {
                 sections.put("waiting", new TodaySectionRenderModel("waiting", "Waiting"));
                 sections.put("might", new TodaySectionRenderModel("might", "Might"));
                 sections.put("personal-morning", new TodaySectionRenderModel("personal-morning", "Personal (Morning)"));
-                sections.put("personal-afternoon-evening",
-                                new TodaySectionRenderModel("personal-afternoon-evening",
-                                                "Personal (Afternoon/Evening)"));
+                sections.put("ideas", new TodaySectionRenderModel("ideas", "Ideas"));
                 sections.put("other", new TodaySectionRenderModel("other", "Other"));
 
                 for (DashboardTodayColumnModel.TodayActionGroupModel group : todayColumnModel.getActionGroups()) {
@@ -2875,8 +2871,8 @@ public class DashboardPageRenderer {
                                 sectionId = "might";
                         } else if ("Personal (Wake)".equals(title) || "Personal (Morning)".equals(title)) {
                                 sectionId = "personal-morning";
-                        } else if ("Personal (Afternoon & Evening)".equals(title)) {
-                                sectionId = "personal-afternoon-evening";
+                        } else if ("Ideas".equals(title)) {
+                                sectionId = "ideas";
                         } else if ("Other".equals(title)) {
                                 sectionId = "other";
                         }
