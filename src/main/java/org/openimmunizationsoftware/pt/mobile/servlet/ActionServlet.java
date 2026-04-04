@@ -793,6 +793,8 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
                 + ProjectNextActionType.MIGHT + "');\" class=\"button\">might</a>, ");
         out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WOULD_LIKE_TO + "');\" class=\"button\">would like to</a>, ");
+        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
                 + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
         out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
                 + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a>,");
@@ -940,6 +942,9 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("      } else if (actionType == '" + ProjectNextActionType.MIGHT + "')");
         out.println("      {");
         out.println("          return \"I might:\";");
+        out.println("      } else if (actionType == '" + ProjectNextActionType.WOULD_LIKE_TO + "')");
+        out.println("      {");
+        out.println("          return \"I would like to:\";");
         out.println("      } else if (actionType == '" + ProjectNextActionType.GOAL + "')");
         out.println("      {");
         out.println("          return \"I have a goal to:\";");

@@ -28,3 +28,6 @@ ALTER TABLE project
 -- Persist the exact prompt payload used for tracker narrative generation so it can be inspected.
 ALTER TABLE tracker_narrative
     ADD COLUMN prompt_used_text TEXT NULL;
+
+INSERT INTO project_next_action_type (next_action_type, next_action_label)
+VALUES ('WOULD_LIKE_TO', 'I would like to');

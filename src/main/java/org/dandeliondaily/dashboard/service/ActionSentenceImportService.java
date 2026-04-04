@@ -86,6 +86,9 @@ public class ActionSentenceImportService {
         } else if (actionPart.startsWith("I might ")) {
             actionVerb = "I might";
             actionToTake = actionPart.substring("I might ".length()).trim();
+        } else if (actionPart.startsWith("I would like to ")) {
+            actionVerb = "I would like to";
+            actionToTake = actionPart.substring("I would like to ".length()).trim();
         } else if (actionPart.startsWith("I have committed ")) {
             actionVerb = "I have committed";
             actionToTake = actionPart.substring("I have committed ".length()).trim();
@@ -164,6 +167,8 @@ public class ActionSentenceImportService {
             nextAction.setNextActionType(ProjectNextActionType.WILL);
         } else if (actionVerb.equals("I might")) {
             nextAction.setNextActionType(ProjectNextActionType.MIGHT);
+        } else if (actionVerb.equals("I would like to")) {
+            nextAction.setNextActionType(ProjectNextActionType.WOULD_LIKE_TO);
         } else if (actionVerb.equals("I have committed")) {
             nextAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
         } else if (actionVerb.equals("I will meet")) {

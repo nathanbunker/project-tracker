@@ -145,6 +145,10 @@ public class ProjectActionNext implements java.io.Serializable {
         return nextActionType != null && nextActionType.equals(ProjectNextActionType.MIGHT);
     }
 
+    public boolean isWouldLikeTo() {
+        return nextActionType != null && nextActionType.equals(ProjectNextActionType.WOULD_LIKE_TO);
+    }
+
     public boolean isCommittedTo() {
         return nextActionType != null && nextActionType.equals(ProjectNextActionType.COMMITTED_TO);
     }
@@ -438,6 +442,8 @@ public class ProjectActionNext implements java.io.Serializable {
             }
         } else if (type.equals(ProjectNextActionType.MIGHT)) {
             description = "<i>" + i_ + " might</i> " + getNextDescription();
+        } else if (type.equals(ProjectNextActionType.WOULD_LIKE_TO)) {
+            description = "<i>" + i_ + " would like to</i> " + getNextDescription();
         } else if (type.equals(ProjectNextActionType.COMMITTED_TO)) {
             if (nextProjectContact == null) {
                 description = "<i>" + i_have + " committed to </i> " + getNextDescription();

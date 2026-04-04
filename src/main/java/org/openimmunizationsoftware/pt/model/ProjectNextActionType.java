@@ -10,14 +10,15 @@ public class ProjectNextActionType implements java.io.Serializable {
   public static String WILL = "WILL";
   public static String WILL_CONTACT = "WILL_CONTACT";
   public static String WILL_MEET = "WILL_MEET";
-  public static String WILL_REVIEW = "REVIEW"; 
-  public static String WILL_DOCUMENT = "DOCUMENT"; 
+  public static String WILL_REVIEW = "REVIEW";
+  public static String WILL_DOCUMENT = "DOCUMENT";
   public static String WILL_FOLLOW_UP = "WILL_FOLLOW_UP";
   public static String MIGHT = "MIGHT";
+  public static String WOULD_LIKE_TO = "WOULD_LIKE_TO";
   public static String COMMITTED_TO = "COMMITTED_TO";
   public static String GOAL = "GOAL";
   public static String WAITING = "WAITING";
-  public static String OVERDUE_TO = "OVERDUE_TO"; 
+  public static String OVERDUE_TO = "OVERDUE_TO";
 
   public static String getLabel(String projectNextActionType) {
     if (projectNextActionType.equals(WILL)) {
@@ -34,6 +35,8 @@ public class ProjectNextActionType implements java.io.Serializable {
       return "Follow Up";
     } else if (projectNextActionType.equals(MIGHT)) {
       return "Might";
+    } else if (projectNextActionType.equals(WOULD_LIKE_TO)) {
+      return "I would like to";
     } else if (projectNextActionType.equals(COMMITTED_TO)) {
       return "Committed To";
     } else if (projectNextActionType.equals(GOAL)) {
@@ -45,9 +48,8 @@ public class ProjectNextActionType implements java.io.Serializable {
     }
     return projectNextActionType;
   }
-  
-  public static int defaultPriority(String projectNextActionType)
-  {
+
+  public static int defaultPriority(String projectNextActionType) {
     if (projectNextActionType == null) {
       return 0;
     }
@@ -65,6 +67,8 @@ public class ProjectNextActionType implements java.io.Serializable {
       return 4;
     } else if (projectNextActionType.equals(MIGHT)) {
       return 3;
+    } else if (projectNextActionType.equals(WOULD_LIKE_TO)) {
+      return 3;
     } else if (projectNextActionType.equals(COMMITTED_TO)) {
       return 5;
     } else if (projectNextActionType.equals(GOAL)) {
@@ -76,7 +80,6 @@ public class ProjectNextActionType implements java.io.Serializable {
     }
     return 0;
   }
-  
 
   private String nextActionType;
   private String nextActionLabel;

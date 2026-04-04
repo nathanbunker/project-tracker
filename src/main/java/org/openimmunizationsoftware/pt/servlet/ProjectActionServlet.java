@@ -826,6 +826,9 @@ public class ProjectActionServlet extends ClientServlet {
     } else if (actionPart.startsWith("I might ")) {
       actionVerb = "I might";
       actionToTake = actionPart.substring("I might ".length()).trim();
+    } else if (actionPart.startsWith("I would like to ")) {
+      actionVerb = "I would like to";
+      actionToTake = actionPart.substring("I would like to ".length()).trim();
     } else if (actionPart.startsWith("I have committed ")) {
       actionVerb = "I have committed";
       actionToTake = actionPart.substring("I have committed ".length()).trim();
@@ -922,6 +925,8 @@ public class ProjectActionServlet extends ClientServlet {
       nextAction.setNextActionType(ProjectNextActionType.WILL);
     } else if (actionVerb.equals("I might")) {
       nextAction.setNextActionType(ProjectNextActionType.MIGHT);
+    } else if (actionVerb.equals("I would like to")) {
+      nextAction.setNextActionType(ProjectNextActionType.WOULD_LIKE_TO);
     } else if (actionVerb.equals("I have committed")) {
       nextAction.setNextActionType(ProjectNextActionType.COMMITTED_TO);
     } else if (actionVerb.equals("I will meet")) {
@@ -2028,6 +2033,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     return actionType.equals(ProjectNextActionType.WILL)
         || actionType.equals(ProjectNextActionType.MIGHT)
+        || actionType.equals(ProjectNextActionType.WOULD_LIKE_TO)
         || actionType.equals(ProjectNextActionType.WILL_CONTACT)
         || actionType.equals(ProjectNextActionType.WILL_MEET)
         || actionType.equals(ProjectNextActionType.WILL_REVIEW)
@@ -2653,6 +2659,8 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
         + ProjectNextActionType.MIGHT + "');\" class=\"button\">might</a>, ");
     out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
+        + ProjectNextActionType.WOULD_LIKE_TO + "');\" class=\"button\">would like to</a>, ");
+    out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
         + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
     out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
         + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a>,");
@@ -3022,7 +3030,7 @@ public class ProjectActionServlet extends ClientServlet {
     }
     out.println("];");
     out.println(
-        "const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
+        "const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
     out.println("const dateSuggestions = [\"today\", \"tomorrow\", \"Monday\", \"next Monday\", \"10/05/2025\"];");
     out.println("");
     out.println("const input = document.getElementById(\"sentenceInput\");");
@@ -3134,7 +3142,7 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("  const followUpInput = document.getElementById('workFollowUpInput');");
     out.println("  const suggestionsBox = document.getElementById('workSuggestions');");
     out.println(
-        "  const actionVerbs = ['I will', 'I have committed', 'I might', 'I will meet', 'I have set goal to', 'I am waiting'];");
+        "  const actionVerbs = ['I will', 'I have committed', 'I might', 'I would like to', 'I will meet', 'I have set goal to', 'I am waiting'];");
     out.println("  const dateSuggestions = ['today', 'tomorrow', 'Monday', 'next Monday'];");
     out.println("  const statusInputs = document.querySelectorAll('input[name=\"" + PARAM_WORK_STATUS + "\"]');");
     out.println("  const nextButton = document.querySelector('button[name=\"" + PARAM_ACTION + "\"][value=\""
@@ -4008,6 +4016,7 @@ public class ProjectActionServlet extends ClientServlet {
       out.println("    <div style=\"margin: 6px 0;\"><strong>Action Verb</strong><br/>");
       printActionTypeOption(out, selectedType, ProjectNextActionType.WILL, "will");
       printActionTypeOption(out, selectedType, ProjectNextActionType.MIGHT, "might");
+      printActionTypeOption(out, selectedType, ProjectNextActionType.WOULD_LIKE_TO, "would like to");
       printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_CONTACT, "will contact");
       printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_MEET, "will meet");
       printActionTypeOption(out, selectedType, ProjectNextActionType.WILL_REVIEW, "will review");
@@ -4351,6 +4360,9 @@ public class ProjectActionServlet extends ClientServlet {
     out.println("      } else if (actionType == '" + ProjectNextActionType.MIGHT + "')");
     out.println("      {");
     out.println("          return \"I might:\";");
+    out.println("      } else if (actionType == '" + ProjectNextActionType.WOULD_LIKE_TO + "')");
+    out.println("      {");
+    out.println("          return \"I would like to:\";");
     out.println("      } else if (actionType == '" + ProjectNextActionType.GOAL + "')");
     out.println("      {");
     out.println("          return \"I have a goal to:\";");
