@@ -80,6 +80,8 @@ public class ProjectHealthPageRenderer {
                 out.println("    </span>");
                 out.println("  </div>");
                 printProjectCadenceGroups(out, model.getWorkProjectGroups(), "WORK");
+                printPhasedSection(out, model.getPausedWorkProjects(), "Paused");
+                printPhasedSection(out, model.getCompletedWorkProjects(), "Complete");
 
                 out.println("  <div class=\"ph-divider\"></div>");
                 out.println("  <div class=\"ph-section-title-row ph-section-title-row-sub\">");
@@ -87,7 +89,17 @@ public class ProjectHealthPageRenderer {
                 out.println("  </div>");
                 printDevLabel(out, "PROJECTS PERSONAL");
                 printProjectCadenceGroups(out, model.getPersonalProjectGroups(), "PERSONAL");
+                printPhasedSection(out, model.getPausedPersonalProjects(), "Paused");
+                printPhasedSection(out, model.getCompletedPersonalProjects(), "Complete");
                 out.println("</div>");
+        }
+
+        private void printPhasedSection(PrintWriter out, List<ProjectListItemModel> projects, String sectionLabel) {
+                if (projects == null || projects.isEmpty()) {
+                        return;
+                }
+                out.println("  <h4 class=\"ph-bucket-title\">" + escapeHtml(sectionLabel) + "</h4>");
+                printSimpleProjectTable(out, projects);
         }
 
         private void printProjectCadenceGroups(PrintWriter out, List<ProjectCadenceGroupModel> groups, String section) {
@@ -133,6 +145,27 @@ public class ProjectHealthPageRenderer {
                                         + "\">"
                                         + healthIcon + " " + escapeHtml(item.getHealthLabel()) + "</span></td>");
 
+                        out.println("      <td><span class=\"ph-row-actions\">");
+                        out.println(
+                                        "        <button class=\"ph-mini-btn\" type=\"button\" title=\"Reprioritize\" onclick=\"phOpenReprioritizeProjectModalFor("
+                                                        + item.getProjectId() + ", event)\">↕️</button>");
+                        out.println("        <a class=\"ph-mini-btn-link\" title=\"Select\" href=\"ProjectHealthServlet?projectId="
+                                        + item.getProjectId() + "\">→</a>");
+                        out.println("      </span></td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+        }
+
+        private void printSimpleProjectTable(PrintWriter out, List<ProjectListItemModel> projects) {
+                out.println("  <table class=\"ph-project-table\">");
+                out.println("    <tr><th>Project</th><th>Actions</th></tr>");
+                for (ProjectListItemModel item : projects) {
+                        String rowClass = item.isSelected() ? " class=\"ph-selected\"" : "";
+                        out.println("    <tr" + rowClass + ">");
+                        out.println("      <td><a class=\"ph-project-link\" href=\"ProjectHealthServlet?projectId="
+                                        + item.getProjectId()
+                                        + "\">" + escapeHtml(item.getProjectName()) + "</a></td>");
                         out.println("      <td><span class=\"ph-row-actions\">");
                         out.println(
                                         "        <button class=\"ph-mini-btn\" type=\"button\" title=\"Reprioritize\" onclick=\"phOpenReprioritizeProjectModalFor("
@@ -222,6 +255,9 @@ public class ProjectHealthPageRenderer {
                 out.println("  <h2>Project Health Issues</h2>");
                 if (!model.isSelectedProjectAvailable()) {
                         out.println("  <p class=\"ph-subtle\">Select a project to review health issues.</p>");
+                } else if (!model.isHealthCheckApplicable()) {
+                        out.println(
+                                        "  <p class=\"ph-subtle\">Health check not applicable for paused or complete projects.</p>");
                 } else {
                         out.println("  <ul class=\"ph-issues\">");
                         for (ProjectHealthIssueModel issue : model.getIssues()) {

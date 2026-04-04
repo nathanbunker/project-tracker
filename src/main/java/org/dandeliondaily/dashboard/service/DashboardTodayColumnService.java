@@ -468,7 +468,8 @@ public class DashboardTodayColumnService {
 
     private List<Project> loadProjectList(WebUser webUser, Session dataSession) {
         Query query = dataSession
-                .createQuery("from Project where provider = ? and phaseCode <> 'Clos' order by projectName");
+                .createQuery(
+                        "from Project where provider = ? and (phaseCode is null or phaseCode = 'Acti') order by projectName");
         query.setParameter(0, webUser.getProvider());
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();

@@ -42,6 +42,9 @@ public class ProjectHealthPageService {
 
     public static final String PARAM_PROJECT_ID = "projectId";
     private static final String BUCKET_NONE = "NONE";
+    private static final String PHASE_ACTIVE = "Acti";
+    private static final String PHASE_PAUSED = "Paus";
+    private static final String PHASE_COMPLETE = "Comp";
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
 
@@ -99,6 +102,10 @@ public class ProjectHealthPageService {
 
         List<ProjectCadenceGroupModel> workProjectGroups = createCadenceGroups();
         List<ProjectCadenceGroupModel> personalProjectGroups = createCadenceGroups();
+        List<ProjectListItemModel> pausedWorkProjects = new ArrayList<ProjectListItemModel>();
+        List<ProjectListItemModel> completedWorkProjects = new ArrayList<ProjectListItemModel>();
+        List<ProjectListItemModel> pausedPersonalProjects = new ArrayList<ProjectListItemModel>();
+        List<ProjectListItemModel> completedPersonalProjects = new ArrayList<ProjectListItemModel>();
         Map<String, ProjectCadenceGroupModel> workGroupsByKey = toGroupMap(workProjectGroups);
         Map<String, ProjectCadenceGroupModel> personalGroupsByKey = toGroupMap(personalProjectGroups);
 
@@ -109,8 +116,26 @@ public class ProjectHealthPageService {
             if (item.isSelected()) {
                 selectedProject = project;
             }
+            String normalizedPhaseCode = normalizePhaseCode(project.getPhaseCode());
+            boolean personalProject = isPersonalProject(project, dataSession);
+            if (PHASE_PAUSED.equals(normalizedPhaseCode)) {
+                if (personalProject) {
+                    pausedPersonalProjects.add(item);
+                } else {
+                    pausedWorkProjects.add(item);
+                }
+                continue;
+            }
+            if (PHASE_COMPLETE.equals(normalizedPhaseCode)) {
+                if (personalProject) {
+                    completedPersonalProjects.add(item);
+                } else {
+                    completedWorkProjects.add(item);
+                }
+                continue;
+            }
             String bucketKey = bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId()));
-            if (isPersonalProject(project, dataSession)) {
+            if (personalProject) {
                 personalGroupsByKey.get(bucketKey).getProjects().add(item);
             } else {
                 workGroupsByKey.get(bucketKey).getProjects().add(item);
@@ -119,6 +144,10 @@ public class ProjectHealthPageService {
 
         model.setWorkProjectGroups(workProjectGroups);
         model.setPersonalProjectGroups(personalProjectGroups);
+        model.setPausedWorkProjects(pausedWorkProjects);
+        model.setCompletedWorkProjects(completedWorkProjects);
+        model.setPausedPersonalProjects(pausedPersonalProjects);
+        model.setCompletedPersonalProjects(completedPersonalProjects);
 
         if (selectedProject != null) {
             appReq.setProject(selectedProject);
@@ -126,7 +155,14 @@ public class ProjectHealthPageService {
             model.setSelectedProjectAvailable(true);
             model.setSelectedProjectName(n(selectedProject.getProjectName()));
             model.setReport(buildReport(appReq, selectedProject, selectedStats));
-            model.setIssues(buildIssues(model.getReport(), selectedStats));
+            String selectedPhaseCode = normalizePhaseCode(selectedProject.getPhaseCode());
+            boolean healthCheckApplicable = PHASE_ACTIVE.equals(selectedPhaseCode);
+            model.setHealthCheckApplicable(healthCheckApplicable);
+            if (healthCheckApplicable) {
+                model.setIssues(buildIssues(model.getReport(), selectedStats));
+            } else {
+                model.setIssues(new ArrayList<ProjectHealthIssueModel>());
+            }
         }
 
         return model;
@@ -1024,6 +1060,13 @@ public class ProjectHealthPageService {
         }
         BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
+    }
+
+    private String normalizePhaseCode(String phaseCode) {
+        if (phaseCode == null || phaseCode.trim().length() == 0) {
+            return PHASE_ACTIVE;
+        }
+        return phaseCode.trim();
     }
 
     private String formatDate(WebUser webUser, Date date) {
