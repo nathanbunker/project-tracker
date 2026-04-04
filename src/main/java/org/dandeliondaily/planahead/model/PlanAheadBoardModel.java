@@ -7,6 +7,7 @@ import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 
 public class PlanAheadBoardModel {
 
+    private String mode = "WORK";
     private String windowStartKey = "";
     private String windowEndKey = "";
     private String quickCaptureSentenceValue = "";
@@ -18,6 +19,22 @@ public class PlanAheadBoardModel {
 
     public String getWindowStartKey() {
         return windowStartKey;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public void setMode(String mode) {
+        this.mode = mode == null ? "WORK" : mode;
+    }
+
+    public boolean isPersonalMode() {
+        return "PERSONAL".equalsIgnoreCase(mode);
+    }
+
+    public boolean isWorkMode() {
+        return !isPersonalMode();
     }
 
     public void setWindowStartKey(String windowStartKey) {

@@ -26,20 +26,54 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class PlanAheadBoardService {
 
-    public static final int WINDOW_DAYS = 5;
+    public static final int WORK_WINDOW_DAYS = 5;
+    public static final int PERSONAL_WINDOW_DAYS = 7;
+    public static final String MODE_WORK = "WORK";
+    public static final String MODE_PERSONAL = "PERSONAL";
 
     public static final String ROW_MEETINGS = "meetings";
     public static final String ROW_COMMITTED = "committed";
     public static final String ROW_WILL = "will";
     public static final String ROW_MIGHT = "might";
+    public static final String ROW_WAKE = "wake";
+    public static final String ROW_MORNING = "morning";
+    public static final String ROW_AFTERNOON = "afternoon";
+    public static final String ROW_EVENING = "evening";
 
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final PlanAheadGaugeService gaugeService = new PlanAheadGaugeService();
     private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
+
+    public String resolveMode(AppReq appReq) {
+        String requestedMode = n(appReq.getRequest().getParameter("mode")).trim();
+        if (MODE_PERSONAL.equalsIgnoreCase(requestedMode)) {
+            appReq.getWebSession().setAttribute("PLAN_AHEAD_MODE", MODE_PERSONAL);
+            return MODE_PERSONAL;
+        }
+        if (MODE_WORK.equalsIgnoreCase(requestedMode)) {
+            appReq.getWebSession().setAttribute("PLAN_AHEAD_MODE", MODE_WORK);
+            return MODE_WORK;
+        }
+        Object modeFromSession = appReq.getWebSession().getAttribute("PLAN_AHEAD_MODE");
+        if (modeFromSession instanceof String
+                && MODE_PERSONAL.equalsIgnoreCase(((String) modeFromSession).trim())) {
+            return MODE_PERSONAL;
+        }
+        return MODE_WORK;
+    }
+
+    public void setMode(AppReq appReq, String mode) {
+        if (MODE_PERSONAL.equalsIgnoreCase(mode)) {
+            appReq.getWebSession().setAttribute("PLAN_AHEAD_MODE", MODE_PERSONAL);
+            return;
+        }
+        appReq.getWebSession().setAttribute("PLAN_AHEAD_MODE", MODE_WORK);
+    }
 
     public Date resolveWindowStart(AppReq appReq) {
         WebUser webUser = appReq.getWebUser();
@@ -68,9 +102,12 @@ public class PlanAheadBoardService {
     public PlanAheadBoardModel buildBoard(AppReq appReq, Date windowStart) {
         PlanAheadBoardModel model = new PlanAheadBoardModel();
         WebUser webUser = appReq.getWebUser();
+        String mode = resolveMode(appReq);
+        boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
+        model.setMode(mode);
 
         Date safeStart = stripToDate(webUser, windowStart);
-        List<Date> dayList = createDayList(webUser, safeStart, WINDOW_DAYS);
+        List<Date> dayList = createDayList(webUser, safeStart, resolveWindowDays(mode));
         model.setWindowStartKey(toDayKey(dayList.get(0)));
         model.setWindowEndKey(toDayKey(dayList.get(dayList.size() - 1)));
         String action = n(appReq.getRequest().getParameter("action"));
@@ -89,8 +126,8 @@ public class PlanAheadBoardService {
         Date startDate = dayList.get(0);
         Date endDateExclusive = nextDay(dayList.get(dayList.size() - 1), webUser);
 
-        List<ProjectActionNext> templateActions = loadTemplateActions(appReq);
-        List<ProjectActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, startDate,
+        List<ProjectActionNext> templateActions = loadTemplateActions(appReq, mode);
+        List<ProjectActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate,
                 endDateExclusive);
         boolean shouldMaterializeDefaults = action.length() == 0
                 || "Schedule".equals(action)
@@ -98,17 +135,17 @@ public class PlanAheadBoardService {
                 || "saveTemplateEstimate".equals(action)
                 || "saveTemplateEdit".equals(action);
         boolean createdDefaults = shouldMaterializeDefaults
-                && ensureDefaultTemplateGeneratedActions(appReq, templateActions, dayList, dayCapacityMap,
+                && ensureDefaultTemplateGeneratedActions(appReq, mode, templateActions, dayList, dayCapacityMap,
                         generatedTemplateActions);
 
-        List<ProjectActionNext> movableActions = loadMovableActions(appReq, startDate, endDateExclusive);
-        List<ProjectActionNext> plannedActions = loadPlannedActions(appReq, startDate, endDateExclusive);
+        List<ProjectActionNext> movableActions = loadMovableActions(appReq, mode, startDate, endDateExclusive);
+        List<ProjectActionNext> plannedActions = loadPlannedActions(appReq, mode, startDate, endDateExclusive);
         if (createdDefaults) {
-            generatedTemplateActions = loadGeneratedTemplateActions(appReq, startDate, endDateExclusive);
+            generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate, endDateExclusive);
         }
 
         Map<String, List<ProjectActionNext>> plannedByDay = bucketByDay(plannedActions);
-        Map<String, List<ProjectActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions);
+        Map<String, List<ProjectActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions, mode);
 
         List<PlanAheadBoardModel.DayHeaderModel> dayHeaders = new ArrayList<PlanAheadBoardModel.DayHeaderModel>();
         String todayKey = toDayKey(stripToDate(webUser, webUser.getToday()));
@@ -126,39 +163,48 @@ public class PlanAheadBoardService {
             } else {
                 timeAdder = new TimeAdder(dayPlannedActions, appReq, day);
             }
-            int plannedMinutes = timeAdder.getWillAct();
-            int availableMinutes = dayCapacity.getBillMins() - plannedMinutes;
+            int plannedMinutes = personalMode ? 0 : timeAdder.getWillAct();
+            int availableMinutes = personalMode ? 0 : dayCapacity.getBillMins() - plannedMinutes;
 
             PlanAheadBoardModel.DayHeaderModel dayHeader = new PlanAheadBoardModel.DayHeaderModel();
             dayHeader.setDayKey(dayKey);
             dayHeader.setDayLabel(webUser.getDateFormatService().formatPattern(day, "EEEE", webUser.getTimeZone()));
             dayHeader.setDateLabel(
                     webUser.getDateFormatService().formatPattern(day, "MMM dd, yyyy", webUser.getTimeZone()));
-            dayHeader.setBillMins(dayCapacity.getBillMins());
+            dayHeader.setBillMins(personalMode ? 0 : dayCapacity.getBillMins());
             dayHeader.setPlannedMins(plannedMinutes);
             dayHeader.setAvailableMins(availableMinutes);
-            dayHeader.setWorkStatusCode(dayCapacity.getWorkStatusCode());
-            dayHeader.setWorkStatusLabel(dayCapacityService.getStatusLabel(dayCapacity.getWorkStatusCode()));
+            dayHeader.setWorkStatusCode(personalMode ? "" : dayCapacity.getWorkStatusCode());
+            dayHeader.setWorkStatusLabel(
+                    personalMode ? "" : dayCapacityService.getStatusLabel(dayCapacity.getWorkStatusCode()));
             dayHeader.setGauge(gaugeService.buildDayGauge(plannedMinutes, availableMinutes));
             dayHeaders.add(dayHeader);
         }
         model.setDayHeaders(dayHeaders);
 
-        model.setRows(createRows(appReq, dayHeaders, movableByDayRow));
+        model.setRows(createRows(appReq, mode, dayHeaders, movableByDayRow));
         model.setTemplateRow(
-                createTemplateRow(appReq, templateActions, dayHeaders, dayCapacityMap, generatedTemplateActions,
+                createTemplateRow(appReq, mode, templateActions, dayHeaders, dayCapacityMap, generatedTemplateActions,
                         shouldMaterializeDefaults));
         return model;
     }
 
     private List<PlanAheadBoardModel.RowModel> createRows(AppReq appReq,
+            String mode,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
             Map<String, List<ProjectActionNext>> movableByDayRow) {
         List<PlanAheadBoardModel.RowModel> rows = new ArrayList<PlanAheadBoardModel.RowModel>();
-        rows.add(createRow(appReq, ROW_MEETINGS, "Meetings", dayHeaders, movableByDayRow));
-        rows.add(createRow(appReq, ROW_COMMITTED, "Committed", dayHeaders, movableByDayRow));
-        rows.add(createRow(appReq, ROW_WILL, "Will", dayHeaders, movableByDayRow));
-        rows.add(createRow(appReq, ROW_MIGHT, "Might", dayHeaders, movableByDayRow));
+        if (MODE_PERSONAL.equalsIgnoreCase(mode)) {
+            rows.add(createRow(appReq, ROW_WAKE, "Wake", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_MORNING, "Morning", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_AFTERNOON, "Afternoon", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_EVENING, "Evening", dayHeaders, movableByDayRow));
+        } else {
+            rows.add(createRow(appReq, ROW_MEETINGS, "Meetings", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_COMMITTED, "Committed", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_WILL, "Will", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_MIGHT, "Might", dayHeaders, movableByDayRow));
+        }
         return rows;
     }
 
@@ -205,11 +251,13 @@ public class PlanAheadBoardService {
     }
 
     private PlanAheadBoardModel.TemplateRowModel createTemplateRow(AppReq appReq,
+            String mode,
             List<ProjectActionNext> templateActions,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
             Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
             List<ProjectActionNext> generatedTemplateActions,
             boolean allowDefaultSelections) {
+        boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
         PlanAheadBoardModel.TemplateRowModel row = new PlanAheadBoardModel.TemplateRowModel();
         Map<String, ProjectActionNext> generatedByTemplateDay = new HashMap<String, ProjectActionNext>();
         Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
@@ -223,8 +271,15 @@ public class PlanAheadBoardService {
                     generatedAction);
         }
 
+        List<ProjectActionNext> orderedTemplates = new ArrayList<ProjectActionNext>(templateActions);
+        if (personalMode) {
+            orderedTemplates.sort(Comparator
+                    .comparingInt((ProjectActionNext pa) -> toTimeSlotOrder(pa.getTimeSlot()))
+                    .thenComparing((ProjectActionNext pa) -> n(pa.getNextDescription())));
+        }
+
         List<PlanAheadBoardModel.TemplateCardModel> cards = new ArrayList<PlanAheadBoardModel.TemplateCardModel>();
-        for (ProjectActionNext action : templateActions) {
+        for (ProjectActionNext action : orderedTemplates) {
             PlanAheadBoardModel.TemplateCardModel card = new PlanAheadBoardModel.TemplateCardModel();
             card.setTemplateActionNextId(action.getActionNextId());
             card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
@@ -253,7 +308,7 @@ public class PlanAheadBoardService {
                             && !templateIdsWithGenerated.contains(action.getActionNextId())
                             && TemplateType.DAILY.equals(templateType);
                     PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayHeader.getDayKey());
-                    if (defaultSelected && dayCapacity != null) {
+                    if (!personalMode && defaultSelected && dayCapacity != null) {
                         defaultSelected = PlanAheadDayCapacityService.STATUS_WORKING
                                 .equals(dayCapacity.getWorkStatusCode());
                     }
@@ -268,12 +323,14 @@ public class PlanAheadBoardService {
         return row;
     }
 
-    private List<ProjectActionNext> loadGeneratedTemplateActions(AppReq appReq, Date startDate, Date endDateExclusive) {
+    private List<ProjectActionNext> loadGeneratedTemplateActions(AppReq appReq, String mode, Date startDate,
+            Date endDateExclusive) {
+        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = true "
+                        + "and pan.billable = :billable "
                         + "and pan.templateActionNextId is not null "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
                         + "and pan.nextActionStatusString <> :completed "
@@ -281,6 +338,7 @@ public class PlanAheadBoardService {
         query.setParameter("provider", appReq.getWebUser().getProvider());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
         query.setParameter("startDate", startDate);
         query.setParameter("endDate", endDateExclusive);
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
@@ -290,10 +348,12 @@ public class PlanAheadBoardService {
     }
 
     private boolean ensureDefaultTemplateGeneratedActions(AppReq appReq,
+            String mode,
             List<ProjectActionNext> templateActions,
             List<Date> dayList,
             Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
             List<ProjectActionNext> generatedTemplateActions) {
+        boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
         if (templateActions == null || templateActions.isEmpty() || dayList == null || dayList.isEmpty()) {
             return false;
         }
@@ -341,7 +401,7 @@ public class PlanAheadBoardService {
                         continue;
                     }
                     PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayKey);
-                    if (dayCapacity != null && !PlanAheadDayCapacityService.STATUS_WORKING
+                    if (!personalMode && dayCapacity != null && !PlanAheadDayCapacityService.STATUS_WORKING
                             .equals(dayCapacity.getWorkStatusCode())) {
                         continue;
                     }
@@ -392,13 +452,15 @@ public class PlanAheadBoardService {
         return created;
     }
 
-    private List<ProjectActionNext> loadMovableActions(AppReq appReq, Date startDate, Date endDateExclusive) {
+    private List<ProjectActionNext> loadMovableActions(AppReq appReq, String mode, Date startDate,
+            Date endDateExclusive) {
+        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
                         + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = true "
+                        + "and pan.billable = :billable "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
                         + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
@@ -408,6 +470,7 @@ public class PlanAheadBoardService {
         query.setParameter("provider", appReq.getWebUser().getProvider());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
         query.setParameter("startDate", startDate);
         query.setParameter("endDate", endDateExclusive);
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
@@ -416,20 +479,22 @@ public class PlanAheadBoardService {
         List<ProjectActionNext> list = query.list();
         List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
         for (ProjectActionNext action : list) {
-            if (toRowKey(action.getNextActionType()).length() > 0) {
+            if (toRowKey(action, mode).length() > 0) {
                 filtered.add(action);
             }
         }
         return filtered;
     }
 
-    private List<ProjectActionNext> loadPlannedActions(AppReq appReq, Date startDate, Date endDateExclusive) {
+    private List<ProjectActionNext> loadPlannedActions(AppReq appReq, String mode, Date startDate,
+            Date endDateExclusive) {
+        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
                         + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = true "
+                        + "and pan.billable = :billable "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
                         + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
@@ -437,6 +502,7 @@ public class PlanAheadBoardService {
         query.setParameter("provider", appReq.getWebUser().getProvider());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
         query.setParameter("startDate", startDate);
         query.setParameter("endDate", endDateExclusive);
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
@@ -446,19 +512,21 @@ public class PlanAheadBoardService {
         return list;
     }
 
-    private List<ProjectActionNext> loadTemplateActions(AppReq appReq) {
+    private List<ProjectActionNext> loadTemplateActions(AppReq appReq, String mode) {
+        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
                         + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = true "
+                        + "and pan.billable = :billable "
                         + "and (pan.templateTypeString is not null and pan.templateTypeString <> '') "
                         + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
                         + "order by pan.priorityLevel desc, pan.nextTimeEstimate desc");
         query.setParameter("provider", appReq.getWebUser().getProvider());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
         @SuppressWarnings("unchecked")
@@ -466,10 +534,10 @@ public class PlanAheadBoardService {
         return list;
     }
 
-    private Map<String, List<ProjectActionNext>> bucketMovableByDayRow(List<ProjectActionNext> actions) {
+    private Map<String, List<ProjectActionNext>> bucketMovableByDayRow(List<ProjectActionNext> actions, String mode) {
         Map<String, List<ProjectActionNext>> map = new LinkedHashMap<String, List<ProjectActionNext>>();
         for (ProjectActionNext action : actions) {
-            String rowKey = toRowKey(action.getNextActionType());
+            String rowKey = toRowKey(action, mode);
             if (rowKey.length() == 0 || action.getNextActionDate() == null) {
                 continue;
             }
@@ -499,6 +567,26 @@ public class PlanAheadBoardService {
             bucket.add(action);
         }
         return map;
+    }
+
+    private String toRowKey(ProjectActionNext action, String mode) {
+        if (MODE_PERSONAL.equalsIgnoreCase(mode)) {
+            TimeSlot timeSlot = action.getTimeSlot();
+            if (timeSlot == null) {
+                timeSlot = TimeSlot.AFTERNOON;
+            }
+            if (timeSlot == TimeSlot.WAKE) {
+                return ROW_WAKE;
+            }
+            if (timeSlot == TimeSlot.MORNING) {
+                return ROW_MORNING;
+            }
+            if (timeSlot == TimeSlot.EVENING) {
+                return ROW_EVENING;
+            }
+            return ROW_AFTERNOON;
+        }
+        return toRowKey(action.getNextActionType());
     }
 
     private String toRowKey(String actionType) {
@@ -541,6 +629,51 @@ public class PlanAheadBoardService {
         return "";
     }
 
+    public TimeSlot resolveTimeSlotForRowKey(String rowKey) {
+        if (ROW_WAKE.equals(rowKey)) {
+            return TimeSlot.WAKE;
+        }
+        if (ROW_MORNING.equals(rowKey)) {
+            return TimeSlot.MORNING;
+        }
+        if (ROW_EVENING.equals(rowKey)) {
+            return TimeSlot.EVENING;
+        }
+        if (ROW_AFTERNOON.equals(rowKey)) {
+            return TimeSlot.AFTERNOON;
+        }
+        return null;
+    }
+
+    public String resolveRowKeyForTimeSlot(TimeSlot timeSlot) {
+        if (timeSlot == null || timeSlot == TimeSlot.AFTERNOON) {
+            return ROW_AFTERNOON;
+        }
+        if (timeSlot == TimeSlot.WAKE) {
+            return ROW_WAKE;
+        }
+        if (timeSlot == TimeSlot.MORNING) {
+            return ROW_MORNING;
+        }
+        if (timeSlot == TimeSlot.EVENING) {
+            return ROW_EVENING;
+        }
+        return ROW_AFTERNOON;
+    }
+
+    private int toTimeSlotOrder(TimeSlot timeSlot) {
+        if (timeSlot == TimeSlot.WAKE) {
+            return 0;
+        }
+        if (timeSlot == TimeSlot.MORNING) {
+            return 1;
+        }
+        if (timeSlot == TimeSlot.AFTERNOON || timeSlot == null) {
+            return 2;
+        }
+        return 3;
+    }
+
     private List<Date> createDayList(WebUser webUser, Date startDate, int count) {
         List<Date> dates = new ArrayList<Date>();
         Calendar calendar = webUser.getCalendar();
@@ -550,6 +683,10 @@ public class PlanAheadBoardService {
             calendar.add(Calendar.DAY_OF_MONTH, 1);
         }
         return dates;
+    }
+
+    private int resolveWindowDays(String mode) {
+        return MODE_PERSONAL.equalsIgnoreCase(mode) ? PERSONAL_WINDOW_DAYS : WORK_WINDOW_DAYS;
     }
 
     private Date nextDay(Date date, WebUser webUser) {

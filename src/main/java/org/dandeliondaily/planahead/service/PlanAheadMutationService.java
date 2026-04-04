@@ -24,6 +24,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 
 public class PlanAheadMutationService {
 
@@ -32,6 +33,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult moveCard(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
         String targetDateString = appReq.getRequest().getParameter("targetDate");
         String targetRow = n(appReq.getRequest().getParameter("targetRow")).trim().toLowerCase();
@@ -53,7 +55,13 @@ public class PlanAheadMutationService {
         }
 
         String targetActionType = boardService.resolveActionTypeForRowKey(targetRow);
-        if (targetActionType.length() == 0) {
+        TimeSlot targetTimeSlot = boardService.resolveTimeSlotForRowKey(targetRow);
+        if (!personalMode && targetActionType.length() == 0) {
+            result.setSuccess(false);
+            result.setMessage("targetRow is invalid");
+            return result;
+        }
+        if (personalMode && targetTimeSlot == null) {
             result.setSuccess(false);
             result.setMessage("targetRow is invalid");
             return result;
@@ -84,17 +92,25 @@ public class PlanAheadMutationService {
                 result.setMessage("Action is not available for this provider");
                 return result;
             }
-            if (!action.isBillable()) {
+            if (!isActionCompatibleWithMode(action, appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work (billable) actions are available in Plan Ahead");
+                result.setMessage(personalMode ? "Only personal actions are available in Personal mode"
+                        : "Only work actions are available in Work mode");
                 return result;
             }
 
             sourceDayKey = toDayKey(action.getNextActionDate());
-            sourceRowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
+            sourceRowKey = resolveRowKeyForAction(action, appReq);
 
-            action.setNextActionType(targetActionType);
+            if (personalMode) {
+                action.setTimeSlot(targetTimeSlot);
+                if (n(action.getNextActionType()).trim().length() == 0) {
+                    action.setNextActionType(ProjectNextActionType.WILL);
+                }
+            } else {
+                action.setNextActionType(targetActionType);
+            }
             action.setNextActionDate(targetDate);
             action.setNextChangeDate(new Date());
             dataSession.update(action);
@@ -118,7 +134,8 @@ public class PlanAheadMutationService {
             for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
                 String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
                 if (cellIds.contains(domId)) {
-                    result.getAffectedCellsHtml().put(domId, renderer.renderKanbanCellHtml(cellModel));
+                    result.getAffectedCellsHtml().put(domId,
+                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
                 }
             }
         }
@@ -143,6 +160,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult loadCardEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
         int actionNextId;
         try {
@@ -165,9 +183,10 @@ public class PlanAheadMutationService {
             result.setMessage("Action is not available for this provider");
             return result;
         }
-        if (!action.isBillable()) {
+        if (!isActionCompatibleWithMode(action, appReq)) {
             result.setSuccess(false);
-            result.setMessage("Only work (billable) actions are available in Plan Ahead");
+            result.setMessage(personalMode ? "Only personal actions are available in Personal mode"
+                    : "Only work actions are available in Work mode");
             return result;
         }
 
@@ -175,6 +194,7 @@ public class PlanAheadMutationService {
         data.put("actionNextId", action.getActionNextId());
         data.put("nextActionDate", toDayKey(action.getNextActionDate()));
         data.put("nextActionType", n(action.getNextActionType()));
+        data.put("timeSlot", action.getTimeSlot() == null ? TimeSlot.AFTERNOON.getId() : action.getTimeSlot().getId());
         data.put("projectName", action.getProject() == null ? "" : n(action.getProject().getProjectName()));
         data.put("nextDescription", n(action.getNextDescription()));
         data.put("nextTimeEstimate", action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
@@ -193,6 +213,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult saveCardEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
         int actionNextId;
         try {
@@ -219,10 +240,17 @@ public class PlanAheadMutationService {
         }
 
         String nextActionType = n(appReq.getRequest().getParameter("nextActionType")).trim();
-        if (nextActionType.length() == 0 || boardService.resolveRowKeyForActionType(nextActionType).length() == 0) {
+        if (!personalMode
+                && (nextActionType.length() == 0
+                        || boardService.resolveRowKeyForActionType(nextActionType).length() == 0)) {
             result.setSuccess(false);
             result.setMessage("nextActionType is invalid for Plan Ahead");
             return result;
+        }
+
+        TimeSlot nextTimeSlot = TimeSlot.getTimeSlot(n(appReq.getRequest().getParameter("timeSlot")).trim());
+        if (personalMode && nextTimeSlot == null) {
+            nextTimeSlot = TimeSlot.AFTERNOON;
         }
 
         Integer nextTimeEstimate = parseIntegerOrNull(appReq.getRequest().getParameter("nextTimeEstimate"));
@@ -267,20 +295,29 @@ public class PlanAheadMutationService {
                 result.setMessage("Action is not available for this provider");
                 return result;
             }
-            if (!action.isBillable()) {
+            if (!isActionCompatibleWithMode(action, appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work (billable) actions are available in Plan Ahead");
+                result.setMessage(personalMode ? "Only personal actions are available in Personal mode"
+                        : "Only work actions are available in Work mode");
                 return result;
             }
 
             sourceDayKey = toDayKey(action.getNextActionDate());
-            sourceRowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
+            sourceRowKey = resolveRowKeyForAction(action, appReq);
 
             action.setNextActionDate(nextActionDate);
-            action.setNextActionType(nextActionType);
+            if (personalMode) {
+                action.setTimeSlot(nextTimeSlot);
+                if (n(action.getNextActionType()).trim().length() == 0) {
+                    action.setNextActionType(ProjectNextActionType.WILL);
+                }
+            } else {
+                action.setNextActionType(nextActionType);
+            }
             action.setNextDescription(clip(n(appReq.getRequest().getParameter("nextDescription")), 12000));
-            action.setNextTimeEstimate(nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate);
+            action.setNextTimeEstimate(personalMode ? Integer.valueOf(0)
+                    : (nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate));
             action.setNextTargetDate(nextTargetDate);
             action.setNextDeadlineDate(nextDeadlineDate);
             action.setLinkUrl(clip(n(appReq.getRequest().getParameter("linkUrl")), 1200));
@@ -289,7 +326,7 @@ public class PlanAheadMutationService {
             action.setNextChangeDate(new Date());
 
             targetDayKey = toDayKey(action.getNextActionDate());
-            targetRowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
+            targetRowKey = resolveRowKeyForAction(action, appReq);
 
             dataSession.update(action);
             transaction.commit();
@@ -313,7 +350,8 @@ public class PlanAheadMutationService {
             for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
                 String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
                 if (cellIds.contains(domId)) {
-                    result.getAffectedCellsHtml().put(domId, renderer.renderKanbanCellHtml(cellModel));
+                    result.getAffectedCellsHtml().put(domId,
+                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
                 }
             }
         }
@@ -340,6 +378,12 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult saveCardEstimate(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
+        if (personalMode) {
+            result.setSuccess(false);
+            result.setMessage("Estimate editing is only available in Work mode");
+            return result;
+        }
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
         int actionNextId;
         try {
@@ -378,10 +422,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action is not available for this provider");
                 return result;
             }
-            if (!action.isBillable()) {
+            if (!isActionCompatibleWithMode(action, appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work (billable) actions are available in Plan Ahead");
+                result.setMessage("Only work actions are available in Work mode");
                 return result;
             }
 
@@ -411,7 +455,8 @@ public class PlanAheadMutationService {
             for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
                 String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
                 if (cellId.equals(domId)) {
-                    result.getAffectedCellsHtml().put(domId, renderer.renderKanbanCellHtml(cellModel));
+                    result.getAffectedCellsHtml().put(domId,
+                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
                 }
             }
         }
@@ -432,6 +477,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult saveCardDescriptionInline(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
         int actionNextId;
         try {
@@ -462,10 +508,11 @@ public class PlanAheadMutationService {
                 result.setMessage("Action is not available for this provider");
                 return result;
             }
-            if (!action.isBillable()) {
+            if (!isActionCompatibleWithMode(action, appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work (billable) actions are available in Plan Ahead");
+                result.setMessage(personalMode ? "Only personal actions are available in Personal mode"
+                        : "Only work actions are available in Work mode");
                 return result;
             }
             if (action.getNextActionDate() == null) {
@@ -476,7 +523,7 @@ public class PlanAheadMutationService {
             }
 
             dayKey = toDayKey(action.getNextActionDate());
-            rowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
+            rowKey = resolveRowKeyForAction(action, appReq);
             if (rowKey.length() == 0) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -501,7 +548,8 @@ public class PlanAheadMutationService {
             for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
                 String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
                 if (cellId.equals(domId)) {
-                    result.getAffectedCellsHtml().put(domId, renderer.renderKanbanCellHtml(cellModel));
+                    result.getAffectedCellsHtml().put(domId,
+                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
                 }
             }
         }
@@ -522,6 +570,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult deleteCardEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
         int actionNextId;
         try {
@@ -548,10 +597,11 @@ public class PlanAheadMutationService {
                 result.setMessage("Action is not available for this provider");
                 return result;
             }
-            if (!action.isBillable()) {
+            if (!isActionCompatibleWithMode(action, appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work (billable) actions can be deleted");
+                result.setMessage(personalMode ? "Only personal actions can be deleted in Personal mode"
+                        : "Only work actions can be deleted in Work mode");
                 return result;
             }
 
@@ -614,6 +664,11 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult saveTemplateEstimate(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        if (isPersonalMode(appReq)) {
+            result.setSuccess(false);
+            result.setMessage("Template estimate editing is only available in Work mode");
+            return result;
+        }
         String templateActionNextIdString = appReq.getRequest().getParameter("templateActionNextId");
         int templateActionNextId;
         try {
@@ -662,11 +717,11 @@ public class PlanAheadMutationService {
             templateAction.setNextChangeDate(new Date());
             dataSession.update(templateAction);
 
-            String todayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
+            Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
             Query query = dataSession.createQuery(
                     "from ProjectActionNext pan where pan.provider = :provider "
                             + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                            + "and pan.billable = true "
+                            + "and pan.billable = :billable "
                             + "and pan.templateActionNextId = :templateActionNextId "
                             + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
                             + "and pan.nextActionStatusString <> :cancelled "
@@ -674,6 +729,7 @@ public class PlanAheadMutationService {
             query.setParameter("provider", appReq.getWebUser().getProvider());
             query.setParameter("contactId", appReq.getWebUser().getContactId());
             query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+            query.setParameter("billable", true);
             query.setParameter("templateActionNextId", templateActionNextId);
             query.setParameter("today", today);
             query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
@@ -698,7 +754,7 @@ public class PlanAheadMutationService {
             if (templateCard.getTemplateActionNextId() == templateActionNextId) {
                 result.getAffectedCellsHtml().put(
                         PlanAheadPageRenderer.templateLabelDomId(templateActionNextId),
-                        renderer.renderTemplateRowLabelCellHtml(templateCard));
+                        renderer.renderTemplateRowLabelCellHtml(templateCard, boardModel.isWorkMode()));
                 break;
             }
         }
@@ -715,6 +771,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult loadTemplateEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = n(appReq.getRequest().getParameter("actionNextId")).trim();
         int actionNextId = 0;
         if (actionNextIdString.length() > 0) {
@@ -733,6 +790,7 @@ public class PlanAheadMutationService {
             data.put("isAdd", Boolean.TRUE);
             data.put("actionNextId", 0);
             data.put("nextActionType", ProjectNextActionType.WILL);
+            data.put("timeSlot", TimeSlot.AFTERNOON.getId());
             data.put("templateType", TemplateType.DAILY.getId());
             data.put("nextDescription", "");
             data.put("nextTimeEstimate", 0);
@@ -757,9 +815,10 @@ public class PlanAheadMutationService {
             result.setMessage("Template action is not available for this provider");
             return result;
         }
-        if (!action.isBillable() || action.getTemplateType() == null) {
+        if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
             result.setSuccess(false);
-            result.setMessage("Only work templates are editable here");
+            result.setMessage(personalMode ? "Only personal templates are editable in Personal mode"
+                    : "Only work templates are editable in Work mode");
             return result;
         }
 
@@ -767,6 +826,7 @@ public class PlanAheadMutationService {
         data.put("actionNextId", action.getActionNextId());
         data.put("projectName", action.getProject() == null ? "" : n(action.getProject().getProjectName()));
         data.put("nextActionType", n(action.getNextActionType()));
+        data.put("timeSlot", action.getTimeSlot() == null ? TimeSlot.AFTERNOON.getId() : action.getTimeSlot().getId());
         data.put("templateType", action.getTemplateType().getId());
         data.put("nextDescription", n(action.getNextDescription()));
         data.put("nextTimeEstimate", action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
@@ -781,14 +841,21 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult saveTemplateEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
-        String mode = n(appReq.getRequest().getParameter("mode")).trim().toLowerCase();
-        boolean isAdd = "add".equals(mode);
+        boolean personalMode = isPersonalMode(appReq);
+        String formMode = n(appReq.getRequest().getParameter("mode")).trim().toLowerCase();
+        boolean isAdd = "add".equals(formMode);
 
         String nextActionType = n(appReq.getRequest().getParameter("nextActionType")).trim();
-        if (nextActionType.length() == 0 || boardService.resolveRowKeyForActionType(nextActionType).length() == 0) {
+        if (!personalMode
+                && (nextActionType.length() == 0
+                        || boardService.resolveRowKeyForActionType(nextActionType).length() == 0)) {
             result.setSuccess(false);
             result.setMessage("nextActionType is invalid for template");
             return result;
+        }
+        TimeSlot templateTimeSlot = TimeSlot.getTimeSlot(n(appReq.getRequest().getParameter("timeSlot")).trim());
+        if (personalMode && templateTimeSlot == null) {
+            templateTimeSlot = TimeSlot.AFTERNOON;
         }
 
         TemplateType templateType = TemplateType
@@ -851,7 +918,7 @@ public class PlanAheadMutationService {
                 action.setTemplateActionNextId(null);
                 action.setPriorityLevel(0);
                 action.setCompletionOrder(0);
-                action.setBillable(true);
+                action.setBillable(!personalMode ? true : false);
             } else {
                 int actionNextId;
                 try {
@@ -875,19 +942,22 @@ public class PlanAheadMutationService {
                     result.setMessage("Template action is not available for this provider");
                     return result;
                 }
-                if (!action.isBillable() || action.getTemplateType() == null) {
+                if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
                     transaction.rollback();
                     result.setSuccess(false);
-                    result.setMessage("Only work templates are editable here");
+                    result.setMessage(personalMode ? "Only personal templates are editable in Personal mode"
+                            : "Only work templates are editable in Work mode");
                     return result;
                 }
             }
 
-            action.setNextActionType(nextActionType);
+            action.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
             action.setTemplateType(templateType);
             action.setProcessStage(processStage);
             action.setNextDescription(clip(n(appReq.getRequest().getParameter("nextDescription")), 12000));
-            action.setNextTimeEstimate(nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate);
+            action.setNextTimeEstimate(personalMode ? Integer.valueOf(0)
+                    : (nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate));
+            action.setTimeSlot(personalMode ? templateTimeSlot : null);
             action.setLinkUrl(clip(n(appReq.getRequest().getParameter("linkUrl")), 1200));
             action.setNextNotes(clip(n(appReq.getRequest().getParameter("nextNote")), 4000));
             action.setNextActionDate(null);
@@ -902,7 +972,7 @@ public class PlanAheadMutationService {
                 Query query = dataSession.createQuery(
                         "from ProjectActionNext pan where pan.provider = :provider "
                                 + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                                + "and pan.billable = true "
+                                + "and pan.billable = :billable "
                                 + "and pan.templateActionNextId = :templateActionNextId "
                                 + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
                                 + "and pan.nextActionStatusString <> :cancelled "
@@ -910,6 +980,7 @@ public class PlanAheadMutationService {
                 query.setParameter("provider", appReq.getWebUser().getProvider());
                 query.setParameter("contactId", appReq.getWebUser().getContactId());
                 query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+                query.setParameter("billable", !personalMode ? true : false);
                 query.setParameter("templateActionNextId", action.getActionNextId());
                 query.setParameter("today", today);
                 query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
@@ -920,6 +991,7 @@ public class PlanAheadMutationService {
                     generatedAction.setNextActionType(action.getNextActionType());
                     generatedAction.setNextDescription(action.getNextDescription());
                     generatedAction.setNextTimeEstimate(action.getNextTimeEstimate());
+                    generatedAction.setTimeSlot(action.getTimeSlot());
                     generatedAction.setLinkUrl(action.getLinkUrl());
                     generatedAction.setProcessStage(action.getProcessStage());
                     generatedAction.setNextChangeDate(new Date());
@@ -939,6 +1011,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult deleteTemplateEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         int actionNextId;
         try {
             actionNextId = Integer.parseInt(n(appReq.getRequest().getParameter("actionNextId")).trim());
@@ -964,10 +1037,11 @@ public class PlanAheadMutationService {
                 result.setMessage("Template action is not available for this provider");
                 return result;
             }
-            if (!action.isBillable() || action.getTemplateType() == null) {
+            if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work templates are editable here");
+                result.setMessage(personalMode ? "Only personal templates are editable in Personal mode"
+                        : "Only work templates are editable in Work mode");
                 return result;
             }
 
@@ -1030,6 +1104,7 @@ public class PlanAheadMutationService {
 
     public PlanAheadMutationResult toggleTemplateDay(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
+        boolean personalMode = isPersonalMode(appReq);
         String templateActionNextIdString = appReq.getRequest().getParameter("templateActionNextId");
         int templateActionNextId;
         try {
@@ -1065,16 +1140,18 @@ public class PlanAheadMutationService {
                 result.setMessage("Template action is not available for this provider");
                 return result;
             }
-            if (!templateAction.isBillable()) {
+            if (!isActionCompatibleWithMode(templateAction, appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Only work (billable) templates are available in Plan Ahead");
+                result.setMessage(personalMode ? "Only personal templates are available in Personal mode"
+                        : "Only work templates are available in Work mode");
                 return result;
             }
 
             ProjectActionNext generatedAction = findGeneratedTemplateAction(dataSession, appReq, templateActionNextId,
                     day);
             Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
+            String todayKey = toDayKey(today);
 
             if (checked) {
                 String nextActionType = n(templateAction.getNextActionType()).trim();
@@ -1089,7 +1166,7 @@ public class PlanAheadMutationService {
                     generatedAction.setContact(appReq.getWebUser().getProjectContact());
                     generatedAction.setProvider(appReq.getWebUser().getProvider());
                     generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(nextActionType);
+                    generatedAction.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
                     generatedAction.setTemplateActionNextId(templateAction.getActionNextId());
                     generatedAction.setPriorityLevel(templateAction.getPriorityLevel());
@@ -1110,7 +1187,7 @@ public class PlanAheadMutationService {
                 } else {
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
                     generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(nextActionType);
+                    generatedAction.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
                     generatedAction.setProcessStage(templateAction.getProcessStage());
                     generatedAction.setLinkUrl(clip(n(templateAction.getLinkUrl()), 1200));
                     generatedAction.setNextNotes(clip(n(templateAction.getNextNotes()), 4000));
@@ -1182,14 +1259,16 @@ public class PlanAheadMutationService {
 
     private ProjectActionNext findGeneratedTemplateAction(Session dataSession, AppReq appReq, int templateActionNextId,
             Date day) {
+        boolean billable = !isPersonalMode(appReq);
         Query query = dataSession.createQuery(
                 "from ProjectActionNext pan where pan.provider = :provider "
                         + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = true "
+                        + "and pan.billable = :billable "
                         + "and pan.templateActionNextId = :templateActionNextId and pan.nextActionDate = :nextActionDate");
         query.setParameter("provider", appReq.getWebUser().getProvider());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
         query.setParameter("templateActionNextId", templateActionNextId);
         query.setParameter("nextActionDate", day);
         @SuppressWarnings("unchecked")
@@ -1318,5 +1397,31 @@ public class PlanAheadMutationService {
         }
         String v = value.trim().toLowerCase();
         return "true".equals(v) || "1".equals(v) || "yes".equals(v) || "on".equals(v);
+    }
+
+    private String resolveMode(AppReq appReq) {
+        return boardService.resolveMode(appReq);
+    }
+
+    private boolean isPersonalMode(AppReq appReq) {
+        return PlanAheadBoardService.MODE_PERSONAL.equalsIgnoreCase(resolveMode(appReq));
+    }
+
+    private boolean isActionCompatibleWithMode(ProjectActionNext action, AppReq appReq) {
+        if (action == null) {
+            return false;
+        }
+        boolean personalMode = isPersonalMode(appReq);
+        return personalMode ? !action.isBillable() : action.isBillable();
+    }
+
+    private String resolveRowKeyForAction(ProjectActionNext action, AppReq appReq) {
+        if (action == null) {
+            return "";
+        }
+        if (isPersonalMode(appReq)) {
+            return boardService.resolveRowKeyForTimeSlot(action.getTimeSlot());
+        }
+        return boardService.resolveRowKeyForActionType(action.getNextActionType());
     }
 }

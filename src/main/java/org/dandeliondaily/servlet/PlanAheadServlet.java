@@ -113,6 +113,10 @@ public class PlanAheadServlet extends ClientServlet {
                 handleShiftWindowForward(appReq);
                 return;
             }
+            if ("setMode".equals(action)) {
+                handleSetMode(appReq);
+                return;
+            }
 
             if ("Schedule".equals(action) || "Schedule and Start".equals(action)) {
                 dashboardTodayColumnService.handleQuickCapture(appReq);
@@ -167,6 +171,17 @@ public class PlanAheadServlet extends ClientServlet {
                 || "toggleTemplateDay".equals(action)
                 || "refreshDayHeaders".equals(action)
                 || "shiftWindowForward".equals(action);
+    }
+
+    private void handleSetMode(AppReq appReq) throws Exception {
+        String mode = appReq.getRequest().getParameter("mode");
+        boardService.setMode(appReq, mode);
+        String windowStart = appReq.getRequest().getParameter("windowStart");
+        String target = "PlanAheadServlet";
+        if (windowStart != null && windowStart.trim().length() > 0) {
+            target += "?windowStart=" + windowStart.trim();
+        }
+        appReq.getResponse().sendRedirect(target);
     }
 
     private void handleShiftWindowForward(AppReq appReq) throws Exception {

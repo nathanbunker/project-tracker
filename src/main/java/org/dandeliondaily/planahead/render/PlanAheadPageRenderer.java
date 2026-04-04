@@ -14,14 +14,20 @@ public class PlanAheadPageRenderer {
 
         public void render(AppReq appReq, PlanAheadBoardModel boardModel) {
                 PrintWriter out = appReq.getOut();
+                boolean personalMode = boardModel.isPersonalMode();
+                int dayCount = boardModel.getDayHeaders() == null ? 0 : boardModel.getDayHeaders().size();
                 String todayKey = appReq.getWebUser().getDateFormatService().formatPattern(
                                 appReq.getWebUser().getToday(), "yyyy-MM-dd", appReq.getWebUser().getTimeZone());
-                printStyles(out);
+                printStyles(out, dayCount);
                 out.println("<div class=\"pa-page\">");
                 out.println("  <div class=\"pa-intro-bar\">");
                 out.println("    <div class=\"pa-intro\">");
                 out.println("      <h1>Plan Ahead</h1>");
-                out.println("      <p>Plan the next five days and rebalance work before the day starts.</p>");
+                out.println("      <p>"
+                                + (personalMode
+                                                ? "Plan the next seven days for personal flow and weekly visibility."
+                                                : "Plan the next five days and rebalance work before the day starts.")
+                                + "</p>");
                 out.println("    </div>");
                 printQuickCapture(out, boardModel);
                 out.println("  </div>");
@@ -35,14 +41,16 @@ public class PlanAheadPageRenderer {
                 out.println("  </div>");
 
                 out.println("  <div class=\"pa-grid\">");
-                out.println("    <div class=\"pa-cell pa-cell-label pa-header pa-cell-blank\"></div>");
+                out.println(renderModeToggleCell(boardModel));
                 for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
                         out.println(renderDayHeader(dayHeader));
                 }
 
-                out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-cell-blank\"></div>");
-                for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
-                        out.println(renderDayStatusCell(dayHeader));
+                if (!personalMode) {
+                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-cell-blank\"></div>");
+                        for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
+                                out.println(renderDayStatusCell(dayHeader));
+                        }
                 }
 
                 for (PlanAheadBoardModel.RowModel row : boardModel.getRows()) {
@@ -50,7 +58,7 @@ public class PlanAheadPageRenderer {
                                         + escapeHtml(row.getRowLabel())
                                         + "</div>");
                         for (PlanAheadBoardModel.CellModel cell : row.getCells()) {
-                                out.println(renderKanbanCell(cell));
+                                out.println(renderKanbanCell(cell, boardModel.isWorkMode()));
                         }
                 }
 
@@ -62,7 +70,7 @@ public class PlanAheadPageRenderer {
                 } else {
                         for (PlanAheadBoardModel.TemplateCardModel templateCard : boardModel.getTemplateRow()
                                         .getTemplateCards()) {
-                                out.println(renderTemplateRowLabelCell(templateCard));
+                                out.println(renderTemplateRowLabelCell(templateCard, boardModel.isWorkMode()));
                                 for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
                                         out.println(renderTemplateSelectionCell(templateCard, dayHeader));
                                 }
@@ -80,8 +88,29 @@ public class PlanAheadPageRenderer {
                 printStatusModal(out);
                 printTemplateModal(out);
                 printQuickCaptureScript(out, boardModel);
-                printDragDropScript(out, boardModel.getWindowStartKey());
+                printDragDropScript(out, boardModel.getWindowStartKey(), boardModel.getMode());
                 out.println("</div>");
+        }
+
+        private String renderModeToggleCell(PlanAheadBoardModel boardModel) {
+                StringBuilder s = new StringBuilder();
+                s.append("    <div class=\"pa-cell pa-cell-label pa-header pa-mode-toggle-cell\">");
+                s.append("      <div class=\"pa-mode-toggle\">");
+                s.append("        <a class=\"pa-mode-option ");
+                if (boardModel.isWorkMode()) {
+                        s.append("is-active");
+                }
+                s.append("\" href=\"PlanAheadServlet?action=setMode&mode=WORK&windowStart=")
+                                .append(escapeHtml(boardModel.getWindowStartKey())).append("\">Work</a>");
+                s.append("        <a class=\"pa-mode-option ");
+                if (boardModel.isPersonalMode()) {
+                        s.append("is-active");
+                }
+                s.append("\" href=\"PlanAheadServlet?action=setMode&mode=PERSONAL&windowStart=")
+                                .append(escapeHtml(boardModel.getWindowStartKey())).append("\">Personal</a>");
+                s.append("      </div>");
+                s.append("    </div>");
+                return s.toString();
         }
 
         private void printQuickCapture(PrintWriter out, PlanAheadBoardModel boardModel) {
@@ -191,7 +220,7 @@ public class PlanAheadPageRenderer {
                 out.println("      <label id=\"paTemplateProjectReadOnlyWrap\" style=\"display:none;\">Project");
                 out.println("        <input type=\"text\" id=\"paTemplateProjectName\" readonly=\"readonly\" />");
                 out.println("      </label>");
-                out.println("      <label>Type <select id=\"paTemplateNextActionType\">"
+                out.println("      <label id=\"paTemplateTypeWrap\">Type <select id=\"paTemplateNextActionType\">"
                                 + "<option value=\"WILL_MEET\">Meeting</option>"
                                 + "<option value=\"COMMITTED_TO\">Committed</option>"
                                 + "<option value=\"WILL\">Will</option>"
@@ -200,6 +229,12 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"DOCUMENT\">Will Document</option>"
                                 + "<option value=\"WILL_FOLLOW_UP\">Follow Up</option>"
                                 + "<option value=\"MIGHT\">Might</option>"
+                                + "</select></label>");
+                out.println("      <label id=\"paTemplateSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paTemplateTimeSlot\">"
+                                + "<option value=\"WAKE\">Wake</option>"
+                                + "<option value=\"MORNING\">Morning</option>"
+                                + "<option value=\"AFTERNOON\">Afternoon</option>"
+                                + "<option value=\"EVENING\">Evening</option>"
                                 + "</select></label>");
                 out.println("      <label>Template Type <select id=\"paTemplateType\">"
                                 + "<option value=\"D\">Daily</option>"
@@ -216,7 +251,7 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"L\">Last</option>"
                                 + "</select></label>");
                 out.println("      <label>Description <textarea id=\"paTemplateDescription\" rows=\"4\"></textarea></label>");
-                out.println("      <label>Estimate (mins) <input type=\"number\" id=\"paTemplateEstimate\" min=\"0\" /></label>");
+                out.println("      <label id=\"paTemplateEstimateWrap\">Estimate (mins) <input type=\"number\" id=\"paTemplateEstimate\" min=\"0\" /></label>");
                 out.println("      <label>Link URL <input type=\"text\" id=\"paTemplateLinkUrl\" /></label>");
                 out.println("      <label>Notes <textarea id=\"paTemplateNotes\" rows=\"3\"></textarea></label>");
                 out.println("      <div class=\"pa-modal-actions\">");
@@ -259,7 +294,7 @@ public class PlanAheadPageRenderer {
                 out.println("    <div class=\"pa-modal-body\">");
                 out.println("      <input type=\"hidden\" id=\"paEditActionNextId\" />");
                 out.println("      <label>Date <input type=\"date\" id=\"paEditNextActionDate\" /></label>");
-                out.println("      <label>Type <select id=\"paEditNextActionType\">"
+                out.println("      <label id=\"paEditTypeWrap\">Type <select id=\"paEditNextActionType\">"
                                 + "<option value=\"WILL_MEET\">Meeting</option>"
                                 + "<option value=\"COMMITTED_TO\">Committed</option>"
                                 + "<option value=\"WILL\">Will</option>"
@@ -269,9 +304,15 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"WILL_FOLLOW_UP\">Follow Up</option>"
                                 + "<option value=\"MIGHT\">Might</option>"
                                 + "</select></label>");
+                out.println("      <label id=\"paEditSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paEditTimeSlot\">"
+                                + "<option value=\"WAKE\">Wake</option>"
+                                + "<option value=\"MORNING\">Morning</option>"
+                                + "<option value=\"AFTERNOON\">Afternoon</option>"
+                                + "<option value=\"EVENING\">Evening</option>"
+                                + "</select></label>");
                 out.println("      <label>Description <textarea id=\"paEditNextDescription\" rows=\"4\"></textarea></label>");
                 out.println(
-                                "      <label>Estimate (mins) <input type=\"number\" id=\"paEditNextTimeEstimate\" min=\"0\" /></label>");
+                                "      <label id=\"paEditEstimateWrap\">Estimate (mins) <input type=\"number\" id=\"paEditNextTimeEstimate\" min=\"0\" /></label>");
                 out.println("      <label>Target Date <input type=\"date\" id=\"paEditNextTargetDate\" /></label>");
                 out.println("      <label>Deadline Date <input type=\"date\" id=\"paEditNextDeadlineDate\" /></label>");
                 out.println("      <label>Link URL <input type=\"text\" id=\"paEditLinkUrl\" /></label>");
@@ -287,11 +328,13 @@ public class PlanAheadPageRenderer {
                 out.println("</div>");
         }
 
-        private void printDragDropScript(PrintWriter out, String windowStartKey) {
+        private void printDragDropScript(PrintWriter out, String windowStartKey, String mode) {
                 out.println("<script>");
                 out.println("(function(){");
                 out.println("  var paDraggedActionId = null;");
                 out.println("  var paWindowStart = '" + escapeHtml(windowStartKey) + "';");
+                out.println("  var paMode = '" + escapeHtml(mode) + "';");
+                out.println("  var paIsPersonal = paMode === 'PERSONAL';");
                 out.println("  var paReloadAfterEdit = false;");
                 out.println("  document.addEventListener('dragstart', function(e){");
                 out.println("    var card = e.target && e.target.closest ? e.target.closest('.pa-card') : null;");
@@ -352,6 +395,7 @@ public class PlanAheadPageRenderer {
                 out.println("      document.getElementById('paEditActionNextId').value = data.actionNextId || ''; ");
                 out.println("      document.getElementById('paEditNextActionDate').value = data.nextActionDate || ''; ");
                 out.println("      document.getElementById('paEditNextActionType').value = data.nextActionType || 'WILL'; ");
+                out.println("      document.getElementById('paEditTimeSlot').value = data.timeSlot || 'AFTERNOON'; ");
                 out.println("      document.getElementById('paEditNextDescription').value = data.nextDescription || ''; ");
                 out.println("      document.getElementById('paEditNextTimeEstimate').value = data.nextTimeEstimate || 0; ");
                 out.println("      document.getElementById('paEditNextTargetDate').value = data.nextTargetDate || ''; ");
@@ -359,6 +403,12 @@ public class PlanAheadPageRenderer {
                 out.println("      document.getElementById('paEditLinkUrl').value = data.linkUrl || ''; ");
                 out.println("      document.getElementById('paEditNextContactId').value = data.nextContactId || ''; ");
                 out.println("      document.getElementById('paEditNextNote').value = data.nextNote || ''; ");
+                out.println("      var typeWrap = document.getElementById('paEditTypeWrap');");
+                out.println("      var slotWrap = document.getElementById('paEditSlotWrap');");
+                out.println("      var estimateWrap = document.getElementById('paEditEstimateWrap');");
+                out.println("      if (typeWrap) { typeWrap.style.display = paIsPersonal ? 'none' : ''; }");
+                out.println("      if (slotWrap) { slotWrap.style.display = paIsPersonal ? '' : 'none'; }");
+                out.println("      if (estimateWrap) { estimateWrap.style.display = paIsPersonal ? 'none' : ''; }");
                 out.println("      document.getElementById('paEditModal').style.display = 'flex';");
                 out.println("    })");
                 out.println("    .catch(function(err){ console.log('Load edit request failed', err); });");
@@ -423,6 +473,8 @@ public class PlanAheadPageRenderer {
                 out.println(
                                 "      '&nextActionType=' + encodeURIComponent(document.getElementById('paEditNextActionType').value || '') +");
                 out.println(
+                                "      '&timeSlot=' + encodeURIComponent(document.getElementById('paEditTimeSlot').value || 'AFTERNOON') +");
+                out.println(
                                 "      '&nextDescription=' + encodeURIComponent(document.getElementById('paEditNextDescription').value || '') +");
                 out.println(
                                 "      '&nextTimeEstimate=' + encodeURIComponent(document.getElementById('paEditNextTimeEstimate').value || '0') +");
@@ -474,6 +526,7 @@ public class PlanAheadPageRenderer {
                 out.println("      document.getElementById('paTemplateMode').value = isAdd ? 'add' : 'edit';");
                 out.println("      document.getElementById('paTemplateModalTitle').innerText = isAdd ? 'Add Template' : 'Edit Template';");
                 out.println("      document.getElementById('paTemplateNextActionType').value = data.nextActionType || 'WILL';");
+                out.println("      document.getElementById('paTemplateTimeSlot').value = data.timeSlot || 'AFTERNOON';");
                 out.println("      document.getElementById('paTemplateType').value = data.templateType || 'D';");
                 out.println("      document.getElementById('paTemplateProcessStage').value = data.processStage || ''; ");
                 out.println("      document.getElementById('paTemplateDescription').value = data.nextDescription || ''; ");
@@ -484,7 +537,13 @@ public class PlanAheadPageRenderer {
                 out.println("      var projectReadOnlyWrap = document.getElementById('paTemplateProjectReadOnlyWrap');");
                 out.println("      var projectSelect = document.getElementById('paTemplateProjectId');");
                 out.println("      var projectNameInput = document.getElementById('paTemplateProjectName');");
+                out.println("      var templateTypeWrap = document.getElementById('paTemplateTypeWrap');");
+                out.println("      var templateSlotWrap = document.getElementById('paTemplateSlotWrap');");
+                out.println("      var templateEstimateWrap = document.getElementById('paTemplateEstimateWrap');");
                 out.println("      var deleteBtn = document.getElementById('paTemplateDeleteBtn');");
+                out.println("      if (templateTypeWrap) { templateTypeWrap.style.display = paIsPersonal ? 'none' : ''; }");
+                out.println("      if (templateSlotWrap) { templateSlotWrap.style.display = paIsPersonal ? '' : 'none'; }");
+                out.println("      if (templateEstimateWrap) { templateEstimateWrap.style.display = paIsPersonal ? 'none' : ''; }");
                 out.println("      if (isAdd) {");
                 out.println("        if (projectSelectWrap) { projectSelectWrap.style.display = ''; }");
                 out.println("        if (projectReadOnlyWrap) { projectReadOnlyWrap.style.display = 'none'; }");
@@ -527,6 +586,7 @@ public class PlanAheadPageRenderer {
                 out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
                 out.println("      '&projectId=' + encodeURIComponent(projectId) +");
                 out.println("      '&nextActionType=' + encodeURIComponent(document.getElementById('paTemplateNextActionType').value || 'WILL') +");
+                out.println("      '&timeSlot=' + encodeURIComponent(document.getElementById('paTemplateTimeSlot').value || 'AFTERNOON') +");
                 out.println("      '&templateType=' + encodeURIComponent(document.getElementById('paTemplateType').value || 'D') +");
                 out.println("      '&processStage=' + encodeURIComponent(document.getElementById('paTemplateProcessStage').value || '') +");
                 out.println("      '&nextDescription=' + encodeURIComponent(document.getElementById('paTemplateDescription').value || '') +");
@@ -1122,7 +1182,7 @@ public class PlanAheadPageRenderer {
                 return s.toString();
         }
 
-        private String renderKanbanCell(PlanAheadBoardModel.CellModel cell) {
+        private String renderKanbanCell(PlanAheadBoardModel.CellModel cell, boolean showEstimate) {
                 StringBuilder s = new StringBuilder();
                 s.append("    <div class=\"pa-cell pa-kanban\" id=\"")
                                 .append(kanbanCellDomId(cell.getDayKey(), cell.getRowKey()))
@@ -1151,13 +1211,15 @@ public class PlanAheadPageRenderer {
                                                 .append(", event)\">edit</button>");
                                 s.append("</div>");
                                 s.append("</div>");
-                                s.append("<button type=\"button\" class=\"pa-card-est-box pa-card-est-editable\" data-action-id=\"")
-                                                .append(card.getActionNextId())
-                                                .append("\" data-est-mins=\"")
-                                                .append(card.getEstimateMins())
-                                                .append("\" title=\"Click to edit estimate\">")
-                                                .append(escapeHtml(card.getEstimateDisplay()))
-                                                .append("</button>");
+                                if (showEstimate) {
+                                        s.append("<button type=\"button\" class=\"pa-card-est-box pa-card-est-editable\" data-action-id=\"")
+                                                        .append(card.getActionNextId())
+                                                        .append("\" data-est-mins=\"")
+                                                        .append(card.getEstimateMins())
+                                                        .append("\" title=\"Click to edit estimate\">")
+                                                        .append(escapeHtml(card.getEstimateDisplay()))
+                                                        .append("</button>");
+                                }
                                 s.append("</div>");
                                 s.append("</div>");
                         }
@@ -1167,7 +1229,11 @@ public class PlanAheadPageRenderer {
         }
 
         public String renderKanbanCellHtml(PlanAheadBoardModel.CellModel cell) {
-                return renderKanbanCell(cell);
+                return renderKanbanCell(cell, true);
+        }
+
+        public String renderKanbanCellHtml(PlanAheadBoardModel.CellModel cell, boolean showEstimate) {
+                return renderKanbanCell(cell, showEstimate);
         }
 
         public static String dayHeaderDomId(String dayKey) {
@@ -1178,7 +1244,8 @@ public class PlanAheadPageRenderer {
                 return "pa-kanban-" + dayKey + "-" + rowKey;
         }
 
-        private String renderTemplateRowLabelCell(PlanAheadBoardModel.TemplateCardModel templateCard) {
+        private String renderTemplateRowLabelCell(PlanAheadBoardModel.TemplateCardModel templateCard,
+                        boolean showEstimate) {
                 StringBuilder s = new StringBuilder();
                 s.append("    <div class=\"pa-cell pa-template-label-cell\" id=\"")
                                 .append(templateLabelDomId(templateCard.getTemplateActionNextId()))
@@ -1191,19 +1258,26 @@ public class PlanAheadPageRenderer {
                                 .append(templateCard.getTemplateActionNextId())
                                 .append(", event)\">edit template</button>");
                 s.append("      </div>");
-                s.append("      <button type=\"button\" class=\"pa-card-est-box pa-template-est-editable\" data-template-action-id=\"")
-                                .append(templateCard.getTemplateActionNextId())
-                                .append("\" data-est-mins=\"")
-                                .append(templateCard.getEstimateMins())
-                                .append("\" title=\"Click to edit template estimate\">")
-                                .append(escapeHtml(templateCard.getEstimateDisplay()))
-                                .append("</button>");
+                if (showEstimate) {
+                        s.append("      <button type=\"button\" class=\"pa-card-est-box pa-template-est-editable\" data-template-action-id=\"")
+                                        .append(templateCard.getTemplateActionNextId())
+                                        .append("\" data-est-mins=\"")
+                                        .append(templateCard.getEstimateMins())
+                                        .append("\" title=\"Click to edit template estimate\">")
+                                        .append(escapeHtml(templateCard.getEstimateDisplay()))
+                                        .append("</button>");
+                }
                 s.append("    </div>");
                 return s.toString();
         }
 
         public String renderTemplateRowLabelCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard) {
-                return renderTemplateRowLabelCell(templateCard);
+                return renderTemplateRowLabelCell(templateCard, true);
+        }
+
+        public String renderTemplateRowLabelCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard,
+                        boolean showEstimate) {
+                return renderTemplateRowLabelCell(templateCard, showEstimate);
         }
 
         private String renderTemplateSelectionCell(PlanAheadBoardModel.TemplateCardModel templateCard,
@@ -1261,7 +1335,8 @@ public class PlanAheadPageRenderer {
                 return stringWriter.toString();
         }
 
-        private void printStyles(PrintWriter out) {
+        private void printStyles(PrintWriter out, int dayCount) {
+                int safeDayCount = dayCount <= 0 ? 5 : dayCount;
                 out.println("<style>");
                 out.println(
                                 ".pa-page{padding:12px 18px 24px 18px;background:linear-gradient(180deg,#f4f0e8 0%,#efe7db 40%,#f8f6f1 100%);}");
@@ -1283,12 +1358,17 @@ public class PlanAheadPageRenderer {
                 out.println(
                                 ".pa-shift{display:inline-block;padding:6px 10px;background:#49654a;color:#fff;text-decoration:none;border-radius:4px;}");
                 out.println(
-                                ".pa-grid{display:grid;grid-template-columns:220px repeat(5,minmax(220px,1fr));border:1px solid #cbbda7;background:#fffdf8;}");
+                                ".pa-grid{display:grid;grid-template-columns:220px repeat(" + safeDayCount + ",minmax(220px,1fr));border:1px solid #cbbda7;background:#fffdf8;}");
                 out.println(
                                 ".pa-cell{border-right:1px solid #dfd3c1;border-bottom:1px solid #dfd3c1;padding:10px;min-height:84px;box-sizing:border-box;}");
                 out.println(".pa-cell-label{background:#f8f1e6;font-weight:bold;color:#324532;}");
                 out.println(".pa-cell-blank{min-height:0;padding-top:6px;padding-bottom:6px;font-size:0;}");
                 out.println(".pa-header{background:#395238;color:#fffdf8;position:sticky;top:0;z-index:30;}");
+                out.println(".pa-mode-toggle-cell{display:flex;align-items:center;justify-content:center;}");
+                out.println(".pa-mode-toggle{display:inline-flex;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.45);border-radius:6px;overflow:hidden;}");
+                out.println(".pa-mode-option{display:inline-block;padding:6px 10px;color:#fffdf8;text-decoration:none;font-size:12px;font-weight:bold;letter-spacing:.03em;}");
+                out.println(".pa-mode-option.is-active{background:#fffdf8;color:#2f4330;}");
+                out.println(".pa-mode-option:not(.is-active):hover{background:rgba(255,255,255,.18);}");
                 out.println(".pa-row-label{display:flex;align-items:center;}");
                 out.println(".pa-header-top{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;}");
                 out.println(".pa-header-left{min-width:0;}");
