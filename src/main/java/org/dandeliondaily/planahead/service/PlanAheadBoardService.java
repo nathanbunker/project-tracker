@@ -32,7 +32,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class PlanAheadBoardService {
 
     public static final int WORK_WINDOW_DAYS = 5;
-    public static final int PERSONAL_WINDOW_DAYS = 7;
+    public static final int PERSONAL_WINDOW_DAYS = 8;
     public static final String MODE_WORK = "WORK";
     public static final String MODE_PERSONAL = "PERSONAL";
 
@@ -171,6 +171,10 @@ public class PlanAheadBoardService {
             dayHeader.setDayLabel(webUser.getDateFormatService().formatPattern(day, "EEEE", webUser.getTimeZone()));
             dayHeader.setDateLabel(
                     webUser.getDateFormatService().formatPattern(day, "MMM dd, yyyy", webUser.getTimeZone()));
+            Calendar cal = Calendar.getInstance(webUser.getTimeZone());
+            cal.setTime(day);
+            int dow = cal.get(Calendar.DAY_OF_WEEK);
+            dayHeader.setWeekend(dow == Calendar.SATURDAY || dow == Calendar.SUNDAY);
             dayHeader.setBillMins(personalMode ? 0 : dayCapacity.getBillMins());
             dayHeader.setPlannedMins(plannedMinutes);
             dayHeader.setAvailableMins(availableMinutes);

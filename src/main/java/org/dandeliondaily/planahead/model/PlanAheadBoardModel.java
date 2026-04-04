@@ -106,6 +106,7 @@ public class PlanAheadBoardModel {
         private int billMins;
         private int plannedMins;
         private int availableMins;
+        private boolean weekend;
         private TimeGaugeModel gauge = new TimeGaugeModel();
 
         public String getDayKey() {
@@ -170,6 +171,14 @@ public class PlanAheadBoardModel {
 
         public void setAvailableMins(int availableMins) {
             this.availableMins = availableMins;
+        }
+
+        public boolean isWeekend() {
+            return weekend;
+        }
+
+        public void setWeekend(boolean weekend) {
+            this.weekend = weekend;
         }
 
         public TimeGaugeModel getGauge() {

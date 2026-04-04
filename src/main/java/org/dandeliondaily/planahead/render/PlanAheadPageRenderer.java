@@ -1133,7 +1133,10 @@ public class PlanAheadPageRenderer {
         public String renderDayHeader(PlanAheadBoardModel.DayHeaderModel dayHeader) {
                 StringBuilder s = new StringBuilder();
                 boolean showGauge = dayHeader.getBillMins() > 0 || dayHeader.getPlannedMins() > 0;
-                s.append("    <div class=\"pa-cell pa-header\" id=\"").append(dayHeaderDomId(dayHeader.getDayKey()))
+                String headerClass = dayHeader.isWeekend() ? "pa-cell pa-header pa-header-weekend"
+                                : "pa-cell pa-header";
+                s.append("    <div class=\"").append(headerClass).append("\" id=\"")
+                                .append(dayHeaderDomId(dayHeader.getDayKey()))
                                 .append("\">");
                 s.append("      <div class=\"pa-header-top\">");
                 s.append("        <div class=\"pa-header-left\">");
@@ -1367,6 +1370,7 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-cell-label{background:#f8f1e6;font-weight:bold;color:#324532;}");
                 out.println(".pa-cell-blank{min-height:0;padding-top:6px;padding-bottom:6px;font-size:0;}");
                 out.println(".pa-header{background:#395238;color:#fffdf8;position:sticky;top:0;z-index:30;}");
+                out.println(".pa-header-weekend{background:#4e6e50;}");
                 out.println(".pa-mode-toggle-cell{display:flex;align-items:center;justify-content:center;}");
                 out.println(".pa-mode-toggle{display:inline-flex;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.45);border-radius:6px;overflow:hidden;}");
                 out.println(".pa-mode-option{display:inline-block;padding:6px 10px;color:#fffdf8;text-decoration:none;font-size:12px;font-weight:bold;letter-spacing:.03em;}");
