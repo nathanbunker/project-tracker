@@ -61,6 +61,7 @@ public class DashboardTodayColumnModel {
         private String placeholder = "Project Name: I will action details";
         private String hintText = "Example: Client Project: I will review deployment plan tomorrow";
         private List<String> projectNames = new ArrayList<String>();
+        private boolean focusRequested = false;
 
         public String getFormAction() {
             return formAction;
@@ -104,6 +105,14 @@ public class DashboardTodayColumnModel {
 
         public void setProjectNames(List<String> projectNames) {
             this.projectNames = projectNames;
+        }
+
+        public boolean isFocusRequested() {
+            return focusRequested;
+        }
+
+        public void setFocusRequested(boolean focusRequested) {
+            this.focusRequested = focusRequested;
         }
     }
 

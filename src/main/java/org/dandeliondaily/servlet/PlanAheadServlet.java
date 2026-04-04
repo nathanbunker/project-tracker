@@ -65,6 +65,26 @@ public class PlanAheadServlet extends ClientServlet {
                 handleMutationResult(appReq, mutationService.saveCardEdit(appReq));
                 return;
             }
+            if ("saveCardEstimate".equals(action)) {
+                handleMutationResult(appReq, mutationService.saveCardEstimate(appReq));
+                return;
+            }
+            if ("saveCardDescriptionInline".equals(action)) {
+                handleMutationResult(appReq, mutationService.saveCardDescriptionInline(appReq));
+                return;
+            }
+            if ("deleteCardEdit".equals(action)) {
+                handleMutationResult(appReq, mutationService.deleteCardEdit(appReq));
+                return;
+            }
+            if ("undoDeleteCard".equals(action)) {
+                handleMutationResult(appReq, mutationService.undoDeleteCard(appReq));
+                return;
+            }
+            if ("saveTemplateEstimate".equals(action)) {
+                handleMutationResult(appReq, mutationService.saveTemplateEstimate(appReq));
+                return;
+            }
             if ("loadTemplateEdit".equals(action)) {
                 handleMutationResult(appReq, mutationService.loadTemplateEdit(appReq));
                 return;
@@ -75,6 +95,10 @@ public class PlanAheadServlet extends ClientServlet {
             }
             if ("deleteTemplateEdit".equals(action)) {
                 handleMutationResult(appReq, mutationService.deleteTemplateEdit(appReq));
+                return;
+            }
+            if ("undoDeleteTemplate".equals(action)) {
+                handleMutationResult(appReq, mutationService.undoDeleteTemplate(appReq));
                 return;
             }
             if ("toggleTemplateDay".equals(action)) {
@@ -90,8 +114,12 @@ public class PlanAheadServlet extends ClientServlet {
                 return;
             }
 
-            if ("Schedule".equals(action)) {
+            if ("Schedule".equals(action) || "Schedule and Start".equals(action)) {
                 dashboardTodayColumnService.handleQuickCapture(appReq);
+                if ("Schedule and Start".equals(action)) {
+                    response.sendRedirect("DandelionDashboardServlet");
+                    return;
+                }
             }
 
             appReq.setTitle("Plan Ahead");
@@ -102,9 +130,43 @@ public class PlanAheadServlet extends ClientServlet {
             printHtmlFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();
+            try {
+                String action = request.getParameter("action");
+                if (isMutationAction(action)) {
+                    sendJsonResponse(appReq, false,
+                            "Server error while handling action: " + action + " (" + e.getClass().getSimpleName() + ")",
+                            null);
+                }
+            } catch (Exception ignored) {
+                // If response writing fails, preserve original behavior (stack trace already
+                // logged).
+            }
         } finally {
             appReq.close();
         }
+    }
+
+    private boolean isMutationAction(String action) {
+        if (action == null) {
+            return false;
+        }
+        return "saveDayCapacity".equals(action)
+                || "loadBoard".equals(action)
+                || "moveCard".equals(action)
+                || "loadCardEdit".equals(action)
+                || "saveCardEdit".equals(action)
+                || "saveCardEstimate".equals(action)
+                || "saveCardDescriptionInline".equals(action)
+                || "deleteCardEdit".equals(action)
+                || "undoDeleteCard".equals(action)
+                || "saveTemplateEstimate".equals(action)
+                || "loadTemplateEdit".equals(action)
+                || "saveTemplateEdit".equals(action)
+                || "deleteTemplateEdit".equals(action)
+                || "undoDeleteTemplate".equals(action)
+                || "toggleTemplateDay".equals(action)
+                || "refreshDayHeaders".equals(action)
+                || "shiftWindowForward".equals(action);
     }
 
     private void handleShiftWindowForward(AppReq appReq) throws Exception {

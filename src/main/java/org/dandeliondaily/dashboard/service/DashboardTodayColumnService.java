@@ -86,6 +86,10 @@ public class DashboardTodayColumnService {
         Session dataSession = appReq.getDataSession();
 
         model.getQuickCapture().setSentenceValue("");
+        String actionParam = appReq.getRequest().getParameter(PARAM_ACTION);
+        if (ACTION_SCHEDULE.equals(actionParam)) {
+            model.getQuickCapture().setFocusRequested(true);
+        }
         List<Project> quickCaptureProjects = loadProjectList(webUser, dataSession);
         List<String> projectNames = new ArrayList<String>();
         for (Project project : quickCaptureProjects) {

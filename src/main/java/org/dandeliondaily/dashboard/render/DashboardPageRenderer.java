@@ -49,11 +49,14 @@ public class DashboardPageRenderer {
                 printStyles(out);
 
                 out.println("<div class=\"" + rootClass + "\">");
-                out.println("  <div class=\"dd-dashboard-intro\">");
-                out.println("    <h1>Dandelion Dashboard</h1>");
+                out.println("  <div class=\"dd-intro-bar\">");
+                out.println("    <div class=\"dd-dashboard-intro\">");
+                out.println("      <h1>Dandelion Dashboard</h1>");
                 String overClass = todayColumnModel.getTotals().isOverCommitted() ? " dd-over-under-over" : "";
-                out.println("    <p class=\"dd-over-under" + overClass + "\">"
+                out.println("      <p class=\"dd-over-under" + overClass + "\">"
                                 + escapeHtml(todayColumnModel.getTotals().getGuidanceMessage()) + "</p>");
+                out.println("    </div>");
+                printDashboardQuickCapture(out, todayColumnModel);
                 out.println("  </div>");
 
                 out.println("  <div class=\"dd-dashboard-shell\">");
@@ -192,8 +195,43 @@ public class DashboardPageRenderer {
                 out.println("    box-sizing: border-box;");
                 out.println("  }");
                 out.println("  .dd-dashboard-intro {");
+                out.println("    margin-bottom: 0;");
+                out.println("  }");
+                out.println("  .dd-intro-bar {");
+                out.println("    display: flex;");
+                out.println("    align-items: flex-start;");
+                out.println("    justify-content: space-between;");
+                out.println("    gap: 18px;");
+                out.println("    flex-wrap: wrap;");
                 out.println("    margin-bottom: 12px;");
                 out.println("  }");
+                out.println("  .dd-quick-capture-box {");
+                out.println("    margin-left: auto;");
+                out.println("    min-width: 360px;");
+                out.println("    max-width: 520px;");
+                out.println("    flex: 1 1 420px;");
+                out.println("    padding: 10px 12px;");
+                out.println("    background: #f8f1e6;");
+                out.println("    border: 1px solid #d7c8b1;");
+                out.println("    border-radius: 6px;");
+                out.println("  }");
+                out.println("  .dd-quick-capture-title {");
+                out.println("    font-size: 12px;");
+                out.println("    font-weight: bold;");
+                out.println("    letter-spacing: .04em;");
+                out.println("    text-transform: uppercase;");
+                out.println("    color: #52614d;");
+                out.println("    margin-bottom: 8px;");
+                out.println("  }");
+                out.println("  .dd-qc-start-btn {");
+                out.println("    border: 1px solid #7a9b7a;");
+                out.println("    background: #d6ecd6;");
+                out.println("    color: #1f3a1f;");
+                out.println("    padding: 6px 10px;");
+                out.println("    cursor: pointer;");
+                out.println("    font-size: inherit;");
+                out.println("  }");
+                out.println("  @media (max-width: 900px) { .dd-quick-capture-box { min-width: 0; max-width: none; width: 100%; } }");
                 out.println("  .dd-dashboard-intro h1 {");
                 out.println("    margin: 0 0 6px 0;");
                 out.println("    font-size: 28px;");
@@ -1675,41 +1713,9 @@ public class DashboardPageRenderer {
         }
 
         private void printTodayColumn(PrintWriter out, DashboardTodayColumnModel todayColumnModel, AppReq appReq) {
-                // Quick capture submit handling intentionally posts to
-                // DandelionDashboardServlet
-                // so the dashboard stays independent of legacy servlet routing.
                 if (shouldRenderWorkdayReviewAtTop(todayColumnModel)) {
                         printWorkdayReviewSection(out, todayColumnModel);
                 }
-
-                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
-                printDevLabel(out, "QUICK CAPTURE");
-                out.println("  <h2>Quick Capture</h2>");
-                out.println("  <form class=\"dd-capture-form\" method=\"POST\" action=\""
-                                + todayColumnModel.getQuickCapture().getFormAction() + "\">");
-                out.println("    <div class=\"dd-capture-row\">");
-                out.println("      <div class=\"dd-capture-input-container\">");
-                out.println("        <input type=\"text\" id=\"sentenceInput\" name=\""
-                                + todayColumnModel.getQuickCapture().getSentenceInputName()
-                                + "\" value=\"" + escapeHtml(todayColumnModel.getQuickCapture().getSentenceValue())
-                                + "\" placeholder=\"" + escapeHtml(todayColumnModel.getQuickCapture().getPlaceholder())
-                                + "\" autocomplete=\"off\"/>");
-                out.println("        <div id=\"suggestions\" class=\"dd-capture-suggestions\"></div>");
-                out.println("      </div>");
-                out.println("      <div class=\"dd-capture-actions\">");
-                out.println("        <input type=\"submit\" name=\""
-                                + todayColumnModel.getQuickCapture().getActionParamName()
-                                + "\" value=\"" + todayColumnModel.getQuickCapture().getScheduleActionValue()
-                                + "\"/> ");
-                out.println("        <input type=\"submit\" name=\""
-                                + todayColumnModel.getQuickCapture().getActionParamName()
-                                + "\" value=\"" + todayColumnModel.getQuickCapture().getScheduleAndStartActionValue()
-                                + "\"/> ");
-                out.println("      </div>");
-                out.println("    </div>");
-                out.println("  </form>");
-                printQuickCaptureScript(out, todayColumnModel);
-                out.println("</div>");
 
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "TODAY CHIPS");
@@ -3056,6 +3062,34 @@ public class DashboardPageRenderer {
                 id.setContactId(webUser.getContactId());
                 id.setProjectId(project.getProjectId());
                 return (ProjectContactAssigned) dataSession.get(ProjectContactAssigned.class, id);
+        }
+
+        private void printDashboardQuickCapture(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {
+                DashboardTodayColumnModel.QuickCaptureModel qc = todayColumnModel.getQuickCapture();
+                out.println("  <div class=\"dd-quick-capture-box\">");
+                out.println("    <div class=\"dd-quick-capture-title\">Quick Capture</div>");
+                out.println("    <form class=\"dd-capture-form\" method=\"POST\" action=\"" + qc.getFormAction()
+                                + "\">");
+                out.println("      <div class=\"dd-capture-row\">");
+                out.println("        <div class=\"dd-capture-input-container\">");
+                out.println("          <input type=\"text\" id=\"sentenceInput\" name=\"" + qc.getSentenceInputName()
+                                + "\" value=\"" + escapeHtml(qc.getSentenceValue())
+                                + "\" placeholder=\"" + escapeHtml(qc.getPlaceholder())
+                                + "\" autocomplete=\"off\""
+                                + (qc.isFocusRequested() ? " autofocus=\"autofocus\"" : "") + " />");
+                out.println("          <div id=\"suggestions\" class=\"dd-capture-suggestions\"></div>");
+                out.println("        </div>");
+                out.println("        <div class=\"dd-capture-actions\">");
+                out.println("          <input type=\"submit\" name=\"" + qc.getActionParamName()
+                                + "\" value=\"" + qc.getScheduleActionValue() + "\" />");
+                out.println("          <button type=\"submit\" name=\"" + qc.getActionParamName()
+                                + "\" value=\"" + qc.getScheduleAndStartActionValue()
+                                + "\" class=\"dd-qc-start-btn\">Start</button>");
+                out.println("        </div>");
+                out.println("      </div>");
+                out.println("    </form>");
+                printQuickCaptureScript(out, todayColumnModel);
+                out.println("  </div>");
         }
 
         private void printQuickCaptureScript(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {

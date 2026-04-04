@@ -228,6 +228,7 @@ public class PlanAheadBoardModel {
         private int actionNextId;
         private String projectName = "";
         private String description = "";
+        private String rawDescription = "";
         private int estimateMins;
         private String estimateDisplay = "";
         private String nextActionType = "";
@@ -254,6 +255,14 @@ public class PlanAheadBoardModel {
 
         public void setDescription(String description) {
             this.description = description;
+        }
+
+        public String getRawDescription() {
+            return rawDescription;
+        }
+
+        public void setRawDescription(String rawDescription) {
+            this.rawDescription = rawDescription;
         }
 
         public int getEstimateMins() {
@@ -297,6 +306,7 @@ public class PlanAheadBoardModel {
         private int templateActionNextId;
         private String projectName = "";
         private String description = "";
+        private int estimateMins;
         private String estimateDisplay = "";
         private String templateTypeLabel = "";
         private String templateTypeId = "";
@@ -324,6 +334,14 @@ public class PlanAheadBoardModel {
 
         public void setDescription(String description) {
             this.description = description;
+        }
+
+        public int getEstimateMins() {
+            return estimateMins;
+        }
+
+        public void setEstimateMins(int estimateMins) {
+            this.estimateMins = estimateMins;
         }
 
         public String getEstimateDisplay() {

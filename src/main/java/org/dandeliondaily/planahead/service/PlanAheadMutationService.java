@@ -22,6 +22,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectProvider;
+import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 
 public class PlanAheadMutationService {
@@ -337,6 +338,381 @@ public class PlanAheadMutationService {
         return result;
     }
 
+    public PlanAheadMutationResult saveCardEstimate(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+
+        Integer nextTimeEstimate = parseIntegerOrNull(appReq.getRequest().getParameter("nextTimeEstimate"));
+        if (nextTimeEstimate == null) {
+            nextTimeEstimate = Integer.valueOf(0);
+        }
+        if (nextTimeEstimate.intValue() < 0) {
+            result.setSuccess(false);
+            result.setMessage("nextTimeEstimate cannot be negative");
+            return result;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        String dayKey;
+        String rowKey;
+        try {
+            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action not found");
+                return result;
+            }
+            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action is not available for this provider");
+                return result;
+            }
+            if (!action.isBillable()) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Only work (billable) actions are available in Plan Ahead");
+                return result;
+            }
+
+            dayKey = toDayKey(action.getNextActionDate());
+            rowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
+            if (rowKey.length() == 0) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action type is not editable in Plan Ahead");
+                return result;
+            }
+
+            action.setNextTimeEstimate(nextTimeEstimate);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        Date windowStart = boardService.resolveWindowStart(appReq);
+        PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
+
+        String cellId = PlanAheadPageRenderer.kanbanCellDomId(dayKey, rowKey);
+        for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
+            for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
+                String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
+                if (cellId.equals(domId)) {
+                    result.getAffectedCellsHtml().put(domId, renderer.renderKanbanCellHtml(cellModel));
+                }
+            }
+        }
+
+        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
+            if (dayKey.equals(dayHeaderModel.getDayKey())) {
+                result.getAffectedHeadersHtml().put(
+                        PlanAheadPageRenderer.dayHeaderDomId(dayHeaderModel.getDayKey()),
+                        renderer.renderDayHeader(dayHeaderModel));
+                break;
+            }
+        }
+
+        result.setSuccess(true);
+        result.setMessage("Estimate updated");
+        return result;
+    }
+
+    public PlanAheadMutationResult saveCardDescriptionInline(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+
+        String nextDescription = clip(n(appReq.getRequest().getParameter("nextDescription")), 12000);
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        String dayKey;
+        String rowKey;
+        try {
+            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action not found");
+                return result;
+            }
+            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action is not available for this provider");
+                return result;
+            }
+            if (!action.isBillable()) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Only work (billable) actions are available in Plan Ahead");
+                return result;
+            }
+            if (action.getNextActionDate() == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action date is required for inline description editing");
+                return result;
+            }
+
+            dayKey = toDayKey(action.getNextActionDate());
+            rowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
+            if (rowKey.length() == 0) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action type is not editable in Plan Ahead");
+                return result;
+            }
+
+            action.setNextDescription(nextDescription);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        Date windowStart = boardService.resolveWindowStart(appReq);
+        PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
+
+        String cellId = PlanAheadPageRenderer.kanbanCellDomId(dayKey, rowKey);
+        for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
+            for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
+                String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
+                if (cellId.equals(domId)) {
+                    result.getAffectedCellsHtml().put(domId, renderer.renderKanbanCellHtml(cellModel));
+                }
+            }
+        }
+
+        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
+            if (dayKey.equals(dayHeaderModel.getDayKey())) {
+                result.getAffectedHeadersHtml().put(
+                        PlanAheadPageRenderer.dayHeaderDomId(dayHeaderModel.getDayKey()),
+                        renderer.renderDayHeader(dayHeaderModel));
+                break;
+            }
+        }
+
+        result.setSuccess(true);
+        result.setMessage("Description updated");
+        return result;
+    }
+
+    public PlanAheadMutationResult deleteCardEdit(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action not found");
+                return result;
+            }
+            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action is not available for this provider");
+                return result;
+            }
+            if (!action.isBillable()) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Only work (billable) actions can be deleted");
+                return result;
+            }
+
+            action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        result.setSuccess(true);
+        result.setMessage("Action deleted");
+        return result;
+    }
+
+    public PlanAheadMutationResult undoDeleteCard(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action not found");
+                return result;
+            }
+            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Action is not available for this provider");
+                return result;
+            }
+
+            action.setNextActionStatus(ProjectNextActionStatus.READY);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        result.setSuccess(true);
+        result.setMessage("Action restored");
+        return result;
+    }
+
+    public PlanAheadMutationResult saveTemplateEstimate(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String templateActionNextIdString = appReq.getRequest().getParameter("templateActionNextId");
+        int templateActionNextId;
+        try {
+            templateActionNextId = Integer.parseInt(n(templateActionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            result.setSuccess(false);
+            result.setMessage("templateActionNextId must be a whole number");
+            return result;
+        }
+
+        Integer nextTimeEstimate = parseIntegerOrNull(appReq.getRequest().getParameter("nextTimeEstimate"));
+        if (nextTimeEstimate == null) {
+            nextTimeEstimate = Integer.valueOf(0);
+        }
+        if (nextTimeEstimate.intValue() < 0) {
+            result.setSuccess(false);
+            result.setMessage("nextTimeEstimate cannot be negative");
+            return result;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectActionNext templateAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                    templateActionNextId);
+            if (templateAction == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template action not found");
+                return result;
+            }
+            if (!isOwnedByCurrentProvider(templateAction.getProvider(), appReq)) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template action is not available for this provider");
+                return result;
+            }
+            if (!templateAction.isBillable() || templateAction.getTemplateType() == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Only work templates are editable here");
+                return result;
+            }
+
+            templateAction.setNextTimeEstimate(nextTimeEstimate);
+            templateAction.setNextChangeDate(new Date());
+            dataSession.update(templateAction);
+
+            Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
+            Query query = dataSession.createQuery(
+                    "from ProjectActionNext pan where pan.provider = :provider "
+                            + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "and pan.billable = true "
+                            + "and pan.templateActionNextId = :templateActionNextId "
+                            + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
+                            + "and pan.nextActionStatusString <> :cancelled "
+                            + "and pan.nextActionStatusString <> :completed");
+            query.setParameter("provider", appReq.getWebUser().getProvider());
+            query.setParameter("contactId", appReq.getWebUser().getContactId());
+            query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+            query.setParameter("templateActionNextId", templateActionNextId);
+            query.setParameter("today", today);
+            query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
+            query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
+            @SuppressWarnings("unchecked")
+            List<ProjectActionNext> generatedActions = query.list();
+            for (ProjectActionNext generatedAction : generatedActions) {
+                generatedAction.setNextTimeEstimate(nextTimeEstimate);
+                generatedAction.setNextChangeDate(new Date());
+                dataSession.update(generatedAction);
+            }
+
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        Date windowStart = boardService.resolveWindowStart(appReq);
+        PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
+        for (PlanAheadBoardModel.TemplateCardModel templateCard : boardModel.getTemplateRow().getTemplateCards()) {
+            if (templateCard.getTemplateActionNextId() == templateActionNextId) {
+                result.getAffectedCellsHtml().put(
+                        PlanAheadPageRenderer.templateLabelDomId(templateActionNextId),
+                        renderer.renderTemplateRowLabelCellHtml(templateCard));
+                break;
+            }
+        }
+        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
+            result.getAffectedHeadersHtml().put(
+                    PlanAheadPageRenderer.dayHeaderDomId(dayHeaderModel.getDayKey()),
+                    renderer.renderDayHeader(dayHeaderModel));
+        }
+
+        result.setSuccess(true);
+        result.setMessage("Template estimate updated");
+        return result;
+    }
+
     public PlanAheadMutationResult loadTemplateEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
         String actionNextIdString = n(appReq.getRequest().getParameter("actionNextId")).trim();
@@ -361,6 +737,7 @@ public class PlanAheadMutationService {
             data.put("nextDescription", "");
             data.put("nextTimeEstimate", 0);
             data.put("linkUrl", "");
+            data.put("processStage", "");
             data.put("nextNote", "");
             data.put("projects", listProjectsForProvider(dataSession, appReq));
             result.setSuccess(true);
@@ -394,6 +771,7 @@ public class PlanAheadMutationService {
         data.put("nextDescription", n(action.getNextDescription()));
         data.put("nextTimeEstimate", action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
         data.put("linkUrl", n(action.getLinkUrl()));
+        data.put("processStage", action.getProcessStage() == null ? "" : n(action.getProcessStage().getId()));
         data.put("nextNote", n(action.getNextNotes()));
         result.setSuccess(true);
         result.setMessage("OK");
@@ -426,6 +804,17 @@ public class PlanAheadMutationService {
             result.setSuccess(false);
             result.setMessage("nextTimeEstimate cannot be negative");
             return result;
+        }
+
+        String processStageId = n(appReq.getRequest().getParameter("processStage")).trim();
+        ProcessStage processStage = null;
+        if (processStageId.length() > 0) {
+            processStage = ProcessStage.getProcessStage(processStageId);
+            if (processStage == null) {
+                result.setSuccess(false);
+                result.setMessage("processStage is invalid");
+                return result;
+            }
         }
 
         Session dataSession = appReq.getDataSession();
@@ -496,6 +885,7 @@ public class PlanAheadMutationService {
 
             action.setNextActionType(nextActionType);
             action.setTemplateType(templateType);
+            action.setProcessStage(processStage);
             action.setNextDescription(clip(n(appReq.getRequest().getParameter("nextDescription")), 12000));
             action.setNextTimeEstimate(nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate);
             action.setLinkUrl(clip(n(appReq.getRequest().getParameter("linkUrl")), 1200));
@@ -507,6 +897,34 @@ public class PlanAheadMutationService {
                 dataSession.save(action);
             } else {
                 dataSession.update(action);
+
+                Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
+                Query query = dataSession.createQuery(
+                        "from ProjectActionNext pan where pan.provider = :provider "
+                                + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                                + "and pan.billable = true "
+                                + "and pan.templateActionNextId = :templateActionNextId "
+                                + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
+                                + "and pan.nextActionStatusString <> :cancelled "
+                                + "and pan.nextActionStatusString <> :completed");
+                query.setParameter("provider", appReq.getWebUser().getProvider());
+                query.setParameter("contactId", appReq.getWebUser().getContactId());
+                query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+                query.setParameter("templateActionNextId", action.getActionNextId());
+                query.setParameter("today", today);
+                query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
+                query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
+                @SuppressWarnings("unchecked")
+                List<ProjectActionNext> generatedActions = query.list();
+                for (ProjectActionNext generatedAction : generatedActions) {
+                    generatedAction.setNextActionType(action.getNextActionType());
+                    generatedAction.setNextDescription(action.getNextDescription());
+                    generatedAction.setNextTimeEstimate(action.getNextTimeEstimate());
+                    generatedAction.setLinkUrl(action.getLinkUrl());
+                    generatedAction.setProcessStage(action.getProcessStage());
+                    generatedAction.setNextChangeDate(new Date());
+                    dataSession.update(generatedAction);
+                }
             }
             transaction.commit();
         } catch (RuntimeException re) {
@@ -567,6 +985,49 @@ public class PlanAheadMutationService {
         return result;
     }
 
+    public PlanAheadMutationResult undoDeleteTemplate(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template action not found");
+                return result;
+            }
+            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template action is not available for this provider");
+                return result;
+            }
+
+            action.setNextActionStatus(ProjectNextActionStatus.READY);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        result.setSuccess(true);
+        result.setMessage("Template restored");
+        return result;
+    }
+
     public PlanAheadMutationResult toggleTemplateDay(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
         String templateActionNextIdString = appReq.getRequest().getParameter("templateActionNextId");
@@ -616,14 +1077,19 @@ public class PlanAheadMutationService {
             Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
 
             if (checked) {
+                String nextActionType = n(templateAction.getNextActionType()).trim();
+                if (nextActionType.length() == 0) {
+                    nextActionType = ProjectNextActionType.WILL;
+                }
                 if (generatedAction == null) {
                     generatedAction = new ProjectActionNext();
                     generatedAction.setProjectId(templateAction.getProjectId());
+                    generatedAction.setProject(templateAction.getProject());
                     generatedAction.setContactId(appReq.getWebUser().getContactId());
                     generatedAction.setContact(appReq.getWebUser().getProjectContact());
                     generatedAction.setProvider(appReq.getWebUser().getProvider());
                     generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(ProjectNextActionType.WILL);
+                    generatedAction.setNextActionType(nextActionType);
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
                     generatedAction.setTemplateActionNextId(templateAction.getActionNextId());
                     generatedAction.setPriorityLevel(templateAction.getPriorityLevel());
@@ -633,6 +1099,8 @@ public class PlanAheadMutationService {
                     generatedAction.setNextProjectContact(templateAction.getNextProjectContact());
                     generatedAction.setProcessStage(templateAction.getProcessStage());
                     generatedAction.setTimeSlot(templateAction.getTimeSlot());
+                    generatedAction.setLinkUrl(clip(n(templateAction.getLinkUrl()), 1200));
+                    generatedAction.setNextNotes(clip(n(templateAction.getNextNotes()), 4000));
                     generatedAction.setNextChangeDate(new Date());
                     generatedAction.setNextDescription(templateAction.getNextDescription());
                     generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
@@ -642,7 +1110,10 @@ public class PlanAheadMutationService {
                 } else {
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
                     generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(ProjectNextActionType.WILL);
+                    generatedAction.setNextActionType(nextActionType);
+                    generatedAction.setProcessStage(templateAction.getProcessStage());
+                    generatedAction.setLinkUrl(clip(n(templateAction.getLinkUrl()), 1200));
+                    generatedAction.setNextNotes(clip(n(templateAction.getNextNotes()), 4000));
                     generatedAction.setNextDescription(templateAction.getNextDescription());
                     generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
                             ? Integer.valueOf(0)

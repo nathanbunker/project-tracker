@@ -7,14 +7,17 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.PageMessage;
@@ -83,13 +86,26 @@ public class PlanAheadBoardService {
         Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap = dayCapacityService
                 .ensureAndLoadDayCapacities(appReq, dayList);
 
-        List<ProjectActionNext> movableActions = loadMovableActions(appReq, dayList.get(0),
-                nextDay(dayList.get(dayList.size() - 1), webUser));
-        List<ProjectActionNext> plannedActions = loadPlannedActions(appReq, dayList.get(0),
-                nextDay(dayList.get(dayList.size() - 1), webUser));
+        Date startDate = dayList.get(0);
+        Date endDateExclusive = nextDay(dayList.get(dayList.size() - 1), webUser);
+
         List<ProjectActionNext> templateActions = loadTemplateActions(appReq);
-        List<ProjectActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, dayList.get(0),
-                nextDay(dayList.get(dayList.size() - 1), webUser));
+        List<ProjectActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, startDate,
+                endDateExclusive);
+        boolean shouldMaterializeDefaults = action.length() == 0
+                || "Schedule".equals(action)
+                || "Schedule and Start".equals(action)
+                || "saveTemplateEstimate".equals(action)
+                || "saveTemplateEdit".equals(action);
+        boolean createdDefaults = shouldMaterializeDefaults
+                && ensureDefaultTemplateGeneratedActions(appReq, templateActions, dayList, dayCapacityMap,
+                        generatedTemplateActions);
+
+        List<ProjectActionNext> movableActions = loadMovableActions(appReq, startDate, endDateExclusive);
+        List<ProjectActionNext> plannedActions = loadPlannedActions(appReq, startDate, endDateExclusive);
+        if (createdDefaults) {
+            generatedTemplateActions = loadGeneratedTemplateActions(appReq, startDate, endDateExclusive);
+        }
 
         Map<String, List<ProjectActionNext>> plannedByDay = bucketByDay(plannedActions);
         Map<String, List<ProjectActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions);
@@ -130,7 +146,8 @@ public class PlanAheadBoardService {
 
         model.setRows(createRows(appReq, dayHeaders, movableByDayRow));
         model.setTemplateRow(
-                createTemplateRow(appReq, templateActions, dayHeaders, dayCapacityMap, generatedTemplateActions));
+                createTemplateRow(appReq, templateActions, dayHeaders, dayCapacityMap, generatedTemplateActions,
+                        shouldMaterializeDefaults));
         return model;
     }
 
@@ -174,6 +191,7 @@ public class PlanAheadBoardService {
                 card.setActionNextId(action.getActionNextId());
                 card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
                 card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
+                card.setRawDescription(n(action.getNextDescription()));
                 card.setEstimateMins(n(action.getNextTimeEstimate()));
                 card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
                 card.setNextActionType(n(action.getNextActionType()));
@@ -190,13 +208,16 @@ public class PlanAheadBoardService {
             List<ProjectActionNext> templateActions,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
             Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
-            List<ProjectActionNext> generatedTemplateActions) {
+            List<ProjectActionNext> generatedTemplateActions,
+            boolean allowDefaultSelections) {
         PlanAheadBoardModel.TemplateRowModel row = new PlanAheadBoardModel.TemplateRowModel();
         Map<String, ProjectActionNext> generatedByTemplateDay = new HashMap<String, ProjectActionNext>();
+        Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
         for (ProjectActionNext generatedAction : generatedTemplateActions) {
             if (generatedAction.getTemplateActionNextId() == null || generatedAction.getNextActionDate() == null) {
                 continue;
             }
+            templateIdsWithGenerated.add(generatedAction.getTemplateActionNextId());
             generatedByTemplateDay.put(
                     generatedAction.getTemplateActionNextId() + "|" + toDayKey(generatedAction.getNextActionDate()),
                     generatedAction);
@@ -208,6 +229,7 @@ public class PlanAheadBoardService {
             card.setTemplateActionNextId(action.getActionNextId());
             card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
             card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
+            card.setEstimateMins(action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
             card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
             TemplateType templateType = action.getTemplateType();
             card.setTemplateTypeLabel(templateType == null ? "" : templateType.getLabel());
@@ -227,7 +249,9 @@ public class PlanAheadBoardService {
                             && generatedAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED;
                     selection.setSelected(active);
                 } else {
-                    boolean defaultSelected = TemplateType.DAILY.equals(templateType);
+                    boolean defaultSelected = allowDefaultSelections
+                            && !templateIdsWithGenerated.contains(action.getActionNextId())
+                            && TemplateType.DAILY.equals(templateType);
                     PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayHeader.getDayKey());
                     if (defaultSelected && dayCapacity != null) {
                         defaultSelected = PlanAheadDayCapacityService.STATUS_WORKING
@@ -263,6 +287,109 @@ public class PlanAheadBoardService {
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> list = query.list();
         return list;
+    }
+
+    private boolean ensureDefaultTemplateGeneratedActions(AppReq appReq,
+            List<ProjectActionNext> templateActions,
+            List<Date> dayList,
+            Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
+            List<ProjectActionNext> generatedTemplateActions) {
+        if (templateActions == null || templateActions.isEmpty() || dayList == null || dayList.isEmpty()) {
+            return false;
+        }
+
+        Map<String, ProjectActionNext> generatedByTemplateDay = new HashMap<String, ProjectActionNext>();
+        Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
+        for (ProjectActionNext generatedAction : generatedTemplateActions) {
+            if (generatedAction == null || generatedAction.getTemplateActionNextId() == null
+                    || generatedAction.getNextActionDate() == null) {
+                continue;
+            }
+            templateIdsWithGenerated.add(generatedAction.getTemplateActionNextId());
+            generatedByTemplateDay.put(
+                    generatedAction.getTemplateActionNextId() + "|" + toDayKey(generatedAction.getNextActionDate()),
+                    generatedAction);
+        }
+
+        Date today = stripToDate(appReq.getWebUser(), appReq.getWebUser().getToday());
+        String windowEndDayKey = toDayKey(dayList.get(dayList.size() - 1));
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        boolean created = false;
+        try {
+            for (ProjectActionNext templateAction : templateActions) {
+                if (templateAction == null || templateAction.getActionNextId() <= 0) {
+                    continue;
+                }
+                if (!TemplateType.DAILY.equals(templateAction.getTemplateType())) {
+                    continue;
+                }
+
+                boolean hasGeneratedInWindow = templateIdsWithGenerated.contains(templateAction.getActionNextId());
+
+                String nextActionType = n(templateAction.getNextActionType());
+                if (nextActionType.length() == 0) {
+                    nextActionType = ProjectNextActionType.WILL;
+                }
+
+                for (Date day : dayList) {
+                    if (day == null || day.before(today)) {
+                        continue;
+                    }
+                    String dayKey = toDayKey(day);
+                    if (hasGeneratedInWindow && !windowEndDayKey.equals(dayKey)) {
+                        continue;
+                    }
+                    PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayKey);
+                    if (dayCapacity != null && !PlanAheadDayCapacityService.STATUS_WORKING
+                            .equals(dayCapacity.getWorkStatusCode())) {
+                        continue;
+                    }
+
+                    String key = templateAction.getActionNextId() + "|" + dayKey;
+                    if (generatedByTemplateDay.containsKey(key)) {
+                        continue;
+                    }
+
+                    ProjectActionNext generatedAction = new ProjectActionNext();
+                    generatedAction.setProjectId(templateAction.getProjectId());
+                    generatedAction.setProject(templateAction.getProject());
+                    generatedAction.setContactId(appReq.getWebUser().getContactId());
+                    generatedAction.setContact(appReq.getWebUser().getProjectContact());
+                    generatedAction.setProvider(appReq.getWebUser().getProvider());
+                    generatedAction.setNextActionDate(day);
+                    generatedAction.setNextActionType(nextActionType);
+                    generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
+                    generatedAction.setTemplateActionNextId(templateAction.getActionNextId());
+                    generatedAction.setPriorityLevel(templateAction.getPriorityLevel());
+                    generatedAction.setCompletionOrder(0);
+                    generatedAction.setBillable(templateAction.isBillable());
+                    generatedAction.setNextContactId(templateAction.getNextContactId());
+                    generatedAction.setNextProjectContact(templateAction.getNextProjectContact());
+                    generatedAction.setProcessStage(templateAction.getProcessStage());
+                    generatedAction.setTimeSlot(templateAction.getTimeSlot());
+                    generatedAction.setLinkUrl(n(templateAction.getLinkUrl()));
+                    generatedAction.setNextNotes(n(templateAction.getNextNotes()));
+                    generatedAction.setNextDescription(n(templateAction.getNextDescription()));
+                    generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
+                            ? Integer.valueOf(0)
+                            : templateAction.getNextTimeEstimate());
+                    generatedAction.setNextChangeDate(new Date());
+                    dataSession.save(generatedAction);
+
+                    generatedByTemplateDay.put(key, generatedAction);
+                    templateIdsWithGenerated.add(templateAction.getActionNextId());
+                    created = true;
+                }
+            }
+
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        return created;
     }
 
     private List<ProjectActionNext> loadMovableActions(AppReq appReq, Date startDate, Date endDateExclusive) {
@@ -480,4 +607,5 @@ public class PlanAheadBoardService {
         }
         return hasSuccess;
     }
+
 }

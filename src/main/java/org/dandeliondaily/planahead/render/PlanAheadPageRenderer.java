@@ -14,6 +14,8 @@ public class PlanAheadPageRenderer {
 
         public void render(AppReq appReq, PlanAheadBoardModel boardModel) {
                 PrintWriter out = appReq.getOut();
+                String todayKey = appReq.getWebUser().getDateFormatService().formatPattern(
+                                appReq.getWebUser().getToday(), "yyyy-MM-dd", appReq.getWebUser().getTimeZone());
                 printStyles(out);
                 out.println("<div class=\"pa-page\">");
                 out.println("  <div class=\"pa-intro-bar\">");
@@ -26,7 +28,7 @@ public class PlanAheadPageRenderer {
 
                 out.println("  <div class=\"pa-controls\">");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?windowStart="
-                                + escapeHtml(boardModel.getWindowStartKey())
+                                + escapeHtml(todayKey)
                                 + "\">Today</a>");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?action=shiftWindowForward&days=1&windowStart="
                                 + escapeHtml(boardModel.getWindowStartKey()) + "\">Next Day &#9654;</a>");
@@ -66,7 +68,7 @@ public class PlanAheadPageRenderer {
                                 }
                         }
                 }
-                out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-template-add-row\">"
+                out.println("    <div class=\"pa-cell pa-template-label-cell pa-template-add-row\">"
                                 + "<button type=\"button\" class=\"pa-template-add-btn\" onclick=\"paOpenTemplateModal(0, event)\">+ Add Template</button>"
                                 + "</div>");
                 for (int i = 0; i < boardModel.getDayHeaders().size(); i++) {
@@ -75,7 +77,7 @@ public class PlanAheadPageRenderer {
 
                 out.println("  </div>");
                 printEditModal(out);
-                printDayCapacityModal(out);
+                printStatusModal(out);
                 printTemplateModal(out);
                 printQuickCaptureScript(out, boardModel);
                 printDragDropScript(out, boardModel.getWindowStartKey());
@@ -99,6 +101,7 @@ public class PlanAheadPageRenderer {
                 out.println("          </div>");
                 out.println("          <div class=\"pa-quick-capture-actions\">");
                 out.println("            <input type=\"submit\" name=\"action\" value=\"Schedule\" />");
+                out.println("            <button type=\"submit\" name=\"action\" value=\"Schedule and Start\" class=\"pa-qc-start-btn\">Start</button>");
                 out.println("          </div>");
                 out.println("        </div>");
                 out.println("      </form>");
@@ -205,6 +208,13 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"Q\">Quarterly</option>"
                                 + "<option value=\"Y\">Yearly</option>"
                                 + "</select></label>");
+                out.println("      <label>Process Stage <select id=\"paTemplateProcessStage\">"
+                                + "<option value=\"\">(none)</option>"
+                                + "<option value=\"1\">First</option>"
+                                + "<option value=\"2\">Second</option>"
+                                + "<option value=\"P\">Penultimate</option>"
+                                + "<option value=\"L\">Last</option>"
+                                + "</select></label>");
                 out.println("      <label>Description <textarea id=\"paTemplateDescription\" rows=\"4\"></textarea></label>");
                 out.println("      <label>Estimate (mins) <input type=\"number\" id=\"paTemplateEstimate\" min=\"0\" /></label>");
                 out.println("      <label>Link URL <input type=\"text\" id=\"paTemplateLinkUrl\" /></label>");
@@ -219,31 +229,20 @@ public class PlanAheadPageRenderer {
                 out.println("</div>");
         }
 
-        private void printDayCapacityModal(PrintWriter out) {
-                out.println("<div id=\"paDayCapacityModal\" class=\"pa-modal-overlay\" style=\"display:none;\">");
-                out.println("  <div class=\"pa-modal\">");
+        private void printStatusModal(PrintWriter out) {
+                out.println("<div id=\"paStatusModal\" class=\"pa-modal-overlay pa-status-modal-overlay\" style=\"display:none;\">");
+                out.println("  <div class=\"pa-modal pa-status-modal\">");
                 out.println("    <div class=\"pa-modal-head\">");
-                out.println("      <h3>Edit Work Day</h3>");
-                out.println("      <button type=\"button\" class=\"pa-modal-close\" onclick=\"paCloseDayCapacityModal()\">&times;</button>");
+                out.println("      <h3>Select Work Status</h3>");
+                out.println("      <button type=\"button\" class=\"pa-modal-close\" onclick=\"paCloseStatusModal()\">&times;</button>");
                 out.println("    </div>");
-                out.println("    <div class=\"pa-modal-body\">");
-                out.println("      <input type=\"hidden\" id=\"paDayCapacityDayKey\" />");
-                out.println("      <div class=\"pa-status-picker\">");
-                out.println("        <div class=\"pa-status-picker-label\">Work Status</div>");
-                out.println("        <label class=\"pa-status-radio\"><input type=\"radio\" name=\"paDayCapacityStatus\" value=\"W\" checked /> Working</label>");
-                out.println("        <label class=\"pa-status-radio\"><input type=\"radio\" name=\"paDayCapacityStatus\" value=\"N\" /> Not Working</label>");
-                out.println("        <label class=\"pa-status-radio\"><input type=\"radio\" name=\"paDayCapacityStatus\" value=\"V\" /> Vacation</label>");
-                out.println("        <label class=\"pa-status-radio\"><input type=\"radio\" name=\"paDayCapacityStatus\" value=\"H\" /> Holiday</label>");
-                out.println("        <label class=\"pa-status-radio\"><input type=\"radio\" name=\"paDayCapacityStatus\" value=\"T\" /> Traveling</label>");
-                out.println("        <label class=\"pa-status-radio\"><input type=\"radio\" name=\"paDayCapacityStatus\" value=\"S\" /> Sick</label>");
-                out.println("      </div>");
-                out.println("      <label>Available Time (h:mm)");
-                out.println("        <input type=\"text\" id=\"paDayCapacityTime\" placeholder=\"0:00\" />");
-                out.println("      </label>");
-                out.println("      <div class=\"pa-modal-actions\">");
-                out.println("        <button type=\"button\" onclick=\"paSaveDayCapacityModal()\">Save</button>");
-                out.println("        <button type=\"button\" onclick=\"paCloseDayCapacityModal()\">Cancel</button>");
-                out.println("      </div>");
+                out.println("    <div class=\"pa-status-modal-body\">");
+                out.println("      <button type=\"button\" class=\"pa-status-option\" data-status-code=\"W\">Working</button>");
+                out.println("      <button type=\"button\" class=\"pa-status-option\" data-status-code=\"N\">Not Working</button>");
+                out.println("      <button type=\"button\" class=\"pa-status-option\" data-status-code=\"V\">Vacation</button>");
+                out.println("      <button type=\"button\" class=\"pa-status-option\" data-status-code=\"H\">Holiday</button>");
+                out.println("      <button type=\"button\" class=\"pa-status-option\" data-status-code=\"T\">Traveling</button>");
+                out.println("      <button type=\"button\" class=\"pa-status-option\" data-status-code=\"S\">Sick</button>");
                 out.println("    </div>");
                 out.println("  </div>");
                 out.println("</div>");
@@ -279,6 +278,7 @@ public class PlanAheadPageRenderer {
                 out.println("      <label>Next Contact ID <input type=\"number\" id=\"paEditNextContactId\" /></label>");
                 out.println("      <label>Notes <textarea id=\"paEditNextNote\" rows=\"3\"></textarea></label>");
                 out.println("      <div class=\"pa-modal-actions\">");
+                out.println("        <button type=\"button\" id=\"paEditDeleteBtn\" onclick=\"paDeleteCard()\" style=\"margin-right:auto;\">Delete</button>");
                 out.println("        <button type=\"button\" onclick=\"paSaveEditModal()\">Save</button>");
                 out.println("        <button type=\"button\" onclick=\"paCloseEditModal()\">Cancel</button>");
                 out.println("      </div>");
@@ -369,6 +369,51 @@ public class PlanAheadPageRenderer {
                 out.println("    if (modal) { modal.style.display = 'none'; }");
                 out.println("  };");
 
+                out.println("  window.paDeleteCard = function(){");
+                out.println("    var actionNextId = document.getElementById('paEditActionNextId').value || '0';");
+                out.println("    if (!actionNextId || actionNextId === '0') { return; }");
+                out.println("    var body = 'action=deleteCardEdit' +");
+                out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    paCloseEditModal();");
+                out.println("    fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Delete failed'); return; }");
+                out.println("      var undoLink = '<a href=\\\"#\\\" onclick=\\\"paUndoDeleteCard(' + actionNextId + '); return false;\\\" style=\\\"cursor:pointer;text-decoration:underline;\\\">undo</a>';");
+                out.println("      var notifDiv = document.createElement('div');");
+                out.println("      notifDiv.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#fdd;color:#333;padding:12px 16px;border:1px solid #ccc;border-radius:4px;z-index:5000;font-size:13px;';");
+                out.println("      notifDiv.innerHTML = 'Action deleted. ' + undoLink;");
+                out.println("      document.body.appendChild(notifDiv);");
+                out.println("      setTimeout(function(){");
+                out.println("        window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("      }, 3000);");
+                out.println("    })");
+                out.println("    .catch(function(err){ console.log('Delete request failed', err); });");
+                out.println("  };");
+
+                out.println("  window.paUndoDeleteCard = function(actionNextId){");
+                out.println("    if (!actionNextId) { return; }");
+                out.println("    var body = 'action=undoDeleteCard' +");
+                out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Undo failed'); return; }");
+                out.println("      window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    })");
+                out.println("    .catch(function(err){ console.log('Undo request failed', err); });");
+                out.println("  };");
+
                 out.println("  window.paSaveEditModal = function(){");
                 out.println("    var body = 'action=saveCardEdit' +");
                 out.println(
@@ -430,6 +475,7 @@ public class PlanAheadPageRenderer {
                 out.println("      document.getElementById('paTemplateModalTitle').innerText = isAdd ? 'Add Template' : 'Edit Template';");
                 out.println("      document.getElementById('paTemplateNextActionType').value = data.nextActionType || 'WILL';");
                 out.println("      document.getElementById('paTemplateType').value = data.templateType || 'D';");
+                out.println("      document.getElementById('paTemplateProcessStage').value = data.processStage || ''; ");
                 out.println("      document.getElementById('paTemplateDescription').value = data.nextDescription || ''; ");
                 out.println("      document.getElementById('paTemplateEstimate').value = data.nextTimeEstimate || 0; ");
                 out.println("      document.getElementById('paTemplateLinkUrl').value = data.linkUrl || ''; ");
@@ -482,6 +528,7 @@ public class PlanAheadPageRenderer {
                 out.println("      '&projectId=' + encodeURIComponent(projectId) +");
                 out.println("      '&nextActionType=' + encodeURIComponent(document.getElementById('paTemplateNextActionType').value || 'WILL') +");
                 out.println("      '&templateType=' + encodeURIComponent(document.getElementById('paTemplateType').value || 'D') +");
+                out.println("      '&processStage=' + encodeURIComponent(document.getElementById('paTemplateProcessStage').value || '') +");
                 out.println("      '&nextDescription=' + encodeURIComponent(document.getElementById('paTemplateDescription').value || '') +");
                 out.println("      '&nextTimeEstimate=' + encodeURIComponent(document.getElementById('paTemplateEstimate').value || '0') +");
                 out.println("      '&linkUrl=' + encodeURIComponent(document.getElementById('paTemplateLinkUrl').value || '') +");
@@ -503,8 +550,33 @@ public class PlanAheadPageRenderer {
                 out.println("  window.paDeleteTemplate = function(){");
                 out.println("    var actionNextId = document.getElementById('paTemplateActionNextId').value || '0';");
                 out.println("    if (!actionNextId || actionNextId === '0') { return; }");
-                out.println("    if (!window.confirm('Delete this template?')) { return; }");
                 out.println("    var body = 'action=deleteTemplateEdit' +");
+                out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    paCloseTemplateModal();");
+                out.println("    fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Template delete failed'); return; }");
+                out.println("      var undoLink = '<a href=\\\"#\\\" onclick=\\\"paUndoDeleteTemplate(' + actionNextId + '); return false;\\\" style=\\\"cursor:pointer;text-decoration:underline;\\\">undo</a>';");
+                out.println("      var notifDiv = document.createElement('div');");
+                out.println("      notifDiv.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#fdd;color:#333;padding:12px 16px;border:1px solid #ccc;border-radius:4px;z-index:5000;font-size:13px;';");
+                out.println("      notifDiv.innerHTML = 'Template deleted. ' + undoLink;");
+                out.println("      document.body.appendChild(notifDiv);");
+                out.println("      setTimeout(function(){");
+                out.println("        window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("      }, 3000);");
+                out.println("    })");
+                out.println("    .catch(function(err){ console.log('Template delete request failed', err); });");
+                out.println("  };");
+
+                out.println("  window.paUndoDeleteTemplate = function(actionNextId){");
+                out.println("    if (!actionNextId) { return; }");
+                out.println("    var body = 'action=undoDeleteTemplate' +");
                 out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
                 out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
                 out.println("    fetch('PlanAheadServlet', {");
@@ -514,10 +586,10 @@ public class PlanAheadPageRenderer {
                 out.println("    })");
                 out.println("    .then(function(r){ return r.json(); })");
                 out.println("    .then(function(resp){");
-                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Template delete failed'); return; }");
+                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Undo failed'); return; }");
                 out.println("      window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
                 out.println("    })");
-                out.println("    .catch(function(err){ console.log('Template delete request failed', err); });");
+                out.println("    .catch(function(err){ console.log('Undo request failed', err); });");
                 out.println("  };");
 
                 out.println("  window.paToggleTemplateDay = function(templateActionNextId, dayKey, checkbox){");
@@ -547,22 +619,7 @@ public class PlanAheadPageRenderer {
                 out.println("    });");
                 out.println("  };");
 
-                out.println("  function paSelectWorkStatus(statusCode){");
-                out.println("    var target = statusCode || 'W';");
-                out.println("    var radios = document.querySelectorAll('input[name=\"paDayCapacityStatus\"]');");
-                out.println("    var matched = false;");
-                out.println("    Array.prototype.forEach.call(radios, function(r){");
-                out.println("      var checked = r && r.value === target;");
-                out.println("      if (r) { r.checked = checked; }");
-                out.println("      if (checked) { matched = true; }");
-                out.println("    });");
-                out.println("    if (!matched && radios.length > 0) { radios[0].checked = true; }");
-                out.println("  }");
-
-                out.println("  function paGetSelectedWorkStatus(){");
-                out.println("    var selected = document.querySelector('input[name=\"paDayCapacityStatus\"]:checked');");
-                out.println("    return selected && selected.value ? selected.value : 'W';");
-                out.println("  }");
+                out.println("  var paStatusModalContext = { dayKey: '', statusCode: 'W', billMins: 0 }; ");
 
                 out.println("  function paMinutesToClock(mins){");
                 out.println("    var total = parseInt(mins, 10);");
@@ -584,31 +641,87 @@ public class PlanAheadPageRenderer {
                 out.println("    return (hours * 60) + mins;");
                 out.println("  }");
 
-                out.println("  window.paOpenDayCapacityModal = function(dayKey, statusCode, billMins){");
-                out.println("    document.getElementById('paDayCapacityDayKey').value = dayKey || '';");
-                out.println("    paSelectWorkStatus(statusCode || 'W');");
-                out.println("    document.getElementById('paDayCapacityTime').value = paMinutesToClock(billMins || 0);");
-                out.println("    document.getElementById('paDayCapacityModal').style.display = 'flex';");
-                out.println("  };");
+                out.println("  function paSaveDayCapacityValue(dayKey, statusCode, billMins, applyHeader){");
+                out.println("    var body = 'action=saveDayCapacity' +");
+                out.println("      '&billDate=' + encodeURIComponent(dayKey || '') +");
+                out.println("      '&workStatus=' + encodeURIComponent(statusCode || 'W') +");
+                out.println("      '&billMins=' + encodeURIComponent(billMins || 0) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    return fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) {");
+                out.println("        throw new Error(resp ? (resp.message || 'Save failed') : 'Save failed');");
+                out.println("      }");
+                out.println("      var d = (resp.data && typeof resp.data === 'object') ? resp.data : resp; ");
+                out.println("      if (d.dayStatusHtml && d.dayKey) {");
+                out.println("        var statusEl = document.getElementById('pa-day-status-' + d.dayKey);");
+                out.println("        if (statusEl) { statusEl.outerHTML = d.dayStatusHtml; }");
+                out.println("      }");
+                out.println("      if (applyHeader && d.dayHeaderHtml && d.dayKey) {");
+                out.println("        var headerEl = document.getElementById('pa-day-header-' + d.dayKey);");
+                out.println("        if (headerEl) { headerEl.outerHTML = d.dayHeaderHtml; }");
+                out.println("      }");
+                out.println("      return d;");
+                out.println("    });");
+                out.println("  }");
 
-                out.println("  window.paCloseDayCapacityModal = function(){");
-                out.println("    var modal = document.getElementById('paDayCapacityModal');");
-                out.println("    if (modal) { modal.style.display = 'none'; }");
-                out.println("  };");
+                out.println("  function paBeginCardEstimateEdit(button){");
+                out.println("    if (!button || button.getAttribute('data-editing') === 'true') { return; }");
+                out.println("    var actionId = button.getAttribute('data-action-id') || ''; ");
+                out.println("    if (!actionId) { return; }");
+                out.println("    var originalMins = parseInt(button.getAttribute('data-est-mins') || '0', 10);");
+                out.println("    if (isNaN(originalMins) || originalMins < 0) { originalMins = 0; }");
+                out.println("    var originalText = button.textContent || paMinutesToClock(originalMins);");
+                out.println("    button.setAttribute('data-editing', 'true');");
+                out.println("    var input = document.createElement('input');");
+                out.println("    input.type = 'text';");
+                out.println("    input.className = 'pa-card-est-input';");
+                out.println("    input.value = originalText;");
+                out.println("    input.setAttribute('data-action-id', actionId);");
+                out.println("    input.setAttribute('data-original-mins', String(originalMins));");
+                out.println("    input.setAttribute('data-original-text', originalText);");
+                out.println("    button.style.display = 'none';");
+                out.println("    button.parentNode.insertBefore(input, button.nextSibling);");
+                out.println("    input.focus();");
+                out.println("    input.select();");
+                out.println("    function finish(save){ paFinishCardEstimateEdit(input, button, save); }");
+                out.println("    input.addEventListener('blur', function(){ finish(true); });");
+                out.println("    input.addEventListener('keydown', function(e){");
+                out.println("      if (e.key === 'Enter') { e.preventDefault(); finish(true); }");
+                out.println("      if (e.key === 'Escape') { e.preventDefault(); finish(false); }");
+                out.println("    });");
+                out.println("  }");
 
-                out.println("  window.paSaveDayCapacityModal = function(){");
-                out.println("    var dayKey = document.getElementById('paDayCapacityDayKey').value || '';");
-                out.println("    var status = paGetSelectedWorkStatus();");
-                out.println("    var rawTime = document.getElementById('paDayCapacityTime').value || '0:00';");
-                out.println("    var mins = paParseClockToMinutes(rawTime);");
-                out.println("    if (mins === null || mins < 0) {");
-                out.println("      alert('Available Time must be in h:mm format, for example 0:00 or 08:30');");
+                out.println("  function paFinishCardEstimateEdit(input, button, save){");
+                out.println("    if (!input || !button || input.getAttribute('data-finished') === 'true') { return; }");
+                out.println("    input.setAttribute('data-finished', 'true');");
+                out.println("    var actionId = input.getAttribute('data-action-id') || ''; ");
+                out.println("    var originalMins = parseInt(input.getAttribute('data-original-mins') || '0', 10);");
+                out.println("    if (isNaN(originalMins) || originalMins < 0) { originalMins = 0; }");
+                out.println("    var originalText = input.getAttribute('data-original-text') || paMinutesToClock(originalMins);");
+                out.println("    var typed = (input.value || '').trim();");
+                out.println("    var parsed = paParseClockToMinutes(typed);");
+                out.println("    var hasValidValue = parsed !== null && parsed >= 0;");
+                out.println("    if (!save || !hasValidValue) {");
+                out.println("      button.textContent = originalText;");
+                out.println("      button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("      paRestoreCardEstimateEditor(input, button);");
                 out.println("      return;");
                 out.println("    }");
-                out.println("    var body = 'action=saveDayCapacity' +");
-                out.println("      '&billDate=' + encodeURIComponent(dayKey) +");
-                out.println("      '&workStatus=' + encodeURIComponent(status) +");
-                out.println("      '&billMins=' + encodeURIComponent(mins) +");
+                out.println("    if (parsed === originalMins) {");
+                out.println("      button.textContent = paMinutesToClock(parsed);");
+                out.println("      button.setAttribute('data-est-mins', String(parsed));");
+                out.println("      paRestoreCardEstimateEditor(input, button);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    var body = 'action=saveCardEstimate' +");
+                out.println("      '&actionNextId=' + encodeURIComponent(actionId) +");
+                out.println("      '&nextTimeEstimate=' + encodeURIComponent(parsed) +");
                 out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
                 out.println("    fetch('PlanAheadServlet', {");
                 out.println("      method: 'POST',");
@@ -618,23 +731,297 @@ public class PlanAheadPageRenderer {
                 out.println("    .then(function(r){ return r.json(); })");
                 out.println("    .then(function(resp){");
                 out.println("      if (!resp || !resp.success) {");
-                out.println("        alert(resp ? resp.message : 'Save failed');");
+                out.println("        button.textContent = originalText;");
+                out.println("        button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("        paRestoreCardEstimateEditor(input, button);");
                 out.println("        return;");
                 out.println("      }");
-                out.println("      var d = resp.data || {};");
-                out.println("      if (d.dayStatusHtml && d.dayKey) {");
-                out.println("        var statusEl = document.getElementById('pa-day-status-' + d.dayKey);");
-                out.println("        if (statusEl) { statusEl.outerHTML = d.dayStatusHtml; }");
-                out.println("      }");
-                out.println("      if (d.dayHeaderHtml && d.dayKey) {");
-                out.println("        var headerEl = document.getElementById('pa-day-header-' + d.dayKey);");
-                out.println("        if (headerEl) { headerEl.outerHTML = d.dayHeaderHtml; }");
-                out.println("      }");
-                out.println("      if (d.dayKey) { paRefreshDayHeaders([d.dayKey]); }");
-                out.println("      paCloseDayCapacityModal();");
+                out.println("      paApplyMutationPayload(resp);");
                 out.println("    })");
-                out.println("    .catch(function(err){ console.log('Save day capacity failed', err); });");
-                out.println("  };");
+                out.println("    .catch(function(){");
+                out.println("      button.textContent = originalText;");
+                out.println("      button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("      paRestoreCardEstimateEditor(input, button);");
+                out.println("    });");
+                out.println("  }");
+
+                out.println("  function paRestoreCardEstimateEditor(input, button){");
+                out.println("    if (input && input.parentNode) { input.parentNode.removeChild(input); }");
+                out.println("    button.removeAttribute('data-editing');");
+                out.println("    button.style.display = ''; ");
+                out.println("  }");
+
+                out.println("  function paBeginCardDescriptionEdit(el){");
+                out.println("    if (!el || el.getAttribute('data-editing') === 'true') { return; }");
+                out.println("    var actionId = el.getAttribute('data-action-id') || ''; ");
+                out.println("    if (!actionId) { return; }");
+                out.println("    var originalRaw = el.getAttribute('data-raw-description') || ''; ");
+                out.println("    el.setAttribute('data-editing', 'true');");
+                out.println("    var input = document.createElement('input');");
+                out.println("    input.type = 'text';");
+                out.println("    input.className = 'pa-card-desc-input';");
+                out.println("    input.value = originalRaw;");
+                out.println("    input.setAttribute('data-action-id', actionId);");
+                out.println("    input.setAttribute('data-original-raw', originalRaw);");
+                out.println("    el.style.display = 'none';");
+                out.println("    el.parentNode.insertBefore(input, el.nextSibling);");
+                out.println("    input.focus();");
+                out.println("    input.select();");
+                out.println("    function finish(save){ paFinishCardDescriptionEdit(input, el, save); }");
+                out.println("    input.addEventListener('blur', function(){ finish(true); });");
+                out.println("    input.addEventListener('keydown', function(e){");
+                out.println("      if (e.key === 'Enter') { e.preventDefault(); finish(true); }");
+                out.println("      if (e.key === 'Escape') { e.preventDefault(); finish(false); }");
+                out.println("    });");
+                out.println("  }");
+
+                out.println("  function paFinishCardDescriptionEdit(input, el, save){");
+                out.println("    if (!input || !el || input.getAttribute('data-finished') === 'true') { return; }");
+                out.println("    input.setAttribute('data-finished', 'true');");
+                out.println("    var actionId = input.getAttribute('data-action-id') || ''; ");
+                out.println("    var originalRaw = input.getAttribute('data-original-raw') || ''; ");
+                out.println("    var typed = (input.value || '').trim();");
+                out.println("    if (!save || typed === originalRaw) {");
+                out.println("      paRestoreCardDescriptionEditor(input, el);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    var body = 'action=saveCardDescriptionInline' +");
+                out.println("      '&actionNextId=' + encodeURIComponent(actionId) +");
+                out.println("      '&nextDescription=' + encodeURIComponent(typed) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) {");
+                out.println("        paRestoreCardDescriptionEditor(input, el);");
+                out.println("        return;");
+                out.println("      }");
+                out.println("      paApplyMutationPayload(resp);");
+                out.println("    })");
+                out.println("    .catch(function(){");
+                out.println("      paRestoreCardDescriptionEditor(input, el);");
+                out.println("    });");
+                out.println("  }");
+
+                out.println("  function paRestoreCardDescriptionEditor(input, el){");
+                out.println("    if (input && input.parentNode) { input.parentNode.removeChild(input); }");
+                out.println("    el.removeAttribute('data-editing');");
+                out.println("    el.style.display = ''; ");
+                out.println("  }");
+
+                out.println("  function paBeginTemplateEstimateEdit(button){");
+                out.println("    if (!button || button.getAttribute('data-editing') === 'true') { return; }");
+                out.println("    var templateActionId = button.getAttribute('data-template-action-id') || ''; ");
+                out.println("    if (!templateActionId) { return; }");
+                out.println("    var originalMins = parseInt(button.getAttribute('data-est-mins') || '0', 10);");
+                out.println("    if (isNaN(originalMins) || originalMins < 0) { originalMins = 0; }");
+                out.println("    var originalText = button.textContent || paMinutesToClock(originalMins);");
+                out.println("    button.setAttribute('data-editing', 'true');");
+                out.println("    var input = document.createElement('input');");
+                out.println("    input.type = 'text';");
+                out.println("    input.className = 'pa-card-est-input';");
+                out.println("    input.value = originalText;");
+                out.println("    input.setAttribute('data-template-action-id', templateActionId);");
+                out.println("    input.setAttribute('data-original-mins', String(originalMins));");
+                out.println("    input.setAttribute('data-original-text', originalText);");
+                out.println("    button.style.display = 'none';");
+                out.println("    button.parentNode.insertBefore(input, button.nextSibling);");
+                out.println("    input.focus();");
+                out.println("    input.select();");
+                out.println("    function finish(save){ paFinishTemplateEstimateEdit(input, button, save); }");
+                out.println("    input.addEventListener('blur', function(){ finish(true); });");
+                out.println("    input.addEventListener('keydown', function(e){");
+                out.println("      if (e.key === 'Enter') { e.preventDefault(); finish(true); }");
+                out.println("      if (e.key === 'Escape') { e.preventDefault(); finish(false); }");
+                out.println("    });");
+                out.println("  }");
+
+                out.println("  function paFinishTemplateEstimateEdit(input, button, save){");
+                out.println("    if (!input || !button || input.getAttribute('data-finished') === 'true') { return; }");
+                out.println("    input.setAttribute('data-finished', 'true');");
+                out.println("    var templateActionId = input.getAttribute('data-template-action-id') || ''; ");
+                out.println("    var originalMins = parseInt(input.getAttribute('data-original-mins') || '0', 10);");
+                out.println("    if (isNaN(originalMins) || originalMins < 0) { originalMins = 0; }");
+                out.println("    var originalText = input.getAttribute('data-original-text') || paMinutesToClock(originalMins);");
+                out.println("    var typed = (input.value || '').trim();");
+                out.println("    var parsed = paParseClockToMinutes(typed);");
+                out.println("    var hasValidValue = parsed !== null && parsed >= 0;");
+                out.println("    if (!save || !hasValidValue) {");
+                out.println("      button.textContent = originalText;");
+                out.println("      button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("      paRestoreCardEstimateEditor(input, button);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    if (parsed === originalMins) {");
+                out.println("      button.textContent = paMinutesToClock(parsed);");
+                out.println("      button.setAttribute('data-est-mins', String(parsed));");
+                out.println("      paRestoreCardEstimateEditor(input, button);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    var body = 'action=saveTemplateEstimate' +");
+                out.println("      '&templateActionNextId=' + encodeURIComponent(templateActionId) +");
+                out.println("      '&nextTimeEstimate=' + encodeURIComponent(parsed) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) {");
+                out.println("        button.textContent = originalText;");
+                out.println("        button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("        paRestoreCardEstimateEditor(input, button);");
+                out.println("        return;");
+                out.println("      }");
+                out.println("      paApplyMutationPayload(resp);");
+                out.println("    })");
+                out.println("    .catch(function(){");
+                out.println("      button.textContent = originalText;");
+                out.println("      button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("      paRestoreCardEstimateEditor(input, button);");
+                out.println("    });");
+                out.println("  }");
+
+                out.println("  function paBeginStatusTimeEdit(button){");
+                out.println("    if (!button || button.getAttribute('data-editing') === 'true') { return; }");
+                out.println("    var dayKey = button.getAttribute('data-day-key') || ''; ");
+                out.println("    var statusCode = button.getAttribute('data-status-code') || 'W';");
+                out.println("    var originalMins = parseInt(button.getAttribute('data-bill-mins') || '0', 10);");
+                out.println("    if (!dayKey || isNaN(originalMins) || originalMins < 0) { return; }");
+                out.println("    var originalText = button.textContent || paMinutesToClock(originalMins);");
+                out.println("    button.setAttribute('data-editing', 'true');");
+                out.println("    var input = document.createElement('input');");
+                out.println("    input.type = 'text';");
+                out.println("    input.className = 'pa-status-time-input';");
+                out.println("    input.value = originalText;");
+                out.println("    input.setAttribute('data-day-key', dayKey);");
+                out.println("    input.setAttribute('data-status-code', statusCode);");
+                out.println("    input.setAttribute('data-original-mins', String(originalMins));");
+                out.println("    input.setAttribute('data-original-text', originalText);");
+                out.println("    button.style.display = 'none';");
+                out.println("    button.parentNode.insertBefore(input, button.nextSibling);");
+                out.println("    input.focus();");
+                out.println("    input.select();");
+                out.println("    function finish(save){ paFinishStatusTimeEdit(input, button, save); }");
+                out.println("    input.addEventListener('blur', function(){ finish(true); });");
+                out.println("    input.addEventListener('keydown', function(e){");
+                out.println("      if (e.key === 'Enter') { e.preventDefault(); finish(true); }");
+                out.println("      if (e.key === 'Escape') { e.preventDefault(); finish(false); }");
+                out.println("    });");
+                out.println("  }");
+
+                out.println("  function paFinishStatusTimeEdit(input, button, save){");
+                out.println("    if (!input || !button || input.getAttribute('data-finished') === 'true') { return; }");
+                out.println("    input.setAttribute('data-finished', 'true');");
+                out.println("    var dayKey = input.getAttribute('data-day-key') || ''; ");
+                out.println("    var statusCode = input.getAttribute('data-status-code') || 'W';");
+                out.println("    var originalMins = parseInt(input.getAttribute('data-original-mins') || '0', 10);");
+                out.println("    if (isNaN(originalMins) || originalMins < 0) { originalMins = 0; }");
+                out.println("    var originalText = input.getAttribute('data-original-text') || paMinutesToClock(originalMins);");
+                out.println("    var parsed = paParseClockToMinutes((input.value || '').trim());");
+                out.println("    if (!save || parsed === null || parsed < 0) {");
+                out.println("      button.textContent = originalText;");
+                out.println("      button.setAttribute('data-bill-mins', String(originalMins));");
+                out.println("      paRestoreStatusTimeEditor(input, button);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    if (parsed === originalMins) {");
+                out.println("      button.textContent = paMinutesToClock(parsed);");
+                out.println("      button.setAttribute('data-bill-mins', String(parsed));");
+                out.println("      paRestoreStatusTimeEditor(input, button);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    paSaveDayCapacityValue(dayKey, statusCode, parsed, true)");
+                out.println("      .catch(function(){");
+                out.println("        button.textContent = originalText;");
+                out.println("        button.setAttribute('data-bill-mins', String(originalMins));");
+                out.println("        paRestoreStatusTimeEditor(input, button);");
+                out.println("      });");
+                out.println("  }");
+
+                out.println("  function paRestoreStatusTimeEditor(input, button){");
+                out.println("    if (input && input.parentNode) { input.parentNode.removeChild(input); }");
+                out.println("    button.removeAttribute('data-editing');");
+                out.println("    button.style.display = ''; ");
+                out.println("  }");
+
+                out.println("  function paOpenStatusModal(dayKey, statusCode, billMins){");
+                out.println("    paStatusModalContext.dayKey = dayKey || ''; ");
+                out.println("    paStatusModalContext.statusCode = statusCode || 'W';");
+                out.println("    paStatusModalContext.billMins = parseInt(billMins || 0, 10); ");
+                out.println("    if (isNaN(paStatusModalContext.billMins) || paStatusModalContext.billMins < 0) { paStatusModalContext.billMins = 0; }");
+                out.println("    var modal = document.getElementById('paStatusModal');");
+                out.println("    if (!modal) { return; }");
+                out.println("    modal.style.display = 'flex';");
+                out.println("  }");
+
+                out.println("  window.paCloseStatusModal = function(){");
+                out.println("    var modal = document.getElementById('paStatusModal');");
+                out.println("    if (modal) { modal.style.display = 'none'; }");
+                out.println("  }; ");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var estBtn = e.target && e.target.closest ? e.target.closest('.pa-card-est-editable') : null;");
+                out.println("    if (!estBtn) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    e.stopPropagation();");
+                out.println("    paBeginCardEstimateEdit(estBtn);");
+                out.println("  });");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var templateEstBtn = e.target && e.target.closest ? e.target.closest('.pa-template-est-editable') : null;");
+                out.println("    if (!templateEstBtn) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    e.stopPropagation();");
+                out.println("    paBeginTemplateEstimateEdit(templateEstBtn);");
+                out.println("  });");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var statusBtn = e.target && e.target.closest ? e.target.closest('.pa-status-label-btn') : null;");
+                out.println("    if (!statusBtn) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    e.stopPropagation();");
+                out.println("    paOpenStatusModal(statusBtn.getAttribute('data-day-key'), statusBtn.getAttribute('data-status-code'), statusBtn.getAttribute('data-bill-mins'));");
+                out.println("  });");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var statusOption = e.target && e.target.closest ? e.target.closest('.pa-status-option') : null;");
+                out.println("    if (!statusOption) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    var statusCode = statusOption.getAttribute('data-status-code') || 'W';");
+                out.println("    var nextBillMins = statusCode === 'W' ? paStatusModalContext.billMins : 0;");
+                out.println("    paSaveDayCapacityValue(paStatusModalContext.dayKey, statusCode, nextBillMins, true)");
+                out.println("      .then(function(){ paCloseStatusModal(); })");
+                out.println("      .catch(function(){ paCloseStatusModal(); });");
+                out.println("  });");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var statusTimeBtn = e.target && e.target.closest ? e.target.closest('.pa-status-time-btn') : null;");
+                out.println("    if (!statusTimeBtn) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    e.stopPropagation();");
+                out.println("    paBeginStatusTimeEdit(statusTimeBtn);");
+                out.println("  });");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var descEl = e.target && e.target.closest ? e.target.closest('.pa-card-desc-editable') : null;");
+                out.println("    if (!descEl) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    e.stopPropagation();");
+                out.println("    paBeginCardDescriptionEdit(descEl);");
+                out.println("  });");
+
+                out.println("  document.addEventListener('click', function(e){");
+                out.println("    var modal = document.getElementById('paStatusModal');");
+                out.println("    if (!modal || modal.style.display === 'none') { return; }");
+                out.println("    if (e.target === modal) { paCloseStatusModal(); }");
+                out.println("  });");
 
                 out.println("  window.paRefreshDayHeaders = function(dayKeysArray){");
                 out.println("    if (!dayKeysArray || dayKeysArray.length === 0) { return; }");
@@ -683,7 +1070,7 @@ public class PlanAheadPageRenderer {
 
         public String renderDayHeader(PlanAheadBoardModel.DayHeaderModel dayHeader) {
                 StringBuilder s = new StringBuilder();
-                boolean showGauge = !"N".equals(dayHeader.getWorkStatusCode());
+                boolean showGauge = dayHeader.getBillMins() > 0 || dayHeader.getPlannedMins() > 0;
                 s.append("    <div class=\"pa-cell pa-header\" id=\"").append(dayHeaderDomId(dayHeader.getDayKey()))
                                 .append("\">");
                 s.append("      <div class=\"pa-header-top\">");
@@ -707,20 +1094,30 @@ public class PlanAheadPageRenderer {
         public String renderDayStatusCell(PlanAheadBoardModel.DayHeaderModel dayHeader) {
                 StringBuilder s = new StringBuilder();
                 String statusLabel = dayHeader.getWorkStatusLabel();
-                if ("W".equals(dayHeader.getWorkStatusCode()) && dayHeader.getBillMins() > 0) {
-                        statusLabel = statusLabel + " " + TimeTracker.formatTime(dayHeader.getBillMins());
-                }
+                String timeDisplay = TimeTracker.formatTime(dayHeader.getBillMins());
                 s.append("    <div class=\"pa-cell pa-status\" id=\"pa-day-status-")
                                 .append(escapeHtml(dayHeader.getDayKey()))
                                 .append("\">");
-                s.append("      <div class=\"pa-status-main\"><strong>")
-                                .append(escapeHtml(statusLabel))
-                                .append("</strong>");
-                s.append("<button type=\"button\" class=\"pa-status-edit\" onclick=\"paOpenDayCapacityModal('")
-                                .append(escapeHtml(dayHeader.getDayKey())).append("','")
-                                .append(escapeHtml(dayHeader.getWorkStatusCode())).append("',")
+                s.append("      <div class=\"pa-status-main\">");
+                s.append("<button type=\"button\" class=\"pa-status-label-btn\" data-day-key=\"")
+                                .append(escapeHtml(dayHeader.getDayKey()))
+                                .append("\" data-status-code=\"")
+                                .append(escapeHtml(dayHeader.getWorkStatusCode()))
+                                .append("\" data-bill-mins=\"")
                                 .append(dayHeader.getBillMins())
-                                .append(")\">Edit</button></div>");
+                                .append("\">")
+                                .append(escapeHtml(statusLabel))
+                                .append("</button>");
+                s.append("<button type=\"button\" class=\"pa-card-est-box pa-status-time-btn\" data-day-key=\"")
+                                .append(escapeHtml(dayHeader.getDayKey()))
+                                .append("\" data-status-code=\"")
+                                .append(escapeHtml(dayHeader.getWorkStatusCode()))
+                                .append("\" data-bill-mins=\"")
+                                .append(dayHeader.getBillMins())
+                                .append("\" title=\"Click to edit time\">")
+                                .append(escapeHtml(timeDisplay))
+                                .append("</button>");
+                s.append("      </div>");
                 s.append("    </div>");
                 return s.toString();
         }
@@ -739,7 +1136,12 @@ public class PlanAheadPageRenderer {
                                                 .append(card.getActionNextId()).append("\">");
                                 s.append("<div class=\"pa-card-main\">");
                                 s.append("<div class=\"pa-card-body\">");
-                                s.append("<div class=\"pa-card-title\">").append(card.getDescription())
+                                s.append("<div class=\"pa-card-title pa-card-desc-editable\" data-action-id=\"")
+                                                .append(card.getActionNextId())
+                                                .append("\" data-raw-description=\"")
+                                                .append(escapeHtml(card.getRawDescription()))
+                                                .append("\" title=\"Click to edit description\">")
+                                                .append(card.getDescription())
                                                 .append("</div>");
                                 s.append("<div class=\"pa-card-subline\">");
                                 s.append("<span class=\"pa-card-project\">").append(escapeHtml(card.getProjectName()))
@@ -749,9 +1151,13 @@ public class PlanAheadPageRenderer {
                                                 .append(", event)\">edit</button>");
                                 s.append("</div>");
                                 s.append("</div>");
-                                s.append("<div class=\"pa-card-est-box\">")
+                                s.append("<button type=\"button\" class=\"pa-card-est-box pa-card-est-editable\" data-action-id=\"")
+                                                .append(card.getActionNextId())
+                                                .append("\" data-est-mins=\"")
+                                                .append(card.getEstimateMins())
+                                                .append("\" title=\"Click to edit estimate\">")
                                                 .append(escapeHtml(card.getEstimateDisplay()))
-                                                .append("</div>");
+                                                .append("</button>");
                                 s.append("</div>");
                                 s.append("</div>");
                         }
@@ -774,29 +1180,30 @@ public class PlanAheadPageRenderer {
 
         private String renderTemplateRowLabelCell(PlanAheadBoardModel.TemplateCardModel templateCard) {
                 StringBuilder s = new StringBuilder();
-                s.append("    <div class=\"pa-cell pa-template-label-cell\">");
-                s.append("      <div class=\"pa-card pa-template-master-card\">");
-                s.append("        <div class=\"pa-card-main\">");
-                s.append("          <div class=\"pa-card-body\">");
-                s.append("            <div class=\"pa-card-title\">")
-                                .append(templateCard.getDescription())
-                                .append("</div>");
-                s.append("            <div class=\"pa-card-subline\">");
-                s.append("              <span class=\"pa-card-project\">")
-                                .append(escapeHtml(templateCard.getProjectName()))
+                s.append("    <div class=\"pa-cell pa-template-label-cell\" id=\"")
+                                .append(templateLabelDomId(templateCard.getTemplateActionNextId()))
+                                .append("\">");
+                s.append("      <div class=\"pa-template-label-main\">");
+                s.append("      <span class=\"pa-template-inline-text\">")
+                                .append(templateCard.getProjectName())
                                 .append("</span>");
-                s.append("              <button type=\"button\" class=\"pa-card-edit-link\" onclick=\"paOpenTemplateModal(")
+                s.append("      <button type=\"button\" class=\"pa-template-inline-edit\" onclick=\"paOpenTemplateModal(")
                                 .append(templateCard.getTemplateActionNextId())
-                                .append(", event)\">edit</button>");
-                s.append("            </div>");
-                s.append("          </div>");
-                s.append("          <div class=\"pa-card-est-box\">")
-                                .append(escapeHtml(templateCard.getEstimateDisplay()))
-                                .append("</div>");
-                s.append("        </div>");
+                                .append(", event)\">edit template</button>");
                 s.append("      </div>");
+                s.append("      <button type=\"button\" class=\"pa-card-est-box pa-template-est-editable\" data-template-action-id=\"")
+                                .append(templateCard.getTemplateActionNextId())
+                                .append("\" data-est-mins=\"")
+                                .append(templateCard.getEstimateMins())
+                                .append("\" title=\"Click to edit template estimate\">")
+                                .append(escapeHtml(templateCard.getEstimateDisplay()))
+                                .append("</button>");
                 s.append("    </div>");
                 return s.toString();
+        }
+
+        public String renderTemplateRowLabelCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard) {
+                return renderTemplateRowLabelCell(templateCard);
         }
 
         private String renderTemplateSelectionCell(PlanAheadBoardModel.TemplateCardModel templateCard,
@@ -833,6 +1240,10 @@ public class PlanAheadPageRenderer {
                 return "pa-template-day-" + templateActionNextId + "-" + dayKey;
         }
 
+        public static String templateLabelDomId(int templateActionNextId) {
+                return "pa-template-label-" + templateActionNextId;
+        }
+
         private boolean isTemplateSelectedForDay(PlanAheadBoardModel.TemplateCardModel templateCard, String dayKey) {
                 for (PlanAheadBoardModel.TemplateDaySelectionModel selection : templateCard.getDaySelections()) {
                         if (dayKey.equals(selection.getDayKey())) {
@@ -864,6 +1275,7 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-quick-capture-input-wrap{position:relative;flex:1 1 auto;}");
                 out.println(".pa-quick-capture-input-wrap input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbbda7;font-size:13px;background:#fffdf8;}");
                 out.println(".pa-quick-capture-actions input{padding:8px 12px;border:1px solid #9fb1a0;background:#eef5ee;color:#2f4330;cursor:pointer;border-radius:4px;}");
+                out.println(".pa-qc-start-btn{padding:8px 12px;border:1px solid #7a9b7a;background:#d6ecd6;color:#1f3a1f;cursor:pointer;border-radius:4px;font-size:inherit;}");
                 out.println(".pa-capture-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid #cbbda7;border-top:none;box-shadow:0 6px 16px rgba(0,0,0,.12);max-height:180px;overflow-y:auto;}");
                 out.println(".pa-capture-suggestions div{padding:7px 10px;cursor:pointer;font-size:13px;color:#2f4330;}");
                 out.println(".pa-capture-suggestions div:hover{background:#eef5ee;}");
@@ -885,12 +1297,14 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-day-date{font-size:12px;opacity:.95;margin-top:2px;}");
                 out.println(".pa-day-metrics{font-size:12px;margin-top:0;}");
                 out.println(".pa-day-gauge{margin-top:4px;display:block;}");
-                out.println(".pa-day-gauge .dd-time-gauge{width:100%;}");
+                out.println(".pa-day-gauge .dd-time-gauge{width:90%;}");
                 out.println(".pa-status{background:#fbf8f2;min-height:0;padding-top:6px;padding-bottom:6px;}");
                 out.println(".pa-status-main{display:flex;align-items:center;justify-content:space-between;gap:8px;}");
-                out.println(".pa-status-main strong{font-size:16px;font-weight:normal;color:#2f4330;line-height:1.1;}");
-                out.println(".pa-status-edit{font-size:11px;padding:3px 10px;border:1px solid #d2d8de;background:#ffffff;color:#2f4358;cursor:pointer;border-radius:4px;}");
-                out.println(".pa-status-edit:hover{background:#f6f9fc;}");
+                out.println(".pa-status-label-btn{border:none;background:none;padding:0;font-size:16px;font-weight:normal;color:#2f4330;line-height:1.1;cursor:pointer;text-align:left;}");
+                out.println(".pa-status-label-btn:hover{text-decoration:underline;color:#223947;}");
+                out.println(".pa-status-time-btn{cursor:text;}");
+                out.println(".pa-status-time-btn:hover{border-color:#9fb1c2;background:#f7fbff;}");
+                out.println(".pa-status-time-input{flex:0 0 auto;width:62px;padding:4px 6px;border:1px solid #6f98bf;border-radius:4px;text-align:center;font-size:14px;font-weight:bold;line-height:1.1;color:#1f2f3a;background:#ffffff;}");
                 out.println(".pa-kanban{background:#fff;}");
                 out.println(
                                 ".pa-card{background:#f6f8fb;border:1px solid #d9e1ea;border-radius:6px;padding:6px 8px;margin-bottom:6px;cursor:grab;}");
@@ -898,20 +1312,30 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-card-body{min-width:0;flex:1 1 auto;}");
                 out.println(".pa-card-title{font-size:13px;line-height:1.2;color:#1f2f3a;}");
                 out.println(".pa-card-title i{font-style:italic;color:#3a4d5b;}");
+                out.println(".pa-card-desc-editable{cursor:text;}");
                 out.println(".pa-card-subline{margin-top:4px;display:flex;align-items:center;gap:8px;min-width:0;}");
                 out.println(".pa-card-project{font-size:11px;font-weight:bold;color:#4b6072;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}");
                 out.println(".pa-card-edit-link{border:none;background:none;padding:0;color:#9aa0a6;font-size:11px;cursor:pointer;text-decoration:none;}");
                 out.println(".pa-card-edit-link:hover{color:#6f767d;text-decoration:underline;}");
                 out.println(".pa-card-est-box{flex:0 0 auto;min-width:56px;padding:4px 6px;background:#ffffff;border:1px solid #cfd8e3;border-radius:4px;text-align:center;font-size:16px;font-weight:bold;line-height:1.1;color:#22313f;}");
+                out.println(".pa-card-est-editable{cursor:text;}");
+                out.println(".pa-card-est-editable:hover{border-color:#9fb1c2;background:#f7fbff;}");
+                out.println(".pa-card-est-input{flex:0 0 auto;width:62px;padding:4px 6px;border:1px solid #6f98bf;border-radius:4px;text-align:center;font-size:14px;font-weight:bold;line-height:1.1;color:#1f2f3a;background:#ffffff;}");
+                out.println(".pa-card-desc-input{width:100%;padding:3px 5px;border:1px solid #6f98bf;border-radius:4px;font-size:13px;line-height:1.2;color:#1f2f3a;background:#ffffff;box-sizing:border-box;}");
                 out.println(
                                 ".pa-card-edit{font-size:11px;padding:2px 8px;border:1px solid #9fb1c2;background:#eef3f8;cursor:pointer;}");
                 out.println(".pa-empty{font-size:12px;color:#7b7b7b;font-style:italic;}");
-                out.println(".pa-template-label-cell{background:#f8f1e6;color:#324532;font-weight:normal;}");
-                out.println(".pa-template-master-card{cursor:default;margin:0;}");
-                out.println(".pa-template-day-column{background:#fffaf0;min-height:0;padding-top:6px;padding-bottom:6px;}");
+                out.println(".pa-template-label-cell{background:#f8f1e6;color:#324532;font-weight:normal;min-height:0;padding-top:6px;padding-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;}");
+                out.println(".pa-template-label-main{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto;white-space:nowrap;}");
+                out.println(".pa-template-inline-text{font-size:13px;line-height:1.1;font-weight:normal;color:#2f3f30;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;}");
+                out.println(".pa-template-inline-edit{border:none;background:none;padding:0;color:#9aa0a6;font-size:11px;cursor:pointer;text-decoration:none;flex:0 0 auto;}");
+                out.println(".pa-template-inline-edit:hover{color:#6f767d;text-decoration:underline;}");
+                out.println(".pa-template-day-column{background:#fffaf0;min-height:0;padding-top:6px;padding-bottom:6px;display:block;}");
                 out.println(".pa-template-day-toggle{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:#4e4e4e;cursor:pointer;line-height:1.2;margin:0;}");
                 out.println(".pa-template-day-toggle input{margin-top:2px;}");
                 out.println(".pa-template-day-desc{display:block;color:#2f3f30;}");
+                out.println(".pa-template-est-editable{cursor:text;}");
+                out.println(".pa-template-est-editable:hover{border-color:#9fb1c2;background:#f7fbff;}");
                 out.println(".pa-template-add-row{justify-content:flex-start;}");
                 out.println(".pa-template-add-btn{font-size:12px;padding:4px 10px;border:1px solid #9fb1a0;background:#eef5ee;cursor:pointer;border-radius:4px;color:#2f4330;}");
                 out.println(".pa-template-add-empty{background:#fffaf0;min-height:0;padding-top:6px;padding-bottom:6px;}");
@@ -925,10 +1349,11 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-modal-close{border:none;background:transparent;font-size:24px;cursor:pointer;line-height:1;}");
                 out.println(".pa-modal-body{padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}");
                 out.println(".pa-modal-body label{display:flex;flex-direction:column;font-size:12px;color:#2f3f30;gap:4px;}");
-                out.println(".pa-status-picker{display:flex;flex-direction:column;align-items:flex-start;gap:5px;font-size:12px;color:#2f3f30;}");
-                out.println(".pa-status-picker-label{font-weight:bold;color:#2f3f30;margin-bottom:2px;}");
-                out.println(".pa-status-radio{display:flex;justify-content:flex-start;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#2f3f30;white-space:nowrap;}");
-                out.println(".pa-status-radio input[type=radio]{margin:0;padding:0;border:0;width:auto;height:auto;}");
+                out.println(".pa-status-modal-overlay{z-index:1100;}");
+                out.println(".pa-status-modal{min-width:280px;max-width:360px;}");
+                out.println(".pa-status-modal-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}");
+                out.println(".pa-status-option{padding:7px 10px;border:1px solid #cbbda7;background:#fffdf8;color:#2f4330;cursor:pointer;text-align:left;border-radius:4px;}");
+                out.println(".pa-status-option:hover{background:#eef5ee;border-color:#9fb1a0;}");
                 out.println("#paTemplateProjectName[readonly]{background:#f7f7f7;color:#46554a;}");
                 out.println(
                                 ".pa-modal-body input:not([type=radio]):not([type=checkbox]),.pa-modal-body select,.pa-modal-body textarea{padding:6px;border:1px solid #cbbda7;font-size:13px;}");
