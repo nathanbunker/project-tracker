@@ -318,7 +318,7 @@ public class ProjectHealthPageRenderer {
                 out.println("      <div class=\"ph-form-field\">");
                 out.println("        <label for=\"phBulkImportText\">Actions</label>");
                 out.println(
-                                "        <textarea id=\"phBulkImportText\" name=\"bulkImportText\" rows=\"10\" placeholder=\"I will draft timeline tomorrow&#10;Client Project: I might review notes friday\"></textarea>");
+                                "        <textarea id=\"phBulkImportText\" name=\"bulkImportText\" rows=\"10\" placeholder=\"I will draft timeline tomorrow&#10;Client Project: I would like to review notes friday\"></textarea>");
                 out.println("      </div>");
                 out.println(
                                 "      <div class=\"ph-form-actions\">\n        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Import Actions</button>\n        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseBulkImportModal(event)\">Cancel</button>\n      </div>");
@@ -347,7 +347,7 @@ public class ProjectHealthPageRenderer {
                 out.println("      <div class=\"ph-form-field\">");
                 out.println("        <label for=\"phReviewBulkImportText\">Replacement Actions</label>");
                 out.println(
-                                "        <textarea id=\"phReviewBulkImportText\" name=\"bulkImportText\" rows=\"8\" placeholder=\"I will rewrite proposal tomorrow&#10;Another Project: I might call vendor friday\"></textarea>");
+                                "        <textarea id=\"phReviewBulkImportText\" name=\"bulkImportText\" rows=\"8\" placeholder=\"I will rewrite proposal tomorrow&#10;Another Project: I would like to call vendor friday\"></textarea>");
                 out.println("      </div>");
                 out.println(
                                 "      <div class=\"ph-form-actions\">\n        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Delete and Bulk Import</button>\n        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseReviewUnscheduledModal(event)\">Cancel</button>\n      </div>");

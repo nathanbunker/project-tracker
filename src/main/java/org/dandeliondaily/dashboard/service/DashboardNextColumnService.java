@@ -27,7 +27,6 @@ public class DashboardNextColumnService {
 
     private static final int BUCKET_START_OF_WORK_DAY = 0;
     private static final int BUCKET_OVERDUE = 1;
-    private static final int BUCKET_PERSONAL_WAKE = 2;
     private static final int BUCKET_COMMITTED = 3;
     private static final int BUCKET_WILL = 4;
     private static final int BUCKET_PERSONAL_MORNING = 5;
@@ -35,7 +34,6 @@ public class DashboardNextColumnService {
     private static final int BUCKET_WAITING = 7;
     private static final int BUCKET_WILL_MEET = 8;
     private static final int BUCKET_END_OF_WORK_DAY = 9;
-    private static final int BUCKET_PERSONAL_LATE = 10;
     private static final int BUCKET_OTHER = 11;
 
     public DashboardNextColumnModel buildModel(AppReq appReq, DashboardTimeGaugeService gaugeService) {

@@ -603,7 +603,8 @@ public class PlanAheadBoardService {
                 || ProjectNextActionType.WILL_REVIEW.equals(actionType)) {
             return ROW_WILL;
         }
-        if (ProjectNextActionType.MIGHT.equals(actionType)) {
+        if (ProjectNextActionType.MIGHT.equals(actionType)
+                || ProjectNextActionType.WOULD_LIKE_TO.equals(actionType)) {
             return ROW_MIGHT;
         }
         return "";
@@ -704,16 +705,6 @@ public class PlanAheadBoardService {
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTime();
-    }
-
-    private Date parseDay(String dayKey) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        sdf.setLenient(false);
-        try {
-            return sdf.parse(dayKey);
-        } catch (ParseException e) {
-            return null;
-        }
     }
 
     private Date parseDay(String dayKey, WebUser webUser) {

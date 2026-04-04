@@ -146,7 +146,7 @@ public class PlanAheadPageRenderer {
                                 out.print(", ");
                         }
                 }
-                out.println("];\nconst paActionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
+                out.println("];\nconst paActionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
                 out.println("(function(){");
                 out.println("  var input = document.getElementById('paSentenceInput');");
                 out.println("  var suggestionsBox = document.getElementById('paSuggestions');");
@@ -229,6 +229,7 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"DOCUMENT\">Will Document</option>"
                                 + "<option value=\"WILL_FOLLOW_UP\">Follow Up</option>"
                                 + "<option value=\"MIGHT\">Might</option>"
+                                + "<option value=\"WOULD_LIKE_TO\">Would Like To</option>"
                                 + "</select></label>");
                 out.println("      <label id=\"paTemplateSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paTemplateTimeSlot\">"
                                 + "<option value=\"WAKE\">Wake</option>"
@@ -303,6 +304,7 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"DOCUMENT\">Will Document</option>"
                                 + "<option value=\"WILL_FOLLOW_UP\">Follow Up</option>"
                                 + "<option value=\"MIGHT\">Might</option>"
+                                + "<option value=\"WOULD_LIKE_TO\">Would Like To</option>"
                                 + "</select></label>");
                 out.println("      <label id=\"paEditSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paEditTimeSlot\">"
                                 + "<option value=\"WAKE\">Wake</option>"
