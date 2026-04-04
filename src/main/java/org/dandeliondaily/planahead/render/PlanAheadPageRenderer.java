@@ -1358,7 +1358,8 @@ public class PlanAheadPageRenderer {
                 out.println(
                                 ".pa-shift{display:inline-block;padding:6px 10px;background:#49654a;color:#fff;text-decoration:none;border-radius:4px;}");
                 out.println(
-                                ".pa-grid{display:grid;grid-template-columns:220px repeat(" + safeDayCount + ",minmax(220px,1fr));border:1px solid #cbbda7;background:#fffdf8;}");
+                                ".pa-grid{display:grid;grid-template-columns:220px repeat(" + safeDayCount
+                                                + ",minmax(220px,1fr));border:1px solid #cbbda7;background:#fffdf8;}");
                 out.println(
                                 ".pa-cell{border-right:1px solid #dfd3c1;border-bottom:1px solid #dfd3c1;padding:10px;min-height:84px;box-sizing:border-box;}");
                 out.println(".pa-cell-label{background:#f8f1e6;font-weight:bold;color:#324532;}");
