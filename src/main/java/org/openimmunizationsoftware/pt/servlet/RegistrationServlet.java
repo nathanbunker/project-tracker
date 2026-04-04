@@ -620,7 +620,7 @@ public class RegistrationServlet extends ClientServlet {
         project.setWebUser(webUser);
         project.setProjectName(trim(projectName, 100));
         project.setBillCode(billCode.getBillCode());
-        project.setPhaseCode("Unkn");
+        project.setPhaseCode("Acti");
         project.setPriorityLevel(0);
         dataSession.save(project);
 
