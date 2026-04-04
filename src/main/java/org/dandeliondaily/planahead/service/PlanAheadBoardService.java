@@ -55,7 +55,7 @@ public class PlanAheadBoardService {
             appReq.getWebSession().setAttribute("PLAN_AHEAD_WINDOW_START", toDayKey(today));
             return today;
         }
-        Date parsed = parseDay(windowStart.trim());
+        Date parsed = parseDay(windowStart.trim(), webUser);
         if (parsed == null || parsed.before(today)) {
             appReq.getWebSession().setAttribute("PLAN_AHEAD_WINDOW_START", toDayKey(today));
             return today;
@@ -572,6 +572,17 @@ public class PlanAheadBoardService {
     private Date parseDay(String dayKey) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         sdf.setLenient(false);
+        try {
+            return sdf.parse(dayKey);
+        } catch (ParseException e) {
+            return null;
+        }
+    }
+
+    private Date parseDay(String dayKey, WebUser webUser) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setLenient(false);
+        sdf.setTimeZone(webUser.getCalendar().getTimeZone());
         try {
             return sdf.parse(dayKey);
         } catch (ParseException e) {

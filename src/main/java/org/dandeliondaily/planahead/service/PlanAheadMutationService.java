@@ -59,8 +59,8 @@ public class PlanAheadMutationService {
             return result;
         }
 
-        Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
-        if (targetDate.before(today)) {
+        String todayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
+        if (isBeforeDay(targetDate, todayKey)) {
             result.setSuccess(false);
             result.setMessage("Cannot move cards to a past date");
             return result;
@@ -211,8 +211,8 @@ public class PlanAheadMutationService {
             return result;
         }
 
-        Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
-        if (nextActionDate.before(today)) {
+        String todayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
+        if (isBeforeDay(nextActionDate, todayKey)) {
             result.setSuccess(false);
             result.setMessage("Cannot schedule action to a past date");
             return result;
@@ -662,7 +662,7 @@ public class PlanAheadMutationService {
             templateAction.setNextChangeDate(new Date());
             dataSession.update(templateAction);
 
-            Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
+            String todayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
             Query query = dataSession.createQuery(
                     "from ProjectActionNext pan where pan.provider = :provider "
                             + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
@@ -1123,13 +1123,14 @@ public class PlanAheadMutationService {
                 }
             } else {
                 if (generatedAction != null) {
-                    if (day.before(today)) {
+                    String dayKey = toDayKey(day);
+                    if (dayKey.compareTo(todayKey) < 0) {
                         transaction.rollback();
                         result.setSuccess(false);
                         result.setMessage("Cannot modify template actions in past days");
                         return result;
                     }
-                    if (day.equals(today)) {
+                    if (dayKey.equals(todayKey)) {
                         generatedAction.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
                         generatedAction.setNextChangeDate(new Date());
                         dataSession.update(generatedAction);
@@ -1263,6 +1264,17 @@ public class PlanAheadMutationService {
             return "";
         }
         return new SimpleDateFormat("yyyy-MM-dd").format(day);
+    }
+
+    private boolean isBeforeDay(Date day, String referenceDayKey) {
+        if (day == null || referenceDayKey == null) {
+            return false;
+        }
+        String dayKey = toDayKey(day);
+        if (dayKey.length() == 0 || referenceDayKey.length() == 0) {
+            return false;
+        }
+        return dayKey.compareTo(referenceDayKey) < 0;
     }
 
     private boolean isOwnedByCurrentProvider(ProjectProvider actionProvider, AppReq appReq) {
