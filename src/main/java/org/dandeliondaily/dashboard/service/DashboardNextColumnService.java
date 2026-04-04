@@ -52,6 +52,7 @@ public class DashboardNextColumnService {
 
         List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
                 planningStartDate, planningEndDate);
+        planningRangeList = filterActionsForDashboardVisibility(planningRangeList);
         Map<String, List<ProjectActionNext>> planningBuckets = bucketByDate(planningRangeList);
 
         List<DashboardNextColumnModel.NextDaySummaryModel> summaries = new ArrayList<DashboardNextColumnModel.NextDaySummaryModel>();
@@ -150,6 +151,9 @@ public class DashboardNextColumnService {
 
         for (ProjectActionNext action : selectedDayActions) {
             int bucket = getCompletionBucket(action);
+            if (bucket > BUCKET_OTHER) {
+                continue;
+            }
             bucketMap.get(bucket).add(action);
         }
 
@@ -159,7 +163,6 @@ public class DashboardNextColumnService {
 
         addSection(sections, "Overdue", toSelectedDayItems(webUser, bucketMap.get(BUCKET_OVERDUE)));
         addSection(sections, "Start of Work Day", toSelectedDayItems(webUser, bucketMap.get(BUCKET_START_OF_WORK_DAY)));
-        addSection(sections, "Personal (Wake)", toSelectedDayItems(webUser, bucketMap.get(BUCKET_PERSONAL_WAKE)));
         addSection(sections, "Committed", toSelectedDayItems(webUser, bucketMap.get(BUCKET_COMMITTED)));
         addSection(sections, "Will", toSelectedDayItems(webUser, bucketMap.get(BUCKET_WILL)));
         addSection(sections, "Personal (Morning)", toSelectedDayItems(webUser, bucketMap.get(BUCKET_PERSONAL_MORNING)));
@@ -167,8 +170,6 @@ public class DashboardNextColumnService {
         addSection(sections, "Waiting", toSelectedDayItems(webUser, bucketMap.get(BUCKET_WAITING)));
         addSection(sections, "Will Meet", toSelectedDayItems(webUser, bucketMap.get(BUCKET_WILL_MEET)));
         addSection(sections, "End of Work Day", toSelectedDayItems(webUser, bucketMap.get(BUCKET_END_OF_WORK_DAY)));
-        addSection(sections, "Personal (Afternoon & Evening)",
-                toSelectedDayItems(webUser, bucketMap.get(BUCKET_PERSONAL_LATE)));
         addSection(sections, "Other", toSelectedDayItems(webUser, bucketMap.get(BUCKET_OTHER)));
 
         // Future: selected-day section rendering can be reused in dedicated planning
@@ -234,6 +235,19 @@ public class DashboardNextColumnService {
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> projectActionList = query.list();
         return projectActionList;
+    }
+
+    private List<ProjectActionNext> filterActionsForDashboardVisibility(List<ProjectActionNext> actions) {
+        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
+        for (ProjectActionNext action : actions) {
+            if (action == null) {
+                continue;
+            }
+            if (action.isBillable() || action.getTimeSlot() == TimeSlot.MORNING) {
+                filtered.add(action);
+            }
+        }
+        return filtered;
     }
 
     private Calendar getCalendarForTodayNoTime(WebUser webUser) {
@@ -343,17 +357,10 @@ public class DashboardNextColumnService {
             }
         }
         if (!projectAction.isBillable()) {
-            TimeSlot timeSlot = projectAction.getTimeSlot();
-            if (timeSlot == TimeSlot.WAKE) {
-                return BUCKET_PERSONAL_WAKE;
-            }
-            if (timeSlot == TimeSlot.AFTERNOON || timeSlot == TimeSlot.EVENING || timeSlot == null) {
-                return BUCKET_PERSONAL_LATE;
-            }
-            if (timeSlot == TimeSlot.MORNING) {
+            if (projectAction.getTimeSlot() == TimeSlot.MORNING) {
                 return BUCKET_PERSONAL_MORNING;
             }
-            return BUCKET_PERSONAL_LATE;
+            return 99;
         }
         String nextActionType = projectAction.getNextActionType();
         if (ProjectNextActionType.OVERDUE_TO.equals(nextActionType)) {

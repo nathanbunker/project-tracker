@@ -102,6 +102,8 @@ public class DashboardTodayColumnService {
         // Real data wiring starts here for the middle Today column.
         List<ProjectActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
         List<ProjectActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
+        dueTodayList = filterActionsForDashboardVisibility(dueTodayList, false);
+        overdueList = filterActionsForDashboardVisibility(overdueList, true);
         List<ProjectActionNext> ideasList = getWouldLikeToIdeasList(webUser, dataSession);
         sortProjectActionListByCompletionOrder(dueTodayList, webUser);
         sortProjectActionListByCompletionOrder(overdueList, webUser);
@@ -297,6 +299,9 @@ public class DashboardTodayColumnService {
         bucketMap.get(BUCKET_OVERDUE).addAll(overdueList);
         for (ProjectActionNext projectAction : dueTodayList) {
             int bucket = getCompletionBucket(projectAction, webUser);
+            if (bucket > BUCKET_OTHER) {
+                continue;
+            }
             bucketMap.get(bucket).add(projectAction);
         }
 
@@ -308,8 +313,6 @@ public class DashboardTodayColumnService {
         addGroup(groups, "Overdue", toActionItems(webUser, bucketMap.get(BUCKET_OVERDUE), "Overdue"));
         addGroup(groups, "Start of Work Day",
                 toActionItems(webUser, bucketMap.get(BUCKET_START_OF_WORK_DAY), "Start of Work Day"));
-        addGroup(groups, "Personal (Wake)",
-                toActionItems(webUser, bucketMap.get(BUCKET_PERSONAL_WAKE), TimeSlot.WAKE.getLabel()));
         addGroup(groups, "Committed", toActionItems(webUser, bucketMap.get(BUCKET_COMMITTED), "Committed"));
         addGroup(groups, "Will", toActionItems(webUser, bucketMap.get(BUCKET_WILL), "Will"));
         addGroup(groups, "Personal (Morning)",
@@ -345,6 +348,27 @@ public class DashboardTodayColumnService {
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> projectActionList = query.list();
         return projectActionList;
+    }
+
+    private List<ProjectActionNext> filterActionsForDashboardVisibility(List<ProjectActionNext> actions,
+            boolean workOnly) {
+        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
+        for (ProjectActionNext action : actions) {
+            if (action == null) {
+                continue;
+            }
+            if (action.isBillable()) {
+                filtered.add(action);
+                continue;
+            }
+            if (workOnly) {
+                continue;
+            }
+            if (action.getTimeSlot() == TimeSlot.MORNING) {
+                filtered.add(action);
+            }
+        }
+        return filtered;
     }
 
     private void addGroup(List<DashboardTodayColumnModel.TodayActionGroupModel> groups, String title,
@@ -573,21 +597,14 @@ public class DashboardTodayColumnService {
             }
         }
         LocalDate actionDate = toStoredLocalDate(projectAction.getNextActionDate(), webUser);
-        if (actionDate != null && actionDate.isBefore(webUser.getLocalDateToday())) {
+        if (projectAction.isBillable() && actionDate != null && actionDate.isBefore(webUser.getLocalDateToday())) {
             return BUCKET_OVERDUE;
         }
         if (!projectAction.isBillable()) {
-            TimeSlot timeSlot = projectAction.getTimeSlot();
-            if (timeSlot == TimeSlot.WAKE) {
-                return BUCKET_PERSONAL_WAKE;
-            }
-            if (timeSlot == TimeSlot.AFTERNOON || timeSlot == TimeSlot.EVENING || timeSlot == null) {
-                return BUCKET_PERSONAL_LATE;
-            }
-            if (timeSlot == TimeSlot.MORNING) {
+            if (projectAction.getTimeSlot() == TimeSlot.MORNING) {
                 return BUCKET_PERSONAL_MORNING;
             }
-            return BUCKET_PERSONAL_LATE;
+            return 99;
         }
         String nextActionType = projectAction.getNextActionType();
         if (ProjectNextActionType.OVERDUE_TO.equals(nextActionType)) {

@@ -2480,6 +2480,10 @@ public class DashboardPageRenderer {
                                 + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.MIGHT
                                 + "')\" class=\"dd-quick-btn dd-action-type-btn\">might</button>");
                 out.println("            <button type=\"button\" data-action-type=\""
+                                + ProjectNextActionType.WOULD_LIKE_TO
+                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WOULD_LIKE_TO
+                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">would like to</button>");
+                out.println("            <button type=\"button\" data-action-type=\""
                                 + ProjectNextActionType.WILL_CONTACT
                                 + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL_CONTACT
                                 + "')\" class=\"dd-quick-btn dd-action-type-btn\">will contact</button>");
@@ -2869,7 +2873,7 @@ public class DashboardPageRenderer {
                                 sectionId = "waiting";
                         } else if ("Might".equals(title)) {
                                 sectionId = "might";
-                        } else if ("Personal (Wake)".equals(title) || "Personal (Morning)".equals(title)) {
+                        } else if ("Personal (Morning)".equals(title)) {
                                 sectionId = "personal-morning";
                         } else if ("Ideas".equals(title)) {
                                 sectionId = "ideas";
@@ -2990,6 +2994,9 @@ public class DashboardPageRenderer {
                 if (ProjectNextActionType.MIGHT.equals(actionType)) {
                         return "I might " + actionText;
                 }
+                if (ProjectNextActionType.WOULD_LIKE_TO.equals(actionType)) {
+                        return "I would like to " + actionText;
+                }
                 if (ProjectNextActionType.WILL_MEET.equals(actionType)) {
                         return "I will meet " + actionText;
                 }
@@ -3100,7 +3107,7 @@ public class DashboardPageRenderer {
                 }
                 out.println("];");
                 out.println(
-                                "    const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
+                                "    const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
                 out.println("    const input = document.getElementById('sentenceInput');");
                 out.println("    const suggestionsBox = document.getElementById('suggestions');");
                 out.println("    if (input && suggestionsBox) {");
@@ -3172,7 +3179,7 @@ public class DashboardPageRenderer {
         private void printWorkFollowUpScript(PrintWriter out) {
                 out.println("  <script>");
                 out.println(
-                                "    (function(){ const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I will meet\", \"I have set goal to\", \"I am waiting\"]; const input = document.getElementById('workFollowUpInput'); const suggestionsBox = document.getElementById('workFollowUpSuggestions'); if (!input || !suggestionsBox) { return; } let currentSuggestions = []; let selectedIndex = -1;");
+                                "    (function(){ const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"]; const input = document.getElementById('workFollowUpInput'); const suggestionsBox = document.getElementById('workFollowUpSuggestions'); if (!input || !suggestionsBox) { return; } let currentSuggestions = []; let selectedIndex = -1;");
                 out.println(
                                 "      function showSuggestions(suggestions) { suggestionsBox.innerHTML = ''; suggestionsBox.style.display = suggestions.length ? 'block' : 'none'; for (var i=0;i<suggestions.length;i++) { var suggestion = suggestions[i]; var div = document.createElement('div'); div.textContent = suggestion; if (i === selectedIndex) { div.style.backgroundColor = '#e0e0e0'; } div.addEventListener('click', function(evt){ var text = evt.target.textContent || ''; input.value = text + ' '; suggestionsBox.style.display = 'none'; selectedIndex = -1; input.focus(); }); suggestionsBox.appendChild(div); } }");
                 out.println(

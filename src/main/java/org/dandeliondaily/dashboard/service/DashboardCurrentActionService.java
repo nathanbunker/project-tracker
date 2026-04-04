@@ -238,6 +238,8 @@ public class DashboardCurrentActionService {
             int excludeActionNextId) {
         List<ProjectActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
         List<ProjectActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
+        dueTodayList = filterActionsForDashboardVisibility(dueTodayList, false);
+        overdueList = filterActionsForDashboardVisibility(overdueList, true);
         if (excludeActionNextId > 0) {
             dueTodayList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
             overdueList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
@@ -379,6 +381,27 @@ public class DashboardCurrentActionService {
         return projectList;
     }
 
+    private List<ProjectActionNext> filterActionsForDashboardVisibility(List<ProjectActionNext> actions,
+            boolean workOnly) {
+        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
+        for (ProjectActionNext action : actions) {
+            if (action == null) {
+                continue;
+            }
+            if (action.isBillable()) {
+                filtered.add(action);
+                continue;
+            }
+            if (workOnly) {
+                continue;
+            }
+            if (action.getTimeSlot() == TimeSlot.MORNING) {
+                filtered.add(action);
+            }
+        }
+        return filtered;
+    }
+
     private static void sortProjectActionList(List<ProjectActionNext> projectActionList, WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
@@ -488,21 +511,14 @@ public class DashboardCurrentActionService {
             }
         }
         LocalDate actionDate = toStoredLocalDate(projectAction.getNextActionDate(), webUser);
-        if (actionDate != null && actionDate.isBefore(webUser.getLocalDateToday())) {
+        if (projectAction.isBillable() && actionDate != null && actionDate.isBefore(webUser.getLocalDateToday())) {
             return BUCKET_OVERDUE;
         }
         if (!projectAction.isBillable()) {
-            TimeSlot timeSlot = projectAction.getTimeSlot();
-            if (timeSlot == TimeSlot.WAKE) {
-                return BUCKET_PERSONAL_WAKE;
-            }
-            if (timeSlot == TimeSlot.AFTERNOON || timeSlot == TimeSlot.EVENING || timeSlot == null) {
-                return BUCKET_PERSONAL_LATE;
-            }
-            if (timeSlot == TimeSlot.MORNING) {
+            if (projectAction.getTimeSlot() == TimeSlot.MORNING) {
                 return BUCKET_PERSONAL_MORNING;
             }
-            return BUCKET_PERSONAL_LATE;
+            return 99;
         }
         String nextActionType = projectAction.getNextActionType();
         if (ProjectNextActionType.OVERDUE_TO.equals(nextActionType)) {

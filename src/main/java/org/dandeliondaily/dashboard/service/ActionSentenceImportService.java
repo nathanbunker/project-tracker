@@ -86,9 +86,14 @@ public class ActionSentenceImportService {
         } else if (actionPart.startsWith("I might ")) {
             actionVerb = "I might";
             actionToTake = actionPart.substring("I might ".length()).trim();
-        } else if (actionPart.startsWith("I would like to ")) {
+        } else if (actionPart.startsWith("I would like to ")
+                || actionPart.equals("I would like to")
+                || actionPart.startsWith("I would like to:")) {
             actionVerb = "I would like to";
-            actionToTake = actionPart.substring("I would like to ".length()).trim();
+            actionToTake = actionPart.substring("I would like to".length()).trim();
+            if (actionToTake.startsWith(":")) {
+                actionToTake = actionToTake.substring(1).trim();
+            }
         } else if (actionPart.startsWith("I have committed ")) {
             actionVerb = "I have committed";
             actionToTake = actionPart.substring("I have committed ".length()).trim();
