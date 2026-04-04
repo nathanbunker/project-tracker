@@ -65,7 +65,7 @@ public class ProjectHealthServlet extends ClientServlet {
                 return;
             }
 
-            appReq.setTitle("Projects");
+            appReq.setTitle("Project Health");
             ProjectHealthPageModel model = pageService.buildModel(appReq);
             printHtmlHead(appReq);
             pageRenderer.render(appReq, model);

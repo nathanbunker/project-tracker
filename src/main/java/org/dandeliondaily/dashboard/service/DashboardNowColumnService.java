@@ -20,6 +20,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class DashboardNowColumnService {
@@ -52,6 +53,7 @@ public class DashboardNowColumnService {
             List<ProjectActionNext> openActions = loadOpenProjectActions(dataSession, currentProject);
             sortBacklogActions(openActions);
             model.setScheduledActions(buildScheduledItems(webUser, openActions, currentAction));
+            model.setIdeaActions(buildIdeaItems(webUser, openActions, currentAction));
             model.setUnscheduledActions(buildUnscheduledItems(webUser, openActions, currentAction));
             model.setTemplatedActions(buildTemplatedItems(webUser, openActions));
             model.setRecentCompleted(buildRecentCompleted(webUser, dataSession, currentProject));
@@ -122,7 +124,26 @@ public class DashboardNowColumnService {
             List<ProjectActionNext> openActions, ProjectActionNext currentAction) {
         List<DashboardNowColumnModel.UnscheduledActionItem> items = new ArrayList<>();
         for (ProjectActionNext action : openActions) {
-            if (action.getNextActionDate() != null || action.isTemplate()) {
+            if (action.getNextActionDate() != null || action.isTemplate()
+                    || ProjectNextActionType.WOULD_LIKE_TO.equals(action.getNextActionType())) {
+                continue;
+            }
+            DashboardNowColumnModel.UnscheduledActionItem item = new DashboardNowColumnModel.UnscheduledActionItem();
+            item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
+            item.setActionNextId(action.getActionNextId());
+            item.setCurrentSelection(currentAction != null
+                    && currentAction.getActionNextId() == action.getActionNextId());
+            items.add(item);
+        }
+        return items;
+    }
+
+    private List<DashboardNowColumnModel.UnscheduledActionItem> buildIdeaItems(WebUser webUser,
+            List<ProjectActionNext> openActions, ProjectActionNext currentAction) {
+        List<DashboardNowColumnModel.UnscheduledActionItem> items = new ArrayList<>();
+        for (ProjectActionNext action : openActions) {
+            if (action.getNextActionDate() != null || action.isTemplate()
+                    || !ProjectNextActionType.WOULD_LIKE_TO.equals(action.getNextActionType())) {
                 continue;
             }
             DashboardNowColumnModel.UnscheduledActionItem item = new DashboardNowColumnModel.UnscheduledActionItem();

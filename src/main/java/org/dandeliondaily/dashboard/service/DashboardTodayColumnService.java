@@ -629,6 +629,9 @@ public class DashboardTodayColumnService {
         if (ProjectNextActionType.WILL_MEET.equals(nextActionType)) {
             return BUCKET_WILL_MEET;
         }
+        if (ProjectNextActionType.WOULD_LIKE_TO.equals(nextActionType)) {
+            return 99;
+        }
         return BUCKET_OTHER;
     }
 

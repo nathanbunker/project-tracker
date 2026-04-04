@@ -9,6 +9,7 @@ public class DashboardNowColumnModel {
     private CurrentAction currentAction = new CurrentAction();
     private CurrentProject currentProject = new CurrentProject();
     private List<ScheduledActionItem> scheduledActions = new ArrayList<>();
+    private List<UnscheduledActionItem> ideaActions = new ArrayList<>();
     private List<UnscheduledActionItem> unscheduledActions = new ArrayList<>();
     private List<TemplatedActionItem> templatedActions = new ArrayList<>();
     private List<RecentCompletedItem> recentCompleted = new ArrayList<>();
@@ -40,6 +41,14 @@ public class DashboardNowColumnModel {
 
     public List<UnscheduledActionItem> getUnscheduledActions() {
         return unscheduledActions;
+    }
+
+    public List<UnscheduledActionItem> getIdeaActions() {
+        return ideaActions;
+    }
+
+    public void setIdeaActions(List<UnscheduledActionItem> ideaActions) {
+        this.ideaActions = ideaActions;
     }
 
     public void setUnscheduledActions(List<UnscheduledActionItem> unscheduledActions) {

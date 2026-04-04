@@ -1159,6 +1159,7 @@ public class DashboardPageRenderer {
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "PROJECT BACKLOG");
                 printBacklogScheduled(out, nowColumnModel.getScheduledActions());
+                printBacklogIdeas(out, nowColumnModel.getIdeaActions());
                 printBacklogUnscheduled(out, nowColumnModel.getUnscheduledActions());
                 printBacklogTemplated(out, nowColumnModel.getTemplatedActions());
                 printBacklogRecentCompleted(out, nowColumnModel.getRecentCompleted());
@@ -1648,6 +1649,28 @@ public class DashboardPageRenderer {
                         out.println("  <p class=\"dd-subtle dd-backlog-empty\">No un-scheduled actions.</p>");
                         return;
                 }
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.UnscheduledActionItem item : items) {
+                        String rowClass = item.isCurrentSelection() ? "dd-backlog-row-current" : "";
+                        out.println("    <tr" + (rowClass.length() > 0 ? " class=\"" + rowClass + "\"" : "") + ">");
+                        out.println(
+                                        "      <td class=\"dd-backlog-col-desc\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\" onclick=\"ddOpenNextTaskDetails("
+                                                        + item.getActionNextId() + ", event)\">"
+                                                        + item.getDescriptionHtml() + "</a></td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+        }
+
+        private void printBacklogIdeas(PrintWriter out,
+                        List<DashboardNowColumnModel.UnscheduledActionItem> items) {
+                if (items.isEmpty()) {
+                        return;
+                }
+                out.println("  <h3 class=\"dd-backlog-section-title\">Ideas</h3>");
                 out.println("  <table class=\"dd-today-table dd-backlog-table\">");
                 out.println("    <tr>");
                 out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
