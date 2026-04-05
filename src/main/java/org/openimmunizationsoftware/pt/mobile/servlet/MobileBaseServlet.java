@@ -41,7 +41,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
         out.println("  <head>");
         out.println("    <meta charset=\"UTF-8\">");
         out.println("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-        out.println("    <title>PT Mobile</title>");
+        out.println("    <title>Dandelion Daily</title>");
         String displayColor = appReq.getDisplayColor();
         String displaySize = appReq.getDisplaySize();
         try {

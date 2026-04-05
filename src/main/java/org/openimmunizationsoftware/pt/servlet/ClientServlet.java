@@ -67,13 +67,13 @@ public class ClientServlet extends HttpServlet {
 
     if (timeTracker != null) {
       if (timeTracker.isRunningClock()) {
-        out.println("    <title>PT " + timeTracker.getTotalMinsBillableForDisplay() + " " + title
+        out.println("    <title>Dandelion " + timeTracker.getTotalMinsBillableForDisplay() + " " + title
             + "</title>");
       } else {
-        out.println("    <title>PT (idle) " + title + "</title>");
+        out.println("    <title>Dandelion (Idle) " + title + "</title>");
       }
     } else {
-      out.println("    <title>PT " + title + "</title>");
+      out.println("    <title>Dandelion " + title + "</title>");
     }
 
     String displayColor = appReq.getDisplayColor();
