@@ -3,6 +3,7 @@ package org.openimmunizationsoftware.pt.model;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.Calendar;
 
 public class ProjectActionNext implements java.io.Serializable {
@@ -372,9 +373,9 @@ public class ProjectActionNext implements java.io.Serializable {
         if (currentDate == null || updatedDate == null) {
             return true;
         }
-        Calendar current = Calendar.getInstance();
+        Calendar current = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
         current.setTime(currentDate);
-        Calendar updated = Calendar.getInstance();
+        Calendar updated = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
         updated.setTime(updatedDate);
         return current.get(Calendar.YEAR) != updated.get(Calendar.YEAR)
                 || current.get(Calendar.DAY_OF_YEAR) != updated.get(Calendar.DAY_OF_YEAR);

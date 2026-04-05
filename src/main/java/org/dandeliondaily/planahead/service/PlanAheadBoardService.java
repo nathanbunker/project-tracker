@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
@@ -44,6 +45,7 @@ public class PlanAheadBoardService {
     public static final String ROW_MORNING = "morning";
     public static final String ROW_AFTERNOON = "afternoon";
     public static final String ROW_EVENING = "evening";
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final PlanAheadGaugeService gaugeService = new PlanAheadGaugeService();
@@ -714,7 +716,7 @@ public class PlanAheadBoardService {
     private Date parseDay(String dayKey, WebUser webUser) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         sdf.setLenient(false);
-        sdf.setTimeZone(webUser.getCalendar().getTimeZone());
+        sdf.setTimeZone(UTC_TIME_ZONE);
         try {
             return sdf.parse(dayKey);
         } catch (ParseException e) {
@@ -723,7 +725,9 @@ public class PlanAheadBoardService {
     }
 
     private String toDayKey(Date day) {
-        return new SimpleDateFormat("yyyy-MM-dd").format(day);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(UTC_TIME_ZONE);
+        return sdf.format(day);
     }
 
     private String n(String value) {

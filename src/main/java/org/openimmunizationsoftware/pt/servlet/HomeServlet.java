@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -697,7 +698,9 @@ public class HomeServlet extends ClientServlet {
     if (date == null) {
       return "";
     }
-    return new SimpleDateFormat("yyyy-MM-dd").format(date);
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+    return sdf.format(date);
   }
 
   private static boolean sameDay(Calendar c1, Date d, WebUser webUser) {

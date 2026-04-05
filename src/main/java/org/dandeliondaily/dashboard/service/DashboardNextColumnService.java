@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.hibernate.Query;
@@ -35,6 +36,7 @@ public class DashboardNextColumnService {
     private static final int BUCKET_WILL_MEET = 8;
     private static final int BUCKET_END_OF_WORK_DAY = 9;
     private static final int BUCKET_OTHER = 11;
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     public DashboardNextColumnModel buildModel(AppReq appReq, DashboardTimeGaugeService gaugeService) {
         DashboardNextColumnModel model = new DashboardNextColumnModel();
@@ -261,7 +263,9 @@ public class DashboardNextColumnService {
         if (date == null) {
             return "";
         }
-        return new SimpleDateFormat("yyyy-MM-dd").format(date);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(UTC_TIME_ZONE);
+        return sdf.format(date);
     }
 
     private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {

@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
@@ -33,6 +34,7 @@ public class PlanAheadMutationService {
 
     static final String PHASE_ACTIVE = "Acti";
     static final String BILLABLE_YES = "Y";
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer renderer = new PlanAheadPageRenderer();
@@ -1365,6 +1367,7 @@ public class PlanAheadMutationService {
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         sdf.setLenient(false);
+        sdf.setTimeZone(UTC_TIME_ZONE);
         try {
             return sdf.parse(value.trim());
         } catch (ParseException e) {
@@ -1393,7 +1396,9 @@ public class PlanAheadMutationService {
         if (day == null) {
             return "";
         }
-        return new SimpleDateFormat("yyyy-MM-dd").format(day);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(UTC_TIME_ZONE);
+        return sdf.format(day);
     }
 
     private boolean isBeforeDay(Date day, String referenceDayKey) {

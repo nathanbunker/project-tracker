@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -3529,7 +3530,9 @@ public class ProjectActionServlet extends ClientServlet {
     if (date == null) {
       return "";
     }
-    return new SimpleDateFormat("yyyy-MM-dd").format(date);
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+    return sdf.format(date);
   }
 
   private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {

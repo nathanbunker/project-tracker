@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -28,6 +29,7 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 public class PlanAheadServlet extends ClientServlet {
 
     private static final long serialVersionUID = 3972742500115325586L;
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer pageRenderer = new PlanAheadPageRenderer();
@@ -198,7 +200,7 @@ public class PlanAheadServlet extends ClientServlet {
             }
         }
         c.add(java.util.Calendar.DAY_OF_MONTH, Math.max(days, 1));
-        String nextStart = new SimpleDateFormat("yyyy-MM-dd").format(c.getTime());
+        String nextStart = toDayKey(c.getTime());
         appReq.getResponse().sendRedirect("PlanAheadServlet?windowStart=" + nextStart);
     }
 
@@ -283,7 +285,7 @@ public class PlanAheadServlet extends ClientServlet {
 
         Date windowStart = boardService.resolveWindowStart(appReq);
         PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
-        String dayKey = new SimpleDateFormat("yyyy-MM-dd").format(parsedDay);
+        String dayKey = toDayKey(parsedDay);
 
         PlanAheadBoardModel.DayHeaderModel targetDay = null;
         for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
@@ -349,11 +351,21 @@ public class PlanAheadServlet extends ClientServlet {
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         sdf.setLenient(false);
+        sdf.setTimeZone(UTC_TIME_ZONE);
         try {
             return sdf.parse(value.trim());
         } catch (ParseException e) {
             return null;
         }
+    }
+
+    private String toDayKey(Date date) {
+        if (date == null) {
+            return "";
+        }
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(UTC_TIME_ZONE);
+        return sdf.format(date);
     }
 
     private void sendJsonResponse(AppReq appReq, boolean success, String message, Map<String, Object> data)
