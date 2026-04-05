@@ -100,8 +100,10 @@ public class TodoServlet extends MobileBaseServlet {
             String selectedDateKey = toUserDateKey(selectedDate, webUser);
             String todayDateKey = toUserDateKey(today, webUser);
 
-            // Fetch READY actions for the selected date
-            List<ProjectActionNext> allActions = fetchReadyActions(selectedDateKey, webUser, dataSession);
+            // Fetch READY actions for the selected date using UTC-based key for database
+            // query
+            String selectedDateKeyUtc = toDatabaseDateKey(selectedDate);
+            List<ProjectActionNext> allActions = fetchReadyActions(selectedDateKeyUtc, webUser, dataSession);
 
             // Filter by personal/work
             List<ProjectActionNext> overdueActions = new ArrayList<>();
@@ -124,10 +126,10 @@ public class TodoServlet extends MobileBaseServlet {
                 }
 
                 if (isToday) {
-                    // Today view: date-only compare using yyyy-MM-dd keys.
-                    if (actionDateKey.compareTo(selectedDateKey) < 0) {
+                    // Today view: date-only compare using UTC-based yyyy-MM-dd keys.
+                    if (actionDateKey.compareTo(selectedDateKeyUtc) < 0) {
                         overdueActions.add(action);
-                    } else if (actionDateKey.equals(selectedDateKey)) {
+                    } else if (actionDateKey.equals(selectedDateKeyUtc)) {
                         todayActions.add(action);
                     }
                 } else {

@@ -378,7 +378,9 @@ public abstract class MobileBaseServlet extends ClientServlet {
         if (date == null) {
             return null;
         }
-        return new SimpleDateFormat("yyyy-MM-dd").format(date);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return sdf.format(date);
     }
 
     protected Date parseUTCDate(String dateString) throws Exception {
