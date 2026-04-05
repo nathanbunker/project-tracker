@@ -3,7 +3,9 @@ package org.dandeliondaily.planahead.service;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,6 +19,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -27,6 +30,9 @@ import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 
 public class PlanAheadMutationService {
+
+    static final String PHASE_ACTIVE = "Acti";
+    static final String BILLABLE_YES = "Y";
 
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer renderer = new PlanAheadPageRenderer();
@@ -1281,18 +1287,63 @@ public class PlanAheadMutationService {
 
     private List<Map<String, Object>> listProjectsForProvider(Session dataSession, AppReq appReq) {
         Query query = dataSession.createQuery(
-                "from Project p where p.provider = :provider order by p.priorityLevel desc, p.projectName");
+                "from Project p where p.provider = :provider "
+                        + "and (p.phaseCode is null or p.phaseCode = :phaseCode) "
+                        + "order by p.priorityLevel desc, p.projectName");
         query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("phaseCode", PHASE_ACTIVE);
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
+        List<Project> filteredProjects = filterProjectsForTemplateMode(projects,
+                loadBillCodesForProvider(dataSession, appReq), isPersonalMode(appReq));
         List<Map<String, Object>> projectList = new ArrayList<Map<String, Object>>();
-        for (Project project : projects) {
+        for (Project project : filteredProjects) {
             Map<String, Object> p = new LinkedHashMap<String, Object>();
             p.put("projectId", project.getProjectId());
             p.put("projectName", n(project.getProjectName()));
             projectList.add(p);
         }
         return projectList;
+    }
+
+    Map<String, BillCode> loadBillCodesForProvider(Session dataSession, AppReq appReq) {
+        Query query = dataSession.createQuery("from BillCode bc where bc.provider = :provider");
+        query.setParameter("provider", appReq.getWebUser().getProvider());
+        @SuppressWarnings("unchecked")
+        List<BillCode> billCodes = query.list();
+        Map<String, BillCode> billCodeMap = new HashMap<String, BillCode>();
+        for (BillCode billCode : billCodes) {
+            if (billCode != null && billCode.getBillCode() != null) {
+                billCodeMap.put(billCode.getBillCode(), billCode);
+            }
+        }
+        return billCodeMap;
+    }
+
+    List<Project> filterProjectsForTemplateMode(List<Project> projects, Map<String, BillCode> billCodeMap,
+            boolean personalMode) {
+        if (projects == null || projects.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Project> filteredProjects = new ArrayList<Project>();
+        for (Project project : projects) {
+            if (project == null) {
+                continue;
+            }
+            boolean billableProject = isBillableProject(project, billCodeMap);
+            if (personalMode ? !billableProject : billableProject) {
+                filteredProjects.add(project);
+            }
+        }
+        return filteredProjects;
+    }
+
+    boolean isBillableProject(Project project, Map<String, BillCode> billCodeMap) {
+        if (project == null || project.getBillCode() == null || project.getBillCode().trim().length() == 0) {
+            return false;
+        }
+        BillCode billCode = billCodeMap == null ? null : billCodeMap.get(project.getBillCode());
+        return billCode != null && BILLABLE_YES.equalsIgnoreCase(n(billCode.getBillable()).trim());
     }
 
     private Project findProjectById(Session dataSession, AppReq appReq, int projectId) {
