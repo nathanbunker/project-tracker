@@ -3,7 +3,7 @@
   <groupId>org.immunizationsoftware.pt</groupId>
   <artifactId>dandelion</artifactId>
   <packaging>war</packaging>
-  <version>4.17.9</version>
+  <version>4.17.10</version>
   <!-- TODO project name -->
   <name>Dandelion</name>
   <description></description>
@@ -225,27 +225,6 @@
           <optimize>true</optimize>
           <debug>true</debug>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-antrun-plugin</artifactId>
-        <version>3.1.0</version>
-        <executions>
-          <execution>
-            <id>copy-war-to-tomcat</id>
-            <phase>package</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <copy file="${project.build.directory}/${project.build.finalName}.war"
-                      todir="${tomcat.webapps}"
-                      overwrite="true" />
-              </target>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

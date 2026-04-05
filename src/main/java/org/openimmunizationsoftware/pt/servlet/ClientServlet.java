@@ -85,6 +85,10 @@ public class ClientServlet extends HttpServlet {
     } catch (UnsupportedEncodingException uex) {
       uex.printStackTrace();
     }
+    out.println("    <link rel=\"icon\" href=\"favicon.ico\" sizes=\"any\">\n"
+        + "    <link rel=\"shortcut icon\" href=\"favicon.ico\">\n"
+        + "    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"favicon-32x32.png\">\n"
+        + "    <link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"favicon-16x16.png\">");
     out.println("    <script>");
     out.println("      function toggleLayer(whichLayer) ");
     out.println("      {");

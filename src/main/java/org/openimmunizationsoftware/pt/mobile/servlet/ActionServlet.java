@@ -98,11 +98,8 @@ public class ActionServlet extends MobileBaseServlet {
                     editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
                     project = editProjectAction.getProject();
 
-                    // Redirect back to the Project page for this project
-                    if (project != null) {
-                        response.sendRedirect("project?" + PARAM_PROJECT_ID + "=" + project.getProjectId());
-                        return;
-                    }
+                    response.sendRedirect(buildTodoRedirectUrl(request));
+                    return;
                 } else if (action.equals(ACTION_DELETE) && editProjectAction != null && project != null) {
                     closeAction(appReq, editProjectAction, project, "", ProjectNextActionStatus.CANCELLED);
                     appReq.setMessageConfirmation("Action deleted");
@@ -202,44 +199,82 @@ public class ActionServlet extends MobileBaseServlet {
 
         Date today = webUser.getToday();
         String title = formatTitle(action.getNextActionDate(), today, webUser);
-        out.println("<h1>" + title + "</h1>");
 
-        out.println("<h2>Description</h2>");
+        out.println("<style>");
+        out.println(".mv-form{max-width:500px;margin:0 auto;padding:0 12px 24px;}");
+        out.println(".mv-date{font-size:.85em;color:#777;margin:8px 0 4px;}");
+        out.println(".mv-project{font-size:.9em;color:#555;margin-bottom:6px;}");
+        out.println(".mv-title{font-size:1.3em;font-weight:bold;margin:0 0 14px;line-height:1.3;}");
+        out.println(
+                ".mv-section{margin:16px 0 6px;font-size:.78em;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.05em;}");
+        out.println(".mv-notes{background:#f5f5f5;border-radius:6px;padding:8px 12px;font-size:.95em;}");
+        out.println(
+                ".mv-input{width:100%;box-sizing:border-box;padding:10px;font-size:1em;border:1px solid #ccc;border-radius:6px;}");
+        out.println(".mv-btn-row{display:flex;gap:8px;margin-top:8px;}");
+        out.println(
+                ".mv-btn{flex:1;padding:14px 8px;font-size:.95em;font-weight:bold;border:none;border-radius:8px;cursor:pointer;text-align:center;text-decoration:none;display:inline-block;color:#fff;}");
+        out.println(".mv-complete{background:#2c7a2c;} .mv-postpone{background:#1a5276;} .mv-edit{background:#666;}");
+        out.println(".mv-note{background:#444;} .mv-block{background:#7d4c00;} .mv-nav{background:#555;}");
+        out.println("</style>");
+
         String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
+        String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
         String description = action.getNextDescriptionForDisplay(action.getContact());
+
+        out.println("<div class=\"mv-form\">");
+
+        out.println("<div class=\"mv-date\">" + title + "</div>");
         if (!projectName.isEmpty()) {
-            out.println("<strong><a href=\"project?projectId=" + action.getProjectId()
-                    + "\" style=\"text-decoration: none;\">" + escapeHtml(projectName)
-                    + "</a>:</strong> ");
+            String iconPrefix = (projectIcon != null && !projectIcon.isEmpty()) ? escapeHtml(projectIcon) + " " : "";
+            out.println("<div class=\"mv-project\">" + iconPrefix
+                    + "<a href=\"project?projectId=" + action.getProjectId()
+                    + "\" style=\"text-decoration:none;color:#555;\">" + escapeHtml(projectName) + "</a></div>");
         }
-        out.println("<p>" + (description == null ? "" : description) + "</p>");
+        out.println("<div class=\"mv-title\">" + (description == null ? "" : description) + "</div>");
 
         if (action.getLinkUrl() != null && !action.getLinkUrl().isEmpty()) {
-            out.println("<p><a href=\"" + escapeHtml(action.getLinkUrl()) + "\" target=\"_blank\">Link</a></p>");
+            out.println("<p><a href=\"" + escapeHtml(action.getLinkUrl()) + "\" target=\"_blank\">Open Link</a></p>");
         }
 
         if (action.getNextNotes() != null && !action.getNextNotes().trim().isEmpty()) {
-            out.println("<h2>Notes</h2>");
-            out.println(convertToHtmlList(action.getNextNotes()));
+            out.println("<div class=\"mv-section\">Notes</div>");
+            out.println("<div class=\"mv-notes\">" + convertToHtmlList(action.getNextNotes()) + "</div>");
         }
 
-        out.println("<h2>Add Note</h2>");
         String dateParam = action.getNextActionDate() != null
                 ? webUser.getDateFormatService().formatTransportDate(action.getNextActionDate(), webUser.getTimeZone())
                 : "";
 
+        out.println("<div class=\"mv-section\">Actions</div>");
+        out.println("<div class=\"mv-btn-row\">");
+        String completeUrl = "action?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId()
+                + "&" + PARAM_ACTION + "=" + ACTION_COMPLETE;
+        if (!dateParam.isEmpty())
+            completeUrl += "&" + PARAM_DATE + "=" + dateParam;
+        out.println("  <a href=\"" + completeUrl + "\" class=\"mv-btn mv-complete\">&#10004; Complete</a>");
+        String postponeUrl = "action?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId()
+                + "&" + PARAM_ACTION + "=" + ACTION_TOMORROW;
+        if (!dateParam.isEmpty())
+            postponeUrl += "&" + PARAM_DATE + "=" + dateParam;
+        out.println("  <a href=\"" + postponeUrl + "\" class=\"mv-btn mv-postpone\">&#8594; Postpone</a>");
+        out.println("  <a href=\"action?" + PARAM_ACTION_NEXT_ID + "=" + action.getActionNextId()
+                + "\" class=\"mv-btn mv-edit\">&#9998; Edit</a>");
+        out.println("</div>");
+
+        out.println("<div class=\"mv-section\">Add Note</div>");
         out.println("<form method=\"post\" action=\"action\">");
         out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\""
                 + action.getActionNextId() + "\" />");
         if (!dateParam.isEmpty()) {
             out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
         }
-        out.println("  <textarea name=\"" + PARAM_NEXT_NOTE + "\" rows=\"5\" style=\"width:100%;\"></textarea>");
-        out.println("  <br/>");
-        out.println("  <input type=\"submit\" value=\"Add Note\" />");
+        out.println("  <textarea name=\"" + PARAM_NEXT_NOTE + "\" rows=\"3\" class=\"mv-input\"></textarea>");
+        out.println("  <div class=\"mv-btn-row\">");
+        out.println("    <button type=\"submit\" class=\"mv-btn mv-note\">Save Note</button>");
+        out.println("  </div>");
         out.println("</form>");
 
-        out.println("<h2>Blocking action</h2>");
+        out.println("<div class=\"mv-section\">Blocking Action</div>");
         out.println("<form method=\"post\" action=\"action\">");
         out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\""
                 + action.getActionNextId() + "\" />");
@@ -247,64 +282,27 @@ public class ActionServlet extends MobileBaseServlet {
             out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
         }
         out.println("  <input type=\"text\" name=\"" + PARAM_BLOCKING_DESCRIPTION
-                + "\" style=\"width:100%;\" placeholder=\"Describe blocker action\" />");
-        out.println("  <br/>");
-        out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
-                + ACTION_SCHEDULE_AND_BLOCK + "\">Schedule and Block</button>");
+                + "\" class=\"mv-input\" placeholder=\"Describe blocking action\""
+                + " autocapitalize=\"none\" autocorrect=\"off\" />");
+        out.println("  <div class=\"mv-btn-row\">");
+        out.println("    <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
+                + ACTION_SCHEDULE_AND_BLOCK + "\" class=\"mv-btn mv-block\">Schedule &amp; Block</button>");
+        out.println("  </div>");
         out.println("</form>");
 
-        out.println("<h2>Actions</h2>");
-        out.println("<table class=\"boxed-mobile\">");
-        out.println("  <tr class=\"boxed\">");
-
-        String completeUrl = "action?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId() + "&" +
-                PARAM_ACTION + "=" + ACTION_COMPLETE;
-        if (!dateParam.isEmpty()) {
-            completeUrl += "&" + PARAM_DATE + "=" + dateParam;
-        }
-        out.println("    <td style=\"text-align:center; padding:10px;\">");
-        out.println("      <a href=\"" + completeUrl
-                + "\" class=\"action-icon\" title=\"Complete\">&#10004; Complete</a>");
-        out.println("    </td>");
-
-        String postponeUrl = "action?" + PARAM_VIEW_ACTION_ID + "=" + action.getActionNextId() + "&" +
-                PARAM_ACTION + "=" + ACTION_TOMORROW;
-        if (!dateParam.isEmpty()) {
-            postponeUrl += "&" + PARAM_DATE + "=" + dateParam;
-        }
-        out.println("    <td style=\"text-align:center; padding:10px;\">");
-        out.println("      <a href=\"" + postponeUrl
-                + "\" class=\"action-icon\" title=\"Postpone\">&#8594; Postpone</a>");
-        out.println("    </td>");
-
-        out.println("    <td style=\"text-align:center; padding:10px;\">");
-        out.println("      <a href=\"action?" + PARAM_ACTION_NEXT_ID + "=" + action.getActionNextId()
-                + "\" class=\"action-icon\" title=\"Edit\">&#9998; Edit</a>");
-        out.println("    </td>");
-
-        out.println("  </tr>");
-        out.println("</table>");
-
-        out.println("<h2>Navigation</h2>");
-        out.println("<p>");
-
+        out.println("<div class=\"mv-section\">Navigation</div>");
+        out.println("<div class=\"mv-btn-row\">");
         String todoUrl = "todo";
-        if (!dateParam.isEmpty()) {
+        if (!dateParam.isEmpty())
             todoUrl += "?" + PARAM_DATE + "=" + dateParam;
-        }
-        out.println("  <a href=\"" + todoUrl + "\" class=\"box\">Todo for " +
-                (dateParam.isEmpty() ? "Today"
-                        : webUser.getDateFormatService().formatPattern(action.getNextActionDate(),
-                                webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()))
-                +
-                "</a>");
-
+        out.println("  <a href=\"" + todoUrl + "\" class=\"mv-btn mv-nav\">&#8592; Todo</a>");
         if (action.getProject() != null) {
             out.println("  <a href=\"project?projectId=" + action.getProject().getProjectId()
-                    + "\" class=\"box\">Project: " + escapeHtml(action.getProject().getProjectName()) + "</a>");
+                    + "\" class=\"mv-btn mv-nav\">" + escapeHtml(action.getProject().getProjectName()) + "</a>");
         }
+        out.println("</div>");
 
-        out.println("</p>");
+        out.println("</div>");
     }
 
     private String formatTitle(Date selectedDate, Date today, WebUser webUser) {
@@ -658,22 +656,46 @@ public class ActionServlet extends MobileBaseServlet {
             List<ProjectContact> projectContactList,
             String formName, List<Project> projectList) {
 
-        String disabled = "";
-        out.println("<table class=\"boxed-mobile\">");
-        out.println("  <tr>");
-        out.println("    <th class=\"title\">Edit Action</th>");
-        out.println("  </tr>");
-        printEditNextAction(appReq.getRequest(), webUser, out, projectAction, project, formName, disabled,
+        out.println("<style>");
+        out.println("  .mf-form{max-width:520px;padding:4px 0;}");
+        out.println("  .mf-field{display:flex;flex-direction:column;margin-bottom:14px;}");
+        out.println("  .mf-label{font-weight:bold;font-size:13px;color:#444;margin-bottom:5px;}");
+        out.println(
+                "  .mf-input{width:100%;box-sizing:border-box;font-size:16px;padding:8px 10px;border:1px solid #999;border-radius:4px;}");
+        out.println("  .mf-btn-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}");
+        out.println(
+                "  .mf-type-btn{display:inline-block;padding:8px 14px;background:#f0f0f0;border:1px solid #bbb;border-radius:20px;font-size:14px;cursor:pointer;text-decoration:none;color:#222;}");
+        out.println("  .mf-type-btn:active,.mf-type-btn:hover{background:#d0d8f0;border-color:#7788cc;}");
+        out.println("  .mf-radio-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:4px;}");
+        out.println("  .mf-radio-label{display:flex;align-items:center;gap:6px;font-size:15px;cursor:pointer;}");
+        out.println("  .mf-radio-label input[type=radio]{width:18px;height:18px;flex-shrink:0;}");
+        out.println("  .mf-proj-row{flex-direction:column;gap:0;}");
+        out.println("  .mf-proj-label{padding:10px 12px;border:1px solid #ddd;border-bottom:none;font-size:17px;}");
+        out.println("  .mf-proj-label:first-child{border-radius:6px 6px 0 0;}");
+        out.println("  .mf-proj-label:last-child{border-bottom:1px solid #ddd;border-radius:0 0 6px 6px;}");
+        out.println("  .mf-proj-label:has(input:checked){background:#e8f0e8;border-color:#5a8a5a;font-weight:bold;}");
+        out.println("  .mf-quickrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}");
+        out.println(
+                "  .mf-quick{display:inline-block;padding:6px 10px;background:#e8e8e8;border:1px solid #bbb;border-radius:4px;font-size:13px;text-decoration:none;color:#222;}");
+        out.println("  .mf-quick:hover{background:#d4d4d4;}");
+        out.println("  .mf-submit-row{display:flex;gap:10px;margin-top:18px;}");
+        out.println(
+                "  .mf-submit{flex:1;padding:12px;font-size:16px;font-weight:bold;border:none;border-radius:6px;background:#3a6b3a;color:#fff;cursor:pointer;}");
+        out.println("  .mf-submit-start{background:#1e5080;}");
+        out.println("  .mf-submit-delete{background:#8b2020;}");
+        out.println("</style>");
+        out.println("<div class=\"mf-form\">");
+        printEditNextAction(appReq.getRequest(), webUser, out, projectAction, project, formName, "",
                 projectContactList, projectList);
-        out.println("</table>");
-        out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE + "\">"
-                + ACTION_SAVE + "</button>");
-        out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_START + "\">"
-                + ACTION_START + "</button>");
+        out.println("  <div class=\"mf-submit-row\">");
+        out.println("    <button class=\"mf-submit\" type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
+                + ACTION_SAVE + "\">Save</button>");
         if (projectAction != null) {
-            out.println("  <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_DELETE + "\">"
-                    + ACTION_DELETE + "</button>");
+            out.println("    <button class=\"mf-submit mf-submit-delete\" type=\"submit\" name=\"" + PARAM_ACTION
+                    + "\" value=\"" + ACTION_DELETE + "\">Delete</button>");
         }
+        out.println("  </div>");
+        out.println("</div>");
 
     }
 
@@ -681,211 +703,175 @@ public class ActionServlet extends MobileBaseServlet {
             ProjectActionNext projectAction, Project project, String formName, String disabled,
             List<ProjectContact> projectContactList,
             List<Project> projectList) {
-        SimpleDateFormat sdf1;
-        out.println("  <tr>");
-        out.println("    <td class=\"outside\">");
-        out.println("      <table class=\"inside\">");
         SimpleDateFormat sdf2 = webUser.getDateFormat();
-        {
-            sdf1 = webUser.getDateFormat();
-            out.println("        <tr>");
-            out.println("          <th class=\"inside\">Project</th>");
-            out.println("          <td>");
-            if (projectAction == null) {
-                out.println(
-                        "            <select name=\"" + PARAM_NEXT_PROJECT_ID + "\" onchange=\"enableForm" + formName
-                                + "()\">");
-                for (Project p : projectList) {
-                    out.println("              <option value=\"" + p.getProjectId() + "\""
-                            + (project != null && project.getProjectId() == p.getProjectId() ? " selected" : "")
-                            + ">" + p.getProjectName() + "</option>");
-                }
-                out.println("            </select>");
-            } else {
-                out.println("            " + project.getProjectName());
-                out.println(
-                        "<input type=\"hidden\" name=\"" + PARAM_NEXT_PROJECT_ID + "\" value=\""
-                                + projectAction.getProjectId()
-                                + "\">");
+        SimpleDateFormat day = webUser.getDateFormat("EEE");
 
+        // Project
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Project</span>");
+        if (projectAction == null) {
+            out.println("    <div class=\"mf-radio-row mf-proj-row\">");
+            for (Project p : projectList) {
+                boolean selected = project != null && project.getProjectId() == p.getProjectId();
+                String icon = p.getProjectIcon();
+                String iconHtml = (icon != null && !icon.trim().isEmpty()) ? icon.trim() + " " : "";
+                out.println("      <label class=\"mf-radio-label mf-proj-label\" onclick=\"enableForm" + formName
+                        + "()\">"
+                        + "<input type=\"radio\" name=\"" + PARAM_NEXT_PROJECT_ID + "\" value=\"" + p.getProjectId()
+                        + "\""
+                        + (selected ? " checked" : "") + "> " + iconHtml + escapeHtml(p.getProjectName()) + "</label>");
             }
-            out.println("          </td>");
-            out.println("        </tr>");
-            out.println("        <tr>");
-            out.println("          <th class=\"inside\">When</th>");
-            {
-                String nextActionDateString = projectAction == null || projectAction.getNextActionDate() == null
-                        ? request.getParameter(PARAM_NEXT_ACTION_DATE)
-                        : sdf2.format(projectAction.getNextActionDate());
-                out.println(
-                        "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\""
-                                + PARAM_NEXT_ACTION_DATE
-                                + "\" size=\"10\" value=\""
-                                + n(nextActionDateString) + "\"" + disabled + ">");
-            }
-            out.println("            <font size=\"-1\">");
-            Calendar calendar = webUser.getCalendar();
-            SimpleDateFormat day = webUser.getDateFormat("EEE");
-            out.println("              <a href=\"javascript: void setNextAction" + formName + "('"
-                    + sdf2.format(calendar.getTime()) + "');\" class=\"button\">Today</a>");
+            out.println("    </div>");
+        } else {
+            String icon = project.getProjectIcon();
+            String iconHtml = (icon != null && !icon.trim().isEmpty()) ? icon.trim() + " " : "";
+            out.println("    <span>" + iconHtml + escapeHtml(project.getProjectName()) + "</span>");
+            out.println("    <input type=\"hidden\" name=\"" + PARAM_NEXT_PROJECT_ID + "\" value=\""
+                    + projectAction.getProjectId() + "\">");
+        }
+        out.println("  </div>");
+
+        // When
+        String nextActionDateString = projectAction == null || projectAction.getNextActionDate() == null
+                ? request.getParameter(PARAM_NEXT_ACTION_DATE)
+                : sdf2.format(projectAction.getNextActionDate());
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">When</span>");
+        out.println("    <input class=\"mf-input\" type=\"text\" name=\"" + PARAM_NEXT_ACTION_DATE
+                + "\" value=\"" + n(nextActionDateString) + "\"" + disabled + ">");
+        out.println("    <div class=\"mf-quickrow\">");
+        Calendar calendar = webUser.getCalendar();
+        out.println("      <a class=\"mf-quick\" href=\"javascript:void setNextAction" + formName + "('"
+                + sdf2.format(calendar.getTime()) + "')\">Today</a>");
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        out.println("      <a class=\"mf-quick\" href=\"javascript:void setNextAction" + formName + "('"
+                + sdf2.format(calendar.getTime()) + "')\">" + day.format(calendar.getTime()) + "</a>");
+        boolean nextWeek = false;
+        for (int i = 0; i < 6; i++) {
             calendar.add(Calendar.DAY_OF_MONTH, 1);
-            out.println("              <a href=\"javascript: void setNextAction" + formName + "('"
-                    + sdf2.format(calendar.getTime()) + "');\" class=\"button\">"
-                    + day.format(calendar.getTime()) + "</a>");
-            boolean nextWeek = false;
-            for (int i = 0; i < 6; i++) {
-                calendar.add(Calendar.DAY_OF_MONTH, 1);
-                if (nextWeek) {
-                    out.println("              <a href=\"javascript: void setNextAction" + formName + "('"
-                            + sdf2.format(calendar.getTime()) + "');\" class=\"button\">Next-"
-                            + day.format(calendar.getTime()) + "</a>");
-                } else {
-                    out.println("              <a href=\"javascript: void setNextAction" + formName + "('"
-                            + sdf2.format(calendar.getTime()) + "');\" class=\"button\">"
-                            + day.format(calendar.getTime()) + "</a>");
-
-                }
-                if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
-                    nextWeek = true;
-                }
+            String prefix = nextWeek ? "Next-" : "";
+            out.println("      <a class=\"mf-quick\" href=\"javascript:void setNextAction" + formName + "('"
+                    + sdf2.format(calendar.getTime()) + "')\">" + prefix + day.format(calendar.getTime()) + "</a>");
+            if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+                nextWeek = true;
             }
-            calendar.set(Calendar.MONTH, 11);
-            calendar.set(Calendar.DAY_OF_MONTH, 31);
-            out.println("              <a href=\"javascript: void setNextAction" + formName + "('"
-                    + sdf1.format(calendar.getTime()) + "');\" class=\"button\">EOY</a>");
-            out.println("</font>");
-
-            out.println("          </td>");
-            out.println("        </tr>");
-            out.println("        <tr>");
-            out.println("          <th class=\"inside\">Time Slot</th>");
-            out.println("          <td class=\"inside\" colspan=\"3\">");
-            String timeSlotString = projectAction == null ? request.getParameter(PARAM_TIME_SLOT)
-                    : projectAction.getTimeSlotString();
-            if (timeSlotString == null || timeSlotString.equals("")) {
-                timeSlotString = TimeSlot.AFTERNOON.getId();
-            }
-            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
-                    + TimeSlot.WAKE.getId() + "\""
-                    + (TimeSlot.WAKE.getId().equals(timeSlotString) ? " checked" : "")
-                    + disabled + "> Wake</label>");
-            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
-                    + TimeSlot.MORNING.getId() + "\""
-                    + (TimeSlot.MORNING.getId().equals(timeSlotString) ? " checked" : "")
-                    + disabled + "> Morning</label>");
-            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
-                    + TimeSlot.AFTERNOON.getId() + "\""
-                    + (TimeSlot.AFTERNOON.getId().equals(timeSlotString) ? " checked" : "")
-                    + disabled + "> Afternoon</label>");
-            out.println("            <label><input type=\"radio\" name=\"" + PARAM_TIME_SLOT + "\" value=\""
-                    + TimeSlot.EVENING.getId() + "\""
-                    + (TimeSlot.EVENING.getId().equals(timeSlotString) ? " checked" : "")
-                    + disabled + "> Evening</label>");
-            out.println("          </td>");
-            out.println("        </tr>");
         }
-        out.println("        <tr>");
-        out.println("          <th class=\"inside\">Action</th>");
-        out.println("          <td class=\"inside\" colspan=\"3\">");
-        out.println(
-                "            I: <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
-                        + formName + "('" + ProjectNextActionType.WILL + "');\" class=\"button\"> will</a>,");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.MIGHT + "');\" class=\"button\">might</a>, ");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.WOULD_LIKE_TO + "');\" class=\"button\">would like to</a>, ");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.WILL_CONTACT + "');\" class=\"button\">will contact</a>, ");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.WILL_MEET + "');\" class=\"button\">will meet</a>,");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.WILL_REVIEW + "');\" class=\"button\">will review</a>,");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.WILL_DOCUMENT + "');\" class=\"button\">will document</a>,");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.WILL_FOLLOW_UP + "');\" class=\"button\">will follow up</a>");
-        out.println("            </font><br/>");
-        out.println("            I have: ");
-        out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
-                + formName + "('" + ProjectNextActionType.COMMITTED_TO
-                + "');\" class=\"button\">committed</a>,");
-        out.println("            <a href=\"javascript: void selectProjectActionType" + formName + "('"
-                + ProjectNextActionType.GOAL + "');\" class=\"button\">set goal</a></font>");
-        out.println("            I am:");
-        out.println("            <font size=\"-1\"><a href=\"javascript: void selectProjectActionType"
-                + formName + "('" + ProjectNextActionType.WAITING + "');\" class=\"button\">waiting</a>");
-        out.println("            <br>");
-        {
-            String nextActionType = projectAction == null ? ProjectNextActionType.WILL
-                    : projectAction.getNextActionType();
-            out.println("            <input type=\"hidden\" name=\"" + PARAM_NEXT_ACTION_TYPE + "\" value=\""
-                    + nextActionType + "\">");
-            out.println("<script>");
-            out.println("  window.addEventListener('load', function() { selectProjectActionType"
-                    + formName + "('" + nextActionType + "'); }); ");
-            out.println("</script>");
-        }
-        out.println("            </font>");
-        out.println("          </td>");
-        out.println("        </tr>");
-        out.println("        <tr>");
-        out.println("          <th class=\"inside\">What</th>");
-        out.println("          <td class=\"inside\"> ");
+        out.println("    </div>");
+        out.println("  </div>");
 
+        // Time Slot
+        String timeSlotString = projectAction == null ? request.getParameter(PARAM_TIME_SLOT)
+                : projectAction.getTimeSlotString();
+        if (timeSlotString == null || timeSlotString.equals("")) {
+            timeSlotString = TimeSlot.AFTERNOON.getId();
+        }
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Time Slot</span>");
+        out.println("    <div class=\"mf-radio-row mf-proj-row\">");
+        out.println("      <label class=\"mf-radio-label mf-proj-label\"><input type=\"radio\" name=\""
+                + PARAM_TIME_SLOT
+                + "\" value=\"" + TimeSlot.WAKE.getId() + "\""
+                + (TimeSlot.WAKE.getId().equals(timeSlotString) ? " checked" : "") + disabled + "> Wake</label>");
+        out.println("      <label class=\"mf-radio-label mf-proj-label\"><input type=\"radio\" name=\""
+                + PARAM_TIME_SLOT
+                + "\" value=\"" + TimeSlot.MORNING.getId() + "\""
+                + (TimeSlot.MORNING.getId().equals(timeSlotString) ? " checked" : "") + disabled + "> Morning</label>");
         out.println(
-                "            <input name=\"" + PARAM_START_SENTANCE + "\" size=\"40\" value=\"I will:\"" + disabled
-                        + ">");
-        out.println("          </td>");
-        out.println("          <th class=\"inside\">Who</th>");
-        out.println("          <td class=\"inside\"> ");
-        out.println("              <select name=\"nextContactId\" onchange=\"selectProjectActionType"
-                + formName + "(form.nextActionType.value);\"" + disabled
-                + "><option value=\"\">none</option>");
+                "      <label class=\"mf-radio-label mf-proj-label\"><input type=\"radio\" name=\"" + PARAM_TIME_SLOT
+                        + "\" value=\"" + TimeSlot.AFTERNOON.getId() + "\""
+                        + (TimeSlot.AFTERNOON.getId().equals(timeSlotString) ? " checked" : "") + disabled
+                        + "> Afternoon</label>");
+        out.println("      <label class=\"mf-radio-label mf-proj-label\"><input type=\"radio\" name=\""
+                + PARAM_TIME_SLOT
+                + "\" value=\"" + TimeSlot.EVENING.getId() + "\""
+                + (TimeSlot.EVENING.getId().equals(timeSlotString) ? " checked" : "") + disabled + "> Evening</label>");
+        out.println("    </div>");
+        out.println("  </div>");
+
+        // Action Type
+        String nextActionType = projectAction == null ? ProjectNextActionType.WILL
+                : projectAction.getNextActionType();
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Action Type</span>");
+        out.println("    <div class=\"mf-btn-row\">");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WILL + "')\">will</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.MIGHT + "')\">might</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WOULD_LIKE_TO + "')\">would like to</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WILL_CONTACT + "')\">will contact</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WILL_MEET + "')\">will meet</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WILL_REVIEW + "')\">will review</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WILL_DOCUMENT + "')\">will document</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WILL_FOLLOW_UP + "')\">will follow up</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.COMMITTED_TO + "')\">committed</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.GOAL + "')\">set goal</a>");
+        out.println("      <a class=\"mf-type-btn\" href=\"javascript:void selectProjectActionType" + formName + "('"
+                + ProjectNextActionType.WAITING + "')\">waiting</a>");
+        out.println("    </div>");
+        out.println(
+                "    <input type=\"hidden\" name=\"" + PARAM_NEXT_ACTION_TYPE + "\" value=\"" + nextActionType + "\">");
+        out.println("    <script>");
+        out.println("      window.addEventListener('load', function() { selectProjectActionType" + formName + "('"
+                + nextActionType + "'); });");
+        out.println("    </script>");
+        out.println("  </div>");
+
+        // What
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">What</span>");
+        out.println("    <input class=\"mf-input\" name=\"" + PARAM_START_SENTANCE + "\" value=\"I will:\"" + disabled
+                + ">");
+        out.println("  </div>");
+
+        // Who
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Who</span>");
+        out.println("    <select class=\"mf-input\" name=\"nextContactId\" onchange=\"selectProjectActionType"
+                + formName + "(form.nextActionType.value);\"" + disabled + ">");
+        out.println("      <option value=\"\">none</option>");
         String nextContactId = n(request.getParameter(PARAM_NEXT_CONTACT_ID));
         for (ProjectContact projectContact1 : projectContactList) {
             if (projectContact1.getContactId() != webUser.getProjectContact().getContactId()) {
                 boolean selected = nextContactId.equals(Integer.toString(
                         projectAction == null ? projectContact1.getContactId() : projectAction.getContactId()));
-                out.println("                  <option value=\"" + projectContact1.getContactId() + "\""
+                out.println("      <option value=\"" + projectContact1.getContactId() + "\""
                         + (selected ? " selected" : "") + ">" + projectContact1.getName() + "</option>");
             }
         }
-        out.println("            </select>");
-        out.println("          </td>");
-        out.println("        </tr>");
-        out.println("        <tr>");
-        out.println("          <th class=\"inside\"></th>");
-        out.println("          <td class=\"inside\" colspan=\"3\"> ");
-        out.println(
-                "            <textarea name=\"" + PARAM_NEXT_DESCRIPTION
-                        + "\" rows=\"1\" autocapitalize=\"none\" autocorrect=\"off\""
-                        + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription())
-                        + "</textarea>");
-        out.println("          </td>");
-        out.println("        </tr>");
-        {
-            out.println("        <tr>");
-            out.println("          <th class=\"inside\">Note</th>");
-            out.println(
-                    "          <td class=\"inside\" colspan=\"3\"><textarea rows=\"3\" name=\"" + PARAM_NEXT_NOTE
-                            + "\" size=\"30\" " + disabled + "></textarea></td>");
-            out.println("        </tr>");
-        }
-        {
-            out.println("        <tr>");
-            out.println("          <th class=\"inside\">Link</th>");
-            out.println(
-                    "          <td class=\"inside\" colspan=\"3\"><input type=\"text\" name=\"" + PARAM_LINK_URL
-                            + "\" size=\"30\" value=\""
-                            + n(projectAction == null || projectAction.getLinkUrl() == null
-                                    ? ""
-                                    : projectAction.getLinkUrl())
-                            + "\"" + disabled + "></td>");
-            out.println("        </tr>");
-        }
-        out.println("      </table>");
-        out.println("    </td>");
-        out.println("  </tr>");
+        out.println("    </select>");
+        out.println("  </div>");
+
+        // Description
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Description</span>");
+        out.println("    <textarea class=\"mf-input\" name=\"" + PARAM_NEXT_DESCRIPTION
+                + "\" rows=\"2\" autocapitalize=\"none\" autocorrect=\"off\""
+                + disabled + ">" + (projectAction == null ? "" : projectAction.getNextDescription()) + "</textarea>");
+        out.println("  </div>");
+
+        // Note
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Note</span>");
+        out.println("    <textarea class=\"mf-input\" rows=\"3\" name=\"" + PARAM_NEXT_NOTE + "\"" + disabled
+                + "></textarea>");
+        out.println("  </div>");
+
+        // Link URL
+        out.println("  <div class=\"mf-field\">");
+        out.println("    <span class=\"mf-label\">Link URL</span>");
+        out.println("    <input class=\"mf-input\" type=\"text\" name=\"" + PARAM_LINK_URL + "\" value=\""
+                + n(projectAction == null || projectAction.getLinkUrl() == null ? "" : projectAction.getLinkUrl())
+                + "\"" + disabled + ">");
+        out.println("  </div>");
     }
 
     private static void printMakeIStatementFunction(PrintWriter out, String formName) {
