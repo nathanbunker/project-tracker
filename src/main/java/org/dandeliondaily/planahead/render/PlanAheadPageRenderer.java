@@ -32,12 +32,27 @@ public class PlanAheadPageRenderer {
                 printQuickCapture(out, boardModel);
                 out.println("  </div>");
 
+                int timeTrackerMins = 0;
+                if (!personalMode && appReq.getTimeTracker() != null) {
+                        timeTrackerMins = appReq.getTimeTracker().getTotalMinsBillable();
+                }
+                boolean todayInView = todayKey.equals(boardModel.getWindowStartKey());
+                int grandTotalMins = todayInView ? timeTrackerMins : 0;
+                for (PlanAheadBoardModel.RowModel grandRow : boardModel.getRows()) {
+                        for (PlanAheadBoardModel.CellModel grandCell : grandRow.getCells()) {
+                                for (PlanAheadBoardModel.CardModel grandCard : grandCell.getCards()) {
+                                        grandTotalMins += grandCard.getEstimateMins();
+                                }
+                        }
+                }
                 out.println("  <div class=\"pa-controls\">");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?windowStart="
                                 + escapeHtml(todayKey)
                                 + "\">Today</a>");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?action=shiftWindowForward&days=1&windowStart="
                                 + escapeHtml(boardModel.getWindowStartKey()) + "\">Next Day &#9654;</a>");
+                out.println("    <span id=\"pa-view-total\" class=\"pa-view-total\">Total Time in View: "
+                                + escapeHtml(TimeTracker.formatTime(grandTotalMins)) + "</span>");
                 out.println("  </div>");
 
                 out.println("  <div class=\"pa-grid\">");
@@ -54,8 +69,19 @@ public class PlanAheadPageRenderer {
                 }
 
                 for (PlanAheadBoardModel.RowModel row : boardModel.getRows()) {
-                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label\">"
-                                        + escapeHtml(row.getRowLabel())
+                        int rowTotalMins = 0;
+                        for (PlanAheadBoardModel.CellModel rowCell : row.getCells()) {
+                                for (PlanAheadBoardModel.CardModel rowCard : rowCell.getCards()) {
+                                        rowTotalMins += rowCard.getEstimateMins();
+                                }
+                        }
+                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label\""
+                                        + " id=\"pa-row-label-" + escapeHtml(row.getRowKey()) + "\""
+                                        + " data-row-key=\"" + escapeHtml(row.getRowKey()) + "\">"
+                                        + "<span class=\"pa-row-label-name\">" + escapeHtml(row.getRowLabel())
+                                        + "</span>"
+                                        + "<span class=\"pa-row-total pa-card-est-box\">"
+                                        + escapeHtml(TimeTracker.formatTime(rowTotalMins)) + "</span>"
                                         + "</div>");
                         for (PlanAheadBoardModel.CellModel cell : row.getCells()) {
                                 out.println(renderKanbanCell(cell, boardModel.isWorkMode()));
@@ -88,7 +114,8 @@ public class PlanAheadPageRenderer {
                 printStatusModal(out);
                 printTemplateModal(out);
                 printQuickCaptureScript(out, boardModel);
-                printDragDropScript(out, boardModel.getWindowStartKey(), boardModel.getMode());
+                printDragDropScript(out, boardModel.getWindowStartKey(), boardModel.getMode(), todayKey,
+                                timeTrackerMins);
                 out.println("</div>");
         }
 
@@ -330,13 +357,16 @@ public class PlanAheadPageRenderer {
                 out.println("</div>");
         }
 
-        private void printDragDropScript(PrintWriter out, String windowStartKey, String mode) {
+        private void printDragDropScript(PrintWriter out, String windowStartKey, String mode, String todayKey,
+                        int todayCompletedMins) {
                 out.println("<script>");
                 out.println("(function(){");
                 out.println("  var paDraggedActionId = null;");
                 out.println("  var paWindowStart = '" + escapeHtml(windowStartKey) + "';");
                 out.println("  var paMode = '" + escapeHtml(mode) + "';");
                 out.println("  var paIsPersonal = paMode === 'PERSONAL';");
+                out.println("  var paTodayKey = '" + escapeHtml(todayKey) + "';");
+                out.println("  var paTodayCompletedMins = " + todayCompletedMins + ";");
                 out.println("  var paReloadAfterEdit = false;");
                 out.println("  document.addEventListener('dragstart', function(e){");
                 out.println("    var card = e.target && e.target.closest ? e.target.closest('.pa-card') : null;");
@@ -701,6 +731,28 @@ public class PlanAheadPageRenderer {
                 out.println("    var mins = parseInt(match[2], 10);");
                 out.println("    if (isNaN(hours) || isNaN(mins) || mins < 0 || mins > 59) { return null; }");
                 out.println("    return (hours * 60) + mins;");
+                out.println("  }");
+
+                out.println("  function paRecalculateTotals(){");
+                out.println("    var grandTotal = 0;");
+                out.println("    var todayColExists = !!document.querySelector('.pa-kanban[data-day=\"' + paTodayKey + '\"]');");
+                out.println("    if (todayColExists && paTodayCompletedMins > 0) { grandTotal += paTodayCompletedMins; }");
+                out.println("    var rowLabelEls = document.querySelectorAll('[data-row-key]');");
+                out.println("    rowLabelEls.forEach(function(labelEl){");
+                out.println("      var rowKey = labelEl.getAttribute('data-row-key');");
+                out.println("      var rowTotal = 0;");
+                out.println("      document.querySelectorAll('.pa-kanban[data-row=\"' + rowKey + '\"]').forEach(function(cell){");
+                out.println("        cell.querySelectorAll('.pa-card-est-editable').forEach(function(btn){");
+                out.println("          var mins = parseInt(btn.getAttribute('data-est-mins') || '0', 10);");
+                out.println("          if (!isNaN(mins) && mins > 0) { rowTotal += mins; }");
+                out.println("        });");
+                out.println("      });");
+                out.println("      grandTotal += rowTotal;");
+                out.println("      var totalSpan = labelEl.querySelector('.pa-row-total');");
+                out.println("      if (totalSpan) { totalSpan.textContent = paMinutesToClock(rowTotal); }");
+                out.println("    });");
+                out.println("    var grandEl = document.getElementById('pa-view-total');");
+                out.println("    if (grandEl) { grandEl.textContent = 'Total Time in View: ' + paMinutesToClock(grandTotal); }");
                 out.println("  }");
 
                 out.println("  function paSaveDayCapacityValue(dayKey, statusCode, billMins, applyHeader){");
@@ -1125,7 +1177,9 @@ public class PlanAheadPageRenderer {
                 out.println("        if (el) { el.outerHTML = data.affectedHeadersHtml[id]; }");
                 out.println("      });");
                 out.println("    }");
+                out.println("    paRecalculateTotals();");
                 out.println("  }");
+                out.println("  paRecalculateTotals();");
                 out.println("})();");
                 out.println("</script>");
         }
@@ -1376,7 +1430,9 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-mode-option{display:inline-block;padding:6px 10px;color:#fffdf8;text-decoration:none;font-size:12px;font-weight:bold;letter-spacing:.03em;}");
                 out.println(".pa-mode-option.is-active{background:#fffdf8;color:#2f4330;}");
                 out.println(".pa-mode-option:not(.is-active):hover{background:rgba(255,255,255,.18);}");
-                out.println(".pa-row-label{display:flex;align-items:center;}");
+                out.println(".pa-row-label{display:flex;align-items:center;justify-content:space-between;gap:6px;}");
+                out.println(".pa-row-label-name{flex:1 1 auto;min-width:0;}");
+                out.println(".pa-view-total{font-size:13px;font-weight:bold;color:#2f4330;padding:5px 10px;background:#eef5ee;border:1px solid #9fb1a0;border-radius:4px;white-space:nowrap;}");
                 out.println(".pa-header-top{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;}");
                 out.println(".pa-header-left{min-width:0;}");
                 out.println(".pa-header-right{flex:1 0 100%;min-width:0;max-width:none;text-align:left;}");
