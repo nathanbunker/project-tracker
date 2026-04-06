@@ -49,6 +49,7 @@ public class FocusedActionPageRenderer {
                         List<PreviousActionOption> previousActions,
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,
                         int spentMinutesThisWeek, int todayBillableMinutes,
+                        int todayTargetMinutes, int weekTargetMinutes,
                         String nextActionHint, Integer nextActionHintId,
                         String quickCaptureSentenceValue, List<String> quickCaptureProjectNames,
                         boolean quickCaptureFocusRequested) {
@@ -299,6 +300,8 @@ public class FocusedActionPageRenderer {
                 out.println("    spentMinutes: " + Math.max(0, spentMinutes) + ",");
                 out.println("    spentMinutesThisWeek: " + Math.max(0, spentMinutesThisWeek) + ",");
                 out.println("    todayBillableMinutes: " + Math.max(0, todayBillableMinutes) + ",");
+                out.println("    todayTargetMinutes: " + Math.max(1, todayTargetMinutes) + ",");
+                out.println("    weekTargetMinutes: " + Math.max(1, weekTargetMinutes) + ",");
                 out.println("    estimateMinutes: " + Math.max(0, estimateMinutes) + ",");
                 out.println("    runningClock: " + (runningClock ? "true" : "false") + ",");
                 out.println("    nowMinute: " + Math.max(0, Math.min(59, nowMinute)));
@@ -607,6 +610,8 @@ public class FocusedActionPageRenderer {
                 out.println("        faState.spentMinutes = parseInt(data.spentMinutes || 0, 10) || 0;");
                 out.println("        faState.spentMinutesThisWeek = parseInt(data.spentMinutesThisWeek || 0, 10) || 0;");
                 out.println("        faState.todayBillableMinutes = parseInt(data.todayBillableMinutes || 0, 10) || 0;");
+                out.println("        faState.todayTargetMinutes = parseInt(data.todayTargetMinutes || 0, 10) || 0;");
+                out.println("        faState.weekTargetMinutes = parseInt(data.weekTargetMinutes || 0, 10) || 0;");
                 out.println("        faState.estimateMinutes = parseInt(data.estimateMinutes || 0, 10) || 0;");
                 out.println("        faState.nowMinute = parseInt(data.nowMinute || 0, 10) || 0;");
                 out.println("        faState.runningClock = !!data.runningClock;");
@@ -637,8 +642,8 @@ public class FocusedActionPageRenderer {
                 out.println("      }");
                 out.println("      statusRightEl.innerHTML = 'Estimated<br>' + faFormatMinutes(estimate);");
                 out.println("    }");
-                out.println("    var todayBase = 8 * 60;");
-                out.println("    var weekBase = Math.round(37.5 * 60);");
+                out.println("    var todayBase = Math.max(1, parseInt(faState.todayTargetMinutes || 0, 10) || (8 * 60));");
+                out.println("    var weekBase = Math.max(1, parseInt(faState.weekTargetMinutes || 0, 10) || Math.round(37.5 * 60));");
                 out.println("    var todayPct = faClampPct(((Math.max(0, faState.todayBillableMinutes || 0)) / todayBase) * 100);");
                 out.println("    var weekPct = faClampPct(((Math.max(0, faState.spentMinutesThisWeek || 0)) / weekBase) * 100);");
                 out.println("    var todayBar = document.getElementById('fa-today-bar');");

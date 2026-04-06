@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
+import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -22,7 +23,6 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class DashboardNextColumnService {
 
-    private static final int DAY_CAPACITY_MINUTES = 8 * 60;
     private static final int MAX_SUMMARY_CHIPS = 4;
     private static final String SESSION_SELECTED_DAY_KEY = "DASHBOARD_NEXT_SELECTED_DAY";
 
@@ -37,6 +37,7 @@ public class DashboardNextColumnService {
     private static final int BUCKET_END_OF_WORK_DAY = 9;
     private static final int BUCKET_OTHER = 11;
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
+    private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
 
     public DashboardNextColumnModel buildModel(AppReq appReq, DashboardTimeGaugeService gaugeService) {
         DashboardNextColumnModel model = new DashboardNextColumnModel();
@@ -56,11 +57,13 @@ public class DashboardNextColumnService {
         Map<String, List<ProjectActionNext>> planningBuckets = bucketByDate(planningRangeList);
 
         List<DashboardNextColumnModel.NextDaySummaryModel> summaries = new ArrayList<DashboardNextColumnModel.NextDaySummaryModel>();
+        Map<String, Integer> dayTargetMinutesByKey = new HashMap<String, Integer>();
         for (int dayOffset = 1; dayOffset < 14 && summaries.size() < MAX_SUMMARY_CHIPS; dayOffset++) {
             Calendar dayCalendar = getCalendarForTodayNoTime(webUser);
             dayCalendar.add(Calendar.DAY_OF_MONTH, dayOffset);
             Date dayDate = dayCalendar.getTime();
             String dayKey = toDatabaseDateKey(dayDate);
+            int dayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq, dayDate);
             List<ProjectActionNext> dayActions = planningBuckets.get(dayKey);
             if (dayActions == null || dayActions.isEmpty()) {
                 continue;
@@ -86,8 +89,9 @@ public class DashboardNextColumnService {
             summary.setWillMeetDisplay(ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst()));
             summary.setPlannedDisplay(ProjectActionNext.getTimeForDisplay(plannedMinutes));
             summary.setPlannedMinutes(plannedMinutes);
-            summary.setInlineGauge(gaugeService.buildInlineBarLongGauge(plannedMinutes, DAY_CAPACITY_MINUTES));
+            summary.setInlineGauge(gaugeService.buildInlineBarLongGauge(plannedMinutes, dayTargetMinutes));
             summaries.add(summary);
+            dayTargetMinutesByKey.put(dayKey, Integer.valueOf(dayTargetMinutes));
         }
         model.setDaySummaries(summaries);
 
@@ -109,7 +113,12 @@ public class DashboardNextColumnService {
             selectedDay.setFullDateLabel(selectedSummary.getFullDateLabel());
             selectedDay.setPlannedDisplay(selectedSummary.getPlannedDisplay());
             selectedDay.setPlannedMinutes(selectedSummary.getPlannedMinutes());
-            selectedDay.setHeaderGauge(gaugeService.buildPlannedDayGauge(selectedSummary.getPlannedMinutes()));
+            Integer selectedDayTargetMinutes = dayTargetMinutesByKey.get(selectedSummary.getDayKey());
+            int targetMinutes = selectedDayTargetMinutes == null
+                    ? gaugeService.getDefaultDailyTargetMinutes()
+                    : selectedDayTargetMinutes.intValue();
+            selectedDay.setHeaderGauge(gaugeService.buildPlannedDayGauge(selectedSummary.getPlannedMinutes(),
+                    targetMinutes));
             List<ProjectActionNext> selectedDayActions = planningBuckets.get(selectedSummary.getDayKey());
             selectedDay.setSections(buildSelectedDaySections(webUser, selectedDayActions));
             model.setSelectedDay(selectedDay);

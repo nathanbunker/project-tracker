@@ -17,6 +17,9 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class PlanAheadDayCapacityService {
 
+    public static final int DEFAULT_DAILY_TARGET_MINUTES = 8 * 60;
+    public static final int DEFAULT_WEEKLY_TARGET_MINUTES = Math.round(37.5f * 60f);
+
     public static final String STATUS_WORKING = "W";
     public static final String STATUS_NOT_WORKING = "N";
     public static final String STATUS_VACATION = "V";
@@ -160,6 +163,68 @@ public class PlanAheadDayCapacityService {
         return values;
     }
 
+    public int loadTargetMinutesForDay(AppReq appReq, Date day) {
+        if (appReq == null || day == null) {
+            return DEFAULT_DAILY_TARGET_MINUTES;
+        }
+        BillExpected billExpected = findBillExpected(appReq.getDataSession(), appReq.getWebUser(),
+                atDayStart(appReq.getWebUser(), day));
+        if (billExpected == null) {
+            return DEFAULT_DAILY_TARGET_MINUTES;
+        }
+        return Math.max(0, billExpected.getBillMins());
+    }
+
+    public int loadTargetMinutesForCurrentWeek(AppReq appReq) {
+        if (appReq == null || appReq.getWebUser() == null) {
+            return DEFAULT_WEEKLY_TARGET_MINUTES;
+        }
+        Date today = atDayStart(appReq.getWebUser(),
+                appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
+        return loadTargetMinutesForWeek(appReq, today);
+    }
+
+    public int loadTargetMinutesForWeek(AppReq appReq, Date dayInWeek) {
+        if (appReq == null || appReq.getWebUser() == null || dayInWeek == null) {
+            return DEFAULT_WEEKLY_TARGET_MINUTES;
+        }
+
+        WebUser webUser = appReq.getWebUser();
+        Date weekStart = getWeekStartSunday(webUser, dayInWeek);
+        Date weekEndExclusive = getWeekEndExclusive(webUser, weekStart);
+
+        List<BillExpected> rows = findBillExpectedForWeek(appReq.getDataSession(), webUser, weekStart,
+                weekEndExclusive);
+        if (rows.size() < 7) {
+            return DEFAULT_WEEKLY_TARGET_MINUTES;
+        }
+
+        Map<String, Integer> dayMinutesMap = new LinkedHashMap<String, Integer>();
+        for (BillExpected row : rows) {
+            if (row == null || row.getId() == null || row.getId().getBillDate() == null) {
+                continue;
+            }
+            dayMinutesMap.put(toDayKey(row.getId().getBillDate()), Integer.valueOf(Math.max(0, row.getBillMins())));
+        }
+        if (dayMinutesMap.size() < 7) {
+            return DEFAULT_WEEKLY_TARGET_MINUTES;
+        }
+
+        Calendar cursor = webUser.getCalendar();
+        cursor.setTime(weekStart);
+        int total = 0;
+        for (int i = 0; i < 7; i++) {
+            String dayKey = toDayKey(cursor.getTime());
+            Integer dayMins = dayMinutesMap.get(dayKey);
+            if (dayMins == null) {
+                return DEFAULT_WEEKLY_TARGET_MINUTES;
+            }
+            total += dayMins.intValue();
+            cursor.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return total;
+    }
+
     private BillExpected findBillExpected(Session dataSession, WebUser webUser, Date day) {
         Query query = dataSession.createQuery("from BillExpected where id.webUserId = ? and id.billDate = ?");
         query.setParameter(0, webUser.getWebUserId());
@@ -170,6 +235,44 @@ public class PlanAheadDayCapacityService {
             return results.get(0);
         }
         return null;
+    }
+
+    private List<BillExpected> findBillExpectedForWeek(Session dataSession, WebUser webUser, Date weekStart,
+            Date weekEndExclusive) {
+        Query query = dataSession.createQuery("from BillExpected where id.webUserId = :webUserId "
+                + "and id.billDate >= :weekStart and id.billDate < :weekEndExclusive");
+        query.setParameter("webUserId", webUser.getWebUserId());
+        query.setParameter("weekStart", weekStart);
+        query.setParameter("weekEndExclusive", weekEndExclusive);
+        @SuppressWarnings("unchecked")
+        List<BillExpected> results = query.list();
+        return results;
+    }
+
+    private Date atDayStart(WebUser webUser, Date day) {
+        Calendar calendar = webUser.getCalendar();
+        calendar.setTime(day);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTime();
+    }
+
+    private Date getWeekStartSunday(WebUser webUser, Date day) {
+        Calendar calendar = webUser.getCalendar();
+        calendar.setTime(atDayStart(webUser, day));
+        while (calendar.get(Calendar.DAY_OF_WEEK) != Calendar.SUNDAY) {
+            calendar.add(Calendar.DAY_OF_MONTH, -1);
+        }
+        return calendar.getTime();
+    }
+
+    private Date getWeekEndExclusive(WebUser webUser, Date weekStart) {
+        Calendar calendar = webUser.getCalendar();
+        calendar.setTime(weekStart);
+        calendar.add(Calendar.DAY_OF_MONTH, 7);
+        return calendar.getTime();
     }
 
     private int defaultMinutes(Date day, WebUser webUser) {

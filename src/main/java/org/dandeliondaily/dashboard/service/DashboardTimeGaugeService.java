@@ -17,6 +17,10 @@ public class DashboardTimeGaugeService {
     private static final int WARNING_PERCENT = 85;
     private static final int DAILY_TARGET_MINUTES = 8 * 60;
 
+    public int getDefaultDailyTargetMinutes() {
+        return DAILY_TARGET_MINUTES;
+    }
+
     public TimeGaugeModel buildNowGauge(AppReq appReq) {
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.STACKED);
@@ -56,10 +60,15 @@ public class DashboardTimeGaugeService {
     }
 
     public TimeGaugeModel buildTodayGauge(AppReq appReq) {
+        return buildTodayGauge(appReq, DAILY_TARGET_MINUTES);
+    }
+
+    public TimeGaugeModel buildTodayGauge(AppReq appReq, int targetMinutesOverride) {
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.TODAY_HEADER);
         model.setShowTitle(false);
         model.setShowTargetRange(false);
+        int targetMinutes = normalizeTargetMinutes(targetMinutesOverride);
 
         // This reuses the same source used by the global app header time display.
         int spentToday = 0;
@@ -69,12 +78,12 @@ public class DashboardTimeGaugeService {
         }
 
         // Add Spent row
-        TimeGaugeModel.GaugeRow spentRow = new TimeGaugeModel.GaugeRow("Spent", spentToday, DAILY_TARGET_MINUTES);
-        spentRow.setState(determineState(spentToday, DAILY_TARGET_MINUTES));
+        TimeGaugeModel.GaugeRow spentRow = new TimeGaugeModel.GaugeRow("Spent", spentToday, targetMinutes);
+        spentRow.setState(determineState(spentToday, targetMinutes));
         model.addRow(spentRow);
 
         // Add Planned row (to be set by servlet with actual planned minutes)
-        TimeGaugeModel.GaugeRow plannedRow = new TimeGaugeModel.GaugeRow("Planned", 0, DAILY_TARGET_MINUTES);
+        TimeGaugeModel.GaugeRow plannedRow = new TimeGaugeModel.GaugeRow("Planned", 0, targetMinutes);
         plannedRow.setState(TimeGaugeState.NORMAL);
         model.addRow(plannedRow);
 
@@ -82,15 +91,20 @@ public class DashboardTimeGaugeService {
     }
 
     public TimeGaugeModel buildPlannedDayGauge(int plannedMinutes) {
+        return buildPlannedDayGauge(plannedMinutes, DAILY_TARGET_MINUTES);
+    }
+
+    public TimeGaugeModel buildPlannedDayGauge(int plannedMinutes, int targetMinutesOverride) {
+        int targetMinutes = normalizeTargetMinutes(targetMinutesOverride);
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.STACKED);
         model.setShowTitle(false);
         model.setShowTargetRange(false);
         model.setCurrentMinutes(Math.max(0, plannedMinutes));
-        model.setTargetMinutes(DAILY_TARGET_MINUTES);
-        model.setState(determineState(plannedMinutes, DAILY_TARGET_MINUTES));
+        model.setTargetMinutes(targetMinutes);
+        model.setState(determineState(plannedMinutes, targetMinutes));
 
-        int delta = DAILY_TARGET_MINUTES - plannedMinutes;
+        int delta = targetMinutes - plannedMinutes;
         if (plannedMinutes <= 0) {
             model.setStatusText("Nothing planned");
         } else if (delta > 0) {
@@ -104,11 +118,16 @@ public class DashboardTimeGaugeService {
     }
 
     public void updateTodayGaugePlanned(TimeGaugeModel todayGaugeModel, int plannedMinutes) {
+        updateTodayGaugePlanned(todayGaugeModel, plannedMinutes, DAILY_TARGET_MINUTES);
+    }
+
+    public void updateTodayGaugePlanned(TimeGaugeModel todayGaugeModel, int plannedMinutes, int targetMinutesOverride) {
+        int targetMinutes = normalizeTargetMinutes(targetMinutesOverride);
         if (todayGaugeModel.getRows().size() >= 2) {
             // Recreate the row with updated minutes
             TimeGaugeModel.GaugeRow updatedRow = new TimeGaugeModel.GaugeRow("Planned", plannedMinutes,
-                    DAILY_TARGET_MINUTES);
-            updatedRow.setState(determineState(plannedMinutes, DAILY_TARGET_MINUTES));
+                    targetMinutes);
+            updatedRow.setState(determineState(plannedMinutes, targetMinutes));
             todayGaugeModel.getRows().set(1, updatedRow);
         }
     }
@@ -129,11 +148,16 @@ public class DashboardTimeGaugeService {
         TimeGaugeModel model = new TimeGaugeModel();
         model.setVariant(TimeGaugeVariant.INLINE_BAR_LONG);
         model.setShowTitle(false);
-        TimeGaugeState state = determineState(currentMinutes, targetMinutes);
-        TimeGaugeModel.GaugeRow row = new TimeGaugeModel.GaugeRow(null, Math.max(0, currentMinutes), targetMinutes);
+        int safeTargetMinutes = normalizeTargetMinutes(targetMinutes);
+        TimeGaugeState state = determineState(currentMinutes, safeTargetMinutes);
+        TimeGaugeModel.GaugeRow row = new TimeGaugeModel.GaugeRow(null, Math.max(0, currentMinutes), safeTargetMinutes);
         row.setState(state);
         model.addRow(row);
         return model;
+    }
+
+    private int normalizeTargetMinutes(int targetMinutesOverride) {
+        return targetMinutesOverride > 0 ? targetMinutesOverride : DAILY_TARGET_MINUTES;
     }
 
     private int loadSpentMinutesToday(Session dataSession, Calendar userCalendar, ProjectActionNext action) {

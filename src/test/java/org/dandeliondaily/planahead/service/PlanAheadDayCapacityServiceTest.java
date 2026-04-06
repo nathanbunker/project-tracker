@@ -94,4 +94,22 @@ public class PlanAheadDayCapacityServiceTest {
     public void saveDayCapacity_throwsForNullStatusCode() {
         service.saveDayCapacity(null, new Date(), 480, null);
     }
+
+    @Test
+    public void loadTargetMinutesForDay_nullAppReqFallsBackToDefaultDailyTarget() {
+        int minutes = service.loadTargetMinutesForDay(null, new Date());
+        Assert.assertEquals(PlanAheadDayCapacityService.DEFAULT_DAILY_TARGET_MINUTES, minutes);
+    }
+
+    @Test
+    public void loadTargetMinutesForCurrentWeek_nullAppReqFallsBackToDefaultWeeklyTarget() {
+        int minutes = service.loadTargetMinutesForCurrentWeek(null);
+        Assert.assertEquals(PlanAheadDayCapacityService.DEFAULT_WEEKLY_TARGET_MINUTES, minutes);
+    }
+
+    @Test
+    public void loadTargetMinutesForWeek_nullAppReqFallsBackToDefaultWeeklyTarget() {
+        int minutes = service.loadTargetMinutesForWeek(null, new Date());
+        Assert.assertEquals(PlanAheadDayCapacityService.DEFAULT_WEEKLY_TARGET_MINUTES, minutes);
+    }
 }

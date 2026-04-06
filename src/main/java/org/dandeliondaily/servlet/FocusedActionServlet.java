@@ -18,6 +18,7 @@ import javax.servlet.http.HttpSession;
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.focus.render.FocusedActionPageRenderer;
+import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -48,6 +49,7 @@ public class FocusedActionServlet extends ClientServlet {
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
     private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
     private final FocusedActionPageRenderer focusedActionPageRenderer = new FocusedActionPageRenderer();
+    private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -96,6 +98,9 @@ public class FocusedActionServlet extends ClientServlet {
             int spentMinutes = loadCurrentActionMinutesToday(appReq, currentAction);
             int todayBillableMinutes = loadBillableMinutesToday(appReq);
             int spentMinutesThisWeek = loadBillableMinutesThisWeekRounded(appReq);
+            int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
+                    appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
+            int weekTargetMinutes = dayCapacityService.loadTargetMinutesForCurrentWeek(appReq);
             int estimateMinutes = currentAction != null && currentAction.getNextTimeEstimate() != null
                     ? currentAction.getNextTimeEstimate().intValue()
                     : 0;
@@ -121,6 +126,7 @@ public class FocusedActionServlet extends ClientServlet {
             focusedActionPageRenderer.render(appReq, currentAction, notes, meetingOptions, previousActions,
                     spentMinutes,
                     estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, todayBillableMinutes,
+                    todayTargetMinutes, weekTargetMinutes,
                     nextActionHint, nextActionHintId,
                     n(appReq.getRequest().getParameter("sentenceInput")), quickCaptureProjectNames,
                     quickCaptureFocusRequested);
@@ -339,6 +345,9 @@ public class FocusedActionServlet extends ClientServlet {
         int spentMinutes = loadCurrentActionMinutesToday(appReq, currentAction);
         int todayBillableMinutes = loadBillableMinutesToday(appReq);
         int spentMinutesThisWeek = loadBillableMinutesThisWeekRounded(appReq);
+        int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
+                appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
+        int weekTargetMinutes = dayCapacityService.loadTargetMinutesForCurrentWeek(appReq);
         int estimateMinutes = currentAction != null && currentAction.getNextTimeEstimate() != null
                 ? currentAction.getNextTimeEstimate().intValue()
                 : 0;
@@ -347,6 +356,8 @@ public class FocusedActionServlet extends ClientServlet {
         data.put("spentMinutes", Integer.valueOf(spentMinutes));
         data.put("todayBillableMinutes", Integer.valueOf(todayBillableMinutes));
         data.put("spentMinutesThisWeek", Integer.valueOf(spentMinutesThisWeek));
+        data.put("todayTargetMinutes", Integer.valueOf(todayTargetMinutes));
+        data.put("weekTargetMinutes", Integer.valueOf(weekTargetMinutes));
         data.put("estimateMinutes", Integer.valueOf(estimateMinutes));
         data.put("runningClock", Boolean.valueOf(timeTracker != null && timeTracker.isRunningClock()));
         data.put("nowMinute", Integer.valueOf(appReq.getWebUser().getLocalDateTimeNow().getMinute()));

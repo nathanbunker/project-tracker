@@ -31,6 +31,7 @@ import org.dandeliondaily.dashboard.service.DashboardNowColumnService;
 import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
 import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
@@ -55,6 +56,7 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
     private final DashboardTimeGaugeService dashboardTimeGaugeService = new DashboardTimeGaugeService();
     private final DashboardNextColumnService dashboardNextColumnService = new DashboardNextColumnService();
+    private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
     private final ProjectHealthPageService projectHealthPageService = new ProjectHealthPageService();
 
@@ -140,9 +142,11 @@ public class DandelionDashboardServlet extends ClientServlet {
             DashboardNowColumnModel nowColumnModel = dashboardNowColumnService.buildModel(appReq);
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
             TimeGaugeModel nowGaugeModel = dashboardTimeGaugeService.buildNowGauge(appReq);
-            TimeGaugeModel todayGaugeModel = dashboardTimeGaugeService.buildTodayGauge(appReq);
+            int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
+                    appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
+            TimeGaugeModel todayGaugeModel = dashboardTimeGaugeService.buildTodayGauge(appReq, todayTargetMinutes);
             dashboardTimeGaugeService.updateTodayGaugePlanned(todayGaugeModel,
-                    todayColumnModel.getTotals().getPlannedMinutes());
+                    todayColumnModel.getTotals().getPlannedMinutes(), todayTargetMinutes);
             DashboardNextColumnModel nextColumnModel = dashboardNextColumnService.buildModel(appReq,
                     dashboardTimeGaugeService);
             printHtmlHead(appReq);
@@ -850,9 +854,11 @@ public class DandelionDashboardServlet extends ClientServlet {
 
         TimeGaugeModel nowGaugeModel = dashboardTimeGaugeService.buildNowGauge(appReq);
         DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
-        TimeGaugeModel todayGaugeModel = dashboardTimeGaugeService.buildTodayGauge(appReq);
+        int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
+                appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
+        TimeGaugeModel todayGaugeModel = dashboardTimeGaugeService.buildTodayGauge(appReq, todayTargetMinutes);
         dashboardTimeGaugeService.updateTodayGaugePlanned(todayGaugeModel,
-                todayColumnModel.getTotals().getPlannedMinutes());
+                todayColumnModel.getTotals().getPlannedMinutes(), todayTargetMinutes);
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("nowGaugeHtml", renderGaugeHtml(nowGaugeModel));
