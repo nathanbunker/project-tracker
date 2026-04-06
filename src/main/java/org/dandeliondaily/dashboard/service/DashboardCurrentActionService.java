@@ -158,12 +158,26 @@ public class DashboardCurrentActionService {
         }
 
         if (WORK_STATUS_COMPLETE.equals(workStatus)) {
-            appReq.addSuccessMessage("Action completed.");
+            appReq.addSuccessMessage(buildCompletionMessage(actionToWork));
         } else if (WORK_STATUS_DELETE.equals(workStatus)) {
             appReq.addInfoMessage("Action cancelled.");
         } else if (WORK_STATUS_BLOCKED.equals(workStatus)) {
             appReq.addInfoMessage("Action blocked and follow-up saved.");
         }
+    }
+
+    private String buildCompletionMessage(ProjectActionNext actionToWork) {
+        if (actionToWork == null || actionToWork.getNextTimeEstimate() == null
+                || actionToWork.getNextTimeActual() == null) {
+            return "Action completed.";
+        }
+        int estimateMinutes = actionToWork.getNextTimeEstimate().intValue();
+        int actualMinutes = actionToWork.getNextTimeActual().intValue();
+        int savedMinutes = estimateMinutes - actualMinutes;
+        if (savedMinutes > 0) {
+            return "Action completed. Saved " + savedMinutes + " minutes.";
+        }
+        return "Action completed.";
     }
 
     private ProjectActionNext resolveActionToWork(AppReq appReq, Session dataSession) {

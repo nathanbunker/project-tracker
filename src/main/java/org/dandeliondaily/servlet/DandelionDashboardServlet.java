@@ -346,14 +346,19 @@ public class DandelionDashboardServlet extends ClientServlet {
             dataSession.update(action);
             transaction.commit();
 
+            boolean requiresActionRefresh = clearCurrentActionIfMovedOffToday(appReq, action);
+
             if (saveAndStart) {
                 appReq.setCompletingAction(action);
                 if (action.getProject() != null) {
                     appReq.setProject(action.getProject());
                 }
+                requiresActionRefresh = false;
             }
 
-            sendJsonResponse(appReq, true, "Action saved successfully", null);
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("requiresActionRefresh", Boolean.valueOf(requiresActionRefresh));
+            sendJsonResponse(appReq, true, "Action saved successfully", data);
         } catch (Exception e) {
             transaction.rollback();
             e.printStackTrace();
@@ -772,7 +777,11 @@ public class DandelionDashboardServlet extends ClientServlet {
             dataSession.update(action);
             transaction.commit();
 
-            sendJsonResponse(appReq, true, "Action rescheduled successfully", null);
+            boolean requiresActionRefresh = clearCurrentActionIfMovedOffToday(appReq, action);
+
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("requiresActionRefresh", Boolean.valueOf(requiresActionRefresh));
+            sendJsonResponse(appReq, true, "Action rescheduled successfully", data);
         } catch (Exception e) {
             transaction.rollback();
             e.printStackTrace();
@@ -1191,6 +1200,27 @@ public class DandelionDashboardServlet extends ClientServlet {
 
     private String formatCurrentUserTime(WebUser webUser) {
         return webUser.getDateFormatService().formatPattern(new Date(), "hh:mm:ss aaa z", webUser.getTimeZone());
+    }
+
+    private boolean clearCurrentActionIfMovedOffToday(AppReq appReq, ProjectActionNext action) {
+        if (action == null) {
+            return false;
+        }
+        ProjectActionNext current = appReq.getCompletingAction();
+        if (current == null || current.getActionNextId() != action.getActionNextId()) {
+            return false;
+        }
+        LocalDate actionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
+        LocalDate today = appReq.getWebUser().getLocalDateToday();
+        if (actionDate == null || !actionDate.isAfter(today)) {
+            return false;
+        }
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        if (timeTracker != null && timeTracker.isRunningClock()) {
+            timeTracker.stopClock(appReq.getDataSession());
+        }
+        appReq.setCompletingAction(null);
+        return true;
     }
 
     private String renderGaugeHtml(TimeGaugeModel model) {

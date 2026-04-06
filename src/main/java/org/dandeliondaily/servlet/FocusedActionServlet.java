@@ -2,16 +2,13 @@ package org.dandeliondaily.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -19,12 +16,15 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
+import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.focus.render.FocusedActionPageRenderer;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -40,11 +40,13 @@ public class FocusedActionServlet extends ClientServlet {
     private static final String ACTION_COMPLETE = "COMPLETE";
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_WORK_STATUS = "workStatus";
+    private static final String ACTION_SCHEDULE = "Schedule";
     private static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
     private static final String SESSION_PRE_MEETING_ACTION_ID = "FOCUS_PRE_MEETING_ACTION_ID";
     private static final String SESSION_MEETING_ACTIVE = "FOCUS_MEETING_ACTIVE";
 
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
+    private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
     private final FocusedActionPageRenderer focusedActionPageRenderer = new FocusedActionPageRenderer();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -75,6 +77,7 @@ public class FocusedActionServlet extends ClientServlet {
             }
 
             selectActionFromRequest(appReq);
+            dashboardTodayColumnService.handleQuickCapture(appReq);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
             ProjectActionNext workedAction = appReq.getCompletingAction();
@@ -90,15 +93,17 @@ public class FocusedActionServlet extends ClientServlet {
                 appReq.getResponse().sendRedirect("FocusedActionServlet");
                 return;
             }
-            int spentMinutes = loadSpentMinutesToday(appReq.getDataSession(), appReq.getWebUser(), currentAction);
-            int spentMinutesThisWeek = loadSpentMinutesThisWeek(appReq.getDataSession(), appReq.getWebUser(),
-                    currentAction);
+            int spentMinutes = loadCurrentActionMinutesToday(appReq, currentAction);
+            int todayBillableMinutes = loadBillableMinutesToday(appReq);
+            int spentMinutesThisWeek = loadBillableMinutesThisWeekRounded(appReq);
             int estimateMinutes = currentAction != null && currentAction.getNextTimeEstimate() != null
                     ? currentAction.getNextTimeEstimate().intValue()
                     : 0;
 
             List<String> notes = extractNoteLines(currentAction);
             List<FocusedActionPageRenderer.MeetingOption> meetingOptions = loadTodayMeetingOptions(appReq);
+            List<FocusedActionPageRenderer.PreviousActionOption> previousActions = loadPreviousActionOptions(appReq,
+                    currentAction == null ? 0 : currentAction.getActionNextId());
             boolean runningClock = appReq.getTimeTracker() != null && appReq.getTimeTracker().isRunningClock();
             int nowMinute = appReq.getWebUser().getLocalDateTimeNow().getMinute();
             ProjectActionNext nextActionHintAction = resolveNextActionHintAction(appReq, currentAction);
@@ -108,11 +113,17 @@ public class FocusedActionServlet extends ClientServlet {
             Integer nextActionHintId = nextActionHintAction == null
                     ? null
                     : Integer.valueOf(nextActionHintAction.getActionNextId());
+            List<String> quickCaptureProjectNames = dashboardTodayColumnService.listQuickCaptureProjectNames(appReq);
+            boolean quickCaptureFocusRequested = ACTION_SCHEDULE.equals(action);
 
             appReq.setTitle("Focused Action");
             printFocusedHead(appReq);
-            focusedActionPageRenderer.render(appReq, currentAction, notes, meetingOptions, spentMinutes,
-                    estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, nextActionHint, nextActionHintId);
+            focusedActionPageRenderer.render(appReq, currentAction, notes, meetingOptions, previousActions,
+                    spentMinutes,
+                    estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, todayBillableMinutes,
+                    nextActionHint, nextActionHintId,
+                    n(appReq.getRequest().getParameter("sentenceInput")), quickCaptureProjectNames,
+                    quickCaptureFocusRequested);
             printFocusedFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();
@@ -325,15 +336,16 @@ public class FocusedActionServlet extends ClientServlet {
             timeTracker.update(currentAction, appReq.getDataSession());
         }
 
-        int spentMinutes = loadSpentMinutesToday(appReq.getDataSession(), appReq.getWebUser(), currentAction);
-        int spentMinutesThisWeek = loadSpentMinutesThisWeek(appReq.getDataSession(), appReq.getWebUser(),
-                currentAction);
+        int spentMinutes = loadCurrentActionMinutesToday(appReq, currentAction);
+        int todayBillableMinutes = loadBillableMinutesToday(appReq);
+        int spentMinutesThisWeek = loadBillableMinutesThisWeekRounded(appReq);
         int estimateMinutes = currentAction != null && currentAction.getNextTimeEstimate() != null
                 ? currentAction.getNextTimeEstimate().intValue()
                 : 0;
 
         Map<String, Object> data = new LinkedHashMap<String, Object>();
         data.put("spentMinutes", Integer.valueOf(spentMinutes));
+        data.put("todayBillableMinutes", Integer.valueOf(todayBillableMinutes));
         data.put("spentMinutesThisWeek", Integer.valueOf(spentMinutesThisWeek));
         data.put("estimateMinutes", Integer.valueOf(estimateMinutes));
         data.put("runningClock", Boolean.valueOf(timeTracker != null && timeTracker.isRunningClock()));
@@ -461,16 +473,70 @@ public class FocusedActionServlet extends ClientServlet {
         return options;
     }
 
-    private int loadSpentMinutesToday(Session dataSession, WebUser webUser, ProjectActionNext action) {
-        if (action == null) {
+    private List<FocusedActionPageRenderer.PreviousActionOption> loadPreviousActionOptions(AppReq appReq,
+            int excludeActionId) {
+        WebUser webUser = appReq.getWebUser();
+        LocalDate today = webUser.getLocalDateToday();
+        Query query = appReq.getDataSession().createQuery(
+                "select distinct pan from ProjectActionNext pan "
+                        + "left join fetch pan.project "
+                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "and pan.actionNextId <> :excludeActionId "
+                        + "and pan.nextActionDate is not null and pan.nextActionDate <= :today "
+                        + "and pan.nextActionStatusString <> :cancelledStatus "
+                        + "order by pan.nextChangeDate desc, pan.nextActionDate desc, pan.completionOrder desc");
+        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("nextContactId", webUser.getContactId());
+        query.setParameter("excludeActionId", Integer.valueOf(excludeActionId));
+        query.setParameter("today", java.sql.Date.valueOf(today));
+        query.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
+        query.setMaxResults(2);
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> actions = query.list();
+
+        List<FocusedActionPageRenderer.PreviousActionOption> options = new ArrayList<FocusedActionPageRenderer.PreviousActionOption>();
+        for (ProjectActionNext item : actions) {
+            String projectName = item.getProject() == null ? "" : n(item.getProject().getProjectName());
+            String summary = n(item.getNextSummary());
+            String description = n(item.getNextDescription());
+            String text = summary.length() > 0 ? summary : description;
+            if (text.length() == 0) {
+                text = "[No description]";
+            }
+            String suffix;
+            if (item.getNextActionStatus() == ProjectNextActionStatus.COMPLETED) {
+                suffix = " (completed)";
+            } else if (item.getNextTimeEstimate() != null && item.getNextTimeEstimate().intValue() > 0) {
+                suffix = " (" + item.getNextTimeEstimate().intValue() + "m)";
+            } else {
+                suffix = "";
+            }
+            String label = (projectName.length() > 0 ? projectName + " - " : "") + text + suffix;
+            options.add(new FocusedActionPageRenderer.PreviousActionOption(item.getActionNextId(), label));
+        }
+        return options;
+    }
+
+    private int loadBillableMinutesToday(AppReq appReq) {
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        if (timeTracker != null) {
+            return Math.max(0, timeTracker.getTotalMinsBillable());
+        }
+        TimeTracker fallback = new TimeTracker(appReq.getWebUser(), appReq.getDataSession());
+        return Math.max(0, fallback.getTotalMinsBillable());
+    }
+
+    private int loadCurrentActionMinutesToday(AppReq appReq, ProjectActionNext currentAction) {
+        if (currentAction == null) {
             return 0;
         }
-        Query query = dataSession.createQuery(
+        Query query = appReq.getDataSession().createQuery(
                 "select sum(billMins) from BillEntry where action.actionNextId = :actionNextId "
                         + "and startTime >= :today and startTime < :tomorrow");
-        query.setParameter("actionNextId", action.getActionNextId());
+        query.setParameter("actionNextId", currentAction.getActionNextId());
 
-        Calendar calendar = (Calendar) webUser.getCalendar().clone();
+        Calendar calendar = appReq.getWebUser().getCalendar();
         calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
@@ -482,40 +548,35 @@ public class FocusedActionServlet extends ClientServlet {
         @SuppressWarnings("unchecked")
         List<Long> billMinsList = query.list();
         if (billMinsList.size() > 0 && billMinsList.get(0) != null) {
-            return billMinsList.get(0).intValue();
+            return Math.max(0, billMinsList.get(0).intValue());
         }
         return 0;
     }
 
-    private int loadSpentMinutesThisWeek(Session dataSession, WebUser webUser, ProjectActionNext action) {
-        if (action == null) {
-            return 0;
+    private int loadBillableMinutesThisWeekRounded(AppReq appReq) {
+        TimeTracker timeTrackerForWeek = new TimeTracker(appReq.getWebUser(), new Date(), Calendar.WEEK_OF_YEAR,
+                appReq.getDataSession());
+        return calculateWeeklyRoundedMinutesLikeTrackServlet(appReq.getDataSession(), timeTrackerForWeek);
+    }
+
+    private int calculateWeeklyRoundedMinutesLikeTrackServlet(Session dataSession, TimeTracker timeTrackerForWeek) {
+        int totalTimeInMinutes = 0;
+        Map<Integer, Integer> projectMap = timeTrackerForWeek.getTotalMinsForProjectMap();
+        for (Integer projectId : projectMap.keySet()) {
+            Project project = (Project) dataSession.get(Project.class, projectId);
+            if (project == null || project.getBillCode() == null) {
+                continue;
+            }
+            BillCode billCode = resolveBillCode(dataSession, project);
+            if (billCode == null || !"Y".equals(billCode.getBillable())) {
+                continue;
+            }
+            Integer projectMinutes = projectMap.get(projectId);
+            if (projectMinutes != null) {
+                totalTimeInMinutes += TimeEntry.adjustMinutes(projectMinutes);
+            }
         }
-        Query query = dataSession.createQuery(
-                "select sum(billMins) from BillEntry where action.actionNextId = :actionNextId "
-                        + "and startTime >= :weekStart and startTime < :weekEnd");
-        query.setParameter("actionNextId", action.getActionNextId());
-
-        Calendar calendar = (Calendar) webUser.getCalendar().clone();
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-
-        int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-        int daysToMonday = dayOfWeek == Calendar.SUNDAY ? 6 : dayOfWeek - Calendar.MONDAY;
-        calendar.add(Calendar.DAY_OF_MONTH, -daysToMonday);
-
-        query.setParameter("weekStart", calendar.getTime());
-        calendar.add(Calendar.DAY_OF_MONTH, 7);
-        query.setParameter("weekEnd", calendar.getTime());
-
-        @SuppressWarnings("unchecked")
-        List<Long> billMinsList = query.list();
-        if (billMinsList.size() > 0 && billMinsList.get(0) != null) {
-            return billMinsList.get(0).intValue();
-        }
-        return 0;
+        return totalTimeInMinutes;
     }
 
     private List<String> extractNoteLines(ProjectActionNext action) {
