@@ -29,6 +29,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -81,14 +82,17 @@ public class FocusedActionServlet extends ClientServlet {
             maybeRestorePreMeetingActionAfterCompletion(appReq, action, workedAction);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
-            // After completing an action, if no current action is selected, redirect to dashboard
+            // After completing an action, if no current action is selected, redirect to
+            // dashboard
             ProjectActionNext currentAction = reloadCurrentAction(appReq);
-            if (currentAction == null && ACTION_WORK_NEXT.equals(action) && ACTION_COMPLETE.equalsIgnoreCase(n(appReq.getRequest().getParameter(PARAM_WORK_STATUS)))) {
+            if (currentAction == null && ACTION_WORK_NEXT.equals(action)
+                    && ACTION_COMPLETE.equalsIgnoreCase(n(appReq.getRequest().getParameter(PARAM_WORK_STATUS)))) {
                 appReq.getResponse().sendRedirect("FocusedActionServlet");
                 return;
             }
             int spentMinutes = loadSpentMinutesToday(appReq.getDataSession(), appReq.getWebUser(), currentAction);
-            int spentMinutesThisWeek = loadSpentMinutesThisWeek(appReq.getDataSession(), appReq.getWebUser(), currentAction);
+            int spentMinutesThisWeek = loadSpentMinutesThisWeek(appReq.getDataSession(), appReq.getWebUser(),
+                    currentAction);
             int estimateMinutes = currentAction != null && currentAction.getNextTimeEstimate() != null
                     ? currentAction.getNextTimeEstimate().intValue()
                     : 0;
@@ -97,11 +101,18 @@ public class FocusedActionServlet extends ClientServlet {
             List<FocusedActionPageRenderer.MeetingOption> meetingOptions = loadTodayMeetingOptions(appReq);
             boolean runningClock = appReq.getTimeTracker() != null && appReq.getTimeTracker().isRunningClock();
             int nowMinute = appReq.getWebUser().getLocalDateTimeNow().getMinute();
+            ProjectActionNext nextActionHintAction = resolveNextActionHintAction(appReq, currentAction);
+            String nextActionHint = nextActionHintAction == null
+                    ? "No next action available."
+                    : buildActionLabel(nextActionHintAction);
+            Integer nextActionHintId = nextActionHintAction == null
+                    ? null
+                    : Integer.valueOf(nextActionHintAction.getActionNextId());
 
             appReq.setTitle("Focused Action");
             printFocusedHead(appReq);
             focusedActionPageRenderer.render(appReq, currentAction, notes, meetingOptions, spentMinutes,
-                    estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek);
+                    estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, nextActionHint, nextActionHintId);
             printFocusedFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();
@@ -148,6 +159,12 @@ public class FocusedActionServlet extends ClientServlet {
         if (!ACTION_WORK_NEXT.equals(action) || !ACTION_COMPLETE.equalsIgnoreCase(workStatus)) {
             return;
         }
+
+        if (workedAction != null && !ProjectNextActionType.WILL_MEET.equals(workedAction.getNextActionType())) {
+            clearMeetingMemory(appReq);
+            return;
+        }
+
         if (workedAction == null || !ProjectNextActionType.WILL_MEET.equals(workedAction.getNextActionType())) {
             return;
         }
@@ -200,7 +217,14 @@ public class FocusedActionServlet extends ClientServlet {
 
         ProjectActionNext currentAction = appReq.getCompletingAction();
         HttpSession session = appReq.getRequest().getSession(true);
-        if (currentAction != null && currentAction.getActionNextId() != selectedMeeting.getActionNextId()) {
+        Integer existingPreMeeting = session.getAttribute(SESSION_PRE_MEETING_ACTION_ID) instanceof Integer
+                ? (Integer) session.getAttribute(SESSION_PRE_MEETING_ACTION_ID)
+                : null;
+        if (existingPreMeeting == null
+                && currentAction != null
+                && currentAction.getActionNextId() != selectedMeeting.getActionNextId()
+                && !ProjectNextActionType.WILL_MEET.equals(currentAction.getNextActionType())
+                && currentAction.getNextActionStatus() == ProjectNextActionStatus.READY) {
             session.setAttribute(SESSION_PRE_MEETING_ACTION_ID, Integer.valueOf(currentAction.getActionNextId()));
         }
         session.setAttribute(SESSION_MEETING_ACTIVE, Boolean.TRUE);
@@ -209,7 +233,87 @@ public class FocusedActionServlet extends ClientServlet {
         if (selectedMeeting.getProject() != null) {
             appReq.setProject(selectedMeeting.getProject());
         }
+
+        // Switch timer context to the selected meeting action and start timing it.
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        if (timeTracker != null && selectedMeeting.getProject() != null) {
+            if (timeTracker.isRunningClock()) {
+                timeTracker.stopClock(appReq.getDataSession());
+            }
+            timeTracker.startClock(selectedMeeting.getProject(), selectedMeeting, appReq.getDataSession());
+        }
         sendJsonResponse(appReq, true, "Meeting selected", null);
+    }
+
+    private void clearMeetingMemory(AppReq appReq) {
+        HttpSession session = appReq.getRequest().getSession(false);
+        if (session == null) {
+            return;
+        }
+        session.removeAttribute(SESSION_MEETING_ACTIVE);
+        session.removeAttribute(SESSION_PRE_MEETING_ACTION_ID);
+    }
+
+    private ProjectActionNext resolveNextActionHintAction(AppReq appReq, ProjectActionNext currentAction) {
+        ProjectActionNext hinted = null;
+        HttpSession session = appReq.getRequest().getSession(false);
+        if (session != null
+                && currentAction != null
+                && ProjectNextActionType.WILL_MEET.equals(currentAction.getNextActionType())) {
+            Object preObj = session.getAttribute(SESSION_PRE_MEETING_ACTION_ID);
+            if (preObj instanceof Integer) {
+                hinted = (ProjectActionNext) appReq.getDataSession().get(ProjectActionNext.class, (Integer) preObj);
+                if (hinted != null && hinted.getNextActionStatus() != ProjectNextActionStatus.READY) {
+                    hinted = null;
+                }
+            }
+        }
+
+        if (hinted == null) {
+            hinted = loadNextReadyAction(appReq, currentAction == null ? 0 : currentAction.getActionNextId());
+        }
+        return hinted;
+    }
+
+    private ProjectActionNext loadNextReadyAction(AppReq appReq, int excludeActionId) {
+        WebUser webUser = appReq.getWebUser();
+        LocalDate tomorrow = webUser.getLocalDateToday().plusDays(1);
+        Query query = appReq.getDataSession().createQuery(
+                "select distinct pan from ProjectActionNext pan "
+                        + "left join fetch pan.project "
+                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "and pan.nextDescription <> '' "
+                        + "and pan.nextActionStatusString = :nextActionStatus "
+                        + "and pan.nextActionDate is not null and pan.nextActionDate < :tomorrow "
+                        + "order by pan.nextActionDate, pan.completionOrder, pan.priorityLevel desc, pan.nextChangeDate");
+        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("nextContactId", webUser.getContactId());
+        query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
+        query.setParameter("tomorrow", java.sql.Date.valueOf(tomorrow));
+        @SuppressWarnings("unchecked")
+        List<ProjectActionNext> list = query.list();
+        for (ProjectActionNext candidate : list) {
+            if (candidate == null || candidate.getActionNextId() == excludeActionId) {
+                continue;
+            }
+            if (candidate.isBillable() || candidate.getTimeSlot() == TimeSlot.MORNING) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private String buildActionLabel(ProjectActionNext action) {
+        String projectName = action.getProject() == null ? "" : n(action.getProject().getProjectName());
+        String summary = n(action.getNextSummary());
+        String description = n(action.getNextDescription());
+        String estimate = action.getNextTimeEstimate() == null ? "" : " (" + action.getNextTimeEstimate() + "m)";
+        String text = summary.length() > 0 ? summary : description;
+        if (text.length() == 0) {
+            text = "[No description]";
+        }
+        return (projectName.length() > 0 ? projectName + " - " : "") + text + estimate;
     }
 
     private void handleRefreshFocusClock(AppReq appReq) throws Exception {
@@ -222,7 +326,8 @@ public class FocusedActionServlet extends ClientServlet {
         }
 
         int spentMinutes = loadSpentMinutesToday(appReq.getDataSession(), appReq.getWebUser(), currentAction);
-        int spentMinutesThisWeek = loadSpentMinutesThisWeek(appReq.getDataSession(), appReq.getWebUser(), currentAction);
+        int spentMinutesThisWeek = loadSpentMinutesThisWeek(appReq.getDataSession(), appReq.getWebUser(),
+                currentAction);
         int estimateMinutes = currentAction != null && currentAction.getNextTimeEstimate() != null
                 ? currentAction.getNextTimeEstimate().intValue()
                 : 0;
@@ -396,11 +501,11 @@ public class FocusedActionServlet extends ClientServlet {
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
-        
+
         int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
         int daysToMonday = dayOfWeek == Calendar.SUNDAY ? 6 : dayOfWeek - Calendar.MONDAY;
         calendar.add(Calendar.DAY_OF_MONTH, -daysToMonday);
-        
+
         query.setParameter("weekStart", calendar.getTime());
         calendar.add(Calendar.DAY_OF_MONTH, 7);
         query.setParameter("weekEnd", calendar.getTime());

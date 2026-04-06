@@ -355,14 +355,7 @@ public class DashboardTodayColumnService {
             if (action == null) {
                 continue;
             }
-            if (action.isBillable()) {
-                filtered.add(action);
-                continue;
-            }
-            if (workOnly) {
-                continue;
-            }
-            if (action.getTimeSlot() == TimeSlot.MORNING) {
+            if (action.isBillable() || action.getTimeSlot() == TimeSlot.MORNING) {
                 filtered.add(action);
             }
         }
