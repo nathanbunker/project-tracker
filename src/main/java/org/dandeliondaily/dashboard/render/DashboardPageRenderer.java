@@ -1002,6 +1002,10 @@ public class DashboardPageRenderer {
                         out.println(
                                         "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Edit action\" onclick=\"ddOpenActionModal('editActionModal',"
                                                         + currentActionNextId + ",event)\">✏️</button>");
+                        out.println(
+                                        "      <a href=\"FocusedActionServlet?completingActionNextId="
+                                                        + currentActionNextId
+                                                        + "\" class=\"dd-current-action-tool\" title=\"Focused mode\">⏱</a>");
                         out.println("    </div>");
                         if (!nowColumnModel.getCurrentAction().getNotes().isEmpty()) {
                                 out.println("    <ul>");
