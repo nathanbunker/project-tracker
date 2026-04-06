@@ -103,8 +103,8 @@ public class FocusedActionPageRenderer {
                 String descriptionForDisplay = action.getNextDescriptionForDisplay(null);
 
                 out.println("        <div class=\"fa-card fa-title-card\">");
-                out.println("          <div class=\"fa-main-title\">" + descriptionForDisplay + "</div>");
-                out.println("          <div class=\"fa-project-subtitle\">" + escapeHtml(projectName) + "</div>");
+                out.println("          <div class=\"fa-main-title\">" + descriptionForDisplay
+                                + " <span class=\"fa-project-subtitle\">" + escapeHtml(projectName) + "</span></div>");
                 out.println("          <ul id=\"fa-notes-list\" class=\"fa-notes\">");
                 for (String note : notes) {
                         out.println("            <li>" + escapeHtml(note) + "</li>");
@@ -698,6 +698,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-main-title { font-size: 36px; font-weight: 700; color: #1f2f1f; line-height: 1.3; margin-bottom: 8px; }");
                 out.println("  .fa-main-title i { font-style: italic; }");
                 out.println("  .fa-project-subtitle { font-size: 14px; letter-spacing: .02em; text-transform: uppercase; color: #4a6350; }");
+                out.println("  .fa-main-title .fa-project-subtitle { margin-left: 10px; vertical-align: baseline; }");
                 out.println(
                                 "  .fa-secondary-btn { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 8px 12px; border-radius: 7px; cursor: pointer; }");
                 out.println(
@@ -715,7 +716,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-next-action-text { font-size: 15px; color: #233423; min-height: 24px; }");
                 out.println("  .fa-next-action-link { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");
                 out.println("  .fa-next-action-link:hover { background: #dde9db; }");
-                out.println("  .fa-meetings-list { display: flex; flex-direction: column; gap: 8px; }");
+                out.println("  .fa-meetings-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
                 out.println("  .fa-meeting-item { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; cursor: pointer; text-align: left; }");
                 out.println("  .fa-meeting-item:hover { background: #dde9db; }");
                 out.println("  .fa-previous-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
