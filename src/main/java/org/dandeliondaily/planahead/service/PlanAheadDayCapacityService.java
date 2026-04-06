@@ -105,11 +105,12 @@ public class PlanAheadDayCapacityService {
 
         Session dataSession = appReq.getDataSession();
         WebUser webUser = appReq.getWebUser();
+        Date normalizedDay = atDayStart(webUser, day);
         Transaction transaction = dataSession.beginTransaction();
         try {
-            BillExpected billExpected = findBillExpected(dataSession, webUser, day);
+            BillExpected billExpected = findBillExpected(dataSession, webUser, normalizedDay);
             if (billExpected == null) {
-                billExpected = new BillExpected(new BillExpectedId(webUser.getWebUserId(), day),
+                billExpected = new BillExpected(new BillExpectedId(webUser.getWebUserId(), normalizedDay),
                         Math.max(billMins, 0), 0, normalizedStatus);
                 dataSession.save(billExpected);
             } else {
@@ -124,7 +125,7 @@ public class PlanAheadDayCapacityService {
         }
 
         DayCapacity dayCapacity = new DayCapacity();
-        dayCapacity.setDay(day);
+        dayCapacity.setDay(normalizedDay);
         dayCapacity.setBillMins(Math.max(billMins, 0));
         dayCapacity.setWorkStatusCode(normalizedStatus);
         return dayCapacity;

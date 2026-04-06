@@ -32,17 +32,10 @@ public class PlanAheadPageRenderer {
                 printQuickCapture(out, boardModel);
                 out.println("  </div>");
 
-                int timeTrackerMins = 0;
-                if (!personalMode && appReq.getTimeTracker() != null) {
-                        timeTrackerMins = appReq.getTimeTracker().getTotalMinsBillable();
-                }
-                boolean todayInView = todayKey.equals(boardModel.getWindowStartKey());
-                int grandTotalMins = todayInView ? timeTrackerMins : 0;
-                for (PlanAheadBoardModel.RowModel grandRow : boardModel.getRows()) {
-                        for (PlanAheadBoardModel.CellModel grandCell : grandRow.getCells()) {
-                                for (PlanAheadBoardModel.CardModel grandCard : grandCell.getCards()) {
-                                        grandTotalMins += grandCard.getEstimateMins();
-                                }
+                int viewAllocatedMins = 0;
+                if (!personalMode) {
+                        for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
+                                viewAllocatedMins += dayHeader.getBillMins();
                         }
                 }
                 out.println("  <div class=\"pa-controls\">");
@@ -51,8 +44,6 @@ public class PlanAheadPageRenderer {
                                 + "\">Today</a>");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?action=shiftWindowForward&days=1&windowStart="
                                 + escapeHtml(boardModel.getWindowStartKey()) + "\">Next Day &#9654;</a>");
-                out.println("    <span id=\"pa-view-total\" class=\"pa-view-total\">Total Time in View: "
-                                + escapeHtml(TimeTracker.formatTime(grandTotalMins)) + "</span>");
                 out.println("  </div>");
 
                 out.println("  <div class=\"pa-grid\">");
@@ -62,7 +53,15 @@ public class PlanAheadPageRenderer {
                 }
 
                 if (!personalMode) {
-                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-cell-blank\"></div>");
+                        out.println("    <div class=\"pa-cell pa-cell-label pa-status pa-status-total-cell\">");
+                        out.println("      <div class=\"pa-status-main\">");
+                        out.println("        <span class=\"pa-status-total-label\">Working</span>");
+                        out.println("        <span id=\"pa-view-total\" class=\"pa-card-est-box pa-status-total-box\""
+                                        + " title=\"Total Time in View\">"
+                                        + escapeHtml(TimeTracker.formatTime(viewAllocatedMins))
+                                        + "</span>");
+                        out.println("      </div>");
+                        out.println("    </div>");
                         for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
                                 out.println(renderDayStatusCell(dayHeader));
                         }
@@ -114,8 +113,7 @@ public class PlanAheadPageRenderer {
                 printStatusModal(out);
                 printTemplateModal(out);
                 printQuickCaptureScript(out, boardModel);
-                printDragDropScript(out, boardModel.getWindowStartKey(), boardModel.getMode(), todayKey,
-                                timeTrackerMins);
+                printDragDropScript(out, boardModel.getWindowStartKey(), boardModel.getMode());
                 out.println("</div>");
         }
 
@@ -357,16 +355,13 @@ public class PlanAheadPageRenderer {
                 out.println("</div>");
         }
 
-        private void printDragDropScript(PrintWriter out, String windowStartKey, String mode, String todayKey,
-                        int todayCompletedMins) {
+        private void printDragDropScript(PrintWriter out, String windowStartKey, String mode) {
                 out.println("<script>");
                 out.println("(function(){");
                 out.println("  var paDraggedActionId = null;");
                 out.println("  var paWindowStart = '" + escapeHtml(windowStartKey) + "';");
                 out.println("  var paMode = '" + escapeHtml(mode) + "';");
                 out.println("  var paIsPersonal = paMode === 'PERSONAL';");
-                out.println("  var paTodayKey = '" + escapeHtml(todayKey) + "';");
-                out.println("  var paTodayCompletedMins = " + todayCompletedMins + ";");
                 out.println("  var paReloadAfterEdit = false;");
                 out.println("  document.addEventListener('dragstart', function(e){");
                 out.println("    var card = e.target && e.target.closest ? e.target.closest('.pa-card') : null;");
@@ -725,7 +720,7 @@ public class PlanAheadPageRenderer {
                 out.println("    var text = (value || '').toString().trim();");
                 out.println("    if (text.length === 0) { return 0; }");
                 out.println("    if (/^\\d+$/.test(text)) { return parseInt(text, 10); }");
-                out.println("    var match = text.match(/^(\\d{1,3}):(\\d{2})$/);");
+                out.println("    var match = text.match(/^(\\d{1,3}):(\\d{1,2})$/);");
                 out.println("    if (!match) { return null; }");
                 out.println("    var hours = parseInt(match[1], 10);");
                 out.println("    var mins = parseInt(match[2], 10);");
@@ -735,8 +730,10 @@ public class PlanAheadPageRenderer {
 
                 out.println("  function paRecalculateTotals(){");
                 out.println("    var grandTotal = 0;");
-                out.println("    var todayColExists = !!document.querySelector('.pa-kanban[data-day=\"' + paTodayKey + '\"]');");
-                out.println("    if (todayColExists && paTodayCompletedMins > 0) { grandTotal += paTodayCompletedMins; }");
+                out.println("    document.querySelectorAll('.pa-status-time-btn').forEach(function(btn){");
+                out.println("      var mins = parseInt(btn.getAttribute('data-bill-mins') || '0', 10);");
+                out.println("      if (!isNaN(mins) && mins > 0) { grandTotal += mins; }");
+                out.println("    });");
                 out.println("    var rowLabelEls = document.querySelectorAll('[data-row-key]');");
                 out.println("    rowLabelEls.forEach(function(labelEl){");
                 out.println("      var rowKey = labelEl.getAttribute('data-row-key');");
@@ -747,12 +744,11 @@ public class PlanAheadPageRenderer {
                 out.println("          if (!isNaN(mins) && mins > 0) { rowTotal += mins; }");
                 out.println("        });");
                 out.println("      });");
-                out.println("      grandTotal += rowTotal;");
                 out.println("      var totalSpan = labelEl.querySelector('.pa-row-total');");
                 out.println("      if (totalSpan) { totalSpan.textContent = paMinutesToClock(rowTotal); }");
                 out.println("    });");
                 out.println("    var grandEl = document.getElementById('pa-view-total');");
-                out.println("    if (grandEl) { grandEl.textContent = 'Total Time in View: ' + paMinutesToClock(grandTotal); }");
+                out.println("    if (grandEl) { grandEl.textContent = paMinutesToClock(grandTotal); }");
                 out.println("  }");
 
                 out.println("  function paSaveDayCapacityValue(dayKey, statusCode, billMins, applyHeader){");
@@ -780,6 +776,7 @@ public class PlanAheadPageRenderer {
                 out.println("        var headerEl = document.getElementById('pa-day-header-' + d.dayKey);");
                 out.println("        if (headerEl) { headerEl.outerHTML = d.dayHeaderHtml; }");
                 out.println("      }");
+                out.println("      paRecalculateTotals();");
                 out.println("      return d;");
                 out.println("    });");
                 out.println("  }");
@@ -847,14 +844,17 @@ public class PlanAheadPageRenderer {
                 out.println("      if (!resp || !resp.success) {");
                 out.println("        button.textContent = originalText;");
                 out.println("        button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("        alert(resp ? (resp.message || 'Unable to save time estimate') : 'Unable to save time estimate');");
                 out.println("        paRestoreCardEstimateEditor(input, button);");
                 out.println("        return;");
                 out.println("      }");
                 out.println("      paApplyMutationPayload(resp);");
                 out.println("    })");
-                out.println("    .catch(function(){");
+                out.println("    .catch(function(err){");
+                out.println("      console.log('saveCardEstimate request failed', err);");
                 out.println("      button.textContent = originalText;");
                 out.println("      button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("      alert('Unable to save time estimate right now.');");
                 out.println("      paRestoreCardEstimateEditor(input, button);");
                 out.println("    });");
                 out.println("  }");
@@ -990,14 +990,17 @@ public class PlanAheadPageRenderer {
                 out.println("      if (!resp || !resp.success) {");
                 out.println("        button.textContent = originalText;");
                 out.println("        button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("        alert(resp ? (resp.message || 'Unable to save template estimate') : 'Unable to save template estimate');");
                 out.println("        paRestoreCardEstimateEditor(input, button);");
                 out.println("        return;");
                 out.println("      }");
                 out.println("      paApplyMutationPayload(resp);");
                 out.println("    })");
-                out.println("    .catch(function(){");
+                out.println("    .catch(function(err){");
+                out.println("      console.log('saveTemplateEstimate request failed', err);");
                 out.println("      button.textContent = originalText;");
                 out.println("      button.setAttribute('data-est-mins', String(originalMins));");
+                out.println("      alert('Unable to save template estimate right now.');");
                 out.println("      paRestoreCardEstimateEditor(input, button);");
                 out.println("    });");
                 out.println("  }");
@@ -1052,9 +1055,11 @@ public class PlanAheadPageRenderer {
                 out.println("      return;");
                 out.println("    }");
                 out.println("    paSaveDayCapacityValue(dayKey, statusCode, parsed, true)");
-                out.println("      .catch(function(){");
+                out.println("      .catch(function(err){");
+                out.println("        console.log('saveDayCapacity request failed', err);");
                 out.println("        button.textContent = originalText;");
                 out.println("        button.setAttribute('data-bill-mins', String(originalMins));");
+                out.println("        alert(err && err.message ? err.message : 'Unable to save day time right now.');");
                 out.println("        paRestoreStatusTimeEditor(input, button);");
                 out.println("      });");
                 out.println("  }");
@@ -1432,7 +1437,9 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-mode-option:not(.is-active):hover{background:rgba(255,255,255,.18);}");
                 out.println(".pa-row-label{display:flex;align-items:center;justify-content:space-between;gap:6px;}");
                 out.println(".pa-row-label-name{flex:1 1 auto;min-width:0;}");
-                out.println(".pa-view-total{font-size:13px;font-weight:bold;color:#2f4330;padding:5px 10px;background:#eef5ee;border:1px solid #9fb1a0;border-radius:4px;white-space:nowrap;}");
+                out.println(".pa-status-total-cell{justify-content:flex-start;}");
+                out.println(".pa-status-total-label{border:none;background:none;padding:0;font-size:16px;font-weight:bold;color:#2f4330;line-height:1.1;}");
+                out.println(".pa-status-total-box{background:#d9dee3;border-color:#9faab5;color:#25313a;cursor:default;box-shadow:inset 0 1px 0 rgba(255,255,255,.45);}");
                 out.println(".pa-header-top{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;}");
                 out.println(".pa-header-left{min-width:0;}");
                 out.println(".pa-header-right{flex:1 0 100%;min-width:0;max-width:none;text-align:left;}");

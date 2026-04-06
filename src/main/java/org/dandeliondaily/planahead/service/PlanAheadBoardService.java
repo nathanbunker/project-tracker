@@ -1,7 +1,8 @@
 package org.dandeliondaily.planahead.service;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
@@ -714,12 +715,10 @@ public class PlanAheadBoardService {
     }
 
     private Date parseDay(String dayKey, WebUser webUser) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        sdf.setLenient(false);
-        sdf.setTimeZone(UTC_TIME_ZONE);
         try {
-            return sdf.parse(dayKey);
-        } catch (ParseException e) {
+            LocalDate localDate = LocalDate.parse(dayKey);
+            return webUser.toDate(localDate);
+        } catch (DateTimeParseException e) {
             return null;
         }
     }

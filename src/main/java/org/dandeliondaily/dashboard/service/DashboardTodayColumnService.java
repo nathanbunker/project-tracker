@@ -159,11 +159,9 @@ public class DashboardTodayColumnService {
         List<DashboardTodayColumnModel.WorkdayReviewItemModel> reviewItems = new ArrayList<DashboardTodayColumnModel.WorkdayReviewItemModel>();
         boolean allReviewed = !summaries.isEmpty();
         for (ProjectNarrativeSummary summary : summaries) {
-            // Calculate billable minutes for this project
-            int billableMinutes = calculateBillableMinutesForProject(completedToday, summary.getProjectId());
-
-            // Filter: only include billable projects with >= 5 minutes of billable time
-            if (billableMinutes < 5) {
+            // Filter using summed bill-entry minutes for the day (source of truth for
+            // tracked time).
+            if (summary.getMinutesSpent() < 5) {
                 continue;
             }
 
@@ -212,8 +210,7 @@ public class DashboardTodayColumnService {
         return !hasItemsForSection(actionGroups, "Committed")
                 && !hasItemsForSection(actionGroups, "Will Meet")
                 && !hasItemsForSection(actionGroups, "Will")
-                && !hasItemsForSection(actionGroups, "Start of Work Day")
-                && !hasItemsForSection(actionGroups, "End of Work Day");
+                && !hasItemsForSection(actionGroups, "Start of Work Day");
     }
 
     private boolean hasItemsForSection(List<DashboardTodayColumnModel.TodayActionGroupModel> actionGroups,
@@ -227,22 +224,6 @@ public class DashboardTodayColumnService {
             }
         }
         return false;
-    }
-
-    private int calculateBillableMinutesForProject(List<ProjectActionNext> completedActions, long projectId) {
-        int billableMinutes = 0;
-        if (completedActions == null) {
-            return 0;
-        }
-        for (ProjectActionNext action : completedActions) {
-            if (action != null && action.getProject() != null &&
-                    action.getProject().getProjectId() == projectId &&
-                    action.isBillable()) {
-                Integer actualTime = action.getNextTimeActual();
-                billableMinutes += (actualTime == null ? 0 : actualTime);
-            }
-        }
-        return billableMinutes;
     }
 
     private DashboardTodayColumnModel.TodayTotalsModel buildTotals(AppReq appReq, WebUser webUser,

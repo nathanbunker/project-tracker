@@ -450,6 +450,35 @@ public class FocusedActionPageRenderer {
                 out.println("      svg.appendChild(t);");
                 out.println("    }");
                 out.println("  }");
+                out.println("  function faDrawMinuteHand(svg, cx, cy, radius, minute, palette) {");
+                out.println("    var handEnd = faPolar(cx, cy, radius * 0.70, minute);");
+                out.println("    var handAngle = faMinuteToAngle(minute);");
+                out.println("    var hand = faSvgEl('line');");
+                out.println("    hand.setAttribute('x1', cx); hand.setAttribute('y1', cy);");
+                out.println("    hand.setAttribute('x2', handEnd.x); hand.setAttribute('y2', handEnd.y);");
+                out.println("    hand.setAttribute('stroke', palette.hand);");
+                out.println("    hand.setAttribute('stroke-width', '9');");
+                out.println("    hand.setAttribute('stroke-linecap', 'round');");
+                out.println("    svg.appendChild(hand);");
+                out.println("    var wingLength = 26;");
+                out.println("    var wingSpread = Math.PI / 6;");
+                out.println("    var wing1 = { x: handEnd.x + Math.cos(handAngle + Math.PI - wingSpread) * wingLength, y: handEnd.y + Math.sin(handAngle + Math.PI - wingSpread) * wingLength };");
+                out.println("    var wing2 = { x: handEnd.x + Math.cos(handAngle + Math.PI + wingSpread) * wingLength, y: handEnd.y + Math.sin(handAngle + Math.PI + wingSpread) * wingLength };");
+                out.println("    var arrow1 = faSvgEl('line');");
+                out.println("    arrow1.setAttribute('x1', handEnd.x); arrow1.setAttribute('y1', handEnd.y);");
+                out.println("    arrow1.setAttribute('x2', wing1.x); arrow1.setAttribute('y2', wing1.y);");
+                out.println("    arrow1.setAttribute('stroke', palette.hand);");
+                out.println("    arrow1.setAttribute('stroke-width', '9');");
+                out.println("    arrow1.setAttribute('stroke-linecap', 'round');");
+                out.println("    svg.appendChild(arrow1);");
+                out.println("    var arrow2 = faSvgEl('line');");
+                out.println("    arrow2.setAttribute('x1', handEnd.x); arrow2.setAttribute('y1', handEnd.y);");
+                out.println("    arrow2.setAttribute('x2', wing2.x); arrow2.setAttribute('y2', wing2.y);");
+                out.println("    arrow2.setAttribute('stroke', palette.hand);");
+                out.println("    arrow2.setAttribute('stroke-width', '9');");
+                out.println("    arrow2.setAttribute('stroke-linecap', 'round');");
+                out.println("    svg.appendChild(arrow2);");
+                out.println("  }");
                 out.println("  function faDrawClock() {");
                 out.println("    var svg = document.getElementById('fa-clock'); if (!svg) { return; }");
                 out.println("    while (svg.firstChild) { svg.removeChild(svg.firstChild); }");
@@ -457,9 +486,9 @@ public class FocusedActionPageRenderer {
                 out.println("    var running = !!faState.runningClock;");
                 out.println("    var palette = running ? {");
                 out.println(
-                                "      background: '#ffffff', spent: '#d9f0d2', remaining: '#2f8c2f', overrun: '#cb2c1f', ring: '#2e342e', minorTick: '#9ba59a', majorTick: '#4d5a4d', label: '#2d3a2d' }");
+                                "      background: '#ffffff', spent: '#d9f0d2', remaining: '#2f8c2f', overrun: '#cb2c1f', ring: '#2e342e', minorTick: '#9ba59a', majorTick: '#4d5a4d', label: '#2d3a2d', hand: '#2e342e' }");
                 out.println(
-                                "      : { background: '#f3f3f3', spent: '#dbdbdb', remaining: '#c7c7c7', overrun: '#bdbdbd', ring: '#8a8a8a', minorTick: '#b5b5b5', majorTick: '#979797', label: '#7a7a7a' };");
+                                "      : { background: '#f3f3f3', spent: '#dbdbdb', remaining: '#c7c7c7', overrun: '#bdbdbd', ring: '#8a8a8a', minorTick: '#b5b5b5', majorTick: '#979797', label: '#7a7a7a', hand: '#949494' };");
                 out.println("    faAddFullCircle(svg, cx, cy, radius, palette.background);");
                 out.println("    var nowMinute = faNormalizeMinute(faState.nowMinute || 0);");
                 out.println("    var spent = Math.max(0, Math.min(60, faState.spentMinutes || 0));");
@@ -471,6 +500,7 @@ public class FocusedActionPageRenderer {
                 out.println(
                                 "    faAddSector(svg, cx, cy, radius - 6, nowMinute - overrun, Math.min(60, overrun), palette.overrun);");
                 out.println("    faDrawFace(svg, cx, cy, radius, palette);");
+                out.println("    faDrawMinuteHand(svg, cx, cy, radius, nowMinute, palette);");
                 out.println("  }");
                 out.println("  function faHandleNoteKeydown(event, actionNextId) {");
                 out.println("    if (event.key === 'Enter') {");
@@ -663,7 +693,7 @@ public class FocusedActionPageRenderer {
                 out.println("  faDrawClock();");
                 out.println("  faInitWorkFollowUpSuggestions();");
                 out.println("  faInitQuickCaptureSuggestions();");
-                out.println("  window.setInterval(function(){ if (faState.runningClock) { faRefreshClock(); } }, 60000);");
+                out.println("  window.setInterval(function(){ faRefreshClock(); }, 60000);");
                 out.println("</script>");
         }
 

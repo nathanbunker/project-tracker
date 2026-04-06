@@ -3,6 +3,8 @@ package org.dandeliondaily.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Array;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -263,7 +265,7 @@ public class PlanAheadServlet extends ClientServlet {
         String billMinsString = appReq.getRequest().getParameter("billMins");
         String workStatus = appReq.getRequest().getParameter("workStatus");
 
-        Date parsedDay = parseDay(billDate);
+        Date parsedDay = parseDay(billDate, appReq);
         if (parsedDay == null) {
             sendJsonResponse(appReq, false, "billDate must be in yyyy-MM-dd format", null);
             return;
@@ -321,7 +323,7 @@ public class PlanAheadServlet extends ClientServlet {
                 return null;
             }
         }
-        if (text.matches("\\d{1,3}:\\d{2}")) {
+        if (text.matches("\\d{1,3}:\\d{1,2}")) {
             String[] parts = text.split(":");
             try {
                 int hours = Integer.parseInt(parts[0]);
@@ -345,16 +347,14 @@ public class PlanAheadServlet extends ClientServlet {
         sendJsonResponse(appReq, result.isSuccess(), result.getMessage(), data);
     }
 
-    private Date parseDay(String value) {
+    private Date parseDay(String value, AppReq appReq) {
         if (value == null || value.trim().length() == 0) {
             return null;
         }
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        sdf.setLenient(false);
-        sdf.setTimeZone(UTC_TIME_ZONE);
         try {
-            return sdf.parse(value.trim());
-        } catch (ParseException e) {
+            LocalDate localDate = LocalDate.parse(value.trim());
+            return appReq.getWebUser().toDate(localDate);
+        } catch (DateTimeParseException e) {
             return null;
         }
     }
