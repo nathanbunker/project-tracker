@@ -198,9 +198,6 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<h2>Create a New Project</h2>");
       out.println(
           "<p>If you do not see your project in the list above you can <a href=\"ProjectEditServlet\">create</a> one.</p>");
-      out.println("<h2>Schedule from Templates</h2>");
-      out.println(
-          "<p><a href=\"TemplateScheduleServlet\">Review all the templated</a> in the selected projects above and schedule next steps. </p>");
       printHtmlFoot(appReq);
 
     } catch (Exception e) {

@@ -17,10 +17,6 @@
     <filter-class>org.openimmunizationsoftware.pt.api.common.HibernateSessionFilter</filter-class>
   </filter>
   <servlet>
-    <servlet-name>ProjectActionServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectActionServlet</servlet-class>
-  </servlet>
-  <servlet>
     <servlet-name>DandelionDashboardServlet</servlet-name>
     <servlet-class>org.dandeliondaily.servlet.DandelionDashboardServlet</servlet-class>
   </servlet>
@@ -106,10 +102,6 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectsServlet</servlet-class>
   </servlet>
   <servlet>
-    <servlet-name>TemplateScheduleServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.TemplateScheduleServlet</servlet-class>
-  </servlet>
-  <servlet>
     <servlet-name>ProjectEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ProjectEditServlet</servlet-class>
   </servlet>
@@ -174,24 +166,12 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentStoreAddServlet</servlet-class>
   </servlet>
   <servlet>
-    <servlet-name>BillEntryEditServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillEntryEditServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>BillEntriesServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillEntriesServlet</servlet-class>
-  </servlet>
-  <servlet>
     <servlet-name>BillCodeServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillCodeServlet</servlet-class>
   </servlet>
   <servlet>
     <servlet-name>BillBudgetServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillBudgetServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>BillBudgetsServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillBudgetsServlet</servlet-class>
   </servlet>
   <servlet>
     <servlet-name>BillCodeEditServlet</servlet-name>
@@ -256,10 +236,6 @@
   <servlet-mapping>
     <servlet-name>HomeServlet</servlet-name>
     <url-pattern>/HomeServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>ProjectActionServlet</servlet-name>
-    <url-pattern>/ProjectActionServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>DandelionDashboardServlet</servlet-name>
@@ -346,10 +322,6 @@
     <url-pattern>/ProjectsServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>TemplateScheduleServlet</servlet-name>
-    <url-pattern>/TemplateScheduleServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
     <servlet-name>ProjectEditServlet</servlet-name>
     <url-pattern>/ProjectEditServlet</url-pattern>
   </servlet-mapping>
@@ -378,24 +350,12 @@
     <url-pattern>/ProjectContactEditServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>BillEntryEditServlet</servlet-name>
-    <url-pattern>/BillEntryEditServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BillEntriesServlet</servlet-name>
-    <url-pattern>/BillEntriesServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
     <servlet-name>BillCodeServlet</servlet-name>
     <url-pattern>/BillCodeServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>BillBudgetServlet</servlet-name>
     <url-pattern>/BillBudgetServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>BillBudgetsServlet</servlet-name>
-    <url-pattern>/BillBudgetsServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>BillCodeEditServlet</servlet-name>

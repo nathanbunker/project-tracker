@@ -81,10 +81,8 @@ public class HomeServlet extends ClientServlet {
 
         out.println("<h2>Time Management &amp; Reporting</h2>");
         out.println("<ul>");
-        out.println("  <li><a href=\"BillEntriesServlet\">Time</a></li>");
         out.println("  <li><a href=\"TrackServlet\">Track</a></li>");
         out.println("  <li><a href=\"DandelionDashboardServlet\">Dandelion Dashboard</a></li>");
-        out.println("  <li><a href=\"ProjectActionServlet\">Actions</a></li>");
         out.println("  <li><a href=\"trackerNarrative\">Narrative</a></li>");
         out.println("  <li><a href=\"ProjectNarrativeReviewServlet\">Review & Report</a></li>");
         if (webUser.isUserTypeAdmin()) {
@@ -94,11 +92,9 @@ public class HomeServlet extends ClientServlet {
 
         out.println("<h2>Additional</h2>");
         out.println("<ul>");
-        out.println("  <li><a href=\"TemplateScheduleServlet\">Template Schedule</a></li>");
         if (webUser.isUserTypeAdmin()) {
           out.println("  <li><a href=\"AdminSettingsServlet\">Admin Settings</a></li>");
           out.println("  <li><a href=\"BillCodesServlet\">Bill Codes</a></li>");
-          out.println("  <li><a href=\"BillBudgetsServlet\">Bill Budgets</a></li>");
         }
         out.println("</ul>");
 

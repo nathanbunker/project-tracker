@@ -289,8 +289,7 @@ public class ClientServlet extends HttpServlet {
         project = completingAction.getProject();
       }
       if (project != null) {
-        result.append("<a href=\"ProjectActionServlet?projectId=" + project.getProjectId()
-            + "\" class=\"menuLink\">" + project.getProjectName() + "</a>");
+        result.append("<span class=\"menuLink\">" + project.getProjectName() + "</span>");
       }
       if (timeTracker != null) {
         String time = timeTracker.getTotalMinsBillableForDisplay();

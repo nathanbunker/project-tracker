@@ -36,7 +36,7 @@ public class DashboardNowColumnService {
         Session dataSession = appReq.getDataSession();
 
         // Real data wiring starts here: use the same AppReq session-backed selection
-        // that ProjectActionServlet reads, without depending on that servlet class.
+        // used by downstream UI handlers without direct servlet coupling.
         ProjectActionNext currentAction = appReq.getCompletingAction();
         Project currentProject = appReq.getProject();
         if (currentAction != null && currentAction.getProject() != null) {

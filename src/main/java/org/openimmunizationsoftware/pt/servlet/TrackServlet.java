@@ -90,7 +90,7 @@ public class TrackServlet extends ClientServlet {
           }
           // Shared cleanup location for stop-tracking and review flows.
           timeRegularizationService.cleanupZeroMinuteEntries(webUser, dataSession, lockedBillEntryId);
-          response.sendRedirect("BillEntriesServlet?billDate=" + sdf.format(new Date()));
+          response.sendRedirect("HomeServlet");
           return;
         }
       }

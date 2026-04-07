@@ -336,7 +336,7 @@ public class RegistrationServlet extends ClientServlet {
             } else {
                 appReq.setTimeTracker(null);
             }
-            response.sendRedirect("ProjectActionServlet");
+            response.sendRedirect("HomeServlet");
             return true;
         } catch (Exception e) {
             transaction.rollback();
