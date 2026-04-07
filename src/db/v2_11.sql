@@ -1,1 +1,0 @@
-INSERT INTO project_next_action_type (next_action_type, next_action_label) VALUES ('O', 'overdue to');
