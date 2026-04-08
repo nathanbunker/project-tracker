@@ -55,9 +55,9 @@ public class ActionsResource extends BaseApiResource {
     public List<ProposalDto> listProposals(@PathParam("actionNextId") int actionNextId) {
         requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        requireAction(providerId, actionNextId);
-        List<ProjectActionProposal> proposals = proposalService.listProposalsForAction(providerId, actionNextId);
+        int workspaceId = requireWorkspaceId(client);
+        requireAction(workspaceId, actionNextId);
+        List<ProjectActionProposal> proposals = proposalService.listProposalsForAction(workspaceId, actionNextId);
         List<ProposalDto> result = new ArrayList<ProposalDto>();
         for (ProjectActionProposal proposal : proposals) {
             result.add(ProposalDto.from(proposal));
@@ -78,11 +78,11 @@ public class ActionsResource extends BaseApiResource {
             CreateProposalRequest request) {
         requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        ProjectActionNext action = requireAction(providerId, actionNextId);
+        int workspaceId = requireWorkspaceId(client);
+        ProjectActionNext action = requireAction(workspaceId, actionNextId);
         validateProposalRequest(request);
-        String agentName = client.getAgentName() != null ? client.getAgentName() : providerId;
-        ProjectActionProposal proposal = proposalService.createProposal(providerId, agentName,
+        String agentName = client.getAgentName() != null ? client.getAgentName() : String.valueOf(workspaceId);
+        ProjectActionProposal proposal = proposalService.createProposal(workspaceId, agentName,
                 action.getProjectId(), actionNextId, request.getProposedPatchJson(), request.getSummary(),
                 request.getRationale(), request.getContactId());
         return Response.status(Response.Status.CREATED).entity(ProposalDto.from(proposal)).build();
@@ -100,10 +100,10 @@ public class ActionsResource extends BaseApiResource {
             @QueryParam("limit") Integer limit) {
         requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        requireAction(providerId, actionNextId);
+        int workspaceId = requireWorkspaceId(client);
+        requireAction(workspaceId, actionNextId);
         int effectiveLimit = normalizeLimit(limit);
-        List<ProjectActionChangeLog> changeLogs = changeLogDao.listByAction(providerId, actionNextId, effectiveLimit);
+        List<ProjectActionChangeLog> changeLogs = changeLogDao.listByAction(workspaceId, actionNextId, effectiveLimit);
         List<ActionChangeLogDto> result = new ArrayList<ActionChangeLogDto>();
         for (ProjectActionChangeLog log : changeLogs) {
             result.add(ActionChangeLogDto.from(log));
@@ -124,12 +124,12 @@ public class ActionsResource extends BaseApiResource {
         return Math.min(limit.intValue(), MAX_LIMIT);
     }
 
-    private ProjectActionNext requireAction(String providerId, int actionNextId) {
+    private ProjectActionNext requireAction(int workspaceId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.provider.providerId = :providerId");
+                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
         if (action == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)

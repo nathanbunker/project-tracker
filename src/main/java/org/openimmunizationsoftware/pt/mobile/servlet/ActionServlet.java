@@ -73,6 +73,7 @@ public class ActionServlet extends MobileBaseServlet {
 
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
+            Integer workspaceId = appReq.getActiveWorkspaceId();
             String action = request.getParameter(PARAM_ACTION);
 
             Integer viewActionId = parseInteger(request.getParameter(PARAM_VIEW_ACTION_ID));
@@ -84,6 +85,11 @@ public class ActionServlet extends MobileBaseServlet {
             List<Project> projectList = getProjectList(webUser, dataSession);
             ProjectActionNext editProjectAction = readEditProjectAction(appReq);
             Project project = resolveProject(request, dataSession, projectList, editProjectAction);
+            if (project != null && (project.getWorkspaceId() == null || workspaceId == null
+                    || !workspaceId.equals(project.getWorkspaceId()))) {
+                project = null;
+                editProjectAction = null;
+            }
 
             if (action != null) {
                 if (action.equals(ACTION_SAVE) || action.equals(ACTION_START)) {
@@ -144,6 +150,14 @@ public class ActionServlet extends MobileBaseServlet {
         ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, viewActionId);
 
         if (projectAction == null) {
+            appReq.setTitle("Action");
+            printHtmlHead(appReq, "Action");
+            appReq.getOut().println("<p class=\"fail\">Action not found</p>");
+            printHtmlFoot(appReq);
+            return;
+        }
+        if (projectAction.getWorkspaceId() == null || appReq.getActiveWorkspaceId() == null
+                || !appReq.getActiveWorkspaceId().equals(projectAction.getWorkspaceId())) {
             appReq.setTitle("Action");
             printHtmlHead(appReq, "Action");
             appReq.getOut().println("<p class=\"fail\">Action not found</p>");
@@ -385,7 +399,7 @@ public class ActionServlet extends MobileBaseServlet {
             blockingAction.setProjectId(actionToBlock.getProjectId());
             blockingAction.setContact(webUser.getProjectContact());
             blockingAction.setContactId(webUser.getContactId());
-            blockingAction.setProvider(webUser.getProvider());
+            blockingAction.setWorkspaceId(actionToBlock.getWorkspaceId());
             blockingAction.setNextDescription(blockingDescription.trim());
             blockingAction.setNextActionDate(today);
             blockingAction.setNextActionStatus(ProjectNextActionStatus.READY);
@@ -492,6 +506,11 @@ public class ActionServlet extends MobileBaseServlet {
         if (actionNextIdString != null) {
             editProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
                     Integer.parseInt(actionNextIdString));
+            if (editProjectAction != null && (editProjectAction.getWorkspaceId() == null
+                    || appReq.getActiveWorkspaceId() == null
+                    || !appReq.getActiveWorkspaceId().equals(editProjectAction.getWorkspaceId()))) {
+                editProjectAction = null;
+            }
         }
         return editProjectAction;
     }
@@ -544,7 +563,7 @@ public class ActionServlet extends MobileBaseServlet {
         if (nextContactIdString != null && nextContactIdString.length() > 0) {
             editProjectAction.setNextContactId(Integer.parseInt(nextContactIdString));
         }
-        editProjectAction.setProvider(webUser.getProvider());
+        editProjectAction.setWorkspaceId(appReq.getActiveWorkspaceId());
         if (editProjectAction.hasNextDescription()
                 && (editProjectAction.getNextActionStatus() == null
                         || editProjectAction.getNextActionStatus() == ProjectNextActionStatus.PROPOSED)) {
@@ -583,11 +602,13 @@ public class ActionServlet extends MobileBaseServlet {
     }
 
     private List<Project> getProjectList(WebUser webUser, Session dataSession) {
-        String queryString = "from Project where provider = ?";
+        Integer workspaceId = org.openimmunizationsoftware.pt.WorkspaceRegistry
+                .getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        String queryString = "from Project where workspaceId = :workspaceId";
         queryString += " and phaseCode <> 'Clos'";
         queryString += " order by projectName";
         Query query = dataSession.createQuery(queryString);
-        query.setParameter(0, webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<Project> allProjects = query.list();
         List<Project> filteredProjects = new ArrayList<Project>();

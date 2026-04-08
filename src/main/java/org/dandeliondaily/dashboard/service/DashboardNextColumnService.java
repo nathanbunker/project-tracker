@@ -13,6 +13,7 @@ import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
@@ -227,16 +228,17 @@ public class DashboardNextColumnService {
 
     private List<ProjectActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
             Date startDate, Date endDate) {
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
                         + "left join fetch pan.contact "
                         + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
                         + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("startDate", startDate);

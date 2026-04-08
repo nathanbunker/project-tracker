@@ -17,6 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -223,9 +224,13 @@ public class BillBudgetServlet extends ClientServlet {
 
     }
 
+    Integer workspaceId = billCode.getWorkspaceId();
+    if (workspaceId == null && webUser != null) {
+      workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+    }
     query = dataSession.createQuery(
-        "from Project where provider = ? and billCode = ? order by projectName");
-    query.setParameter(0, webUser.getProvider());
+        "from Project where workspaceId = ? and billCode = ? order by projectName");
+    query.setParameter(0, workspaceId);
     query.setParameter(1, billCode.getBillCode());
     @SuppressWarnings("unchecked")
     List<Project> projectList = query.list();

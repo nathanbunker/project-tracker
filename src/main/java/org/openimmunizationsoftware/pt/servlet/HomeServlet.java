@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -119,11 +120,12 @@ public class HomeServlet extends ClientServlet {
   protected static void printActionsDue(WebUser webUser, PrintWriter out, Session dataSession,
       String nextActionType, Date nextActionDate, boolean showLink, boolean showMenu) {
     SimpleDateFormat sdf1 = webUser.getDateFormat();
+    Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
     Query query = dataSession.createQuery(
-        "from ProjectActionNext where provider = :provider and (contactId = :contactId or nextContactId = :nextContactId) "
+        "from ProjectActionNext where workspaceId = :workspaceId and (contactId = :contactId or nextContactId = :nextContactId) "
             + "and nextDescription <> '' and nextActionStatusString = :nextActionStatus "
             + "order by nextActionDate, priority_level DESC, nextTimeEstimate, nextChangeDate");
-    query.setParameter("provider", webUser.getProvider());
+    query.setParameter("workspaceId", workspaceId);
     query.setParameter("contactId", webUser.getContactId());
     query.setParameter("nextContactId", webUser.getContactId());
     query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());

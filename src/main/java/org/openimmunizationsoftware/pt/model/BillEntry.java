@@ -19,7 +19,7 @@ public class BillEntry implements java.io.Serializable {
   private Integer billMins;
   private String billable;
   private String billCode;
-  private ProjectProvider provider;
+  private Integer workspaceId;
   private ProjectActionNext action = null;
 
   public ProjectActionNext getAction() {
@@ -110,12 +110,12 @@ public class BillEntry implements java.io.Serializable {
     this.billCode = billCode;
   }
 
-  public ProjectProvider getProvider() {
-    return provider;
+  public Integer getWorkspaceId() {
+    return workspaceId;
   }
 
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
   }
 
   @Override

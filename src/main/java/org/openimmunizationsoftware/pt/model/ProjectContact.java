@@ -22,7 +22,7 @@ public class ProjectContact implements java.io.Serializable {
   private boolean emailConfirmed = false;
   private String contactInfo;
   private String emailAlert;
-  private ProjectProvider provider = null;
+  private Integer workspaceId;
   private String timeZone = "";
   private ProjectAddress address = null;
 
@@ -118,20 +118,20 @@ public class ProjectContact implements java.io.Serializable {
     this.emailAlert = emailAlert;
   }
 
+  public Integer getWorkspaceId() {
+    return workspaceId;
+  }
+
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
+  }
+
   public String getTimeZone() {
     return timeZone;
   }
 
   public void setTimeZone(String timeZone) {
     this.timeZone = timeZone;
-  }
-
-  public ProjectProvider getProvider() {
-    return provider;
-  }
-
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
   }
 
   public boolean isPhoneTextable() {

@@ -11,6 +11,7 @@ import java.util.Map;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
@@ -229,7 +230,7 @@ public class DashboardCurrentActionService {
             actionTaken.setProjectId(project.getProjectId());
             actionTaken.setActionDate(new Date());
             actionTaken.setActionDescription(nextDescription);
-            actionTaken.setProvider(webUser.getProvider());
+            actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
             actionTaken.setContact(webUser.getProjectContact());
             actionTaken.setContactId(webUser.getContactId());
             dataSession.saveOrUpdate(actionTaken);
@@ -269,6 +270,7 @@ public class DashboardCurrentActionService {
 
     private List<ProjectActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
         LocalDate today = webUser.getLocalDateToday();
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Query query;
         if (dayOffset < 0) {
             LocalDate oldestDate = today.minusYears(1);
@@ -277,7 +279,7 @@ public class DashboardCurrentActionService {
                             + "left join fetch pan.project "
                             + "left join fetch pan.contact "
                             + "left join fetch pan.nextProjectContact "
-                            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                             + "and pan.nextDescription <> '' "
                             + "and pan.nextActionStatusString = :nextActionStatus "
                             + "and pan.nextActionDate >= :oldestDate and pan.nextActionDate < :cutoffDate "
@@ -291,14 +293,14 @@ public class DashboardCurrentActionService {
                             + "left join fetch pan.project "
                             + "left join fetch pan.contact "
                             + "left join fetch pan.nextProjectContact "
-                            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                             + "and pan.nextDescription <> '' "
                             + "and pan.nextActionStatusString = :nextActionStatus "
                             + "and pan.nextActionDate = :targetDate "
                             + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
             query.setParameter("targetDate", java.sql.Date.valueOf(targetDate));
         }
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -315,11 +317,11 @@ public class DashboardCurrentActionService {
                         + "left join fetch pan.project "
                         + "left join fetch pan.contact "
                         + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :nextActionStatus "
                         + "and pan.nextActionDate is not null and pan.nextActionDate < :tomorrow ");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -387,8 +389,8 @@ public class DashboardCurrentActionService {
     private List<Project> loadProjectList(WebUser webUser, Session dataSession) {
         Query query = dataSession
                 .createQuery(
-                        "from Project where provider = ? and (phaseCode is null or phaseCode = 'Acti') order by projectName");
-        query.setParameter(0, webUser.getProvider());
+                        "from Project where workspaceId = ? and (phaseCode is null or phaseCode = 'Acti') order by projectName");
+        query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();
         return projectList;

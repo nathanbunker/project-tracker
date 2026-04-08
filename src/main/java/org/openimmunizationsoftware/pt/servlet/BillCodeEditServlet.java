@@ -56,6 +56,12 @@ public class BillCodeEditServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
 
       SimpleDateFormat sdf = webUser.getDateFormat();
       Query query;
@@ -63,12 +69,12 @@ public class BillCodeEditServlet extends ClientServlet {
       String billCodeString = request.getParameter("billCode");
       if (billCodeString == null) {
         billCode = new BillCode();
-        billCode.setProvider(webUser.getProvider());
+        billCode.setWorkspaceId(activeWorkspaceId);
       } else {
-        billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
+        billCode = resolveBillCode(dataSession, activeWorkspaceId, billCodeString);
         if (billCode == null) {
           billCode = new BillCode();
-          billCode.setProvider(webUser.getProvider());
+          billCode.setWorkspaceId(activeWorkspaceId);
           billCode.setBillCode(billCodeString);
         }
       }
@@ -81,7 +87,7 @@ public class BillCodeEditServlet extends ClientServlet {
           billCode.setEstimateMin(TimeTracker.readTime(request.getParameter("estimateMin")));
           billCode.setBillRate(Integer.parseInt(request.getParameter("billRate")));
           billCode.setBillRound(Integer.parseInt(request.getParameter("billRound")));
-          billCode.setProvider(webUser.getProvider());
+          billCode.setWorkspaceId(activeWorkspaceId);
           Transaction trans = dataSession.beginTransaction();
           try {
             dataSession.saveOrUpdate(billCode);
@@ -103,6 +109,7 @@ public class BillCodeEditServlet extends ClientServlet {
               billBudget = new BillBudget();
               billBudget.setBillCode(billCode);
             }
+            billBudget.setWorkspaceId(activeWorkspaceId);
             billBudget.setBillBudgetCode(request.getParameter("billBudgetCode"));
             billBudget.setStartDate(sdf.parse(request.getParameter("startDate")));
             billBudget.setEndDate(sdf.parse(request.getParameter("endDate")));
@@ -321,6 +328,7 @@ public class BillCodeEditServlet extends ClientServlet {
         List<BillMonth> billMonthList = query.list();
         if (billMonthList.size() == 0) {
           billMonth = new BillMonth();
+          billMonth.setWorkspaceId(billBudget.getWorkspaceId());
           billMonth.setBillBudget(billBudget);
           billMonth.setBillCode(billBudget.getBillCode());
           billMonth.setBillDate(startTime);
@@ -328,6 +336,7 @@ public class BillCodeEditServlet extends ClientServlet {
         } else {
           billMonth = billMonthList.get(0);
         }
+        billMonth.setWorkspaceId(billBudget.getWorkspaceId());
 
         monthCalendar.set(Calendar.DAY_OF_MONTH, 1);
         monthCalendar.add(Calendar.MONTH, 1);
@@ -348,6 +357,7 @@ public class BillCodeEditServlet extends ClientServlet {
         List<BillDay> billDayList = query.list();
         int billMinsActual = 0;
         for (BillDay billDay : billDayList) {
+          billDay.setWorkspaceId(billBudget.getWorkspaceId());
           billDay.setBillMinsBudget(totalTimeLeft);
           billDay.setBillMonth(billMonth);
           dataSession.update(billDay);

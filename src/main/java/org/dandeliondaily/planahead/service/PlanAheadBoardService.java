@@ -336,13 +336,13 @@ public class PlanAheadBoardService {
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.billable = :billable "
                         + "and pan.templateActionNextId is not null "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
                         + "and pan.nextActionStatusString <> :completed "
                         + "order by pan.nextActionDate");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
         query.setParameter("billable", billable);
@@ -423,7 +423,7 @@ public class PlanAheadBoardService {
                     generatedAction.setProject(templateAction.getProject());
                     generatedAction.setContactId(appReq.getWebUser().getContactId());
                     generatedAction.setContact(appReq.getWebUser().getProjectContact());
-                    generatedAction.setProvider(appReq.getWebUser().getProvider());
+                    generatedAction.setWorkspaceId(appReq.getActiveWorkspaceId());
                     generatedAction.setNextActionDate(day);
                     generatedAction.setNextActionType(nextActionType);
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
@@ -466,7 +466,7 @@ public class PlanAheadBoardService {
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.billable = :billable "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
@@ -474,7 +474,7 @@ public class PlanAheadBoardService {
                         + "and pan.templateActionNextId is null "
                         + "and (pan.templateTypeString is null or pan.templateTypeString = '') "
                         + "order by pan.nextActionDate, pan.priorityLevel desc, pan.nextTimeEstimate desc");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
         query.setParameter("billable", billable);
@@ -500,13 +500,13 @@ public class PlanAheadBoardService {
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.billable = :billable "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
                         + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
                         + "order by pan.nextActionDate");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
         query.setParameter("billable", billable);
@@ -525,12 +525,12 @@ public class PlanAheadBoardService {
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.billable = :billable "
                         + "and (pan.templateTypeString is not null and pan.templateTypeString <> '') "
                         + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
                         + "order by pan.priorityLevel desc, pan.nextTimeEstimate desc");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
         query.setParameter("billable", billable);

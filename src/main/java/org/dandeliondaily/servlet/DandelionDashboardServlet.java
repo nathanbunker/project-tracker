@@ -999,10 +999,17 @@ public class DandelionDashboardServlet extends ClientServlet {
         Transaction transaction = dataSession.beginTransaction();
         try {
             WebUser webUser = appReq.getWebUser();
+            Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+            if (webUser == null || activeWorkspaceId == null) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Workspace is not available for this user", null);
+                return;
+            }
             Project project;
             if (createMode) {
                 project = new Project();
-                project.setProvider(webUser.getProvider());
+                project.setWorkspaceId(activeWorkspaceId);
+                project.setCreatedByWebUserId(webUser.getWebUserId());
             } else {
                 project = (Project) dataSession.get(Project.class, projectId);
                 if (project == null) {
@@ -1010,15 +1017,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                     sendJsonResponse(appReq, false, "Project not found", null);
                     return;
                 }
-                if (project.getProvider() == null || webUser == null || webUser.getProvider() == null) {
-                    transaction.rollback();
-                    sendJsonResponse(appReq, false, "Project is not available for this user", null);
-                    return;
-                }
-                String projectProviderId = project.getProvider().getProviderId();
-                String userProviderId = webUser.getProvider().getProviderId();
-                if (projectProviderId == null || userProviderId == null
-                        || !projectProviderId.equals(userProviderId)) {
+                if (project.getWorkspaceId() == null || !project.getWorkspaceId().equals(activeWorkspaceId)) {
                     transaction.rollback();
                     sendJsonResponse(appReq, false, "Project is not available for this user", null);
                     return;
@@ -1042,8 +1041,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             Query uniqueQuery = dataSession.createQuery(
-                    "select count(*) from Project where provider = :provider and lower(projectName) = :projectName and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
-            uniqueQuery.setParameter("provider", webUser.getProvider());
+                    "select count(*) from Project where workspaceId = :workspaceId and lower(projectName) = :projectName and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
+            uniqueQuery.setParameter("workspaceId", activeWorkspaceId);
             uniqueQuery.setParameter("projectName", projectName.toLowerCase());
             uniqueQuery.setParameter("projectId", createMode ? -1 : projectId);
             Number duplicateCount = (Number) uniqueQuery.uniqueResult();
@@ -1093,6 +1092,11 @@ public class DandelionDashboardServlet extends ClientServlet {
                 project.setBillCode(billCode);
             }
             project.setWebUser(webUser);
+            project.setWorkspaceId(activeWorkspaceId);
+            project.setLastModifiedByWebUserId(webUser.getWebUserId());
+            if (createMode && project.getCreatedByWebUserId() == null) {
+                project.setCreatedByWebUserId(webUser.getWebUserId());
+            }
 
             dataSession.saveOrUpdate(project);
             if (createMode) {
@@ -1122,7 +1126,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 setupAction.setProjectId(project.getProjectId());
                 setupAction.setContactId(webUser.getContactId());
                 setupAction.setContact(webUser.getProjectContact());
-                setupAction.setProvider(webUser.getProvider());
+                setupAction.setWorkspaceId(activeWorkspaceId);
                 setupAction.setNextActionType(ProjectNextActionType.WILL);
                 setupAction.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
                 setupAction.setNextDescription("setup new project");

@@ -5,8 +5,8 @@
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
     <class name="BillCode" table="bill_code">
         <composite-id name="id" class="BillCodeId">
-            <key-property name="providerId" type="string">
-                <column name="provider_id" length="30" />
+            <key-property name="workspaceId" type="java.lang.Integer">
+                <column name="workspace_id" />
             </key-property>
             <key-property name="billCode" type="string">
                 <column name="bill_code" length="15" />
@@ -27,9 +27,9 @@
         <property name="clientBillDescription" type="string">
             <column name="client_bill_description" length="120" />
         </property>
-        <many-to-one name="provider" class="ProjectProvider" insert="false" update="false">
-            <column name="provider_id" length="30" not-null="true" />
-        </many-to-one>
+        <property name="workspaceId" type="java.lang.Integer" insert="false" update="false">
+            <column name="workspace_id" />
+        </property>
         <property name="estimateMin" type="int">
             <column name="estimate_min"/>
         </property>

@@ -38,7 +38,15 @@
         <property name="projectIcon" type="string">
             <column name="project_icon" length="8" />
         </property>
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <property name="workspaceId" type="java.lang.Integer">
+            <column name="workspace_id" />
+        </property>
+        <property name="createdByWebUserId" type="java.lang.Integer">
+            <column name="created_by_web_user_id" />
+        </property>
+        <property name="lastModifiedByWebUserId" type="java.lang.Integer">
+            <column name="last_modified_by_web_user_id" />
+        </property>
         <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
         <property name="priorityLevel" type="integer">
             <column name="priority_level" not-null="true" />

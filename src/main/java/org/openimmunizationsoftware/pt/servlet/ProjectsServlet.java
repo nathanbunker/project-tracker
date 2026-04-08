@@ -80,7 +80,8 @@ public class ProjectsServlet extends ClientServlet {
 
       if (action != null) {
         if (action.equals(ACTION_UP) || action.equals(ACTION_DOWN)) {
-          List<Project> projectList = createProjectList(request, webUser, dataSession, categoryCode,
+          List<Project> projectList = createProjectList(request, webUser, dataSession, appReq.getActiveWorkspaceId(),
+              categoryCode,
               phaseCode, searchField, searchText);
           Integer projectId = Integer.parseInt(request.getParameter(PARAM_PROJECT_ID));
           Project project = (Project) dataSession.get(Project.class, projectId);
@@ -137,9 +138,10 @@ public class ProjectsServlet extends ClientServlet {
       out.println("Limit by Category ");
       out.println("<select name=\"categoryCode\">");
       out.println("  <option value=\"\">ALL</option>");
+      Integer workspaceId = appReq.getActiveWorkspaceId();
       Query query = dataSession.createQuery(
-          "from ProjectCategory where provider = :provider and visible = 'Y' order by sortOrder, clientName");
-      query.setParameter("provider", webUser.getProvider());
+          "from ProjectCategory where workspaceId = :workspaceId and visible = 'Y' order by sortOrder, clientName");
+      query.setParameter("workspaceId", workspaceId);
       @SuppressWarnings("unchecked")
       List<ProjectCategory> projectCategoryList = query.list();
       for (ProjectCategory projectCategory : projectCategoryList) {
@@ -185,7 +187,7 @@ public class ProjectsServlet extends ClientServlet {
       out.println("<input type=\"submit\" name=\"action\" value=\"Search\" >");
       out.println("</form>");
 
-      List<Project> projectList = createProjectList(request, webUser, dataSession, categoryCode,
+      List<Project> projectList = createProjectList(request, webUser, dataSession, workspaceId, categoryCode,
           phaseCode, searchField, searchText);
       List<Integer> projectIdList = new ArrayList<Integer>();
       appReq.setProjectIdList(projectIdList);
@@ -258,11 +260,11 @@ public class ProjectsServlet extends ClientServlet {
   }
 
   private List<Project> createProjectList(HttpServletRequest request, WebUser webUser,
-      Session dataSession, String categoryCode, String phaseCode, String searchField,
+      Session dataSession, Integer workspaceId, String categoryCode, String phaseCode, String searchField,
       String searchText) {
     Query query;
     {
-      String queryString = "from Project where provider = ?";
+      String queryString = "from Project where workspaceId = :workspaceId";
       if (!searchText.equals("")) {
         if (searchField.equals(PROJECT_NAME)) {
           queryString += " and projectName like ?";
@@ -286,8 +288,8 @@ public class ProjectsServlet extends ClientServlet {
       }
       queryString += " order by priorityLevel desc, categoryCode, projectName";
       query = dataSession.createQuery(queryString);
-      query.setParameter(0, webUser.getProvider());
-      int i = 0;
+      query.setParameter("workspaceId", workspaceId);
+      int i = -1;
       if (!searchText.equals("")) {
         i++;
         query.setParameter(i, searchText + "%");
@@ -311,9 +313,9 @@ public class ProjectsServlet extends ClientServlet {
 
   protected static void loadProjectsObject(Session dataSession, Project project) {
     Query query1 = dataSession.createQuery(
-        "from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
+        "from ProjectCategory where categoryCode = :categoryCode and workspaceId = :workspaceId");
     query1.setParameter(PARAM_CATEGORY_CODE, project.getCategoryCode());
-    query1.setParameter("provider", project.getProvider());
+    query1.setParameter("workspaceId", project.getWorkspaceId());
     @SuppressWarnings("unchecked")
     List<ProjectCategory> projectCategoryList = query1.list();
     project.setProjectCategory(projectCategoryList.size() > 0 ? projectCategoryList.get(0) : null);

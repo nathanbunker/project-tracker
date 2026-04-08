@@ -32,7 +32,7 @@ public class ReportBatch {
 
   public void setReportProfile(ReportProfile reportProfile) {
     this.profileId = reportProfile.getProfileId();
-    setProviderId(reportProfile.getProvider().getProviderId());
+    setProviderId(reportProfile.getWorkspaceId() == null ? "" : String.valueOf(reportProfile.getWorkspaceId()));
     setUserId(reportProfile.getUserId());
   }
 

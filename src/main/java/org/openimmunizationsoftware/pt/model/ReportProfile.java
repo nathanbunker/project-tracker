@@ -20,7 +20,7 @@ public class ReportProfile implements java.io.Serializable {
   private int profileId;
   private Integer extendsProfileId;
   private String profileLabel;
-  private ProjectProvider provider;
+  private Integer workspaceId;
   private WebUser webUser;
   private String userId;
   private String profileType;
@@ -173,12 +173,12 @@ public class ReportProfile implements java.io.Serializable {
     return getReportDefinition().getReportText();
   }
 
-  public ProjectProvider getProvider() {
-    return provider;
+  public Integer getWorkspaceId() {
+    return workspaceId;
   }
 
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
   }
 
 }

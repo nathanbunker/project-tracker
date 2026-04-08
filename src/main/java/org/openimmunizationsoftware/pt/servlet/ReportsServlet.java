@@ -48,14 +48,20 @@ public class ReportsServlet extends ClientServlet {
       }
       Session dataSession = appReq.getDataSession();
       PrintWriter out = appReq.getOut();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
 
       appReq.setTitle("Reports");
       printHtmlHead(appReq);
       printDandelionLocation(out, "Time Management & Reporting / Reports");
 
       Query query = dataSession.createQuery(
-          "from ReportProfile where provider = :provider and useStatus = 'E' order by profileLabel");
-      query.setParameter("provider", webUser.getProvider());
+          "from ReportProfile where workspaceId = :workspaceId and useStatus = 'E' order by profileLabel");
+      query.setParameter("workspaceId", activeWorkspaceId);
       @SuppressWarnings("unchecked")
       List<ReportProfile> reportProfileList = query.list();
 
@@ -91,7 +97,7 @@ public class ReportsServlet extends ClientServlet {
       out.println("</table>");
       out.println("<h2>Create a New Report</h2>");
       query = dataSession.createQuery(
-          "from ReportProfile where provider is null and extendStatus = 'E' order by profileLabel");
+          "from ReportProfile where workspaceId is null and extendStatus = 'E' order by profileLabel");
       @SuppressWarnings("unchecked")
       List<ReportProfile> extendReportProfileList = query.list();
       out.println("<p>Choose a template to create a new report:</p>");

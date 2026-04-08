@@ -7,11 +7,10 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
-import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 /**
@@ -32,28 +31,28 @@ public class ProjectActionDao {
         this.session = session;
     }
 
-    public List<ProjectActionNext> listNextActionsForProject(String providerId, int projectId) {
+    public List<ProjectActionNext> listNextActionsForProject(int workspaceId, int projectId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId order by pan.priorityLevel desc, pan.nextActionDate");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.workspaceId = :workspaceId order by pan.priorityLevel desc, pan.nextActionDate");
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> listReadyNextActionsForContact(ProjectProvider provider, int contactId) {
+    public List<ProjectActionNext> listReadyNextActionsForContact(int workspaceId, int contactId) {
         Query query = session.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
                         + "left join fetch pan.contact "
                         + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider "
+                        + "where pan.workspaceId = :workspaceId "
                         + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :nextActionStatus "
                         + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
-        query.setParameter("provider", provider);
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", contactId);
         query.setParameter("nextContactId", contactId);
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -62,34 +61,34 @@ public class ProjectActionDao {
         return results;
     }
 
-    public List<ProjectActionNext> listNextActionsForProjectAndContact(String providerId, int projectId,
+    public List<ProjectActionNext> listNextActionsForProjectAndContact(int workspaceId, int projectId,
             int contactId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.contactId = :contactId and pan.provider.providerId = :providerId order by pan.nextActionDate");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.contactId = :contactId and pan.workspaceId = :workspaceId order by pan.nextActionDate");
         query.setInteger("projectId", projectId);
         query.setInteger("contactId", contactId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> listTemplateActions(String providerId, int projectId) {
+    public List<ProjectActionNext> listTemplateActions(int workspaceId, int projectId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId and pan.nextDescription <> '' order by pan.priorityLevel desc");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.workspaceId = :workspaceId and pan.nextDescription <> '' order by pan.priorityLevel desc");
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
         return results;
     }
 
-    public ProjectActionNext getNextActionById(String providerId, int projectId, int actionNextId) {
+    public ProjectActionNext getNextActionById(int workspaceId, int projectId, int actionNextId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId and pan.provider.providerId = :providerId");
+                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId and pan.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         return (ProjectActionNext) query.uniqueResult();
     }
 

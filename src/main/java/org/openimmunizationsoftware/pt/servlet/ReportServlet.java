@@ -53,6 +53,12 @@ public class ReportServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
 
       printHtmlHead(appReq);
 
@@ -64,6 +70,11 @@ public class ReportServlet extends ClientServlet {
         List<ReportProfile> reportProfileList = query.list();
         reportProfile = reportProfileList.get(0);
         ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+        if (reportProfile.getWorkspaceId() == null
+            || !activeWorkspaceId.equals(reportProfile.getWorkspaceId())) {
+          forwardToHome(request, response);
+          return;
+        }
       }
 
       ReportProfile extendsReportProfile = null;

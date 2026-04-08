@@ -53,17 +53,18 @@ public class StudentSchoolServlet extends StudentBaseServlet {
 
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
+            Integer workspaceId = appReq.getActiveWorkspaceId();
             Date selectedDate = getSelectedDate(request, webUser, PARAM_DATE);
 
             String action = request.getParameter(PARAM_ACTION);
             String actionIdString = request.getParameter(PARAM_ACTION_ID);
             if (ACTION_COMPLETE.equals(action) && actionIdString != null && !actionIdString.trim().equals("")) {
-                completeStudentAction(actionIdString, selectedDate, webUser, dataSession);
+                completeStudentAction(actionIdString, selectedDate, webUser, dataSession, workspaceId);
                 response.sendRedirect("school?" + PARAM_DATE + "=" + toUserDateKey(selectedDate, webUser));
                 return;
             }
 
-            List<ProjectActionNext> actions = fetchDayActions(selectedDate, webUser, dataSession);
+            List<ProjectActionNext> actions = fetchDayActions(selectedDate, webUser, dataSession, workspaceId);
             List<ProjectActionNext> schoolActions = new ArrayList<ProjectActionNext>();
             List<ProjectActionNext> choreActions = new ArrayList<ProjectActionNext>();
             for (ProjectActionNext actionRow : actions) {
@@ -117,15 +118,15 @@ public class StudentSchoolServlet extends StudentBaseServlet {
     }
 
     private void completeStudentAction(String actionIdString, Date selectedDate, WebUser webUser,
-            Session dataSession) {
+            Session dataSession, Integer workspaceId) {
         int actionId = Integer.parseInt(actionIdString);
         ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
         if (action == null) {
             return;
         }
 
-        if (action.getProvider() == null || webUser.getProvider() == null
-                || !webUser.getProvider().getProviderId().equals(action.getProvider().getProviderId())) {
+        if (workspaceId == null || action.getWorkspaceId() == null
+                || !workspaceId.equals(action.getWorkspaceId())) {
             return;
         }
 
@@ -171,7 +172,8 @@ public class StudentSchoolServlet extends StudentBaseServlet {
         }
     }
 
-    private List<ProjectActionNext> fetchDayActions(Date selectedDate, WebUser webUser, Session dataSession) {
+    private List<ProjectActionNext> fetchDayActions(Date selectedDate, WebUser webUser, Session dataSession,
+            Integer workspaceId) {
         String selectedDateKey = toDatabaseDateKey(selectedDate);
         java.sql.Date selectedSqlDate = java.sql.Date.valueOf(selectedDateKey);
 
@@ -179,14 +181,14 @@ public class StudentSchoolServlet extends StudentBaseServlet {
                 "select distinct pan from ProjectActionNext pan " +
                         "left join fetch pan.project " +
                         "left join fetch pan.contact " +
-                        "where pan.provider = :provider " +
+                        "where pan.workspaceId = :workspaceId " +
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.nextDescription <> '' " +
                         "and pan.nextActionDate = :selectedDate " +
                         "and pan.nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) " +
                         "order by pan.billable desc, pan.priorityLevel DESC, pan.nextChangeDate");
 
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("selectedDate", selectedSqlDate);
         query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());

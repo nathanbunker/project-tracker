@@ -53,6 +53,5 @@
         <property name="magicLinkExpiry" type="timestamp">
             <column name="magic_link_expiry" length="19" />
         </property>
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
     </class>
 </hibernate-mapping>

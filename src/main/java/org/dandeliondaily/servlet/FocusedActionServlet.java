@@ -294,16 +294,17 @@ public class FocusedActionServlet extends ClientServlet {
 
     private ProjectActionNext loadNextReadyAction(AppReq appReq, int excludeActionId) {
         WebUser webUser = appReq.getWebUser();
+        Integer workspaceId = appReq.getActiveWorkspaceId();
         LocalDate tomorrow = webUser.getLocalDateToday().plusDays(1);
         Query query = appReq.getDataSession().createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :nextActionStatus "
                         + "and pan.nextActionDate is not null and pan.nextActionDate < :tomorrow "
                         + "order by pan.nextActionDate, pan.completionOrder, pan.priorityLevel desc, pan.nextChangeDate");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -452,16 +453,17 @@ public class FocusedActionServlet extends ClientServlet {
 
     private List<FocusedActionPageRenderer.MeetingOption> loadTodayMeetingOptions(AppReq appReq) {
         WebUser webUser = appReq.getWebUser();
+        Integer workspaceId = appReq.getActiveWorkspaceId();
         LocalDate today = webUser.getLocalDateToday();
         Query query = appReq.getDataSession().createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextActionStatusString = :nextActionStatus "
                         + "and pan.nextActionDate = :targetDate "
                         + "and pan.nextActionType = :meetingType "
                         + "order by pan.completionOrder, pan.priorityLevel desc, pan.nextChangeDate");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -487,16 +489,17 @@ public class FocusedActionServlet extends ClientServlet {
     private List<FocusedActionPageRenderer.PreviousActionOption> loadPreviousActionOptions(AppReq appReq,
             int excludeActionId) {
         WebUser webUser = appReq.getWebUser();
+        Integer workspaceId = appReq.getActiveWorkspaceId();
         LocalDate today = webUser.getLocalDateToday();
         Query query = appReq.getDataSession().createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.actionNextId <> :excludeActionId "
                         + "and pan.nextActionDate is not null and pan.nextActionDate <= :today "
                         + "and pan.nextActionStatusString <> :cancelledStatus "
                         + "order by pan.nextChangeDate desc, pan.nextActionDate desc, pan.completionOrder desc");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("excludeActionId", Integer.valueOf(excludeActionId));

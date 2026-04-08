@@ -16,7 +16,6 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
-import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
@@ -41,13 +40,18 @@ public class BillCodesServlet extends ClientServlet {
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
     try {
-      WebUser webUser = appReq.getWebUser();
       if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
       }
       Session dataSession = appReq.getDataSession();
       PrintWriter out = appReq.getOut();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
 
       Query query;
 
@@ -56,8 +60,8 @@ public class BillCodesServlet extends ClientServlet {
       printDandelionLocation(out, "Additional / Bill Codes");
 
       query = dataSession.createQuery(
-          "from BillCode where provider = :provider and visible = 'Y' order by id.billCode");
-      query.setParameter("provider", webUser.getProvider());
+          "from BillCode where workspaceId = :workspaceId and visible = 'Y' order by id.billCode");
+      query.setParameter("workspaceId", activeWorkspaceId);
       @SuppressWarnings("unchecked")
       List<BillCode> billCodeList = query.list();
       out.println("<table class=\"boxed\">");

@@ -168,9 +168,10 @@ public class AdminSettingsServlet extends ClientServlet {
                                 } else if (action.equals(ACTION_SAVE_SYSTEM_WIDE_MESSAGE)) {
                                         setSystemWideMessage(request.getParameter(PARAM_SYSTEM_WIDE_MESSAGE));
                                 } else if (action.equals(ACTION_SAVE_CATEGORIES)) {
+                                        Integer workspaceId = appReq.getActiveWorkspaceId();
                                         Query query = dataSession.createQuery(
-                                                        "from ProjectCategory where provider = :provider order by sortOrder, clientName");
-                                        query.setParameter("provider", webUser.getProvider());
+                                                        "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
+                                        query.setParameter("workspaceId", workspaceId);
                                         @SuppressWarnings("unchecked")
                                         List<ProjectCategory> projectCategoryList = query.list();
                                         String categoryCode = request.getParameter(PARAM_CATEGORY_CODE);
@@ -222,7 +223,7 @@ public class AdminSettingsServlet extends ClientServlet {
                                                 if (!clientName.equals("")) {
                                                         ProjectCategory projectCategory = new ProjectCategory();
                                                         projectCategory.setCategoryCode(categoryCode);
-                                                        projectCategory.setProvider(webUser.getProvider());
+                                                        projectCategory.setWorkspaceId(workspaceId);
                                                         projectCategory.setClientName(clientName);
                                                         if (!sortOrder.equals("")) {
                                                                 try {
@@ -281,8 +282,8 @@ public class AdminSettingsServlet extends ClientServlet {
                         out.println("     <th>Visible</th>");
                         out.println("  </tr>");
                         Query query = dataSession.createQuery(
-                                        "from ProjectCategory where provider = :provider order by sortOrder, clientName");
-                        query.setParameter("provider", webUser.getProvider());
+                                        "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
+                        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
                         @SuppressWarnings("unchecked")
                         List<ProjectCategory> projectCategoryList = query.list();
                         for (ProjectCategory projectCategory : projectCategoryList) {

@@ -92,6 +92,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             WebUser dependentUser = dependency.getDependentWebUser();
+            Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+            if (activeWorkspaceId == null) {
+                forwardToHome(request, response);
+                return;
+            }
             ProjectContact dependentContact = (ProjectContact) dataSession.get(ProjectContact.class,
                     dependentUser.getContactId());
             dependentUser.setProjectContact(dependentContact);
@@ -100,19 +105,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 dependentUser.setTimeZone(java.util.TimeZone.getTimeZone(dependentContact.getTimeZone()));
             }
 
-            if (dependentUser.getProvider() == null) {
-                appReq.setTitle("Schedule School");
-                printHtmlHead(appReq);
-                printDandelionLocation(out, "Setup / Dependent Accounts / School Scheduling");
-                out.println("<h2>Dependent Account Not Ready</h2>");
-                out.println("<p>This dependent account has not completed setup yet.</p>");
-                out.println("<p><a href=\"DependentAccountsServlet\">Back to Dependent Accounts</a></p>");
-                printHtmlFoot(appReq);
-                return;
-            }
-
-            List<Project> projectList = getProjectListForDependent(dependentUser, dataSession);
-            Map<Integer, Boolean> projectBillableMap = buildProjectBillableMap(projectList, dependentUser, dataSession);
+            List<Project> projectList = getProjectListForDependent(dependentUser, dataSession, activeWorkspaceId);
+            Map<Integer, Boolean> projectBillableMap = buildProjectBillableMap(projectList, dataSession,
+                    activeWorkspaceId);
 
             List<Calendar> dayList = buildTemplateDayList(dependentUser);
             Calendar dayRangeEnd = (Calendar) dayList.get(dayList.size() - 1).clone();
@@ -120,33 +115,35 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
             Map<Project, List<ProjectActionNext>> templateMap = new HashMap<Project, List<ProjectActionNext>>();
             Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap = new HashMap<ProjectActionNext, Map<Calendar, ProjectActionNext>>();
-            populateTemplateData(dataSession, dependentUser, projectList, dayList, dayRangeEnd, templateMap,
+            populateTemplateData(dataSession, dependentUser, projectList, dayList, dayRangeEnd, activeWorkspaceId,
+                    templateMap,
                     projectActionDayMap);
 
             String action = appReq.getAction();
             if (ACTION_MOVE_UP.equals(action) || ACTION_MOVE_DOWN.equals(action)) {
-                handleMoveAction(request, dataSession, dependentUser, ACTION_MOVE_UP.equals(action) ? -1 : 1);
+                handleMoveAction(request, dataSession, dependentUser, activeWorkspaceId,
+                        ACTION_MOVE_UP.equals(action) ? -1 : 1);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
             if (ACTION_EDIT_SCHEDULE_ACTION.equals(action)) {
-                handleScheduleActionEdit(request, dataSession, dependentUser);
+                handleScheduleActionEdit(request, dataSession, dependentUser, activeWorkspaceId);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
             if (ACTION_DELETE_SCHEDULE_ACTION.equals(action)) {
-                handleScheduleActionDelete(request, dataSession, dependentUser);
+                handleScheduleActionDelete(request, dataSession, dependentUser, activeWorkspaceId);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
             if (ACTION_ADD_SCHEDULE_ACTION.equals(action)) {
-                handleScheduleActionAdd(request, dataSession, dependentUser);
+                handleScheduleActionAdd(request, dataSession, dependentUser, activeWorkspaceId);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
             if (ACTION_UPDATE.equals(action)) {
                 handleTemplateUpdate(request, dataSession, dependentUser, projectList, projectBillableMap, dayList,
-                        templateMap, projectActionDayMap);
+                        templateMap, projectActionDayMap, activeWorkspaceId);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
@@ -188,7 +185,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("<br/>");
             out.println("<h2>Daily Assignments</h2>");
             printDailyAssignments(out, dependentUser, dataSession, dependency.getDependencyId(), projectList,
-                    projectBillableMap);
+                    projectBillableMap, activeWorkspaceId);
 
             out.println("<br/>");
             out.println("<p><a href=\"DependentAccountsServlet\">Back to Dependent Accounts</a></p>");
@@ -221,17 +218,18 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return dependency;
     }
 
-    private List<Project> getProjectListForDependent(WebUser dependentUser, Session dataSession) {
+    private List<Project> getProjectListForDependent(WebUser dependentUser, Session dataSession, Integer workspaceId) {
         Query query = dataSession
-                .createQuery("from Project where provider = :provider and phaseCode <> 'Clos' order by projectName");
-        query.setParameter("provider", dependentUser.getProvider());
+                .createQuery(
+                        "from Project where workspaceId = :workspaceId and phaseCode <> 'Clos' order by projectName");
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();
         return projectList;
     }
 
-    private Map<Integer, Boolean> buildProjectBillableMap(List<Project> projectList, WebUser dependentUser,
-            Session dataSession) {
+    private Map<Integer, Boolean> buildProjectBillableMap(List<Project> projectList, Session dataSession,
+            Integer workspaceId) {
         Map<Integer, Boolean> billableMap = new HashMap<Integer, Boolean>();
         if (projectList == null || projectList.isEmpty()) {
             return billableMap;
@@ -247,8 +245,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Map<String, BillCode> billCodeMap = new HashMap<String, BillCode>();
         if (!billCodeSet.isEmpty()) {
             Query query = dataSession
-                    .createQuery("from BillCode where provider = :provider and id.billCode in (:billCodes)");
-            query.setParameter("provider", dependentUser.getProvider());
+                    .createQuery("from BillCode where workspaceId = :workspaceId and id.billCode in (:billCodes)");
+            query.setParameter("workspaceId", workspaceId);
             query.setParameterList("billCodes", billCodeSet);
             @SuppressWarnings("unchecked")
             List<BillCode> billCodeList = query.list();
@@ -280,7 +278,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
     }
 
     private void populateTemplateData(Session dataSession, WebUser dependentUser, List<Project> projectList,
-            List<Calendar> dayList, Calendar dayRangeEnd,
+            List<Calendar> dayList, Calendar dayRangeEnd, Integer workspaceId,
             Map<Project, List<ProjectActionNext>> templateMap,
             Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap) {
 
@@ -310,14 +308,14 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 + "and nextActionDate >= :nextActionDate "
                                 + "and nextActionDate < :nextActionDateEnd "
                                 + "and contactId = :contactId "
-                                + "and provider = :provider "
+                                + "and workspaceId = :workspaceId "
                                 + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) "
                                 + "order by nextChangeDate desc");
                 dayQuery.setParameter("templateActionNextId", templateAction.getActionNextId());
                 dayQuery.setParameter("nextActionDate", java.sql.Date.valueOf(toDayKey(dayList.get(0))));
                 dayQuery.setParameter("nextActionDateEnd", java.sql.Date.valueOf(toDayKey(dayRangeEnd)));
                 dayQuery.setParameter("contactId", dependentUser.getContactId());
-                dayQuery.setParameter("provider", dependentUser.getProvider());
+                dayQuery.setParameter("workspaceId", workspaceId);
                 dayQuery.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
                 dayQuery.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
                 dayQuery.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
@@ -337,7 +335,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
             List<Project> projectList, Map<Integer, Boolean> projectBillableMap,
             List<Calendar> dayList,
             Map<Project, List<ProjectActionNext>> templateMap,
-            Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap) {
+            Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap,
+            Integer workspaceId) {
 
         SimpleDateFormat sdfField = dependentUser.getDateFormat("yyyyMMdd");
         Date endOfYear = calculateEndOfYear(dependentUser);
@@ -428,7 +427,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 assignedAction.setProjectId(project.getProjectId());
                                 assignedAction.setContactId(dependentUser.getContactId());
                                 assignedAction.setContact(dependentUser.getProjectContact());
-                                assignedAction.setProvider(dependentUser.getProvider());
+                                assignedAction.setWorkspaceId(workspaceId);
                                 assignedAction.setNextActionDate(day.getTime());
                                 assignedAction.setBillable(projectBillable);
                                 assignedAction.setTemplateActionNextId(templateAction.getActionNextId());
@@ -492,7 +491,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 templateAction.setNextActionType(ProjectNextActionType.WILL);
                 templateAction.setTemplateType(TemplateType.DAILY);
                 templateAction.setNextDescription(trim(addTemplateRequest[1], 12000));
-                templateAction.setProvider(dependentUser.getProvider());
+                templateAction.setWorkspaceId(workspaceId);
                 templateAction.setBillable(projectBillable);
                 templateAction.setNextActionStatus(ProjectNextActionStatus.READY);
                 templateAction.setPriorityLevel(project.getPriorityLevel());
@@ -517,7 +516,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
     }
 
     private void handleMoveAction(HttpServletRequest request, Session dataSession, WebUser dependentUser,
-            int direction) {
+            Integer workspaceId, int direction) {
         Integer actionNextId = parseInteger(request.getParameter(PARAM_ACTION_NEXT_ID));
         if (actionNextId == null) {
             return;
@@ -527,9 +526,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         if (pivot == null || pivot.getNextActionDate() == null) {
             return;
         }
-        if (pivot.getProvider() == null || dependentUser.getProvider() == null
-                || !safe(pivot.getProvider().getProviderId())
-                        .equals(safe(dependentUser.getProvider().getProviderId()))) {
+        if (pivot.getWorkspaceId() == null || !pivot.getWorkspaceId().equals(workspaceId)) {
             return;
         }
         if (pivot.getContactId() != dependentUser.getContactId()) {
@@ -537,11 +534,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
 
         Query query = dataSession.createQuery(
-                "from ProjectActionNext where provider = :provider and contactId = :contactId "
+                "from ProjectActionNext where workspaceId = :workspaceId and contactId = :contactId "
                         + "and nextActionDate = :nextActionDate "
                         + "and nextDescription <> '' "
                         + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus)");
-        query.setParameter("provider", dependentUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", dependentUser.getContactId());
         query.setParameter("nextActionDate", pivot.getNextActionDate());
         query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
@@ -824,17 +821,18 @@ public class ScheduleSchoolServlet extends ClientServlet {
     }
 
     private void printDailyAssignments(PrintWriter out, WebUser dependentUser, Session dataSession,
-            int dependencyId, List<Project> projectList, Map<Integer, Boolean> projectBillableMap) {
+            int dependencyId, List<Project> projectList, Map<Integer, Boolean> projectBillableMap,
+            Integer workspaceId) {
         Date rangeStart = dependentUser
                 .startOfDay(dependentUser.addDays(dependentUser.getToday(), -ASSIGNMENT_PAST_DAYS));
         Date rangeEnd = dependentUser.endOfDay(dependentUser.addDays(dependentUser.getToday(), ASSIGNMENT_FUTURE_DAYS));
 
         Query query = dataSession.createQuery(
-                "from ProjectActionNext where provider = :provider and contactId = :contactId "
+                "from ProjectActionNext where workspaceId = :workspaceId and contactId = :contactId "
                         + "and nextDescription <> '' "
                         + "and nextActionDate >= :rangeStart and nextActionDate <= :rangeEnd "
                         + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus)");
-        query.setParameter("provider", dependentUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", dependentUser.getContactId());
         query.setParameter("rangeStart", rangeStart);
         query.setParameter("rangeEnd", rangeEnd);
@@ -1191,7 +1189,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("</div>");
     }
 
-    private void handleScheduleActionEdit(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+    private void handleScheduleActionEdit(HttpServletRequest request, Session dataSession, WebUser dependentUser,
+            Integer workspaceId) {
         Integer actionNextId = parseInteger(request.getParameter(PARAM_ACTION_NEXT_ID));
         if (actionNextId == null) {
             return;
@@ -1199,8 +1198,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
                 actionNextId.intValue());
-        if (action == null || action.getProvider() == null || dependentUser.getProvider() == null
-                || !safe(action.getProvider().getProviderId()).equals(safe(dependentUser.getProvider().getProviderId()))
+        if (action == null || action.getWorkspaceId() == null || !action.getWorkspaceId().equals(workspaceId)
                 || action.getContactId() != dependentUser.getContactId()) {
             return;
         }
@@ -1253,7 +1251,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
     }
 
-    private void handleScheduleActionDelete(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+    private void handleScheduleActionDelete(HttpServletRequest request, Session dataSession, WebUser dependentUser,
+            Integer workspaceId) {
         Integer actionNextId = parseInteger(request.getParameter(PARAM_ACTION_NEXT_ID));
         if (actionNextId == null) {
             return;
@@ -1261,8 +1260,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
                 actionNextId.intValue());
-        if (action == null || action.getProvider() == null || dependentUser.getProvider() == null
-                || !safe(action.getProvider().getProviderId()).equals(safe(dependentUser.getProvider().getProviderId()))
+        if (action == null || action.getWorkspaceId() == null || !action.getWorkspaceId().equals(workspaceId)
                 || action.getContactId() != dependentUser.getContactId()) {
             return;
         }
@@ -1279,16 +1277,15 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
     }
 
-    private void handleScheduleActionAdd(HttpServletRequest request, Session dataSession, WebUser dependentUser) {
+    private void handleScheduleActionAdd(HttpServletRequest request, Session dataSession, WebUser dependentUser,
+            Integer workspaceId) {
         Integer projectId = parseInteger(request.getParameter(PARAM_EDIT_PROJECT_ID));
         if (projectId == null) {
             return;
         }
 
         Project project = (Project) dataSession.get(Project.class, projectId.intValue());
-        if (project == null || project.getProvider() == null || dependentUser.getProvider() == null
-                || !safe(project.getProvider().getProviderId())
-                        .equals(safe(dependentUser.getProvider().getProviderId()))) {
+        if (project == null || project.getWorkspaceId() == null || !project.getWorkspaceId().equals(workspaceId)) {
             return;
         }
 
@@ -1322,8 +1319,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Integer completionOrder = Integer.valueOf(1);
         Query orderQuery = dataSession.createQuery(
                 "select max(pan.completionOrder) from ProjectActionNext pan "
-                        + "where pan.provider = :provider and pan.contactId = :contactId and pan.nextActionDate = :nextActionDate");
-        orderQuery.setParameter("provider", dependentUser.getProvider());
+                        + "where pan.workspaceId = :workspaceId and pan.contactId = :contactId and pan.nextActionDate = :nextActionDate");
+        orderQuery.setParameter("workspaceId", workspaceId);
         orderQuery.setParameter("contactId", dependentUser.getContactId());
         orderQuery.setParameter("nextActionDate", nextActionDate);
         Number maxOrder = (Number) orderQuery.uniqueResult();
@@ -1331,7 +1328,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             completionOrder = Integer.valueOf(maxOrder.intValue() + 1);
         }
 
-        boolean billable = isProjectBillable(project, dependentUser, dataSession);
+        boolean billable = isProjectBillable(project, dataSession, workspaceId);
 
         Transaction trans = dataSession.beginTransaction();
         try {
@@ -1340,7 +1337,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             action.setProject(project);
             action.setContactId(dependentUser.getContactId());
             action.setContact(dependentUser.getProjectContact());
-            action.setProvider(dependentUser.getProvider());
+            action.setWorkspaceId(workspaceId);
             action.setNextActionDate(nextActionDate);
             action.setNextDescription(nextDescription);
             action.setNextActionType(nextActionType);
@@ -1361,13 +1358,13 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
     }
 
-    private boolean isProjectBillable(Project project, WebUser dependentUser, Session dataSession) {
+    private boolean isProjectBillable(Project project, Session dataSession, Integer workspaceId) {
         if (project == null || project.getBillCode() == null || project.getBillCode().trim().equals("")) {
             return false;
         }
         Query billCodeQuery = dataSession
-                .createQuery("from BillCode where provider = :provider and id.billCode = :billCode");
-        billCodeQuery.setParameter("provider", dependentUser.getProvider());
+                .createQuery("from BillCode where workspaceId = :workspaceId and id.billCode = :billCode");
+        billCodeQuery.setParameter("workspaceId", workspaceId);
         billCodeQuery.setParameter("billCode", project.getBillCode());
         BillCode billCode = (BillCode) billCodeQuery.uniqueResult();
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());

@@ -30,12 +30,12 @@ public class ApiRequestLoggingFilter implements ContainerRequestFilter, Containe
             durationMs = (System.nanoTime() - ((Long) start).longValue()) / 1_000_000L;
         }
         String clientId = "unknown";
-        String providerId = "unknown";
+        String workspaceId = "unknown";
         try {
             ApiRequestContext.ApiClientInfo client = ApiRequestContext.getCurrentClient();
             clientId = String.valueOf(client.getClientId());
-            if (client.getProviderId() != null) {
-                providerId = client.getProviderId();
+            if (client.getWorkspaceId() != null) {
+                workspaceId = String.valueOf(client.getWorkspaceId());
             }
         } catch (IllegalStateException ex) {
             // No authenticated client available.
@@ -43,7 +43,7 @@ public class ApiRequestLoggingFilter implements ContainerRequestFilter, Containe
         String path = requestContext.getUriInfo().getPath();
         int status = responseContext.getStatus();
         String message = "api request client_id=" + clientId
-                + " provider_id=" + providerId
+                + " workspace_id=" + workspaceId
                 + " path=" + path
                 + " status=" + status
                 + " duration_ms=" + durationMs;

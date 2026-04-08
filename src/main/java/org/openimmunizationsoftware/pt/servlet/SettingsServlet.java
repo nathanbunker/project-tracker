@@ -166,16 +166,15 @@ public class SettingsServlet extends ClientServlet {
             appReq.setMessageProblem("Agent name is required to create an API key. ");
           } else {
             agentName = agentName.trim();
-            String providerId = webUser.getProvider() == null ? null
-                : webUser.getProvider().getProviderId();
+            Integer workspaceId = appReq.getActiveWorkspaceId();
             Query query = null;
-            if (providerId == null) {
+            if (workspaceId == null) {
               query = dataSession.createQuery(
-                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and providerId is null");
+                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and workspaceId is null");
             } else {
               query = dataSession.createQuery(
-                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and providerId = :providerId");
-              query.setParameter("providerId", providerId);
+                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and workspaceId = :workspaceId");
+              query.setParameter("workspaceId", workspaceId);
             }
             query.setParameter("webUser", webUser);
             query.setParameter("agentNameLower", agentName.toLowerCase());
@@ -187,7 +186,7 @@ public class SettingsServlet extends ClientServlet {
             } else {
               WebApiClient client = new WebApiClient();
               client.setWebUser(webUser);
-              client.setProviderId(providerId);
+              client.setWorkspaceId(workspaceId);
               client.setAgentName(agentName);
               client.setEnabled(true);
               client.setCreateDate(new Date());
@@ -203,11 +202,10 @@ public class SettingsServlet extends ClientServlet {
             try {
               int clientId = Integer.parseInt(clientIdString);
               WebApiClient client = (WebApiClient) dataSession.get(WebApiClient.class, clientId);
-              String providerId = webUser.getProvider() == null ? null
-                  : webUser.getProvider().getProviderId();
+              Integer workspaceId = appReq.getActiveWorkspaceId();
               if (client != null && client.isEnabled()
                   && webUser.equals(client.getWebUser())
-                  && sameProvider(providerId, client.getProviderId())) {
+                  && sameWorkspace(workspaceId, client.getWorkspaceId())) {
                 client.setEnabled(false);
                 Transaction trans = dataSession.beginTransaction();
                 dataSession.update(client);
@@ -304,15 +302,15 @@ public class SettingsServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
 
-      String providerId = webUser.getProvider() == null ? null : webUser.getProvider().getProviderId();
+      Integer workspaceId = appReq.getActiveWorkspaceId();
       Query apiKeyQuery;
-      if (providerId == null) {
+      if (workspaceId == null) {
         apiKeyQuery = dataSession.createQuery(
-            "from WebApiClient where webUser = :webUser and enabled = true and providerId is null order by createDate desc");
+            "from WebApiClient where webUser = :webUser and enabled = true and workspaceId is null order by createDate desc");
       } else {
         apiKeyQuery = dataSession.createQuery(
-            "from WebApiClient where webUser = :webUser and enabled = true and providerId = :providerId order by createDate desc");
-        apiKeyQuery.setParameter("providerId", providerId);
+            "from WebApiClient where webUser = :webUser and enabled = true and workspaceId = :workspaceId order by createDate desc");
+        apiKeyQuery.setParameter("workspaceId", workspaceId);
       }
       apiKeyQuery.setParameter("webUser", webUser);
       @SuppressWarnings("unchecked")
@@ -435,11 +433,11 @@ public class SettingsServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
-  private static boolean sameProvider(String expectedProviderId, String actualProviderId) {
-    if (expectedProviderId == null) {
-      return actualProviderId == null;
+  private static boolean sameWorkspace(Integer expectedWorkspaceId, Integer actualWorkspaceId) {
+    if (expectedWorkspaceId == null) {
+      return actualWorkspaceId == null;
     }
-    return expectedProviderId.equals(actualProviderId);
+    return expectedWorkspaceId.equals(actualWorkspaceId);
   }
 
   private static String generateUniqueApiKey(Session dataSession) {

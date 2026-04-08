@@ -9,9 +9,9 @@ public class ProjectActionTaken implements java.io.Serializable {
     private int actionTakenId;
     private int projectId;
     private int contactId;
+    private Integer workspaceId;
     private Date actionDate;
     private String actionDescription;
-    private ProjectProvider provider;
     private ProjectContact contact;
     private Project project;
 
@@ -39,6 +39,14 @@ public class ProjectActionTaken implements java.io.Serializable {
         this.contactId = contactId;
     }
 
+    public Integer getWorkspaceId() {
+        return workspaceId;
+    }
+
+    public void setWorkspaceId(Integer workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
     public Date getActionDate() {
         return actionDate;
     }
@@ -57,14 +65,6 @@ public class ProjectActionTaken implements java.io.Serializable {
 
     public void setActionDescription(String actionDescription) {
         this.actionDescription = actionDescription;
-    }
-
-    public ProjectProvider getProvider() {
-        return provider;
-    }
-
-    public void setProvider(ProjectProvider provider) {
-        this.provider = provider;
     }
 
     public ProjectContact getContact() {

@@ -84,6 +84,11 @@ public class ProjectNarrativeService {
         if (project == null) {
             throw new IllegalArgumentException("Project is not available");
         }
+        Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+        if (activeWorkspaceId == null || project.getWorkspaceId() == null
+                || !activeWorkspaceId.equals(project.getWorkspaceId())) {
+            throw new IllegalArgumentException("Project is not available");
+        }
 
         ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
 
@@ -139,7 +144,7 @@ public class ProjectNarrativeService {
             narrative = new ProjectNarrative();
             narrative.setProject(project);
             narrative.setContact(appReq.getWebUser().getProjectContact());
-            narrative.setProvider(appReq.getWebUser().getProvider());
+            narrative.setWorkspaceId(appReq.getActiveWorkspaceId());
             narrative.setNarrativeVerb(verb);
             narrative.setNarrativeText(text);
             narrative.setNarrativeDate(narrativeDate);

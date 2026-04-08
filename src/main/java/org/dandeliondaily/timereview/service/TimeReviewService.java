@@ -15,6 +15,7 @@ import java.util.Set;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
@@ -335,8 +336,12 @@ public class TimeReviewService {
 
     @SuppressWarnings("unchecked")
     private Map<Integer, Project> loadProjectMap(WebUser webUser, Session dataSession) {
-        Query query = dataSession.createQuery("from Project where provider = :provider");
-        query.setParameter("provider", webUser.getProvider());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        if (workspaceId == null) {
+            return new HashMap<Integer, Project>();
+        }
+        Query query = dataSession.createQuery("from Project where workspaceId = :workspaceId");
+        query.setParameter("workspaceId", workspaceId);
         List<Project> projects = query.list();
         Map<Integer, Project> map = new HashMap<Integer, Project>();
         for (Project project : projects) {
@@ -347,8 +352,12 @@ public class TimeReviewService {
 
     @SuppressWarnings("unchecked")
     private Map<String, ProjectCategory> loadCategoryMap(WebUser webUser, Session dataSession) {
-        Query query = dataSession.createQuery("from ProjectCategory where provider = :provider");
-        query.setParameter("provider", webUser.getProvider());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        if (workspaceId == null) {
+            return new HashMap<String, ProjectCategory>();
+        }
+        Query query = dataSession.createQuery("from ProjectCategory where workspaceId = :workspaceId");
+        query.setParameter("workspaceId", workspaceId);
         List<ProjectCategory> categories = query.list();
         Map<String, ProjectCategory> map = new HashMap<String, ProjectCategory>();
         for (ProjectCategory category : categories) {
@@ -359,8 +368,12 @@ public class TimeReviewService {
 
     @SuppressWarnings("unchecked")
     private Map<String, BillCode> loadBillCodeMap(WebUser webUser, Session dataSession) {
-        Query query = dataSession.createQuery("from BillCode where provider = :provider");
-        query.setParameter("provider", webUser.getProvider());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        if (workspaceId == null) {
+            return new HashMap<String, BillCode>();
+        }
+        Query query = dataSession.createQuery("from BillCode where workspaceId = :workspaceId");
+        query.setParameter("workspaceId", workspaceId);
         List<BillCode> billCodes = query.list();
         Map<String, BillCode> map = new HashMap<String, BillCode>();
         for (BillCode billCode : billCodes) {

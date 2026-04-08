@@ -17,7 +17,6 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
-import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * 
@@ -42,7 +41,6 @@ public class ProjectContactsServlet extends ClientServlet {
       throws ServletException, IOException {
     AppReq appReq = new AppReq(request, response);
     try {
-      WebUser webUser = appReq.getWebUser();
       if (appReq.isLoggedOut()) {
         forwardToHome(request, response);
         return;
@@ -83,9 +81,9 @@ public class ProjectContactsServlet extends ClientServlet {
           out.println("    <th class=\"boxed\">Actions</th>");
           out.println("  </tr>");
           query = dataSession.createQuery(
-              "from ProjectContact where provider = :provider and nameFirst like :nameFirst and nameLast like :nameLast "
+              "from ProjectContact where workspaceId = :workspaceId and nameFirst like :nameFirst and nameLast like :nameLast "
                   + "order by nameFirst, nameLast");
-          query.setParameter("provider", webUser.getProvider());
+          query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
           query.setParameter("nameFirst", nameFirst + "%");
           query.setParameter("nameLast", nameLast + "%");
 

@@ -30,7 +30,9 @@
         <property name="billCode" type="string">
             <column name="bill_code" length="15" />
         </property>
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <property name="workspaceId" type="java.lang.Integer">
+            <column name="workspace_id" />
+        </property>
         <many-to-one name="action" column="action_next_id" class="ProjectActionNext"/>
     </class>
 </hibernate-mapping>

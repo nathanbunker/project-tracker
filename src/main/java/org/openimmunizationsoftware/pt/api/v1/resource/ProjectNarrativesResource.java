@@ -42,7 +42,7 @@ public class ProjectNarrativesResource extends BaseApiResource {
     public List<ProjectNarrativeDto> listProjectNarratives(@QueryParam("contactId") Integer contactId,
             @QueryParam("lastUpdatedAfter") String lastUpdatedAfter) {
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
+        int workspaceId = requireWorkspaceId(client);
         if (contactId == null) {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ApiErrorResponse("bad_request", "contactId is required.", null))
@@ -50,8 +50,8 @@ public class ProjectNarrativesResource extends BaseApiResource {
         }
         requirePositiveId(contactId.intValue(), "contactId");
         Date updatedAfter = parseLastUpdated(lastUpdatedAfter);
-        List<ProjectNarrative> narratives = narrativeDao.listByContactProviderUpdatedAfter(
-                providerId, contactId.intValue(), updatedAfter);
+        List<ProjectNarrative> narratives = narrativeDao.listByWorkspaceAndContactUpdatedAfter(
+                workspaceId, contactId.intValue(), updatedAfter);
         List<ProjectNarrativeDto> result = new ArrayList<ProjectNarrativeDto>();
         for (ProjectNarrative narrative : narratives) {
             result.add(ProjectNarrativeDto.from(narrative));

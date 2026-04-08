@@ -10,13 +10,13 @@ public class ProjectNarrative implements java.io.Serializable {
     private int projectId;
     private int contactId;
     private String providerId;
+    private Integer workspaceId;
     private Date narrativeDate;
     private Date lastUpdated;
     private ProjectNarrativeVerb narrativeVerb;
     private String narrativeText;
     private Project project;
     private ProjectContact contact;
-    private ProjectProvider provider;
 
     public int getNarrativeId() {
         return narrativeId;
@@ -48,6 +48,14 @@ public class ProjectNarrative implements java.io.Serializable {
 
     public void setProviderId(String providerId) {
         this.providerId = providerId;
+    }
+
+    public Integer getWorkspaceId() {
+        return workspaceId;
+    }
+
+    public void setWorkspaceId(Integer workspaceId) {
+        this.workspaceId = workspaceId;
     }
 
     public Date getNarrativeDate() {
@@ -112,14 +120,4 @@ public class ProjectNarrative implements java.io.Serializable {
         }
     }
 
-    public ProjectProvider getProvider() {
-        return provider;
-    }
-
-    public void setProvider(ProjectProvider provider) {
-        this.provider = provider;
-        if (provider != null) {
-            this.providerId = provider.getProviderId();
-        }
-    }
 }

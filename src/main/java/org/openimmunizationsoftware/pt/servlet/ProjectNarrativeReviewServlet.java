@@ -186,7 +186,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             narrative = new ProjectNarrative();
             narrative.setProject(project);
             narrative.setContact(appReq.getWebUser().getProjectContact());
-            narrative.setProvider(appReq.getWebUser().getProvider());
+            narrative.setWorkspaceId(appReq.getActiveWorkspaceId());
             narrative.setNarrativeVerb(verb);
             narrative.setNarrativeText(text);
             narrative.setNarrativeDate(narrativeDate);

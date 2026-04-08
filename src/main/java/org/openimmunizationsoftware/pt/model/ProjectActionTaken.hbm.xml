@@ -15,12 +15,14 @@
       <column name="contact_id" not-null="true" />
     </property>
     <many-to-one name="contact" column="contact_id" class="ProjectContact" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="workspaceId" type="java.lang.Integer">
+      <column name="workspace_id" />
+    </property>
     <property name="actionDate" type="timestamp">
       <column name="action_date" length="19" not-null="true" />
     </property>
     <property name="actionDescription" type="string">
       <column name="action_description" length="12000" not-null="true" />
     </property>
-    <many-to-one name="provider" column="provider_id" class="ProjectProvider" lazy="proxy" fetch="select"/>
   </class>
 </hibernate-mapping>

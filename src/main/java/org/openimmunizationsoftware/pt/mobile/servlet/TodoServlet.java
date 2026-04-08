@@ -61,6 +61,7 @@ public class TodoServlet extends MobileBaseServlet {
 
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
+            Integer workspaceId = appReq.getActiveWorkspaceId();
 
             // Handle action processing (Complete/Tomorrow) - works for both GET and POST
             String paramAction = request.getParameter(PARAM_ACTION);
@@ -103,7 +104,8 @@ public class TodoServlet extends MobileBaseServlet {
             // Fetch READY actions for the selected date using UTC-based key for database
             // query
             String selectedDateKeyUtc = toDatabaseDateKey(selectedDate);
-            List<ProjectActionNext> allActions = fetchReadyActions(selectedDateKeyUtc, webUser, dataSession);
+            List<ProjectActionNext> allActions = fetchReadyActions(selectedDateKeyUtc, webUser, dataSession,
+                    workspaceId);
 
             // Filter by personal/work
             List<ProjectActionNext> overdueActions = new ArrayList<>();
@@ -213,7 +215,8 @@ public class TodoServlet extends MobileBaseServlet {
         return TimeTracker.createToday(webUser).getTime();
     }
 
-    private List<ProjectActionNext> fetchReadyActions(String selectedDateKey, WebUser webUser, Session dataSession) {
+    private List<ProjectActionNext> fetchReadyActions(String selectedDateKey, WebUser webUser, Session dataSession,
+            Integer workspaceId) {
         java.sql.Date selectedSqlDate = java.sql.Date.valueOf(selectedDateKey);
 
         // Fetch all READY actions due on or before selected date.
@@ -222,14 +225,14 @@ public class TodoServlet extends MobileBaseServlet {
                         "left join fetch pan.project " +
                         "left join fetch pan.contact " +
                         "left join fetch pan.nextProjectContact " +
-                        "where pan.provider = :provider " +
+                        "where pan.workspaceId = :workspaceId " +
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.nextActionStatusString = :status " +
                         "and pan.nextDescription <> '' " +
                         "and pan.nextActionDate <= :selectedDate " +
                         "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate, lower(pan.nextDescription)");
 
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setParameter("selectedDate", selectedSqlDate);

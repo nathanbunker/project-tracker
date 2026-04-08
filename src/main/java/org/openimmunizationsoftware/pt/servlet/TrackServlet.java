@@ -23,6 +23,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
@@ -36,7 +37,6 @@ import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.dandeliondaily.timereview.service.TimeRegularizationService;
 
@@ -372,7 +372,8 @@ public class TrackServlet extends ClientServlet {
     List<TimeEntry> timeEntryList = new ArrayList<TimeEntry>();
     Map<String, Integer> clientMap = timeTracker.getTotalMinsForClientMap();
     for (String categoryCode : clientMap.keySet()) {
-      ProjectCategory projectCategory = getClient(dataSession, categoryCode, webUser.getProvider());
+      ProjectCategory projectCategory = getClient(dataSession, categoryCode,
+          WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
       if (projectCategory != null) {
         timeEntryList.add(
             new TimeEntry(projectCategory.getClientName(), clientMap.get(categoryCode)));
@@ -655,13 +656,22 @@ public class TrackServlet extends ClientServlet {
 
   private static void updateBillDay(Session dataSession, WebUser webUser, TimeTracker timeTracker,
       Date billDate) {
+    Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+    if (workspaceId == null) {
+      return;
+    }
     Map<String, Integer> billCodeMap = timeTracker.getTotalMinsForBillCodeMap();
     for (String billCodeString : billCodeMap.keySet()) {
-      BillCode billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
+      BillCode billCode = resolveBillCode(dataSession, workspaceId, billCodeString);
+      if (billCode == null) {
+        continue;
+      }
       int billMins = TimeTracker.roundTime(billCodeMap.get(billCodeString), billCode);
       Query query = dataSession
-          .createQuery("from BillDay where billCode = :billCode and billDate = :billDate");
-      query.setParameter("billCode", billCode);
+          .createQuery(
+              "from BillDay where workspaceId = :workspaceId and billCode.id.billCode = :billCode and billDate = :billDate");
+      query.setParameter("workspaceId", workspaceId);
+      query.setParameter("billCode", billCodeString);
       query.setParameter("billDate", billDate);
       @SuppressWarnings("unchecked")
       List<BillDay> billDayList = query.list();
@@ -670,13 +680,16 @@ public class TrackServlet extends ClientServlet {
         billDay = billDayList.get(0);
       } else {
         billDay = new BillDay();
+        billDay.setWorkspaceId(workspaceId);
         billDay.setBillCode(billCode);
         billDay.setBillDate(billDate);
       }
+      billDay.setWorkspaceId(workspaceId);
       billDay.setBillMins(billMins);
       query = dataSession.createQuery(
-          "from BillBudget where billCode = :billCode and start_date <= :billDate and end_date > :billDate");
-      query.setParameter("billCode", billCode);
+          "from BillBudget where workspaceId = :workspaceId and billCode.id.billCode = :billCode and startDate <= :billDate and endDate > :billDate");
+      query.setParameter("workspaceId", workspaceId);
+      query.setParameter("billCode", billCodeString);
       query.setParameter("billDate", billDate);
       @SuppressWarnings("unchecked")
       List<BillBudget> billBudgetList = query.list();
@@ -695,12 +708,12 @@ public class TrackServlet extends ClientServlet {
   }
 
   protected static ProjectCategory getClient(
-      Session dataSession, String categoryCode, ProjectProvider provider) {
+      Session dataSession, String categoryCode, Integer workspaceId) {
     Query query;
     query = dataSession.createQuery(
-        "from ProjectCategory where categoryCode = :categoryCode and provider = :provider");
+        "from ProjectCategory where categoryCode = :categoryCode and workspaceId = :workspaceId");
     query.setParameter("categoryCode", categoryCode);
-    query.setParameter("provider", provider);
+    query.setParameter("workspaceId", workspaceId);
     @SuppressWarnings("unchecked")
     List<ProjectCategory> projectCategoryList = query.list();
     ProjectCategory projectCategory = null;

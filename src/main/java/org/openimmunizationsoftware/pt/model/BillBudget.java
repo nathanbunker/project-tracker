@@ -5,6 +5,7 @@ import java.util.Date;
 public class BillBudget {
   private int billBudgetId = 0;
   private String billBudgetCode = "";
+  private Integer workspaceId = null;
   private BillCode billCode = null;
   private Date startDate = null;
   private Date endDate = null;
@@ -33,6 +34,14 @@ public class BillBudget {
 
   public void setBillBudgetCode(String billBudgetCode) {
     this.billBudgetCode = billBudgetCode;
+  }
+
+  public Integer getWorkspaceId() {
+    return workspaceId;
+  }
+
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
   }
 
   public BillCode getBillCode() {

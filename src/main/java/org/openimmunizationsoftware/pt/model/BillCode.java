@@ -15,7 +15,7 @@ public class BillCode implements java.io.Serializable {
   private String visible;
   private String clientBillCode;
   private String clientBillDescription;
-  private ProjectProvider provider;
+  private Integer workspaceId;
   private int estimateMin;
   private int billRate;
   private int billRound;
@@ -108,15 +108,13 @@ public class BillCode implements java.io.Serializable {
     this.clientBillDescription = clientBillDescription;
   }
 
-  public ProjectProvider getProvider() {
-    return provider;
+  public Integer getWorkspaceId() {
+    return id != null ? id.getWorkspaceId() : workspaceId;
   }
 
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
-    if (provider != null) {
-      setProviderId(provider.getProviderId());
-    }
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
+    getOrCreateId().setWorkspaceId(workspaceId);
   }
 
   private BillCodeId getOrCreateId() {

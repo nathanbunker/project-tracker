@@ -335,14 +335,13 @@ public class ProjectHealthPageService {
     public String scheduleProjectReview(AppReq appReq, int projectId, Date reviewDate) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
+        Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
 
         Project project = (Project) dataSession.get(Project.class, projectId);
-        if (project == null || project.getProvider() == null || webUser == null || webUser.getProvider() == null) {
+        if (project == null || project.getWorkspaceId() == null || webUser == null || activeWorkspaceId == null) {
             return "Project is not available";
         }
-        String projectProviderId = project.getProvider().getProviderId();
-        String userProviderId = webUser.getProvider().getProviderId();
-        if (projectProviderId == null || userProviderId == null || !projectProviderId.equals(userProviderId)) {
+        if (!project.getWorkspaceId().equals(activeWorkspaceId)) {
             return "Project is not available";
         }
 
@@ -357,7 +356,7 @@ public class ProjectHealthPageService {
             reviewAction.setProjectId(project.getProjectId());
             reviewAction.setContact(webUser.getProjectContact());
             reviewAction.setContactId(webUser.getContactId());
-            reviewAction.setProvider(webUser.getProvider());
+            reviewAction.setWorkspaceId(activeWorkspaceId);
             reviewAction.setNextActionType(ProjectNextActionType.WILL);
             reviewAction.setNextActionDate(reviewDate);
             reviewAction.setNextDescription("review and update project");
@@ -435,12 +434,12 @@ public class ProjectHealthPageService {
                         + "left join fetch pan.project "
                         + "left join fetch pan.contact "
                         + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :status "
                         + "and pan.nextActionDate is null "
                         + "order by pan.projectId, pan.priorityLevel desc, pan.nextChangeDate");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
@@ -476,12 +475,12 @@ public class ProjectHealthPageService {
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "where pan.actionNextId in (:ids) "
-                        + "and pan.provider = :provider "
+                        + "and pan.workspaceId = :workspaceId "
                         + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextActionStatusString = :status "
                         + "and pan.nextActionDate is null");
         query.setParameterList("ids", selectedActionIds);
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
@@ -521,9 +520,13 @@ public class ProjectHealthPageService {
     }
 
     private List<Project> loadProjects(WebUser webUser, Session dataSession) {
+        Integer workspaceId = webUser == null ? null : webUser.getWebUserId() == 0 ? null : null;
+        workspaceId = workspaceId == null
+                ? org.openimmunizationsoftware.pt.WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId())
+                : workspaceId;
         Query query = dataSession.createQuery(
-                "from Project where provider = :provider and (phaseCode is null or phaseCode <> 'Clos') order by priorityLevel desc, projectName");
-        query.setParameter("provider", webUser.getProvider());
+                "from Project where workspaceId = :workspaceId and (phaseCode is null or phaseCode <> 'Clos') order by priorityLevel desc, projectName");
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
         return projects;

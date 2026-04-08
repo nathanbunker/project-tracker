@@ -37,7 +37,7 @@ public class ApiKeyAuthFilter implements ContainerRequestFilter {
         ApiRequestContext.set(new ApiRequestContext.ApiClientInfo(
                 client.getClientId(),
                 client.getUsername(),
-                client.getProviderId(),
+                client.getWorkspaceId(),
                 client.getAgentName()));
 
         dao.touchLastUsedDate(client, new Date());

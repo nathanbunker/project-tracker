@@ -56,6 +56,12 @@ public class ReportEditServlet extends ClientServlet {
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
 
       ReportProfile reportProfile = null;
       ReportProfile extendsReportProfile = null;
@@ -69,6 +75,11 @@ public class ReportEditServlet extends ClientServlet {
           List<ReportProfile> reportProfileList = query.list();
           reportProfile = reportProfileList.get(0);
           ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+          if (reportProfile.getWorkspaceId() == null
+              || !activeWorkspaceId.equals(reportProfile.getWorkspaceId())) {
+            forwardToHome(request, response);
+            return;
+          }
         }
 
         if (reportProfile.getExtendsProfileId() > 0) {
@@ -86,10 +97,14 @@ public class ReportEditServlet extends ClientServlet {
         List<ReportProfile> reportProfileList = query.list();
         extendsReportProfile = reportProfileList.get(0);
         ReportsServlet.loadReportProfileObject(dataSession, extendsReportProfile);
+        if (extendsReportProfile.getWorkspaceId() != null) {
+          forwardToHome(request, response);
+          return;
+        }
 
         reportProfile = new ReportProfile();
         reportProfile.setExtendsProfileId(extendsReportProfile.getProfileId());
-        reportProfile.setProvider(webUser.getProvider());
+        reportProfile.setWorkspaceId(activeWorkspaceId);
         reportProfile.setWebUser(webUser);
         reportProfile.setReportSchedule(new ReportSchedule());
         reportProfile.setProfileType(extendsReportProfile.getProfileType());

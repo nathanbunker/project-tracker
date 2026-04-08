@@ -51,16 +51,22 @@ public class BillCodeServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       PrintWriter out = appReq.getOut();
       SimpleDateFormat sdf = webUser.getDateFormat();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
       Query query;
       appReq.setTitle("Track");
       printHtmlHead(appReq);
 
       BillCode billCode = null;
       String billCodeString = request.getParameter("billCode");
-      billCode = resolveBillCode(dataSession, webUser.getProvider(), billCodeString);
+      billCode = resolveBillCode(dataSession, activeWorkspaceId, billCodeString);
       if (billCode == null) {
         billCode = new BillCode();
-        billCode.setProvider(webUser.getProvider());
+        billCode.setWorkspaceId(activeWorkspaceId);
         billCode.setBillCode(billCodeString);
       }
 

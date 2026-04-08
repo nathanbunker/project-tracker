@@ -22,6 +22,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
@@ -111,18 +112,15 @@ public class LoginServlet extends ClientServlet {
         }
       } else {
         WebUser webUser = appReq.getWebUser();
-        if (webUser != null && !hasProvider(webUser)) {
-          if (!webUser.isEmailVerified()) {
-            Date now = new Date();
-            webUser.setEmailVerified(true);
-            if (webUser.getVerifiedDate() == null) {
-              webUser.setVerifiedDate(now);
-            }
-            Transaction verifyTrans = dataSession.beginTransaction();
-            dataSession.update(webUser);
-            verifyTrans.commit();
-          }
-          response.sendRedirect("RegistrationServlet?status=setup");
+        if (webUser != null && !hasWorkspace(dataSession, webUser)) {
+          appReq.logout();
+          appReq.setMessageProblem("Account setup is incomplete. Please complete registration or contact support.");
+          appReq.setTitle("Login");
+          boolean emailEnabled = TrackerKeysManager.getApplicationKeyValueBoolean(
+              TrackerKeysManager.KEY_SYSTEM_EMAIL_ENABLE, false, dataSession);
+          printHtmlHead(appReq);
+          printLoginForm(out, "", "", "", "desktop", emailEnabled);
+          printHtmlFoot(appReq);
           return;
         }
         String uiMode = request.getParameter("uiMode");
@@ -294,17 +292,12 @@ public class LoginServlet extends ClientServlet {
   }
 
   private WebUser hydrateWebUserForSession(Session dataSession, int webUserId) {
-    WebUser webUser = (WebUser) dataSession.get(WebUser.class, webUserId);
-    if (webUser != null && webUser.getProvider() != null) {
-      // Force provider id to initialize the association before storing user in
-      // session.
-      webUser.getProvider().getProviderId();
-    }
-    return webUser;
+    return (WebUser) dataSession.get(WebUser.class, webUserId);
   }
 
   private String initializeUserSession(AppReq appReq, Session dataSession, WebUser webUser) {
     appReq.setWebUser(webUser);
+    appReq.setActiveWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
     ProjectContact projectContact = (ProjectContact) dataSession.get(ProjectContact.class,
         webUser.getContactId());
     webUser.setProjectContact(projectContact);
@@ -452,10 +445,9 @@ public class LoginServlet extends ClientServlet {
         .replace("'", "&#39;");
   }
 
-  private boolean hasProvider(WebUser webUser) {
-    return webUser.getProvider() != null
-        && webUser.getProvider().getProviderId() != null
-        && !webUser.getProvider().getProviderId().trim().equals("");
+  private boolean hasWorkspace(Session dataSession, WebUser webUser) {
+    return webUser != null
+        && WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()) != null;
   }
 
   // <editor-fold defaultstate="collapsed"

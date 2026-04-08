@@ -11,8 +11,8 @@
             <column name="api_key" length="80" not-null="true" unique="true" />
         </property>
         <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
-        <property name="providerId" type="string">
-            <column name="provider_id" length="30" />
+        <property name="workspaceId" type="java.lang.Integer">
+            <column name="workspace_id" />
         </property>
         <property name="agentName" type="string">
             <column name="agent_name" length="80" />

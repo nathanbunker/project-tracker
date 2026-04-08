@@ -53,7 +53,6 @@ public class WebUser implements java.io.Serializable {
   private boolean emailVerified = false;
   private int contactId;
   private String password;
-  private ProjectProvider provider = null;
   private boolean trackTime = false;
   private String userType;
   private String workflowType = "STANDARD";
@@ -384,14 +383,6 @@ public class WebUser implements java.io.Serializable {
 
   public void setTimeZone(TimeZone timeZone) {
     this.timeZone = timeZone == null ? TimeZone.getTimeZone(WebUser.AMERICA_DENVER) : timeZone;
-  }
-
-  public ProjectProvider getProvider() {
-    return provider;
-  }
-
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
   }
 
   public String getRegistrationStatus() {

@@ -44,8 +44,8 @@ public class ProjectsResource extends BaseApiResource {
     @ApiResponse(responseCode = "403", description = "Provider scope missing")
     public List<ProjectDto> listProjects() {
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        List<Project> projects = proposalService.listProjectsVisibleToClient(providerId, client.getUsername());
+        int workspaceId = requireWorkspaceId(client);
+        List<Project> projects = proposalService.listProjectsVisibleToClient(workspaceId, client.getUsername());
         List<ProjectDto> result = new ArrayList<ProjectDto>();
         for (Project project : projects) {
             result.add(ProjectDto.from(project));
@@ -64,9 +64,9 @@ public class ProjectsResource extends BaseApiResource {
     public List<ActionNextDto> listActionsNext(@PathParam("projectId") int projectId) {
         requirePositiveId(projectId, "projectId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        requireProject(providerId, projectId);
-        List<ProjectActionNext> actions = proposalService.listActionsNextForProject(providerId, projectId);
+        int workspaceId = requireWorkspaceId(client);
+        requireProject(workspaceId, projectId);
+        List<ProjectActionNext> actions = proposalService.listActionsNextForProject(workspaceId, projectId);
         List<ActionNextDto> result = new ArrayList<ActionNextDto>();
         for (ProjectActionNext action : actions) {
             result.add(ActionNextDto.from(action));
@@ -85,9 +85,9 @@ public class ProjectsResource extends BaseApiResource {
     public List<ActionTakenDto> listActionsTaken(@PathParam("projectId") int projectId) {
         requirePositiveId(projectId, "projectId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        requireProject(providerId, projectId);
-        List<ProjectActionTaken> actions = proposalService.listActionsTakenForProject(providerId, projectId);
+        int workspaceId = requireWorkspaceId(client);
+        requireProject(workspaceId, projectId);
+        List<ProjectActionTaken> actions = proposalService.listActionsTakenForProject(workspaceId, projectId);
         List<ActionTakenDto> result = new ArrayList<ActionTakenDto>();
         for (ProjectActionTaken action : actions) {
             result.add(ActionTakenDto.from(action));
@@ -108,29 +108,29 @@ public class ProjectsResource extends BaseApiResource {
             CreateProposalRequest request) {
         requirePositiveId(projectId, "projectId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
-        requireProject(providerId, projectId);
+        int workspaceId = requireWorkspaceId(client);
+        requireProject(workspaceId, projectId);
         validateProposalRequest(request);
-        String agentName = client.getAgentName() != null ? client.getAgentName() : providerId;
+        String agentName = client.getAgentName() != null ? client.getAgentName() : String.valueOf(workspaceId);
         Integer actionNextId = request.getActionNextId();
         if (actionNextId != null && actionNextId.intValue() <= 0) {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ApiErrorResponse("bad_request",
-                    "actionNextId must be a positive integer.", null))
-                .build());
+                    .entity(new ApiErrorResponse("bad_request",
+                            "actionNextId must be a positive integer.", null))
+                    .build());
         }
-        ProjectActionProposal proposal = proposalService.createProposal(providerId, agentName, projectId,
-            actionNextId, request.getProposedPatchJson(), request.getSummary(), request.getRationale(),
-            request.getContactId());
+        ProjectActionProposal proposal = proposalService.createProposal(workspaceId, agentName, projectId,
+                actionNextId, request.getProposedPatchJson(), request.getSummary(), request.getRationale(),
+                request.getContactId());
         return Response.status(Response.Status.CREATED).entity(ProposalDto.from(proposal)).build();
     }
 
-    private Project requireProject(String providerId, int projectId) {
+    private Project requireProject(int workspaceId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from Project p where p.projectId = :projectId and p.provider.providerId = :providerId");
+                "from Project p where p.projectId = :projectId and p.workspaceId = :workspaceId");
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         Project project = (Project) query.uniqueResult();
         if (project == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)

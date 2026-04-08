@@ -23,11 +23,14 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.format.DateFormatService;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.Workspace;
+import org.openimmunizationsoftware.pt.model.WorkspaceMember;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -36,7 +39,6 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.TrackerKeys;
@@ -180,13 +182,6 @@ public class RegistrationServlet extends ClientServlet {
             projectContact.setEmailAddress(emailAddress);
             projectContact.setEmailConfirmed(false);
             projectContact.setEmailAlert("N");
-            ProjectProvider defaultProvider = (ProjectProvider) dataSession.get(ProjectProvider.class, "12");
-            if (defaultProvider == null) {
-                Query providerQuery = dataSession.createQuery("from ProjectProvider order by providerId");
-                providerQuery.setMaxResults(1);
-                defaultProvider = (ProjectProvider) providerQuery.uniqueResult();
-            }
-            projectContact.setProvider(defaultProvider);
             dataSession.save(projectContact);
 
             webUser = new WebUser();
@@ -197,7 +192,6 @@ public class RegistrationServlet extends ClientServlet {
             webUser.setEmailVerified(false);
             webUser.setContactId(projectContact.getContactId());
             webUser.setPassword(null);
-            webUser.setProvider(null);
             webUser.setUserType(WebUser.USER_TYPE_USER);
             String workflowTypeParam = safe(request.getParameter(PARAM_WORKFLOW_TYPE));
             webUser.setWorkflowType(WORKFLOW_STUDENT.equals(workflowTypeParam) ? WORKFLOW_STUDENT : "STANDARD");
@@ -247,20 +241,14 @@ public class RegistrationServlet extends ClientServlet {
                     sessionProjectContact.getContactId());
             Date now = new Date();
 
-            ProjectProvider provider = createUniqueProvider(dataSession, setupFormData.firstName,
-                    setupFormData.lastName);
-            dataSession.save(provider);
-
             projectContact.setNameFirst(setupFormData.firstName);
             projectContact.setNameLast(setupFormData.lastName);
             projectContact.setTimeZone(setupFormData.timeZone);
-            projectContact.setProvider(provider);
             projectContact.setEmailConfirmed(true);
             dataSession.update(projectContact);
 
             webUser.setFirstName(setupFormData.firstName);
             webUser.setLastName(setupFormData.lastName);
-            webUser.setProvider(provider);
             webUser.setEmailVerified(true);
             webUser.setRegistrationStatus(WebUser.REGISTRATION_STATUS_ACTIVE);
             if (webUser.getVerifiedDate() == null) {
@@ -283,8 +271,25 @@ public class RegistrationServlet extends ClientServlet {
             boolean isStudent = WORKFLOW_STUDENT.equals(webUser.getWorkflowType());
             String workCodeLabel = isStudent ? "School" : "Work";
             String personalCodeLabel = isStudent ? "Chores" : "Personal";
-            BillCode workBillCode = createBillCode(provider, workCodeLabel, workCodeLabel, "Y");
-            BillCode personalBillCode = createBillCode(provider, personalCodeLabel, personalCodeLabel, "N");
+            Workspace workspace = new Workspace();
+            workspace.setWorkspaceName(setupFormData.firstName + " " + setupFormData.lastName + " Personal Workspace");
+            workspace.setWorkspaceType(Workspace.TYPE_PERSONAL);
+            workspace.setCreatedByWebUserId(webUser.getWebUserId());
+            workspace.setWorkspaceStatus(Workspace.STATUS_ACTIVE);
+            workspace.setCreatedDate(now);
+            dataSession.save(workspace);
+            int workspaceId = workspace.getWorkspaceId();
+
+            WorkspaceMember workspaceMember = new WorkspaceMember();
+            workspaceMember.setWorkspaceId(workspaceId);
+            workspaceMember.setWebUserId(webUser.getWebUserId());
+            workspaceMember.setMemberRole(WorkspaceMember.ROLE_OWNER);
+            workspaceMember.setMembershipStatus(WorkspaceMember.STATUS_ACTIVE);
+            workspaceMember.setCreatedDate(now);
+            dataSession.save(workspaceMember);
+
+            BillCode workBillCode = createBillCode(workspaceId, workCodeLabel, workCodeLabel, "Y");
+            BillCode personalBillCode = createBillCode(workspaceId, personalCodeLabel, personalCodeLabel, "N");
             dataSession.save(workBillCode);
             dataSession.save(personalBillCode);
 
@@ -292,12 +297,12 @@ public class RegistrationServlet extends ClientServlet {
             LinkedHashMap<String, Project> personalProjectMap = new LinkedHashMap<String, Project>();
 
             for (String projectName : setupFormData.workProjectNames) {
-                createProjectIfNeeded(dataSession, workProjectMap, projectName, workBillCode, provider, webUser,
-                        projectContact);
+                createProjectIfNeeded(dataSession, workProjectMap, projectName, workBillCode, workspaceId,
+                        webUser, projectContact);
             }
             for (String projectName : setupFormData.personalProjectNames) {
-                createProjectIfNeeded(dataSession, personalProjectMap, projectName, personalBillCode, provider,
-                        webUser, projectContact);
+                createProjectIfNeeded(dataSession, personalProjectMap, projectName, personalBillCode,
+                        workspaceId, webUser, projectContact);
             }
 
             Date templateAnchorDate = calculateEndOfYear(webUser);
@@ -306,13 +311,13 @@ public class RegistrationServlet extends ClientServlet {
                 BillCode billCode = workSection ? workBillCode : personalBillCode;
                 LinkedHashMap<String, Project> projectMap = workSection ? workProjectMap : personalProjectMap;
                 Project project = createProjectIfNeeded(dataSession, projectMap, templateRow.projectName, billCode,
-                        provider, webUser, projectContact);
-                ProjectActionNext templateAction = createTemplateAction(projectContact, provider, project,
-                        templateRow, templateAnchorDate);
+                        workspaceId, webUser, projectContact);
+                ProjectActionNext templateAction = createTemplateAction(projectContact, project,
+                        workspaceId, templateRow, templateAnchorDate);
                 dataSession.save(templateAction);
                 for (int dayOffset = 0; dayOffset <= 7; dayOffset++) {
-                    ProjectActionNext scheduledAction = createScheduledAction(webUser, projectContact, provider,
-                            project, templateAction, webUser.addDays(webUser.getToday(), dayOffset));
+                    ProjectActionNext scheduledAction = createScheduledAction(webUser, projectContact,
+                            project, workspaceId, templateAction, webUser.addDays(webUser.getToday(), dayOffset));
                     dataSession.save(scheduledAction);
                 }
             }
@@ -320,9 +325,6 @@ public class RegistrationServlet extends ClientServlet {
             transaction.commit();
 
             WebUser refreshedWebUser = (WebUser) dataSession.get(WebUser.class, webUser.getWebUserId());
-            if (refreshedWebUser.getProvider() != null) {
-                refreshedWebUser.getProvider().getProviderId();
-            }
             refreshedWebUser.setProjectContact(projectContact);
             refreshedWebUser.setTrackTime(setupFormData.trackTime);
             refreshedWebUser.setTimeZone(TimeZone.getTimeZone(setupFormData.timeZone));
@@ -546,55 +548,10 @@ public class RegistrationServlet extends ClientServlet {
         return new ArrayList<String>(projectNames);
     }
 
-    private ProjectProvider createUniqueProvider(Session dataSession, String firstName, String lastName) {
-        String baseProviderName = normalizeWhitespace(firstName + " " + lastName);
-        if (baseProviderName.equals("")) {
-            baseProviderName = "New Provider";
-        }
-        String baseProviderId = sanitizeProviderId(firstName + lastName);
-        if (baseProviderId.equals("")) {
-            baseProviderId = "provider";
-        }
-        int suffix = 1;
-        while (true) {
-            String candidateName = suffix == 1 ? baseProviderName : baseProviderName + " " + suffix;
-            String candidateId = suffix == 1 ? baseProviderId : appendSuffix(baseProviderId, String.valueOf(suffix));
-            Query query = dataSession.createQuery(
-                    "select count(*) from ProjectProvider where providerId = ? or providerName = ?");
-            query.setParameter(0, candidateId);
-            query.setParameter(1, candidateName);
-            Number count = (Number) query.uniqueResult();
-            if (count == null || count.longValue() == 0) {
-                ProjectProvider projectProvider = new ProjectProvider();
-                projectProvider.setProviderId(candidateId);
-                projectProvider.setProviderName(candidateName);
-                return projectProvider;
-            }
-            suffix++;
-        }
-    }
-
-    private String sanitizeProviderId(String value) {
-        String sanitized = safe(value).replaceAll("[^A-Za-z0-9]", "");
-        if (sanitized.length() > 30) {
-            sanitized = sanitized.substring(0, 30);
-        }
-        return sanitized;
-    }
-
-    private String appendSuffix(String base, String suffix) {
-        int maxBaseLength = 30 - suffix.length();
-        String trimmedBase = base;
-        if (trimmedBase.length() > maxBaseLength) {
-            trimmedBase = trimmedBase.substring(0, maxBaseLength);
-        }
-        return trimmedBase + suffix;
-    }
-
-    private BillCode createBillCode(ProjectProvider provider, String billCodeValue, String billLabel,
-            String billable) {
+    private BillCode createBillCode(int workspaceId, String billCodeValue,
+            String billLabel, String billable) {
         BillCode billCode = new BillCode();
-        billCode.setProvider(provider);
+        billCode.setWorkspaceId(workspaceId);
         billCode.setBillCode(billCodeValue);
         billCode.setBillLabel(billLabel);
         billCode.setBillable(billable);
@@ -606,8 +563,8 @@ public class RegistrationServlet extends ClientServlet {
     }
 
     private Project createProjectIfNeeded(Session dataSession, Map<String, Project> projectMap,
-            String projectName, BillCode billCode, ProjectProvider provider, WebUser webUser,
-            ProjectContact projectContact) {
+            String projectName, BillCode billCode, int workspaceId,
+            WebUser webUser, ProjectContact projectContact) {
         String key = normalizeLookupKey(projectName);
         Project existing = projectMap.get(key);
         if (existing != null) {
@@ -615,8 +572,8 @@ public class RegistrationServlet extends ClientServlet {
         }
 
         Project project = new Project();
-        project.setProvider(provider);
-        project.setProviderName(provider.getProviderName());
+        project.setWorkspaceId(workspaceId);
+        project.setProviderName(trim(setupDisplayName(webUser), 45));
         project.setWebUser(webUser);
         project.setProjectName(trim(projectName, 100));
         project.setBillCode(billCode.getBillCode());
@@ -637,13 +594,13 @@ public class RegistrationServlet extends ClientServlet {
         return project;
     }
 
-    private ProjectActionNext createTemplateAction(ProjectContact projectContact, ProjectProvider provider,
-            Project project, TemplateRow templateRow, Date templateAnchorDate) {
+    private ProjectActionNext createTemplateAction(ProjectContact projectContact, Project project,
+            int workspaceId, TemplateRow templateRow, Date templateAnchorDate) {
         ProjectActionNext templateAction = new ProjectActionNext();
         templateAction.setProjectId(project.getProjectId());
         templateAction.setContactId(projectContact.getContactId());
         templateAction.setContact(projectContact);
-        templateAction.setProvider(provider);
+        templateAction.setWorkspaceId(workspaceId);
         templateAction.setNextActionStatus(ProjectNextActionStatus.READY);
         templateAction.setNextChangeDate(new Date());
         templateAction.setNextDescription(trim(templateRow.action, 1200));
@@ -663,12 +620,13 @@ public class RegistrationServlet extends ClientServlet {
     }
 
     private ProjectActionNext createScheduledAction(WebUser webUser, ProjectContact projectContact,
-            ProjectProvider provider, Project project, ProjectActionNext templateAction, Date actionDate) {
+            Project project, int workspaceId, ProjectActionNext templateAction,
+            Date actionDate) {
         ProjectActionNext projectAction = new ProjectActionNext();
         projectAction.setProjectId(project.getProjectId());
         projectAction.setContactId(projectContact.getContactId());
         projectAction.setContact(projectContact);
-        projectAction.setProvider(provider);
+        projectAction.setWorkspaceId(workspaceId);
         projectAction.setNextActionStatus(ProjectNextActionStatus.READY);
         projectAction.setNextChangeDate(new Date());
         projectAction.setNextDescription(templateAction.getNextDescription());
@@ -1002,9 +960,17 @@ public class RegistrationServlet extends ClientServlet {
     }
 
     private boolean hasProvider(WebUser webUser) {
-        return webUser != null && webUser.getProvider() != null
-                && webUser.getProvider().getProviderId() != null
-                && !webUser.getProvider().getProviderId().trim().equals("");
+        return webUser != null && WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()) != null;
+    }
+
+    private String setupDisplayName(WebUser webUser) {
+        if (webUser == null) {
+            return "Workspace";
+        }
+        String firstName = safe(webUser.getFirstName()).trim();
+        String lastName = safe(webUser.getLastName()).trim();
+        String fullName = (firstName + " " + lastName).trim();
+        return fullName.equals("") ? safe(webUser.getUsername()) : fullName;
     }
 
     private String firstNonEmpty(String primary, String fallback) {

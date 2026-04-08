@@ -4,6 +4,7 @@ import java.util.Date;
 
 public class BillMonth {
   private int billMonthId = 0;
+  private Integer workspaceId = null;
   private BillCode billCode = null;
   private Date billDate = null;
   private int billMinsExpected = 0;
@@ -16,6 +17,14 @@ public class BillMonth {
 
   public void setBillMonthId(int billMonthId) {
     this.billMonthId = billMonthId;
+  }
+
+  public Integer getWorkspaceId() {
+    return workspaceId;
+  }
+
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
   }
 
   public BillCode getBillCode() {

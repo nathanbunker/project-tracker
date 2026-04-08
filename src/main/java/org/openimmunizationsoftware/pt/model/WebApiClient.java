@@ -9,7 +9,7 @@ public class WebApiClient implements java.io.Serializable {
     private int clientId;
     private String apiKey;
     private WebUser webUser;
-    private String providerId;
+    private Integer workspaceId;
     private String agentName;
     private boolean enabled = true;
     private Date createDate;
@@ -47,12 +47,24 @@ public class WebApiClient implements java.io.Serializable {
         this.webUser = webUser;
     }
 
+    public Integer getWorkspaceId() {
+        return workspaceId;
+    }
+
+    public void setWorkspaceId(Integer workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
     public String getProviderId() {
-        return providerId;
+        return workspaceId == null ? null : String.valueOf(workspaceId);
     }
 
     public void setProviderId(String providerId) {
-        this.providerId = providerId;
+        if (providerId == null || providerId.trim().equals("")) {
+            this.workspaceId = null;
+            return;
+        }
+        this.workspaceId = Integer.valueOf(providerId.trim());
     }
 
     public String getAgentName() {

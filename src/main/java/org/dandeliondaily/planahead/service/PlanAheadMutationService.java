@@ -25,7 +25,6 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
@@ -94,10 +93,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Action is not available for this provider");
+                result.setMessage("Action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(action, appReq)) {
@@ -186,9 +185,9 @@ public class PlanAheadMutationService {
             result.setMessage("Action not found");
             return result;
         }
-        if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+        if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
             result.setSuccess(false);
-            result.setMessage("Action is not available for this provider");
+            result.setMessage("Action is not available for this workspace");
             return result;
         }
         if (!isActionCompatibleWithMode(action, appReq)) {
@@ -297,10 +296,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Action is not available for this provider");
+                result.setMessage("Action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(action, appReq)) {
@@ -424,10 +423,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Action is not available for this provider");
+                result.setMessage("Action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(action, appReq)) {
@@ -510,10 +509,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Action is not available for this provider");
+                result.setMessage("Action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(action, appReq)) {
@@ -599,10 +598,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Action is not available for this provider");
+                result.setMessage("Action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(action, appReq)) {
@@ -649,10 +648,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Action is not available for this provider");
+                result.setMessage("Action is not available for this workspace");
                 return result;
             }
 
@@ -708,10 +707,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Template action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(templateAction.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(templateAction.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Template action is not available for this provider");
+                result.setMessage("Template action is not available for this workspace");
                 return result;
             }
             if (!templateAction.isBillable() || templateAction.getTemplateType() == null) {
@@ -727,14 +726,14 @@ public class PlanAheadMutationService {
 
             Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
             Query query = dataSession.createQuery(
-                    "from ProjectActionNext pan where pan.provider = :provider "
+                    "from ProjectActionNext pan where pan.workspaceId = :workspaceId "
                             + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                             + "and pan.billable = :billable "
                             + "and pan.templateActionNextId = :templateActionNextId "
                             + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
                             + "and pan.nextActionStatusString <> :cancelled "
                             + "and pan.nextActionStatusString <> :completed");
-            query.setParameter("provider", appReq.getWebUser().getProvider());
+            query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
             query.setParameter("contactId", appReq.getWebUser().getContactId());
             query.setParameter("nextContactId", appReq.getWebUser().getContactId());
             query.setParameter("billable", true);
@@ -818,9 +817,9 @@ public class PlanAheadMutationService {
             result.setMessage("Template action not found");
             return result;
         }
-        if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+        if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
             result.setSuccess(false);
-            result.setMessage("Template action is not available for this provider");
+            result.setMessage("Template action is not available for this workspace");
             return result;
         }
         if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
@@ -919,7 +918,7 @@ public class PlanAheadMutationService {
                 action.setProject(project);
                 action.setContactId(appReq.getWebUser().getContactId());
                 action.setContact(appReq.getWebUser().getProjectContact());
-                action.setProvider(appReq.getWebUser().getProvider());
+                action.setWorkspaceId(appReq.getActiveWorkspaceId());
                 action.setNextActionDate(null);
                 action.setNextActionStatus(ProjectNextActionStatus.READY);
                 action.setTemplateType(templateType);
@@ -944,10 +943,10 @@ public class PlanAheadMutationService {
                     result.setMessage("Template action not found");
                     return result;
                 }
-                if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+                if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                     transaction.rollback();
                     result.setSuccess(false);
-                    result.setMessage("Template action is not available for this provider");
+                    result.setMessage("Template action is not available for this workspace");
                     return result;
                 }
                 if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
@@ -978,14 +977,14 @@ public class PlanAheadMutationService {
 
                 Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
                 Query query = dataSession.createQuery(
-                        "from ProjectActionNext pan where pan.provider = :provider "
+                        "from ProjectActionNext pan where pan.workspaceId = :workspaceId "
                                 + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                                 + "and pan.billable = :billable "
                                 + "and pan.templateActionNextId = :templateActionNextId "
                                 + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
                                 + "and pan.nextActionStatusString <> :cancelled "
                                 + "and pan.nextActionStatusString <> :completed");
-                query.setParameter("provider", appReq.getWebUser().getProvider());
+                query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
                 query.setParameter("contactId", appReq.getWebUser().getContactId());
                 query.setParameter("nextContactId", appReq.getWebUser().getContactId());
                 query.setParameter("billable", !personalMode ? true : false);
@@ -1039,10 +1038,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Template action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Template action is not available for this provider");
+                result.setMessage("Template action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
@@ -1089,10 +1088,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Template action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(action.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Template action is not available for this provider");
+                result.setMessage("Template action is not available for this workspace");
                 return result;
             }
 
@@ -1142,10 +1141,10 @@ public class PlanAheadMutationService {
                 result.setMessage("Template action not found");
                 return result;
             }
-            if (!isOwnedByCurrentProvider(templateAction.getProvider(), appReq)) {
+            if (!isOwnedByCurrentWorkspace(templateAction.getWorkspaceId(), appReq)) {
                 transaction.rollback();
                 result.setSuccess(false);
-                result.setMessage("Template action is not available for this provider");
+                result.setMessage("Template action is not available for this workspace");
                 return result;
             }
             if (!isActionCompatibleWithMode(templateAction, appReq)) {
@@ -1172,7 +1171,7 @@ public class PlanAheadMutationService {
                     generatedAction.setProject(templateAction.getProject());
                     generatedAction.setContactId(appReq.getWebUser().getContactId());
                     generatedAction.setContact(appReq.getWebUser().getProjectContact());
-                    generatedAction.setProvider(appReq.getWebUser().getProvider());
+                    generatedAction.setWorkspaceId(appReq.getActiveWorkspaceId());
                     generatedAction.setNextActionDate(day);
                     generatedAction.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
@@ -1269,11 +1268,11 @@ public class PlanAheadMutationService {
             Date day) {
         boolean billable = !isPersonalMode(appReq);
         Query query = dataSession.createQuery(
-                "from ProjectActionNext pan where pan.provider = :provider "
+                "from ProjectActionNext pan where pan.workspaceId = :workspaceId "
                         + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.billable = :billable "
                         + "and pan.templateActionNextId = :templateActionNextId and pan.nextActionDate = :nextActionDate");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
         query.setParameter("billable", billable);
@@ -1289,10 +1288,10 @@ public class PlanAheadMutationService {
 
     private List<Map<String, Object>> listProjectsForProvider(Session dataSession, AppReq appReq) {
         Query query = dataSession.createQuery(
-                "from Project p where p.provider = :provider "
+                "from Project p where p.workspaceId = :workspaceId "
                         + "and (p.phaseCode is null or p.phaseCode = :phaseCode) "
                         + "order by p.priorityLevel desc, p.projectName");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("phaseCode", PHASE_ACTIVE);
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
@@ -1309,8 +1308,8 @@ public class PlanAheadMutationService {
     }
 
     Map<String, BillCode> loadBillCodesForProvider(Session dataSession, AppReq appReq) {
-        Query query = dataSession.createQuery("from BillCode bc where bc.provider = :provider");
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        Query query = dataSession.createQuery("from BillCode bc where bc.workspaceId = :workspaceId");
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         @SuppressWarnings("unchecked")
         List<BillCode> billCodes = query.list();
         Map<String, BillCode> billCodeMap = new HashMap<String, BillCode>();
@@ -1350,9 +1349,9 @@ public class PlanAheadMutationService {
 
     private Project findProjectById(Session dataSession, AppReq appReq, int projectId) {
         Query query = dataSession.createQuery(
-                "from Project p where p.projectId = :projectId and p.provider = :provider");
+                "from Project p where p.projectId = :projectId and p.workspaceId = :workspaceId");
         query.setParameter("projectId", projectId);
-        query.setParameter("provider", appReq.getWebUser().getProvider());
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
         if (projects.size() > 0) {
@@ -1412,13 +1411,11 @@ public class PlanAheadMutationService {
         return dayKey.compareTo(referenceDayKey) < 0;
     }
 
-    private boolean isOwnedByCurrentProvider(ProjectProvider actionProvider, AppReq appReq) {
-        if (actionProvider == null || appReq.getWebUser() == null || appReq.getWebUser().getProvider() == null) {
+    private boolean isOwnedByCurrentWorkspace(Integer actionWorkspaceId, AppReq appReq) {
+        if (actionWorkspaceId == null || appReq.getWebUser() == null || appReq.getActiveWorkspaceId() == null) {
             return false;
         }
-        String actionProviderId = actionProvider.getProviderId();
-        String currentProviderId = appReq.getWebUser().getProvider().getProviderId();
-        return actionProviderId != null && actionProviderId.equals(currentProviderId);
+        return actionWorkspaceId.equals(appReq.getActiveWorkspaceId());
     }
 
     private String n(String value) {

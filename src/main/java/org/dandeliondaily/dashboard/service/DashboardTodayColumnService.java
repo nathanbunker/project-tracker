@@ -13,6 +13,7 @@ import org.dandeliondaily.projectnarrative.model.ProjectNarrativeSummary;
 import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
@@ -307,18 +308,19 @@ public class DashboardTodayColumnService {
     }
 
     private List<ProjectActionNext> getWouldLikeToIdeasList(WebUser webUser, Session dataSession) {
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan "
                         + "left join fetch pan.project "
                         + "left join fetch pan.contact "
                         + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextDescription <> '' "
                         + "and pan.nextActionStatusString = :nextActionStatus "
                         + "and pan.nextActionType = :nextActionType "
                         + "and pan.billable = :billable "
                         + "order by pan.actionNextId DESC");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -377,6 +379,7 @@ public class DashboardTodayColumnService {
     }
 
     private List<ProjectActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         LocalDate today = webUser.getLocalDateToday();
         Query query;
         if (dayOffset < 0) {
@@ -386,7 +389,7 @@ public class DashboardTodayColumnService {
                             + "left join fetch pan.project "
                             + "left join fetch pan.contact "
                             + "left join fetch pan.nextProjectContact "
-                            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                             + "and pan.nextDescription <> '' "
                             + "and pan.nextActionStatusString = :nextActionStatus "
                             + "and pan.nextActionDate >= :oldestDate and pan.nextActionDate < :cutoffDate "
@@ -400,14 +403,14 @@ public class DashboardTodayColumnService {
                             + "left join fetch pan.project "
                             + "left join fetch pan.contact "
                             + "left join fetch pan.nextProjectContact "
-                            + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                             + "and pan.nextDescription <> '' "
                             + "and pan.nextActionStatusString = :nextActionStatus "
                             + "and pan.nextActionDate = :targetDate "
                             + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
             query.setParameter("targetDate", java.sql.Date.valueOf(targetDate));
         }
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -418,6 +421,7 @@ public class DashboardTodayColumnService {
     }
 
     private List<ProjectActionNext> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Date today = TimeTracker.createToday(webUser).getTime();
         Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
         Query query = dataSession.createQuery(
@@ -425,11 +429,11 @@ public class DashboardTodayColumnService {
                         + "left join fetch pan.project "
                         + "left join fetch pan.contact "
                         + "left join fetch pan.nextProjectContact "
-                        + "where pan.provider = :provider and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
+                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
                         + "and pan.nextActionStatusString = :nextActionStatus and pan.nextDescription <> '' "
                         + "and pan.nextChangeDate >= :today and pan.nextChangeDate < :tomorrow "
                         + "order by pan.nextTimeActual DESC, pan.nextTimeEstimate DESC");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.COMPLETED.getId());
@@ -443,8 +447,8 @@ public class DashboardTodayColumnService {
     private List<Project> loadProjectList(WebUser webUser, Session dataSession) {
         Query query = dataSession
                 .createQuery(
-                        "from Project where provider = ? and (phaseCode is null or phaseCode = 'Acti') order by projectName");
-        query.setParameter(0, webUser.getProvider());
+                        "from Project where workspaceId = ? and (phaseCode is null or phaseCode = 'Acti') order by projectName");
+        query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();
         return projectList;

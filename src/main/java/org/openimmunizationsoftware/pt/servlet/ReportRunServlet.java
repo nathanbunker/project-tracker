@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -29,6 +28,7 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.CentralControl;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.MailManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
@@ -100,8 +100,7 @@ public class ReportRunServlet extends ClientServlet {
     if (!webUser.isEmailVerified()) {
       return false;
     }
-    ProjectProvider provider = webUser.getProvider();
-    if (provider == null) {
+    if (WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()) == null) {
       return false;
     }
     if (webUser.getProjectContact() == null) {
@@ -284,6 +283,12 @@ public class ReportRunServlet extends ClientServlet {
         List<ReportProfile> reportProfileList = query.list();
         ReportProfile reportProfile = reportProfileList.get(0);
         ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+        if (reportProfile.getWorkspaceId() == null
+            || appReq.getActiveWorkspaceId() == null
+            || !appReq.getActiveWorkspaceId().equals(reportProfile.getWorkspaceId())) {
+          forwardToHome(request, response);
+          return;
+        }
 
         String period = request.getParameter("period");
         String runDateString = request.getParameter("runDate");
@@ -365,7 +370,12 @@ public class ReportRunServlet extends ClientServlet {
 
         List<ReportProfile> reportProfileList = new ArrayList<ReportProfile>();
         for (int profileId : dailyReportDetailsMap.keySet()) {
-          reportProfileList.add((ReportProfile) dataSession.get(ReportProfile.class, profileId));
+          ReportProfile reportProfile = (ReportProfile) dataSession.get(ReportProfile.class, profileId);
+          if (reportProfile != null && reportProfile.getWorkspaceId() != null
+              && appReq.getActiveWorkspaceId() != null
+              && appReq.getActiveWorkspaceId().equals(reportProfile.getWorkspaceId())) {
+            reportProfileList.add(reportProfile);
+          }
         }
 
         Collections.sort(reportProfileList, new Comparator<ReportProfile>() {

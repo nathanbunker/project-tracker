@@ -64,14 +64,22 @@ public class ProjectEditServlet extends ClientServlet {
 
       Project project = null;
       ProjectContactAssigned projectContactAssignedForThisUser = null;
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
       if (request.getParameter("projectId") != null
           && !request.getParameter("projectId").equals("0")) {
         int projectId = Integer.parseInt(request.getParameter("projectId"));
         project = (Project) dataSession.get(Project.class, projectId);
+        if (project == null || project.getWorkspaceId() == null
+            || activeWorkspaceId == null
+            || !activeWorkspaceId.equals(project.getWorkspaceId())) {
+          forwardToHome(request, response);
+          return;
+        }
         projectContactAssignedForThisUser = ProjectServlet.getProjectContactAssigned(webUser, dataSession, project);
       } else {
         project = new Project();
-        project.setProvider(webUser.getProvider());
+        project.setWorkspaceId(activeWorkspaceId);
+        project.setCreatedByWebUserId(webUser.getWebUserId());
       }
 
       if (action != null) {
@@ -83,6 +91,8 @@ public class ProjectEditServlet extends ClientServlet {
           project.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           project.setPriorityLevel(Integer.parseInt(request.getParameter("priorityLevel")));
           project.setWebUser(webUser);
+          project.setWorkspaceId(activeWorkspaceId);
+          project.setLastModifiedByWebUserId(webUser.getWebUserId());
           project.setProjectName(trim(request.getParameter("projectName"), 100));
           String projectIcon = trim(request.getParameter("projectIcon"), 8);
           if (projectIcon.equals("")) {
@@ -142,8 +152,8 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("    <td class=\"boxed\"><select name=\"categoryCode\">");
       {
         Query query = dataSession.createQuery(
-            "from ProjectCategory where provider = :provider order by sortOrder, clientName");
-        query.setParameter("provider", webUser.getProvider());
+            "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
+        query.setParameter("workspaceId", activeWorkspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectCategory> projectCategoryList = query.list();
         for (ProjectCategory projectCategory : projectCategoryList) {
@@ -205,8 +215,8 @@ public class ProjectEditServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">Bill Code</th>");
         out.println("    <td class=\"boxed\"><select name=\"billCode\">");
         Query query = dataSession.createQuery(
-            "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
-        query.setParameter("provider", webUser.getProvider());
+            "from BillCode where workspaceId = :workspaceId and visible = 'Y' order by billLabel");
+        query.setParameter("workspaceId", activeWorkspaceId);
         @SuppressWarnings("unchecked")
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {

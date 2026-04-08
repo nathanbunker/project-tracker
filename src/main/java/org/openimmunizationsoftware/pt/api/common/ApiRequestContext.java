@@ -27,13 +27,13 @@ public final class ApiRequestContext {
 
         private final int clientId;
         private final String username;
-        private final String providerId;
+        private final Integer workspaceId;
         private final String agentName;
 
-        public ApiClientInfo(int clientId, String username, String providerId, String agentName) {
+        public ApiClientInfo(int clientId, String username, Integer workspaceId, String agentName) {
             this.clientId = clientId;
             this.username = username;
-            this.providerId = providerId;
+            this.workspaceId = workspaceId;
             this.agentName = agentName;
         }
 
@@ -45,8 +45,12 @@ public final class ApiRequestContext {
             return username;
         }
 
+        public Integer getWorkspaceId() {
+            return workspaceId;
+        }
+
         public String getProviderId() {
-            return providerId;
+            return workspaceId == null ? null : String.valueOf(workspaceId);
         }
 
         public String getAgentName() {

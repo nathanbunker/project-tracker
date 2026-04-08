@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="WorkspaceMember" table="workspace_member">
+        <id name="workspaceMemberId" type="int">
+            <column name="workspace_member_id" />
+            <generator class="native" />
+        </id>
+        <property name="workspaceId" type="int">
+            <column name="workspace_id" not-null="true" />
+        </property>
+        <property name="webUserId" type="int">
+            <column name="web_user_id" not-null="true" />
+        </property>
+        <property name="memberRole" type="string">
+            <column name="member_role" length="20" not-null="true" />
+        </property>
+        <property name="membershipStatus" type="string">
+            <column name="membership_status" length="20" not-null="true" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" length="19" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

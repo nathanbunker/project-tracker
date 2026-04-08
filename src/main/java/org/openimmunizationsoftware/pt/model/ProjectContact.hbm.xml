@@ -47,8 +47,10 @@
         <property name="emailAlert" type="string">
             <column name="email_alert" length="1" not-null="true" />
         </property>
+        <property name="workspaceId" type="java.lang.Integer">
+            <column name="workspace_id" />
+        </property>
         
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
         <many-to-one name="address" column="address_id" class="ProjectAddress"/>
         
     </class>

@@ -4,23 +4,40 @@ public class BillCodeId implements java.io.Serializable {
 
     private static final long serialVersionUID = 1517975497756549050L;
 
-    private String providerId;
+    private Integer workspaceId;
     private String billCode;
 
     public BillCodeId() {
     }
 
-    public BillCodeId(String providerId, String billCode) {
-        this.providerId = providerId;
+    public BillCodeId(Integer workspaceId, String billCode) {
+        this.workspaceId = workspaceId;
         this.billCode = billCode;
     }
 
+    public BillCodeId(String providerId, String billCode) {
+        setProviderId(providerId);
+        this.billCode = billCode;
+    }
+
+    public Integer getWorkspaceId() {
+        return workspaceId;
+    }
+
+    public void setWorkspaceId(Integer workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
     public String getProviderId() {
-        return providerId;
+        return workspaceId == null ? null : String.valueOf(workspaceId);
     }
 
     public void setProviderId(String providerId) {
-        this.providerId = providerId;
+        if (providerId == null || providerId.trim().equals("")) {
+            this.workspaceId = null;
+            return;
+        }
+        this.workspaceId = Integer.valueOf(providerId.trim());
     }
 
     public String getBillCode() {
@@ -40,14 +57,14 @@ public class BillCodeId implements java.io.Serializable {
             return false;
         }
         BillCodeId castOther = (BillCodeId) other;
-        return safeEquals(providerId, castOther.providerId)
+        return safeEquals(workspaceId, castOther.workspaceId)
                 && safeEquals(billCode, castOther.billCode);
     }
 
     @Override
     public int hashCode() {
         int result = 17;
-        result = 37 * result + (providerId == null ? 0 : providerId.hashCode());
+        result = 37 * result + (workspaceId == null ? 0 : workspaceId.hashCode());
         result = 37 * result + (billCode == null ? 0 : billCode.hashCode());
         return result;
     }

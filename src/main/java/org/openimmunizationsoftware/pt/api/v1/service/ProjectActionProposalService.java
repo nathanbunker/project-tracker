@@ -13,16 +13,16 @@ import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
 
 public class ProjectActionProposalService {
 
-    public List<Project> listProjectsVisibleToClient(String providerId, String username) {
+    public List<Project> listProjectsVisibleToClient(int workspaceId, String username) {
         Session session = HibernateRequestContext.getCurrentSession();
         StringBuilder hql = new StringBuilder(
-                "from Project p where p.provider.providerId = :providerId");
+                "from Project p where p.workspaceId = :workspaceId");
         if (username != null && username.trim().length() > 0) {
             hql.append(" and p.webUser.username = :username");
         }
         hql.append(" order by p.priorityLevel desc, p.categoryCode, p.projectName");
         Query query = session.createQuery(hql.toString());
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         if (username != null && username.trim().length() > 0) {
             query.setString("username", username.trim());
         }
@@ -31,55 +31,55 @@ public class ProjectActionProposalService {
         return results;
     }
 
-    public List<ProjectActionNext> listActionsNextForProject(String providerId, int projectId) {
+    public List<ProjectActionNext> listActionsNextForProject(int workspaceId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.provider.providerId = :providerId");
+                "from ProjectActionNext pan where pan.projectId = :projectId and pan.workspaceId = :workspaceId");
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionTaken> listActionsTakenForProject(String providerId, int projectId) {
+    public List<ProjectActionTaken> listActionsTakenForProject(int workspaceId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionTaken pat where pat.projectId = :projectId and pat.provider.providerId = :providerId");
+                "from ProjectActionTaken pat where pat.projectId = :projectId and pat.workspaceId = :workspaceId");
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectActionTaken> results = query.list();
         return results;
     }
 
-    public List<ProjectActionProposal> listProposalsForAction(String providerId, int actionNextId) {
+    public List<ProjectActionProposal> listProposalsForAction(int workspaceId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "select pap from ProjectActionProposal pap join pap.project p "
-                        + "where pap.actionNextId = :actionNextId and p.provider.providerId = :providerId "
+                        + "where pap.actionNextId = :actionNextId and p.workspaceId = :workspaceId "
                         + "order by pap.proposalCreateDate desc");
         query.setInteger("actionNextId", actionNextId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectActionProposal> results = query.list();
         return results;
     }
 
-    public ProjectActionProposal createProposal(String providerId, String agentName, int projectId,
+    public ProjectActionProposal createProposal(int workspaceId, String agentName, int projectId,
             Integer actionNextId, String proposedPatchJson, String summary, String rationale,
             Integer contactId) {
         Session session = HibernateRequestContext.getCurrentSession();
-        Project project = requireProject(providerId, projectId);
+        Project project = requireProject(workspaceId, projectId);
         ProjectActionNext action = null;
         if (actionNextId != null) {
-            action = requireAction(providerId, projectId, actionNextId.intValue());
+            action = requireAction(workspaceId, projectId, actionNextId.intValue());
         }
 
         int clientId = ApiRequestContext.getCurrentClient().getClientId();
         Date now = new Date();
 
-        supersedeActiveForTarget(providerId, clientId, projectId, actionNextId, now);
+        supersedeActiveForTarget(workspaceId, clientId, projectId, actionNextId, now);
 
         ProjectActionProposal proposal = new ProjectActionProposal();
         proposal.setClientId(clientId);
@@ -99,16 +99,16 @@ public class ProjectActionProposalService {
         return proposal;
     }
 
-    public void supersedeProposal(String providerId, int proposalId) {
+    public void supersedeProposal(int workspaceId, int proposalId) {
         int clientId = ApiRequestContext.getCurrentClient().getClientId();
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "select pap from ProjectActionProposal pap join pap.project p "
                         + "where pap.proposalId = :proposalId and pap.clientId = :clientId "
-                        + "and p.provider.providerId = :providerId");
+                        + "and p.workspaceId = :workspaceId");
         query.setInteger("proposalId", proposalId);
         query.setInteger("clientId", clientId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         ProjectActionProposal proposal = (ProjectActionProposal) query.uniqueResult();
         if (proposal == null) {
             throw new IllegalStateException("Proposal not found for client.");
@@ -120,40 +120,40 @@ public class ProjectActionProposalService {
         }
     }
 
-    private Project requireProject(String providerId, int projectId) {
+    private Project requireProject(int workspaceId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from Project p where p.projectId = :projectId and p.provider.providerId = :providerId");
+                "from Project p where p.projectId = :projectId and p.workspaceId = :workspaceId");
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         Project project = (Project) query.uniqueResult();
         if (project == null) {
-            throw new IllegalStateException("Project not found for provider.");
+            throw new IllegalStateException("Project not found for workspace.");
         }
         return project;
     }
 
-    private ProjectActionNext requireAction(String providerId, int projectId, int actionNextId) {
+    private ProjectActionNext requireAction(int workspaceId, int projectId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId "
-                        + "and pan.provider.providerId = :providerId");
+                        + "and pan.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
         if (action == null) {
-            throw new IllegalStateException("Action not found for provider.");
+            throw new IllegalStateException("Action not found for workspace.");
         }
         return action;
     }
 
-    private void supersedeActiveForTarget(String providerId, int clientId, int projectId,
+    private void supersedeActiveForTarget(int workspaceId, int clientId, int projectId,
             Integer actionNextId, Date now) {
         Session session = HibernateRequestContext.getCurrentSession();
         StringBuilder hql = new StringBuilder(
                 "select pap from ProjectActionProposal pap join pap.project p "
-                        + "where pap.clientId = :clientId and p.provider.providerId = :providerId "
+                        + "where pap.clientId = :clientId and p.workspaceId = :workspaceId "
                         + "and pap.proposalStatusString not in (:rejected, :superseded)");
         if (actionNextId != null) {
             hql.append(" and pap.actionNextId = :actionNextId");
@@ -162,7 +162,7 @@ public class ProjectActionProposalService {
         }
         Query query = session.createQuery(hql.toString());
         query.setInteger("clientId", clientId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         query.setString("rejected", "rejected");
         query.setString("superseded", "superseded");
         if (actionNextId != null) {

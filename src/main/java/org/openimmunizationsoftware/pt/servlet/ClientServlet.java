@@ -20,17 +20,16 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.SoftwareVersion;
 import org.openimmunizationsoftware.pt.manager.TimeEntry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
-import org.openimmunizationsoftware.pt.model.BillCodeId;
 import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -370,20 +369,25 @@ public class ClientServlet extends HttpServlet {
         + SoftwareVersion.VERSION + "</p>");
   }
 
-  public static BillCode resolveBillCode(Session dataSession, ProjectProvider provider,
+  public static BillCode resolveBillCode(Session dataSession, Integer workspaceId,
       String billCodeString) {
-    if (provider == null || billCodeString == null || billCodeString.equals("")) {
+    if (workspaceId == null || billCodeString == null || billCodeString.equals("")) {
       return null;
     }
-    BillCodeId billCodeId = new BillCodeId(provider.getProviderId(), billCodeString);
-    return (BillCode) dataSession.get(BillCode.class, billCodeId);
+    Query query = dataSession.createQuery(
+        "from BillCode where workspaceId = :workspaceId and id.billCode = :billCode");
+    query.setParameter("workspaceId", workspaceId);
+    query.setParameter("billCode", billCodeString);
+    @SuppressWarnings("unchecked")
+    List<BillCode> billCodeList = query.list();
+    return billCodeList.isEmpty() ? null : billCodeList.get(0);
   }
 
   public static BillCode resolveBillCode(Session dataSession, Project project) {
     if (project == null) {
       return null;
     }
-    return resolveBillCode(dataSession, project.getProvider(), project.getBillCode());
+    return resolveBillCode(dataSession, project.getWorkspaceId(), project.getBillCode());
   }
 
   private static int calculateWeeklyRoundedMinutesLikeTrackServlet(Session dataSession,

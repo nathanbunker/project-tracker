@@ -14,7 +14,9 @@
         <property name="profileLabel" type="string">
             <column name="profile_label" length="50" />
         </property>
-        <many-to-one name="provider" column="provider_id" class="ProjectProvider"/>
+        <property name="workspaceId" type="java.lang.Integer">
+            <column name="workspace_id" />
+        </property>
         <many-to-one name="webUser" column="web_user_id" class="WebUser"/>
         <property name="profileType" type="string">
             <column name="profile_type" length="3" />

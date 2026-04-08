@@ -32,9 +32,9 @@ public class ProposalsResource extends BaseApiResource {
     public Response supersede(@PathParam("proposalId") int proposalId) {
         requirePositiveId(proposalId, "proposalId");
         ApiRequestContext.ApiClientInfo client = requireClient();
-        String providerId = requireProviderId(client);
+        int workspaceId = requireWorkspaceId(client);
         try {
-            proposalService.supersedeProposal(providerId, proposalId);
+            proposalService.supersedeProposal(workspaceId, proposalId);
         } catch (IllegalStateException ex) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
                     .entity(new ApiErrorResponse("not_found", "Proposal not found.", null))

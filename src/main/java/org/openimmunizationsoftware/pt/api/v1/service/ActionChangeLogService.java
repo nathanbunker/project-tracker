@@ -18,10 +18,10 @@ public class ActionChangeLogService {
 
     private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm";
 
-    public void logChange(String providerId, int actionNextId, int projectId, String actorType,
+    public void logChange(int workspaceId, int actionNextId, int projectId, String actorType,
             String actorId, String sourceType, Integer proposalId, Map<String, FromTo> patch,
             String reason) {
-        ProjectActionNext action = requireAction(providerId, actionNextId, projectId);
+        ProjectActionNext action = requireAction(workspaceId, actionNextId, projectId);
         Session session = HibernateRequestContext.getCurrentSession();
 
         ProjectActionChangeLog changeLog = new ProjectActionChangeLog();
@@ -45,17 +45,17 @@ public class ActionChangeLogService {
         session.save(changeLog);
     }
 
-    private ProjectActionNext requireAction(String providerId, int actionNextId, int projectId) {
+    private ProjectActionNext requireAction(int workspaceId, int actionNextId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
                 "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId "
-                        + "and pan.provider.providerId = :providerId");
+                        + "and pan.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
         if (action == null) {
-            throw new IllegalStateException("Action not found for provider.");
+            throw new IllegalStateException("Action not found for workspace.");
         }
         return action;
     }

@@ -48,6 +48,7 @@ public class ProjectServlet extends MobileBaseServlet {
 
             WebUser webUser = appReq.getWebUser();
             Session dataSession = appReq.getDataSession();
+            Integer workspaceId = appReq.getActiveWorkspaceId();
 
             // Handle action processing (Complete/Cancel/Reschedule) - works for both GET
             // and POST
@@ -78,7 +79,7 @@ public class ProjectServlet extends MobileBaseServlet {
                 }
             }
 
-            List<Project> projectList = getProjectList(webUser, dataSession);
+            List<Project> projectList = getProjectList(webUser, dataSession, workspaceId);
             Integer selectedProjectId = parseInteger(request.getParameter(PARAM_PROJECT_ID));
             Project selectedProject = findProjectById(projectList, selectedProjectId);
 
@@ -87,10 +88,11 @@ public class ProjectServlet extends MobileBaseServlet {
             PrintWriter out = appReq.getOut();
             if (selectedProject == null) {
                 out.println("<h1>Project</h1>");
-                Map<Integer, Integer> todoCountMap = getTodayTodoCountByProject(webUser, dataSession);
+                Map<Integer, Integer> todoCountMap = getTodayTodoCountByProject(webUser, dataSession, workspaceId);
                 printProjectList(out, projectList, todoCountMap);
             } else {
                 printProjectDetail(out, selectedProject, fetchOpenActionsForProject(webUser, dataSession,
+                        workspaceId,
                         selectedProject.getProjectId()), webUser);
             }
             printHtmlFoot(appReq);
@@ -270,20 +272,21 @@ public class ProjectServlet extends MobileBaseServlet {
         return null;
     }
 
-    private List<ProjectActionNext> fetchOpenActionsForProject(WebUser webUser, Session dataSession, int projectId) {
+    private List<ProjectActionNext> fetchOpenActionsForProject(WebUser webUser, Session dataSession,
+            Integer workspaceId, int projectId) {
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan " +
                         "left join fetch pan.project " +
                         "left join fetch pan.contact " +
                         "left join fetch pan.nextProjectContact " +
-                        "where pan.provider = :provider " +
+                        "where pan.workspaceId = :workspaceId " +
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.projectId = :projectId " +
                         "and pan.nextActionStatusString = :status " +
                         "and (pan.templateTypeString is null or pan.templateTypeString = '') " +
                         "and pan.nextDescription <> '' " +
                         "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("projectId", projectId);
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
@@ -292,12 +295,12 @@ public class ProjectServlet extends MobileBaseServlet {
         return results;
     }
 
-    private List<Project> getProjectList(WebUser webUser, Session dataSession) {
-        String queryString = "from Project where provider = ?";
+    private List<Project> getProjectList(WebUser webUser, Session dataSession, Integer workspaceId) {
+        String queryString = "from Project where workspaceId = :workspaceId";
         queryString += " and phaseCode <> 'Clos'";
         queryString += " order by projectName";
         Query query = dataSession.createQuery(queryString);
-        query.setParameter(0, webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<Project> allProjects = query.list();
 
@@ -310,20 +313,21 @@ public class ProjectServlet extends MobileBaseServlet {
         return filteredProjects;
     }
 
-    private Map<Integer, Integer> getTodayTodoCountByProject(WebUser webUser, Session dataSession) {
+    private Map<Integer, Integer> getTodayTodoCountByProject(WebUser webUser, Session dataSession,
+            Integer workspaceId) {
         Date today = webUser.getToday();
         Date tomorrow = webUser.getTomorrow();
 
         Query query = dataSession.createQuery(
                 "select distinct pan from ProjectActionNext pan " +
                         "left join fetch pan.project " +
-                        "where pan.provider = :provider " +
+                        "where pan.workspaceId = :workspaceId " +
                         "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
                         "and pan.nextActionStatusString = :status " +
                         "and (pan.templateTypeString is null or pan.templateTypeString = '') " +
                         "and pan.nextDescription <> '' " +
                         "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setParameter("today", today);

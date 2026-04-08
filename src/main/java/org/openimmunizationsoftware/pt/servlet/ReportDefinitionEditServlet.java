@@ -48,6 +48,12 @@ public class ReportDefinitionEditServlet extends ClientServlet {
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
       PrintWriter out = appReq.getOut();
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+
+      if (activeWorkspaceId == null) {
+        forwardToHome(request, response);
+        return;
+      }
 
       ReportProfile reportProfile = null;
 
@@ -57,6 +63,11 @@ public class ReportDefinitionEditServlet extends ClientServlet {
       List<ReportProfile> reportProfileList = query.list();
       reportProfile = reportProfileList.get(0);
       ReportsServlet.loadReportProfileObject(dataSession, reportProfile);
+      if (reportProfile.getWorkspaceId() == null
+          || !activeWorkspaceId.equals(reportProfile.getWorkspaceId())) {
+        forwardToHome(request, response);
+        return;
+      }
 
       if (action != null) {
         if (action.equals("Save")) {

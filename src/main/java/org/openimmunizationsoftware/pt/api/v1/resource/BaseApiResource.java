@@ -18,12 +18,21 @@ public abstract class BaseApiResource {
     }
 
     protected String requireProviderId(ApiRequestContext.ApiClientInfo client) {
-        if (client.getProviderId() == null || client.getProviderId().trim().length() == 0) {
+        if (client.getWorkspaceId() == null || client.getWorkspaceId().intValue() <= 0) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN)
-                    .entity(new ApiErrorResponse("forbidden", "Provider scope missing.", null))
+                    .entity(new ApiErrorResponse("forbidden", "Workspace scope missing.", null))
                     .build());
         }
-        return client.getProviderId().trim();
+        return String.valueOf(client.getWorkspaceId());
+    }
+
+    protected int requireWorkspaceId(ApiRequestContext.ApiClientInfo client) {
+        if (client.getWorkspaceId() == null || client.getWorkspaceId().intValue() <= 0) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN)
+                    .entity(new ApiErrorResponse("forbidden", "Workspace scope missing or invalid.", null))
+                    .build());
+        }
+        return client.getWorkspaceId().intValue();
     }
 
     protected void requirePositiveId(int value, String name) {

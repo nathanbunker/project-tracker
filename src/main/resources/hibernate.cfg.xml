@@ -42,7 +42,8 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerNarrative.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectNextActionType.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectPhase.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectProvider.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/Workspace.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/WorkspaceMember.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportProfile.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportSchedule.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerKeys.hbm.xml"/>

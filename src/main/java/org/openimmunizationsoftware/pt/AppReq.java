@@ -72,6 +72,7 @@ public class AppReq {
   private static final String SESSION_VAR_PROJECT = "project";
   private static final String SESSION_VAR_ACTION = "action";
   private static final String SESSION_VAR_APP_TYPE = "appType";
+  private static final String SESSION_VAR_ACTIVE_WORKSPACE_ID = "activeWorkspaceId";
 
   public static final String PARAM_ACTION = "action";
 
@@ -90,6 +91,7 @@ public class AppReq {
   private Project projectSelected = null;
   private ProjectActionNext projectActionSelected = null;
   private WebUser webUser = null;
+  private Integer activeWorkspaceId = null;
   private String currentRememberMeTokenHash = null;
 
   private String title = "";
@@ -177,6 +179,19 @@ public class AppReq {
     return webUser;
   }
 
+  public Integer getActiveWorkspaceId() {
+    return activeWorkspaceId;
+  }
+
+  public void setActiveWorkspaceId(Integer activeWorkspaceId) {
+    this.activeWorkspaceId = activeWorkspaceId;
+    if (activeWorkspaceId == null) {
+      webSession.removeAttribute(SESSION_VAR_ACTIVE_WORKSPACE_ID);
+    } else {
+      webSession.setAttribute(SESSION_VAR_ACTIVE_WORKSPACE_ID, activeWorkspaceId);
+    }
+  }
+
   public String getMessageProblem() {
     return messageProblem;
   }
@@ -230,6 +245,7 @@ public class AppReq {
     this.response = response;
     webSession = request.getSession(true);
     webUser = (WebUser) webSession.getAttribute(SESSION_VAR_WEB_USER);
+    activeWorkspaceId = (Integer) webSession.getAttribute(SESSION_VAR_ACTIVE_WORKSPACE_ID);
     SessionFactory factory = CentralControl.getSessionFactory();
     dataSession = factory.openSession();
     if (webUser == null) {
@@ -294,6 +310,7 @@ public class AppReq {
     this.webUser = webUser;
     if (webUser == null) {
       webSession.removeAttribute(SESSION_VAR_WEB_USER);
+      setActiveWorkspaceId(null);
     } else {
       webSession.setAttribute(SESSION_VAR_WEB_USER, webUser);
     }
@@ -464,13 +481,9 @@ public class AppReq {
     }
     currentRememberMeTokenHash = tokenHash;
 
-    // Force-initialize the lazy provider association before storing in session.
-    if (restoredUser.getProvider() != null) {
-      restoredUser.getProvider().getProviderId();
-    }
-
     // Initialize transient session preferences from persisted key-values.
     setWebUser(restoredUser);
+    setActiveWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, restoredUser.getWebUserId()));
     ProjectContact projectContact = (ProjectContact) dataSession.get(ProjectContact.class, restoredUser.getContactId());
     restoredUser.setProjectContact(projectContact);
     restoredUser.setTrackTime(TrackerKeysManager
@@ -501,6 +514,7 @@ public class AppReq {
     RememberMeManager.clearRememberMeCookie(response, currentRememberMeTokenHash, dataSession);
     webSession.invalidate();
     webSession = request.getSession(true);
+    activeWorkspaceId = null;
   }
 
   public void setProjectSelected(Project projectSelected) {

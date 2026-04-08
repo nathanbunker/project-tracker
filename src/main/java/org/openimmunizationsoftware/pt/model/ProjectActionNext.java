@@ -13,7 +13,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private int actionNextId;
     private int projectId;
     private int contactId;
-    private ProjectProvider provider;
+    private Integer workspaceId;
     private ProjectContact contact;
     private Project project;
     private ProjectActionNext blockedBy;
@@ -67,12 +67,12 @@ public class ProjectActionNext implements java.io.Serializable {
         this.contactId = contactId;
     }
 
-    public ProjectProvider getProvider() {
-        return provider;
+    public Integer getWorkspaceId() {
+        return workspaceId;
     }
 
-    public void setProvider(ProjectProvider provider) {
-        this.provider = provider;
+    public void setWorkspaceId(Integer workspaceId) {
+        this.workspaceId = workspaceId;
     }
 
     public ProjectContact getContact() {

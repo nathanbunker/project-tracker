@@ -9,11 +9,11 @@ import java.util.List;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectProvider;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -335,14 +335,9 @@ public class TimeTracker {
     if (project.getBillCode() != null && !project.getBillCode().equals("")) {
       BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
       if (billCode != null) {
-        ProjectProvider provider = webUser.getProvider();
-        if (provider == null) {
-          provider = project.getProvider();
-        }
-        if (provider == null || provider.getProviderId() == null
-            || provider.getProviderId().trim().equals("")) {
-          throw new IllegalStateException(
-              "Unable to start timer: provider is not set for user/project.");
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        if (workspaceId == null) {
+          workspaceId = project.getWorkspaceId();
         }
         BillEntry billEntry = new BillEntry();
         billEntry.setProjectId(project.getProjectId());
@@ -354,7 +349,7 @@ public class TimeTracker {
         billEntry.setBillMins(0);
         billEntry.setBillable(billCode.getBillable());
         billEntry.setBillCode(billCode.getBillCode());
-        billEntry.setProvider(provider);
+        billEntry.setWorkspaceId(workspaceId);
         Transaction trans = dataSession.beginTransaction();
         try {
           dataSession.save(billEntry);

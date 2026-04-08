@@ -15,7 +15,9 @@
       <column name="contact_id" not-null="true" />
     </property>
     <many-to-one name="contact" column="contact_id" class="ProjectContact" insert="false" update="false" lazy="proxy" fetch="select"/>
-    <many-to-one name="provider" column="provider_id" class="ProjectProvider" lazy="proxy" fetch="select"/>
+    <property name="workspaceId" type="java.lang.Integer">
+      <column name="workspace_id" />
+    </property>
     <property name="nextActionStatusString" type="string">
       <column name="next_action_status" length="1" not-null="true" />
     </property>

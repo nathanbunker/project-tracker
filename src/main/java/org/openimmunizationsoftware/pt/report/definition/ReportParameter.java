@@ -6,6 +6,7 @@ import java.util.List;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -129,11 +130,15 @@ public class ReportParameter {
       return createTextInput(sdf.format(value));
     } else if (type.equals(TYPE_DROPDOWN)) {
       String value = TrackerKeysManager.getReportKeyValue(name, defaultValue, profile, dataSession);
+      Integer workspaceId = profile.getWorkspaceId();
+      if (workspaceId == null && webUser != null) {
+        workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+      }
       if (dropdownLink.equals(DROPDOWN_PROJECT_BILLCODE)) {
         sbuf.append("<select name=\"" + name + "\">");
         Query query = dataSession.createQuery(
-            "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
-        query.setParameter("provider", webUser.getProvider());
+            "from BillCode where workspaceId = :workspaceId and visible = 'Y' order by billLabel");
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<BillCode> billCodeList = query.list();
         for (BillCode billCode : billCodeList) {
@@ -149,8 +154,8 @@ public class ReportParameter {
       } else if (dropdownLink.equals(DROPDOWN_PROJECT_CATEGORY)) {
         sbuf.append("<select name=\"" + name + "\">");
         Query query = dataSession.createQuery(
-            "from ProjectCategory where provider = provider order by sortOrder, clientName");
-        query.setParameter("provider", webUser.getProvider());
+            "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<ProjectCategory> projectCategoryList = query.list();
         for (ProjectCategory projectCategory : projectCategoryList) {
@@ -166,9 +171,9 @@ public class ReportParameter {
       } else if (dropdownLink.equals(DROPDOWN_TRACK_BILL_BUDGET_ID)) {
         sbuf.append("<select name=\"" + name + "\">");
         Query query = dataSession.createQuery(
-            "from BillBudget where billCode.provider = :provider and billCode.visible = 'Y' "
+            "from BillBudget where workspaceId = :workspaceId and billCode.visible = 'Y' "
                 + "order by billCode.billLabel, billBudgetCode");
-        query.setParameter("provider", webUser.getProvider());
+        query.setParameter("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
         List<BillBudget> billBudgetList = query.list();
         for (BillBudget billBudget : billBudgetList) {

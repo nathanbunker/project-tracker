@@ -8,8 +8,11 @@
             <column name="bill_month_id" />
             <generator class="native" />
         </id>
+        <property name="workspaceId" type="java.lang.Integer" insert="false" update="false">
+            <column name="workspace_id" />
+        </property>
         <many-to-one name="billCode" class="BillCode">
-            <column name="provider_id" length="30" not-null="true" />
+            <column name="workspace_id" />
             <column name="bill_code" length="15" not-null="true" />
         </many-to-one>
         <property name="billDate" type="date">

@@ -70,12 +70,12 @@ public class ProjectNarrativeDao {
     }
 
     @SuppressWarnings("unchecked")
-    public List<ProjectNarrative> listByContactProviderUpdatedAfter(String providerId, int contactId,
+    public List<ProjectNarrative> listByWorkspaceAndContactUpdatedAfter(int workspaceId, int contactId,
             Date updatedAfter) {
         Query query = session.createQuery(
-                "from ProjectNarrative where providerId = :providerId and contactId = :contactId "
+                "from ProjectNarrative where workspaceId = :workspaceId and contactId = :contactId "
                         + "and lastUpdated > :updatedAfter order by lastUpdated asc");
-        query.setString("providerId", providerId);
+        query.setInteger("workspaceId", workspaceId);
         query.setInteger("contactId", contactId);
         query.setTimestamp("updatedAfter", updatedAfter);
         return query.list();

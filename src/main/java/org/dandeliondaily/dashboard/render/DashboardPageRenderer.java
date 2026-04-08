@@ -1213,8 +1213,8 @@ public class DashboardPageRenderer {
                 out.println("        <label class=\"dd-form-label\">Category:</label>");
                 out.println("        <select id=\"ddCurrentProjectCategory\" name=\"categoryCode\" class=\"dd-form-input\">");
                 Query categoryQuery = dataSession.createQuery(
-                                "from ProjectCategory where provider = :provider order by sortOrder, clientName");
-                categoryQuery.setParameter("provider", webUser.getProvider());
+                                "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
+                categoryQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
                 List<ProjectCategory> projectCategoryList = categoryQuery.list();
                 for (ProjectCategory projectCategory : projectCategoryList) {
                         String categoryCode = projectCategory.getCategoryCode();
@@ -1290,9 +1290,14 @@ public class DashboardPageRenderer {
                 out.println("        <label class=\"dd-form-label\">Bill Code:</label>");
                 out.println("        <select id=\"ddCurrentProjectBillCode\" name=\"billCode\" class=\"dd-form-input\">");
                 out.println("          <option value=\"\">(none)</option>");
+                Integer workspaceId = appReq.getActiveWorkspaceId();
+                if (workspaceId == null && webUser != null) {
+                        workspaceId = org.openimmunizationsoftware.pt.WorkspaceRegistry
+                                        .getWorkspaceIdForWebUserId(webUser.getWebUserId());
+                }
                 Query billCodeQuery = dataSession.createQuery(
-                                "from BillCode where provider = :provider and visible = 'Y' order by billLabel");
-                billCodeQuery.setParameter("provider", webUser.getProvider());
+                                "from BillCode where workspaceId = :workspaceId and visible = 'Y' order by billLabel");
+                billCodeQuery.setParameter("workspaceId", workspaceId);
                 List<BillCode> billCodeList = billCodeQuery.list();
                 for (BillCode billCode : billCodeList) {
                         String selected = billCode.getBillCode() != null
@@ -2554,8 +2559,8 @@ public class DashboardPageRenderer {
                 int currentContactId = webUser.getProjectContact().getContactId();
 
                 Query query = dataSession.createQuery(
-                                "from ProjectContact where provider = :provider order by nameLast, nameFirst");
-                query.setParameter("provider", webUser.getProvider());
+                                "from ProjectContact where workspaceId = :workspaceId order by nameLast, nameFirst");
+                query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
                 @SuppressWarnings("unchecked")
                 List<ProjectContact> contacts = query.list();
                 for (ProjectContact contact : contacts) {

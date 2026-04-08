@@ -21,7 +21,9 @@ public class Project implements java.io.Serializable {
   private Integer profileId;
   private String billCode;
   private String projectIcon;
-  private ProjectProvider provider;
+  private Integer workspaceId;
+  private Integer createdByWebUserId;
+  private Integer lastModifiedByWebUserId;
   private WebUser webUser;
   private ProjectCategory projectCategory = null;
   private ProjectPhase projectPhase = null;
@@ -160,6 +162,30 @@ public class Project implements java.io.Serializable {
     this.projectIcon = projectIcon;
   }
 
+  public Integer getWorkspaceId() {
+    return workspaceId;
+  }
+
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
+  }
+
+  public Integer getCreatedByWebUserId() {
+    return createdByWebUserId;
+  }
+
+  public void setCreatedByWebUserId(Integer createdByWebUserId) {
+    this.createdByWebUserId = createdByWebUserId;
+  }
+
+  public Integer getLastModifiedByWebUserId() {
+    return lastModifiedByWebUserId;
+  }
+
+  public void setLastModifiedByWebUserId(Integer lastModifiedByWebUserId) {
+    this.lastModifiedByWebUserId = lastModifiedByWebUserId;
+  }
+
   public String getUsername() {
     return webUser != null ? webUser.getUsername() : null;
   }
@@ -174,14 +200,6 @@ public class Project implements java.io.Serializable {
 
   public void setWebUser(WebUser webUser) {
     this.webUser = webUser;
-  }
-
-  public ProjectProvider getProvider() {
-    return provider;
-  }
-
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
   }
 
 }

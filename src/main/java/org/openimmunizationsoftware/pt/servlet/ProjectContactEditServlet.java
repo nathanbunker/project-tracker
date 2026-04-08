@@ -55,11 +55,12 @@ public class ProjectContactEditServlet extends ClientServlet {
       SimpleDateFormat sdf = webUser.getDateFormat();
 
       ProjectContact projectContact;
+      Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
 
       if (request.getParameter("projectContactId") == null
           || request.getParameter("projectContactId").equals("")) {
         projectContact = new ProjectContact();
-        projectContact.setProvider(webUser.getProvider());
+        projectContact.setWorkspaceId(activeWorkspaceId);
         projectContact.setEmailAlert("Y");
         projectContact.setNameFirst(n(request.getParameter("nameFirst")));
         projectContact.setNameLast(n(request.getParameter("nameLast")));
@@ -70,11 +71,17 @@ public class ProjectContactEditServlet extends ClientServlet {
         @SuppressWarnings("unchecked")
         List<ProjectContact> projectContactList = query.list();
         projectContact = projectContactList.get(0);
+        if (projectContact.getWorkspaceId() == null || activeWorkspaceId == null
+            || !activeWorkspaceId.equals(projectContact.getWorkspaceId())) {
+          forwardToHome(request, response);
+          return;
+        }
       }
 
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
+          projectContact.setWorkspaceId(activeWorkspaceId);
           projectContact.setNameLast(trim(request.getParameter("nameLast"), 60));
           projectContact.setNameFirst(trim(request.getParameter("nameFirst"), 60));
           projectContact.setOrganizationName(trim(request.getParameter("organizationName"), 90));

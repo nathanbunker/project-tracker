@@ -13,7 +13,7 @@ public class ProjectCategory implements java.io.Serializable {
   private Integer sortOrder;
   private String visible;
   private String clientAcronym;
-  private ProjectProvider provider = null;
+  private Integer workspaceId;
 
   public String getClientName() {
     return this.clientName;
@@ -54,6 +54,14 @@ public class ProjectCategory implements java.io.Serializable {
     this.clientAcronym = clientAcronym;
   }
 
+  public Integer getWorkspaceId() {
+    return workspaceId;
+  }
+
+  public void setWorkspaceId(Integer workspaceId) {
+    this.workspaceId = workspaceId;
+  }
+
   public int getProjectContactId() {
     return projectContactId;
   }
@@ -68,14 +76,6 @@ public class ProjectCategory implements java.io.Serializable {
 
   public void setCategoryCode(String categoryCode) {
     this.categoryCode = categoryCode;
-  }
-
-  public ProjectProvider getProvider() {
-    return provider;
-  }
-
-  public void setProvider(ProjectProvider provider) {
-    this.provider = provider;
   }
 
   public int getProjectCategoryId() {

@@ -189,7 +189,8 @@ public class ActionSentenceImportService {
         nextAction.setNextDescription(actionToTake);
         nextAction.setNextTimeEstimate(nextTimeEstimate);
         nextAction.setNextChangeDate(new Date());
-        nextAction.setProvider(webUser.getProvider());
+        nextAction.setWorkspaceId(org.openimmunizationsoftware.pt.WorkspaceRegistry
+                .getWorkspaceIdForWebUserId(webUser.getWebUserId()));
         nextAction.setContact(webUser.getProjectContact());
         nextAction.setBillable(resolveBillable(dataSession, foundProject));
         if (extractedUrl != null && extractedUrl.length() > 0) {
