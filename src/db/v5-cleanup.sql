@@ -1,6 +1,5 @@
 -- v5 cleanup: remove closed projects and directly related records
--- NOTE: This script currently targets phase_code = 'Acti' per request.
--- If your closed phase code is different, update the WHERE clause below.
+-- Targets project_status = 'Closed' for hard cutover schema.
 
 START TRANSACTION;
 
@@ -11,7 +10,7 @@ CREATE TEMPORARY TABLE tmp_projects_to_delete (
 INSERT INTO tmp_projects_to_delete (project_id)
 SELECT p.project_id
 FROM project p
-WHERE p.phase_code = 'Clos';
+WHERE p.project_status = 'Closed';
 
 -- Preview the number of projects selected for deletion.
 SELECT COUNT(*) AS projects_to_delete
@@ -89,10 +88,3 @@ JOIN tmp_projects_to_delete tpd ON tpd.project_id = p.project_id;
 DROP TEMPORARY TABLE tmp_projects_to_delete;
 
 COMMIT;
-
-DELETE FROM project_category pc
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM project p
-    WHERE p.category_code = pc.category_code
-);

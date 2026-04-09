@@ -39,6 +39,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.TrackerKeys;
@@ -611,12 +612,11 @@ public class RegistrationServlet extends ClientServlet {
 
         Project project = new Project();
         project.setWorkspaceId(workspaceId);
-        project.setProviderName(trim(setupDisplayName(webUser), 45));
         project.setWebUser(webUser);
         project.setProjectName(trim(projectName, 100));
         project.setProjectHandle(HandleValidationSupport.resolveHandle("", project.getProjectName(), 60));
         project.setBillCode(billCode.getBillCode());
-        project.setPhaseCode("Acti");
+        project.setProjectStatus(ProjectStatus.ACTIVE.getDatabaseValue());
         project.setPriorityLevel(0);
         dataSession.save(project);
 
@@ -1000,16 +1000,6 @@ public class RegistrationServlet extends ClientServlet {
 
     private boolean hasProvider(WebUser webUser) {
         return webUser != null && WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()) != null;
-    }
-
-    private String setupDisplayName(WebUser webUser) {
-        if (webUser == null) {
-            return "Workspace";
-        }
-        String firstName = safe(webUser.getFirstName()).trim();
-        String lastName = safe(webUser.getLastName()).trim();
-        String fullName = (firstName + " " + lastName).trim();
-        return fullName.equals("") ? safe(webUser.getUsername()) : fullName;
     }
 
     private String firstNonEmpty(String primary, String fallback) {

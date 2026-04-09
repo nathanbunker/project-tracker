@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectTag" table="project_tag">
+        <id name="projectTagId" type="int">
+            <column name="project_tag_id" />
+            <generator class="identity" />
+        </id>
+        <property name="workspaceId" type="int">
+            <column name="workspace_id" not-null="true" />
+        </property>
+        <property name="tagName" type="string">
+            <column name="tag_name" length="100" not-null="true" />
+        </property>
+        <property name="tagHandle" type="string">
+            <column name="tag_handle" length="60" not-null="true" />
+        </property>
+        <property name="tagStatus" type="string">
+            <column name="tag_status" length="20" not-null="true" />
+        </property>
+        <property name="sortOrder" type="java.lang.Integer">
+            <column name="sort_order" />
+        </property>
+        <property name="createdByWebUserId" type="java.lang.Integer">
+            <column name="created_by_web_user_id" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

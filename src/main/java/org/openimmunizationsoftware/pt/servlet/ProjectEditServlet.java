@@ -18,10 +18,9 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
-import org.openimmunizationsoftware.pt.model.ProjectPhase;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -86,8 +85,8 @@ public class ProjectEditServlet extends ClientServlet {
         String message = null;
         if (action.equals("Save")) {
           project.setDescription(trim(request.getParameter("description"), 1200));
-          project.setCategoryCode(request.getParameter("categoryCode"));
-          project.setPhaseCode(request.getParameter("phaseCode"));
+          String projectStatus = trim(request.getParameter("projectStatus"), 20);
+          project.setProjectStatus(ProjectStatus.fromDatabaseValue(projectStatus).getDatabaseValue());
           project.setProjectId(Integer.parseInt(request.getParameter("projectId")));
           project.setPriorityLevel(Integer.parseInt(request.getParameter("priorityLevel")));
           project.setWebUser(webUser);
@@ -107,17 +106,19 @@ public class ProjectEditServlet extends ClientServlet {
           }
           if (project.getProjectName().equals("")) {
             message = "Project name is required";
-          } else if ((project.getPhaseCode() == null || !project.getPhaseCode().equals("Clos"))
+          } else if (!ProjectStatus.CLOSED.getDatabaseValue().equalsIgnoreCase(project.getProjectStatus())
               && projectHandle.length() == 0) {
             message = "Project handle is required for active projects";
           } else {
             message = HandleValidationSupport.validateHandleCharacters("Project handle", projectHandle);
-            if (message == null && (project.getPhaseCode() == null || !project.getPhaseCode().equals("Clos"))) {
+            if (message == null
+                && !ProjectStatus.CLOSED.getDatabaseValue().equalsIgnoreCase(project.getProjectStatus())) {
               Query uniqueQuery = dataSession.createQuery(
-                  "select count(*) from Project where workspaceId = :workspaceId and lower(projectHandle) = :projectHandle and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
+                  "select count(*) from Project where workspaceId = :workspaceId and lower(projectHandle) = :projectHandle and projectId <> :projectId and projectStatus <> :closedStatus");
               uniqueQuery.setParameter("workspaceId", activeWorkspaceId);
               uniqueQuery.setParameter("projectHandle", projectHandle.toLowerCase());
               uniqueQuery.setParameter("projectId", project.getProjectId());
+              uniqueQuery.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
               Number duplicateCount = (Number) uniqueQuery.uniqueResult();
               if (duplicateCount != null && duplicateCount.intValue() > 0) {
                 message = "Project handle must be unique among active projects in this workspace";
@@ -172,33 +173,6 @@ public class ProjectEditServlet extends ClientServlet {
           + n(project.getProjectHandle()) + "\" size=\"30\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Category</th>");
-      out.println("    <td class=\"boxed\"><select name=\"categoryCode\">");
-      {
-        Query query = dataSession.createQuery(
-            "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
-        query.setParameter("workspaceId", activeWorkspaceId);
-        @SuppressWarnings("unchecked")
-        List<ProjectCategory> projectCategoryList = query.list();
-        for (ProjectCategory projectCategory : projectCategoryList) {
-          if (projectCategory.getCategoryCode().startsWith("PER-")) {
-            if (!projectCategory.getCategoryCode().equals("PER-" + webUser.getContactId())) {
-              continue;
-            }
-          }
-          if (projectCategory.getCategoryCode().equals(project.getCategoryCode())) {
-            out.println("      <option value=\"" + projectCategory.getCategoryCode()
-                + "\" selected>" + projectCategory.getClientNameForDropdown() + "</option>");
-          } else {
-            out.println("      <option value=\"" + projectCategory.getCategoryCode() + "\">"
-                + projectCategory.getClientNameForDropdown() + "</option>");
-          }
-        }
-        out.println("      </select>");
-      }
-      out.println("    </td>");
-      out.println("  </tr>");
-      out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Priority Level</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"priorityLevel\" value=\""
           + project.getPriorityLevel() + "\" size=\"3\"></td>");
@@ -215,19 +189,17 @@ public class ProjectEditServlet extends ClientServlet {
               + n(project.getDescription()) + "</textarea></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Phase</th>");
-      out.println("    <td class=\"boxed\"><select name=\"phaseCode\">");
+      out.println("    <th class=\"boxed\">Status</th>");
+      out.println("    <td class=\"boxed\"><select name=\"projectStatus\">");
       {
-        Query query = dataSession.createQuery("from ProjectPhase");
-        @SuppressWarnings("unchecked")
-        List<ProjectPhase> projectPhaseList = query.list();
-        for (ProjectPhase projectPhase : projectPhaseList) {
-          if (projectPhase.getPhaseCode().equals(project.getPhaseCode())) {
-            out.println("      <option value=\"" + projectPhase.getPhaseCode() + "\" selected>"
-                + projectPhase.getPhaseLabel() + "</option>");
+        String selectedStatus = ProjectStatus.fromDatabaseValue(project.getProjectStatus()).getDatabaseValue();
+        for (ProjectStatus status : ProjectStatus.values()) {
+          if (status.getDatabaseValue().equalsIgnoreCase(selectedStatus)) {
+            out.println("      <option value=\"" + status.getDatabaseValue() + "\" selected>"
+                + status.getDatabaseValue() + "</option>");
           } else {
-            out.println("      <option value=\"" + projectPhase.getPhaseCode() + "\">"
-                + projectPhase.getPhaseLabel() + "</option>");
+            out.println("      <option value=\"" + status.getDatabaseValue() + "\">"
+                + status.getDatabaseValue() + "</option>");
           }
         }
         out.println("      </select>");

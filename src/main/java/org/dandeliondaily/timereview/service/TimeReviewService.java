@@ -21,7 +21,7 @@ import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.dandeliondaily.timereview.model.TimeEntryModel;
 import org.dandeliondaily.timereview.model.TimeReviewDayModel;
@@ -200,7 +200,7 @@ public class TimeReviewService {
         dayModel.setHasEntries(!dayEntries.isEmpty());
 
         Map<Integer, Project> projectMap = loadProjectMap(webUser, dataSession);
-        Map<String, ProjectCategory> categoryMap = loadCategoryMap(webUser, dataSession);
+        Map<String, ProjectTag> categoryMap = loadTagMap(webUser, dataSession);
         Map<String, BillCode> billCodeMap = loadBillCodeMap(webUser, dataSession);
 
         TimeSessionModel currentSession = null;
@@ -351,17 +351,19 @@ public class TimeReviewService {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, ProjectCategory> loadCategoryMap(WebUser webUser, Session dataSession) {
+    private Map<String, ProjectTag> loadTagMap(WebUser webUser, Session dataSession) {
         Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         if (workspaceId == null) {
-            return new HashMap<String, ProjectCategory>();
+            return new HashMap<String, ProjectTag>();
         }
-        Query query = dataSession.createQuery("from ProjectCategory where workspaceId = :workspaceId");
+        Query query = dataSession
+                .createQuery("from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus");
         query.setParameter("workspaceId", workspaceId);
-        List<ProjectCategory> categories = query.list();
-        Map<String, ProjectCategory> map = new HashMap<String, ProjectCategory>();
-        for (ProjectCategory category : categories) {
-            map.put(category.getCategoryCode(), category);
+        query.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+        List<ProjectTag> categories = query.list();
+        Map<String, ProjectTag> map = new HashMap<String, ProjectTag>();
+        for (ProjectTag category : categories) {
+            map.put(category.getTagHandle(), category);
         }
         return map;
     }
@@ -385,7 +387,7 @@ public class TimeReviewService {
     private TimeEntryModel toEntryModel(
             BillEntry billEntry,
             Map<Integer, Project> projectMap,
-            Map<String, ProjectCategory> categoryMap,
+            Map<String, ProjectTag> categoryMap,
             Map<String, BillCode> billCodeMap) {
         TimeEntryModel model = new TimeEntryModel();
         model.setBillId(billEntry.getBillId());
@@ -403,9 +405,9 @@ public class TimeReviewService {
             model.setProjectName(project.getProjectName());
         }
 
-        ProjectCategory category = categoryMap.get(billEntry.getCategoryCode());
+        ProjectTag category = categoryMap.get(billEntry.getCategoryCode());
         if (category != null) {
-            model.setCategoryName(category.getClientName());
+            model.setCategoryName(category.getTagName());
         }
 
         if (billEntry.getBillCode() != null) {

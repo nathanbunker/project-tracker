@@ -11,15 +11,12 @@ public class Project implements java.io.Serializable {
 
   private static final long serialVersionUID = -5980583072580894435L;
   private int projectId;
-  private String categoryCode;
   private String projectName;
   private String projectHandle;
-  private String providerName;
   private String description;
   private String outcomeText;
   private String successCriteriaText;
-  private String phaseCode;
-  private Integer profileId;
+  private String projectStatus;
   private String billCode;
   private String projectIcon;
   private Integer workspaceId;
@@ -27,8 +24,6 @@ public class Project implements java.io.Serializable {
   private Integer lastModifiedByWebUserId;
   private Integer linkedPatchWorkspaceId;
   private WebUser webUser;
-  private ProjectCategory projectCategory = null;
-  private ProjectPhase projectPhase = null;
   private int priorityLevel = 0;
 
   public int getPriorityLevel() {
@@ -37,22 +32,6 @@ public class Project implements java.io.Serializable {
 
   public void setPriorityLevel(int priorityLevel) {
     this.priorityLevel = priorityLevel;
-  }
-
-  public ProjectCategory getProjectCategory() {
-    return projectCategory;
-  }
-
-  public void setProjectCategory(ProjectCategory projectCategory) {
-    this.projectCategory = projectCategory;
-  }
-
-  public ProjectPhase getProjectPhase() {
-    return projectPhase;
-  }
-
-  public void setProjectPhase(ProjectPhase projectPhase) {
-    this.projectPhase = projectPhase;
   }
 
   private List<ProjectContactAssigned> projectContactAssignedList = null;
@@ -84,14 +63,6 @@ public class Project implements java.io.Serializable {
     this.projectId = projectId;
   }
 
-  public String getCategoryCode() {
-    return this.categoryCode;
-  }
-
-  public void setCategoryCode(String categoryCode) {
-    this.categoryCode = categoryCode;
-  }
-
   public String getProjectName() {
     return this.projectName;
   }
@@ -106,14 +77,6 @@ public class Project implements java.io.Serializable {
 
   public void setProjectHandle(String projectHandle) {
     this.projectHandle = projectHandle;
-  }
-
-  public String getProviderName() {
-    return this.providerName;
-  }
-
-  public void setProviderName(String providerName) {
-    this.providerName = providerName;
   }
 
   public String getDescription() {
@@ -140,20 +103,20 @@ public class Project implements java.io.Serializable {
     this.successCriteriaText = successCriteriaText;
   }
 
-  public String getPhaseCode() {
-    return this.phaseCode;
+  public String getProjectStatus() {
+    return projectStatus;
   }
 
-  public void setPhaseCode(String phaseCode) {
-    this.phaseCode = phaseCode;
+  public void setProjectStatus(String projectStatus) {
+    this.projectStatus = projectStatus;
   }
 
-  public Integer getProfileId() {
-    return this.profileId;
+  public ProjectStatus getProjectStatusEnum() {
+    return ProjectStatus.fromDatabaseValue(projectStatus);
   }
 
-  public void setProfileId(Integer profileId) {
-    this.profileId = profileId;
+  public void setProjectStatusEnum(ProjectStatus projectStatusEnum) {
+    this.projectStatus = projectStatusEnum == null ? null : projectStatusEnum.getDatabaseValue();
   }
 
   public String getBillCode() {

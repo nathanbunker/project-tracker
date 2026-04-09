@@ -374,3 +374,155 @@ ALTER TABLE project_action_next
 ALTER TABLE project_action_taken
   ADD COLUMN action_set_id INT NULL,
   ADD KEY idx_pat_action_set (action_set_id);
+
+-- v5 phase E: project status + tag model (replace phase/category)
+ALTER TABLE project
+    ADD COLUMN project_status VARCHAR(20) NULL;
+
+UPDATE project
+SET project_status = CASE
+    WHEN phase_code = 'Acti' THEN 'Active'
+    WHEN phase_code = 'Paus' THEN 'Paused'
+    WHEN phase_code = 'Comp' THEN 'Complete'
+    WHEN phase_code = 'Clos' THEN 'Closed'
+    ELSE 'Active'
+END
+WHERE project_status IS NULL OR TRIM(project_status) = '';
+
+ALTER TABLE project
+    MODIFY COLUMN project_status VARCHAR(20) NOT NULL DEFAULT 'Active';
+
+CREATE TABLE project_tag (
+    project_tag_id INT NOT NULL AUTO_INCREMENT,
+    workspace_id INT NOT NULL,
+    tag_name VARCHAR(100) NOT NULL,
+    tag_handle VARCHAR(60) NOT NULL,
+    tag_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    sort_order INT NULL,
+    created_by_web_user_id INT NULL,
+    created_date DATETIME NOT NULL,
+    PRIMARY KEY (project_tag_id),
+    UNIQUE KEY uk_project_tag_workspace_handle (workspace_id, tag_handle),
+    KEY idx_project_tag_workspace_status_name (workspace_id, tag_status, tag_name),
+    CONSTRAINT fk_project_tag_workspace FOREIGN KEY (workspace_id) REFERENCES workspace(workspace_id),
+    CONSTRAINT fk_project_tag_created_by FOREIGN KEY (created_by_web_user_id) REFERENCES web_user(web_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_tag_map (
+    project_tag_map_id INT NOT NULL AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    project_tag_id INT NOT NULL,
+    created_date DATETIME NOT NULL,
+    PRIMARY KEY (project_tag_map_id),
+    UNIQUE KEY uk_project_tag_map_project_tag (project_id, project_tag_id),
+    KEY idx_project_tag_map_tag_project (project_tag_id, project_id),
+    CONSTRAINT fk_project_tag_map_project FOREIGN KEY (project_id) REFERENCES project(project_id),
+    CONSTRAINT fk_project_tag_map_tag FOREIGN KEY (project_tag_id) REFERENCES project_tag(project_tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Convert category definitions to workspace tags.
+INSERT INTO project_tag (
+    workspace_id,
+    tag_name,
+    tag_handle,
+    tag_status,
+    sort_order,
+    created_by_web_user_id,
+    created_date
+)
+SELECT
+    pc.workspace_id,
+    LEFT(COALESCE(NULLIF(TRIM(pc.client_name), ''), NULLIF(TRIM(pc.category_code), ''), 'Tag'), 100) AS tag_name,
+    LEFT(COALESCE(NULLIF(TRIM(pc.category_code), ''), REPLACE(LOWER(TRIM(pc.client_name)), ' ', '-'), 'tag'), 60) AS tag_handle,
+    CASE WHEN UPPER(COALESCE(pc.visible, 'Y')) = 'N' THEN 'INACTIVE' ELSE 'ACTIVE' END AS tag_status,
+    pc.sort_order,
+    NULL,
+    NOW()
+FROM project_category pc
+WHERE pc.workspace_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM project_tag pt
+        WHERE pt.workspace_id = pc.workspace_id
+            AND pt.tag_handle = LEFT(COALESCE(NULLIF(TRIM(pc.category_code), ''), REPLACE(LOWER(TRIM(pc.client_name)), ' ', '-'), 'tag'), 60)
+    );
+
+-- Create fallback tags for projects whose category code is not present in project_category.
+INSERT INTO project_tag (
+    workspace_id,
+    tag_name,
+    tag_handle,
+    tag_status,
+    sort_order,
+    created_by_web_user_id,
+    created_date
+)
+SELECT DISTINCT
+    p.workspace_id,
+    LEFT(TRIM(p.category_code), 100) AS tag_name,
+    LEFT(TRIM(p.category_code), 60) AS tag_handle,
+    'ACTIVE',
+    NULL,
+    NULL,
+    NOW()
+FROM project p
+WHERE p.workspace_id IS NOT NULL
+    AND p.category_code IS NOT NULL
+    AND TRIM(p.category_code) <> ''
+    AND NOT EXISTS (
+        SELECT 1
+        FROM project_tag pt
+        WHERE pt.workspace_id = p.workspace_id
+            AND pt.tag_handle = LEFT(TRIM(p.category_code), 60)
+    );
+
+-- Convert project.category_code references to project_tag_map.
+INSERT INTO project_tag_map (project_id, project_tag_id, created_date)
+SELECT
+    p.project_id,
+    pt.project_tag_id,
+    NOW()
+FROM project p
+JOIN project_tag pt
+    ON pt.workspace_id = p.workspace_id
+    AND pt.tag_handle = LEFT(TRIM(p.category_code), 60)
+WHERE p.category_code IS NOT NULL
+    AND TRIM(p.category_code) <> ''
+    AND NOT EXISTS (
+        SELECT 1
+        FROM project_tag_map ptm
+        WHERE ptm.project_id = p.project_id
+            AND ptm.project_tag_id = pt.project_tag_id
+    );
+
+-- Convert patch-link category references to tag references.
+ALTER TABLE project_patch_link
+    ADD COLUMN linked_patch_tag_id INT NULL;
+
+UPDATE project_patch_link ppl
+JOIN project_category pc ON pc.project_category_id = ppl.linked_patch_category_id
+JOIN project_tag pt ON pt.workspace_id = pc.workspace_id
+    AND pt.tag_handle = LEFT(COALESCE(NULLIF(TRIM(pc.category_code), ''), REPLACE(LOWER(TRIM(pc.client_name)), ' ', '-'), 'tag'), 60)
+SET ppl.linked_patch_tag_id = pt.project_tag_id
+WHERE ppl.linked_patch_category_id IS NOT NULL;
+
+ALTER TABLE project_patch_link
+    ADD CONSTRAINT fk_ppl_patch_tag
+        FOREIGN KEY (linked_patch_tag_id) REFERENCES project_tag(project_tag_id);
+
+ALTER TABLE project
+    DROP INDEX idx_project_workspace_phase_handle,
+    ADD KEY idx_project_workspace_status_handle (workspace_id, project_status, project_handle);
+
+ALTER TABLE project_patch_link
+    DROP FOREIGN KEY fk_ppl_patch_category,
+    DROP COLUMN linked_patch_category_id;
+
+ALTER TABLE project
+    DROP COLUMN phase_code,
+    DROP COLUMN provider_name,
+    DROP COLUMN profile_id,
+    DROP COLUMN category_code;
+
+DROP TABLE project_phase;
+DROP TABLE project_category;

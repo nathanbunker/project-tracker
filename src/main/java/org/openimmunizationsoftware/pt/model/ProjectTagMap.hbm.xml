@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectTagMap" table="project_tag_map">
+        <id name="projectTagMapId" type="int">
+            <column name="project_tag_map_id" />
+            <generator class="identity" />
+        </id>
+        <property name="projectId" type="int">
+            <column name="project_id" not-null="true" />
+        </property>
+        <property name="projectTagId" type="int">
+            <column name="project_tag_id" not-null="true" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

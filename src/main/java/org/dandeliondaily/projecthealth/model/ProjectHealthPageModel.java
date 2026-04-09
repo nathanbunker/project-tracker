@@ -5,7 +5,7 @@ import java.util.List;
 
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 
 public class ProjectHealthPageModel {
 
@@ -21,7 +21,7 @@ public class ProjectHealthPageModel {
     private boolean canChangePatchWorkspace = true;
     private List<ProjectPatchLinkDisplayModel> projectPatchLinks = new ArrayList<ProjectPatchLinkDisplayModel>();
     private List<Project> availablePatchProjects = new ArrayList<Project>();
-    private List<ProjectCategory> availablePatchCategories = new ArrayList<ProjectCategory>();
+    private List<ProjectTag> availablePatchTags = new ArrayList<ProjectTag>();
 
     private List<ProjectCadenceGroupModel> workProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
     private List<ProjectCadenceGroupModel> personalProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
@@ -211,11 +211,11 @@ public class ProjectHealthPageModel {
         this.availablePatchProjects = availablePatchProjects;
     }
 
-    public List<ProjectCategory> getAvailablePatchCategories() {
-        return availablePatchCategories;
+    public List<ProjectTag> getAvailablePatchTags() {
+        return availablePatchTags;
     }
 
-    public void setAvailablePatchCategories(List<ProjectCategory> availablePatchCategories) {
-        this.availablePatchCategories = availablePatchCategories;
+    public void setAvailablePatchTags(List<ProjectTag> availablePatchTags) {
+        this.availablePatchTags = availablePatchTags;
     }
 }

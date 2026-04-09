@@ -18,7 +18,6 @@ public class GenerateReport {
   public static final String PARAM_COUNT_ERROR = "countError";
   public static final String PARAM_ITEM_ID = "itemId";
   public static final String PARAM_PROVIDER_ID = "providerId";
-  public static final String PARAM_PROVIDER_NAME = "providerName";
   public static final String PARAM_PROFILE_ID = "profileId";
   public static final String PARAM_PROFILE_NAME = "profileLabel";
   public static final String PARAM_WEBUSER_USERNAME = "webuser.username";

@@ -341,7 +341,7 @@ public class TimeTracker {
         }
         BillEntry billEntry = new BillEntry();
         billEntry.setProjectId(project.getProjectId());
-        billEntry.setCategoryCode(project.getCategoryCode());
+        billEntry.setCategoryCode(null);
         billEntry.setAction(action);
         billEntry.setWebUser(webUser);
         billEntry.setStartTime(new Date());

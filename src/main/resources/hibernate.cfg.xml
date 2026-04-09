@@ -34,7 +34,8 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectArea.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAreaAssigned.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectBookmark.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectCategory.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectTag.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectTagMap.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContact.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactAssigned.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactPosition.hbm.xml"/>
@@ -42,7 +43,6 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectNarrative.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerNarrative.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectNextActionType.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectPhase.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Workspace.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/WorkspaceMember.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectPatchLink.hbm.xml"/>

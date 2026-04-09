@@ -11,9 +11,7 @@ public class ProjectDto {
     @Schema(example = "Upgrade Tracker")
     private String projectName;
     private String description;
-    private String categoryCode;
-    private String phaseCode;
-    private String providerName;
+    private String projectStatus;
     private String username;
     private int priorityLevel;
 
@@ -22,9 +20,7 @@ public class ProjectDto {
         dto.setProjectId(project.getProjectId());
         dto.setProjectName(project.getProjectName());
         dto.setDescription(project.getDescription());
-        dto.setCategoryCode(project.getCategoryCode());
-        dto.setPhaseCode(project.getPhaseCode());
-        dto.setProviderName(project.getProviderName());
+        dto.setProjectStatus(project.getProjectStatus());
         dto.setUsername(project.getUsername());
         dto.setPriorityLevel(project.getPriorityLevel());
         return dto;
@@ -54,28 +50,12 @@ public class ProjectDto {
         this.description = description;
     }
 
-    public String getCategoryCode() {
-        return categoryCode;
+    public String getProjectStatus() {
+        return projectStatus;
     }
 
-    public void setCategoryCode(String categoryCode) {
-        this.categoryCode = categoryCode;
-    }
-
-    public String getPhaseCode() {
-        return phaseCode;
-    }
-
-    public void setPhaseCode(String phaseCode) {
-        this.phaseCode = phaseCode;
-    }
-
-    public String getProviderName() {
-        return providerName;
-    }
-
-    public void setProviderName(String providerName) {
-        this.providerName = providerName;
+    public void setProjectStatus(String projectStatus) {
+        this.projectStatus = projectStatus;
     }
 
     public String getUsername() {

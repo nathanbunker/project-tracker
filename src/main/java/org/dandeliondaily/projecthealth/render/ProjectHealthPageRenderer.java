@@ -15,10 +15,10 @@ import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
-import org.openimmunizationsoftware.pt.model.ProjectPhase;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
@@ -203,10 +203,10 @@ public class ProjectHealthPageRenderer {
                 out.println("  <div class=\"ph-brief-grid\">");
                 out.println("    <div class=\"ph-key\">Project</div><div class=\"ph-val\">"
                                 + escapeHtml(report.getProjectName()) + "</div>");
-                out.println("    <div class=\"ph-key\">Category</div><div class=\"ph-val\">"
+                out.println("    <div class=\"ph-key\">Tags</div><div class=\"ph-val\">"
                                 + escapeHtml(report.getCategory())
                                 + "</div>");
-                out.println("    <div class=\"ph-key\">Phase</div><div class=\"ph-val\">"
+                out.println("    <div class=\"ph-key\">Status</div><div class=\"ph-val\">"
                                 + escapeHtml(report.getPhase())
                                 + "</div>");
                 out.println("    <div class=\"ph-key\">Description</div><div class=\"ph-val\">"
@@ -328,9 +328,9 @@ public class ProjectHealthPageRenderer {
                                                         : "(unknown)";
                                         out.println("      <span>&#128196; " + escapeHtml(name) + "</span>");
                                 } else {
-                                        String catName = link.getCategoryName() != null ? link.getCategoryName()
+                                        String tagName = link.getTagName() != null ? link.getTagName()
                                                         : "(unknown)";
-                                        out.println("      <span>&#128193; " + escapeHtml(catName) + "</span>");
+                                        out.println("      <span>&#128193; " + escapeHtml(tagName) + "</span>");
                                         List<Project> resolved = link.getResolvedProjects();
                                         if (resolved != null && !resolved.isEmpty()) {
                                                 out.println("      <ul class=\"ph-link-resolved\">");
@@ -363,17 +363,17 @@ public class ProjectHealthPageRenderer {
                                         + model.getSelectedProjectId() + ")\">Add</button>");
                         out.println("  </div>");
                 }
-                List<ProjectCategory> patchCategories = model.getAvailablePatchCategories();
-                if (!patchCategories.isEmpty()) {
+                List<ProjectTag> patchTags = model.getAvailablePatchTags();
+                if (!patchTags.isEmpty()) {
                         out.println("  <div class=\"ph-patch-link-form\">");
-                        out.println("    <select id=\"phAddCategorySelect\">");
-                        out.println("      <option value=\"\">Add category link...</option>");
-                        for (ProjectCategory cat : patchCategories) {
-                                out.println("      <option value=\"" + cat.getProjectCategoryId() + "\">"
-                                                + escapeHtml(n(cat.getClientName())) + "</option>");
+                        out.println("    <select id=\"phAddTagSelect\">");
+                        out.println("      <option value=\"\">Add tag link...</option>");
+                        for (ProjectTag tag : patchTags) {
+                                out.println("      <option value=\"" + tag.getProjectTagId() + "\">"
+                                                + escapeHtml(n(tag.getTagName())) + "</option>");
                         }
                         out.println("    </select>");
-                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddCategoryLink(event,"
+                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddTagLink(event,"
                                         + model.getSelectedProjectId() + ")\">Add</button>");
                         out.println("  </div>");
                 }
@@ -475,7 +475,6 @@ public class ProjectHealthPageRenderer {
                 out.println("</div>");
         }
 
-        @SuppressWarnings("unchecked")
         private void printProjectEditModal(PrintWriter out, AppReq appReq, ProjectHealthPageModel model,
                         int selectedProjectId) {
                 Session dataSession = appReq.getDataSession();
@@ -491,6 +490,11 @@ public class ProjectHealthPageRenderer {
                 int updateEvery = projectContactAssigned != null && projectContactAssigned.getUpdateDue() != null
                                 ? projectContactAssigned.getUpdateDue()
                                 : 0;
+                Query selectedTagIdQuery = dataSession
+                                .createQuery("select projectTagId from ProjectTagMap where projectId = :projectId");
+                selectedTagIdQuery.setParameter("projectId", project.getProjectId());
+                @SuppressWarnings("unchecked")
+                List<Integer> selectedProjectTagIds = selectedTagIdQuery.list();
 
                 out.println(
                                 "<div id=\"phProjectEditModal\" class=\"ph-modal-overlay\" onclick=\"phCloseProjectEditModal(event)\">");
@@ -517,27 +521,20 @@ public class ProjectHealthPageRenderer {
                 out.println("      <input id=\"phProjectHandle\" type=\"text\" name=\"projectHandle\" value=\""
                                 + escapeHtml(n(project.getProjectHandle())) + "\" /></div>");
 
-                out.println("      <div class=\"ph-form-field\"><label>Category</label>");
-                out.println("      <select id=\"phProjectCategory\" name=\"categoryCode\">");
-                Query categoryQuery = dataSession
-                                .createQuery("from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
                 Integer workspaceId = model.getContextWorkspaceId() != null ? model.getContextWorkspaceId()
                                 : appReq.getActiveWorkspaceId();
-                categoryQuery.setParameter("workspaceId", workspaceId);
-                List<ProjectCategory> categoryList = categoryQuery.list();
-                for (ProjectCategory category : categoryList) {
-                        String categoryCode = category.getCategoryCode();
-                        if (categoryCode != null && categoryCode.startsWith("PER-")) {
-                                String expectedPersonalCategory = "PER-" + webUser.getContactId();
-                                if (!categoryCode.equals(expectedPersonalCategory)) {
-                                        continue;
-                                }
-                        }
-                        String selected = categoryCode != null && categoryCode.equals(project.getCategoryCode())
-                                        ? " selected"
-                                        : "";
-                        out.println("        <option value=\"" + escapeHtml(n(categoryCode)) + "\"" + selected + ">"
-                                        + escapeHtml(category.getClientNameForDropdown()) + "</option>");
+                out.println("      <div class=\"ph-form-field\"><label>Tags</label>");
+                out.println("      <select id=\"phProjectTags\" name=\"projectTagIds\" multiple size=\"6\">");
+                Query tagQuery = dataSession
+                                .createQuery("from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus order by sortOrder, tagName");
+                tagQuery.setParameter("workspaceId", workspaceId);
+                tagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+                @SuppressWarnings("unchecked")
+                List<ProjectTag> tagList = tagQuery.list();
+                for (ProjectTag tag : tagList) {
+                        String selected = selectedProjectTagIds.contains(tag.getProjectTagId()) ? " selected" : "";
+                        out.println("        <option value=\"" + tag.getProjectTagId() + "\"" + selected + ">"
+                                        + escapeHtml(tag.getTagName()) + "</option>");
                 }
                 out.println("      </select></div>");
 
@@ -558,18 +555,14 @@ public class ProjectHealthPageRenderer {
                                 + escapeHtml(n(project.getSuccessCriteriaText())) + "</textarea>");
                 out.println("      <div class=\"ph-subtle\">Enter one success criterion per line.</div></div>");
 
-                out.println("      <div class=\"ph-form-field\"><label>Phase</label>");
-                out.println("      <select id=\"phProjectPhase\" name=\"phaseCode\">");
-                Query phaseQuery = dataSession.createQuery("from ProjectPhase");
-                List<ProjectPhase> phaseList = phaseQuery.list();
-                for (ProjectPhase phase : phaseList) {
-                        String selected = phase.getPhaseCode() != null
-                                        && phase.getPhaseCode().equals(project.getPhaseCode())
-                                                        ? " selected"
-                                                        : "";
-                        out.println("        <option value=\"" + escapeHtml(n(phase.getPhaseCode())) + "\"" + selected
-                                        + ">"
-                                        + escapeHtml(phase.getPhaseLabel()) + "</option>");
+                out.println("      <div class=\"ph-form-field\"><label>Status</label>");
+                out.println("      <select id=\"phProjectStatus\" name=\"projectStatus\">");
+                String selectedProjectStatus = project.getProjectStatusEnum().getDatabaseValue();
+                for (ProjectStatus status : ProjectStatus.values()) {
+                        String value = status.getDatabaseValue();
+                        String selected = value.equalsIgnoreCase(selectedProjectStatus) ? " selected" : "";
+                        out.println("        <option value=\"" + escapeHtml(value) + "\"" + selected + ">"
+                                        + escapeHtml(value) + "</option>");
                 }
                 out.println("      </select></div>");
 
@@ -584,6 +577,7 @@ public class ProjectHealthPageRenderer {
                 Query billCodeQuery = dataSession
                                 .createQuery("from BillCode where workspaceId = :workspaceId and visible = 'Y' order by billLabel");
                 billCodeQuery.setParameter("workspaceId", workspaceId);
+                @SuppressWarnings("unchecked")
                 List<BillCode> billCodes = billCodeQuery.list();
                 for (BillCode billCode : billCodes) {
                         String selected = billCode.getBillCode() != null
@@ -647,12 +641,12 @@ public class ProjectHealthPageRenderer {
                 out.println("  projectId: '" + project.getProjectId() + "',");
                 out.println("  projectName: '" + escapeJsString(n(project.getProjectName())) + "',");
                 out.println("  projectHandle: '" + escapeJsString(n(project.getProjectHandle())) + "',");
-                out.println("  categoryCode: '" + escapeJsString(n(project.getCategoryCode())) + "',");
+                out.println("  projectTagIds: '" + escapeJsString(joinIntegerList(selectedProjectTagIds)) + "',");
                 out.println("  projectIcon: '" + escapeJsString(n(project.getProjectIcon())) + "',");
                 out.println("  description: '" + escapeJsString(n(project.getDescription())) + "',");
                 out.println("  outcomeText: '" + escapeJsString(n(project.getOutcomeText())) + "',");
                 out.println("  successCriteriaText: '" + escapeJsString(n(project.getSuccessCriteriaText())) + "',");
-                out.println("  phaseCode: '" + escapeJsString(n(project.getPhaseCode())) + "',");
+                out.println("  projectStatus: '" + escapeJsString(selectedProjectStatus) + "',");
                 out.println("  billCode: '" + escapeJsString(n(project.getBillCode())) + "',");
                 out.println("  updateEvery: '" + updateEvery + "',");
                 String linkedPatchWsId = project.getLinkedPatchWorkspaceId() != null
@@ -662,7 +656,7 @@ public class ProjectHealthPageRenderer {
                 out.println(
                                 "  function phAddDirectProjectLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddDirectProjectSelect'); if (!sel || !sel.value) { alert('Select a project to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addDirectProjectLink'); formData.append('projectId', projectId); formData.append('patchProjectId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
                 out.println(
-                                "  function phAddCategoryLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddCategorySelect'); if (!sel || !sel.value) { alert('Select a category to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addCategoryLink'); formData.append('projectId', projectId); formData.append('patchCategoryId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
+                                "  function phAddTagLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddTagSelect'); if (!sel || !sel.value) { alert('Select a tag to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addTagLink'); formData.append('projectId', projectId); formData.append('patchTagId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
                 out.println(
                                 "  function phRemoveProjectPatchLink(evt, linkId, projectId) { if (evt) { evt.preventDefault(); } if (!confirm('Remove this link?')) { return false; } var formData = new URLSearchParams(); formData.append('action','removeProjectPatchLink'); formData.append('projectPatchLinkId', linkId); formData.append('projectId', projectId); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to remove link'); } }).catch(function(){ alert('Unable to remove link'); }); return false; }");
                 out.println("</script>");
@@ -736,12 +730,15 @@ public class ProjectHealthPageRenderer {
                 out.println("  function phSetProjectDefaults() {");
                 out.println("    var d = window.phProjectDefaults || {}; ");
                 out.println(
-                                "    var map = [['phProjectName','projectName'],['phProjectHandle','projectHandle'],['phProjectCategory','categoryCode'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
+                                "    var map = [['phProjectName','projectName'],['phProjectHandle','projectHandle'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectStatus','projectStatus'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
                 out.println(
                                 "    for (var i=0;i<map.length;i++){ var el=document.getElementById(map[i][0]); if (el) { el.value = d[map[i][1]] || ''; } }");
+                out.println("    phSetMultiSelectValues('phProjectTags', d.projectTagIds || '');");
                 out.println("  }");
                 out.println(
-                                "  function phClearProjectCreate() { var f=document.getElementById('phProjectEditForm'); if (f) { f.reset(); } var b=document.getElementById('phProjectBillCode'); if (b) { b.value=''; } var u=document.getElementById('phProjectUpdateEvery'); if (u) { u.value='0'; } var lp=document.getElementById('phProjectLinkedPatchWorkspaceId'); if (lp) { lp.value=''; } }");
+                                "  function phClearProjectCreate() { var f=document.getElementById('phProjectEditForm'); if (f) { f.reset(); } var b=document.getElementById('phProjectBillCode'); if (b) { b.value=''; } var u=document.getElementById('phProjectUpdateEvery'); if (u) { u.value='0'; } var lp=document.getElementById('phProjectLinkedPatchWorkspaceId'); if (lp) { lp.value=''; } var tags=document.getElementById('phProjectTags'); if (tags) { for (var i=0;i<tags.options.length;i++){ tags.options[i].selected = false; } } }");
+                out.println(
+                                "  function phSetMultiSelectValues(id, csvValues) { var select = document.getElementById(id); if (!select) { return; } var selected = {}; if (csvValues) { var parts = csvValues.split(','); for (var i=0;i<parts.length;i++) { var v = parts[i].trim(); if (v.length > 0) { selected[v] = true; } } } for (var j=0;j<select.options.length;j++) { var option = select.options[j]; option.selected = !!selected[option.value]; } }");
                 out.println("  function phSubmitProjectEditForm(evt) {");
                 out.println(
                                 "    evt.preventDefault(); var f=document.getElementById('phProjectEditForm'); if (!f) { return false; }");
@@ -1027,6 +1024,23 @@ public class ProjectHealthPageRenderer {
 
         private String n(String value) {
                 return value == null ? "" : value;
+        }
+
+        private String joinIntegerList(List<Integer> values) {
+                if (values == null || values.isEmpty()) {
+                        return "";
+                }
+                StringBuilder sb = new StringBuilder();
+                for (Integer value : values) {
+                        if (value == null) {
+                                continue;
+                        }
+                        if (sb.length() > 0) {
+                                sb.append(',');
+                        }
+                        sb.append(value.intValue());
+                }
+                return sb.toString();
         }
 
         private ProjectContactAssigned loadProjectContactAssigned(WebUser webUser, Session dataSession,

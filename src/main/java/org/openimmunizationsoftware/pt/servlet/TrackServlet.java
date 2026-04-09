@@ -33,10 +33,10 @@ import org.openimmunizationsoftware.pt.model.BillDay;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.dandeliondaily.timereview.service.TimeRegularizationService;
 
@@ -372,11 +372,11 @@ public class TrackServlet extends ClientServlet {
     List<TimeEntry> timeEntryList = new ArrayList<TimeEntry>();
     Map<String, Integer> clientMap = timeTracker.getTotalMinsForClientMap();
     for (String categoryCode : clientMap.keySet()) {
-      ProjectCategory projectCategory = getClient(dataSession, categoryCode,
+      String tagName = getTagName(dataSession, categoryCode,
           WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
-      if (projectCategory != null) {
+      if (tagName != null) {
         timeEntryList.add(
-            new TimeEntry(projectCategory.getClientName(), clientMap.get(categoryCode)));
+            new TimeEntry(tagName, clientMap.get(categoryCode)));
       }
     }
     Collections.sort(timeEntryList);
@@ -384,10 +384,10 @@ public class TrackServlet extends ClientServlet {
     if (timeEntryList.size() > 0) {
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
-      out.println("    <th class=\"title\" colspan=\"3\">Time Tracked by Category</th>");
+      out.println("    <th class=\"title\" colspan=\"3\">Time Tracked by Tag</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Category</th>");
+      out.println("    <th class=\"boxed\">Tag</th>");
       out.println("    <th class=\"boxed\">Total Time</th>");
       out.println("  </tr>");
       for (TimeEntry timeEntry : timeEntryList) {
@@ -707,20 +707,21 @@ public class TrackServlet extends ClientServlet {
     }
   }
 
-  protected static ProjectCategory getClient(
+  protected static String getTagName(
       Session dataSession, String categoryCode, Integer workspaceId) {
     Query query;
     query = dataSession.createQuery(
-        "from ProjectCategory where categoryCode = :categoryCode and workspaceId = :workspaceId");
-    query.setParameter("categoryCode", categoryCode);
+        "from ProjectTag where tagHandle = :tagHandle and workspaceId = :workspaceId and tagStatus = :tagStatus");
+    query.setParameter("tagHandle", categoryCode);
     query.setParameter("workspaceId", workspaceId);
+    query.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
     @SuppressWarnings("unchecked")
-    List<ProjectCategory> projectCategoryList = query.list();
-    ProjectCategory projectCategory = null;
-    if (projectCategoryList.size() > 0) {
-      projectCategory = projectCategoryList.get(0);
+    List<ProjectTag> projectTagList = query.list();
+    ProjectTag projectTag = null;
+    if (projectTagList.size() > 0) {
+      projectTag = projectTagList.get(0);
     }
-    return projectCategory;
+    return projectTag == null ? null : projectTag.getTagName();
   }
 
   // <editor-fold defaultstate="collapsed"

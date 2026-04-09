@@ -30,6 +30,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WeUserDependency;
@@ -221,8 +222,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private List<Project> getProjectListForDependent(WebUser dependentUser, Session dataSession, Integer workspaceId) {
         Query query = dataSession
                 .createQuery(
-                        "from Project where workspaceId = :workspaceId and phaseCode <> 'Clos' order by projectName");
+                        "from Project where workspaceId = :workspaceId and (projectStatus is null or projectStatus <> :closedStatus) order by projectName");
         query.setParameter("workspaceId", workspaceId);
+        query.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();
         return projectList;

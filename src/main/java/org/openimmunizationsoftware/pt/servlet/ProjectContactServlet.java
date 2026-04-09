@@ -127,9 +127,8 @@ public class ProjectContactServlet extends ClientServlet {
           projectContactId);
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Category</th>");
       out.println("    <th class=\"boxed\">Project</th>");
-      out.println("    <th class=\"boxed\">Phase</th>");
+      out.println("    <th class=\"boxed\">Status</th>");
       out.println("    <th class=\"boxed\">Action</th>");
       out.println("  </tr>");
       for (ProjectContactAssigned projectContactAssigned : projectContactAssignedList) {
@@ -137,16 +136,10 @@ public class ProjectContactServlet extends ClientServlet {
         if (project != null) {
           ProjectsServlet.loadProjectsObject(dataSession, project);
           out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed\">"
-              + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
-                  : "")
-              + "</td>");
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
                   + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-          out.println("    <td class=\"boxed\">"
-              + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
-              + "</td>");
+          out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
           out.println("    <td class=\"boxed\">");
           out.println(
               "      <font size=\"-1\"><a href=\"ProjectContactServlet?action=RemoveContact&projectId="
@@ -170,9 +163,8 @@ public class ProjectContactServlet extends ClientServlet {
         out.println("    <th class=\"title\" colspan=\"4\">Previously Selected</th>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Category</th>");
         out.println("    <th class=\"boxed\">Project</th>");
-        out.println("    <th class=\"boxed\">Phase</th>");
+        out.println("    <th class=\"boxed\">Status</th>");
         out.println("    <th class=\"boxed\">Action</th>");
         out.println("  </tr>");
 
@@ -182,16 +174,10 @@ public class ProjectContactServlet extends ClientServlet {
           @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> assigned = query.list();
           out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed\">"
-              + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
-                  : "")
-              + "</td>");
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
                   + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-          out.println("    <td class=\"boxed\">"
-              + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
-              + "</td>");
+          out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
           out.println("    <td class=\"boxed\">");
           if (assigned.size() == 0) {
             out.println(
@@ -213,9 +199,8 @@ public class ProjectContactServlet extends ClientServlet {
         out.println("    <th class=\"title\" colspan=\"4\">Previously Searched</th>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
-        out.println("    <th class=\"boxed\">Category</th>");
         out.println("    <th class=\"boxed\">Project</th>");
-        out.println("    <th class=\"boxed\">Phase</th>");
+        out.println("    <th class=\"boxed\">Status</th>");
         out.println("    <th class=\"boxed\">Action</th>");
         out.println("  </tr>");
 
@@ -227,16 +212,10 @@ public class ProjectContactServlet extends ClientServlet {
           @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> assigned = query.list();
           out.println("  <tr class=\"boxed\">");
-          out.println("    <td class=\"boxed\">"
-              + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
-                  : "")
-              + "</td>");
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
                   + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
-          out.println("    <td class=\"boxed\">"
-              + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
-              + "</td>");
+          out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
           out.println("    <td class=\"boxed\">");
           if (assigned.size() == 0) {
             out.println(

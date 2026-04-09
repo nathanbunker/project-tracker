@@ -20,7 +20,7 @@ public class ProjectActionProposalService {
         if (username != null && username.trim().length() > 0) {
             hql.append(" and p.webUser.username = :username");
         }
-        hql.append(" order by p.priorityLevel desc, p.categoryCode, p.projectName");
+        hql.append(" order by p.priorityLevel desc, p.projectName");
         Query query = session.createQuery(hql.toString());
         query.setInteger("workspaceId", workspaceId);
         if (username != null && username.trim().length() > 0) {

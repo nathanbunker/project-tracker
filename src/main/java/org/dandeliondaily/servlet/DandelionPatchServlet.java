@@ -18,7 +18,9 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
+import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.model.WorkspaceMember;
@@ -132,35 +134,43 @@ public class DandelionPatchServlet extends ClientServlet {
             ownerMembership.setCreatedDate(new Date());
             dataSession.save(ownerMembership);
 
-            List<String> categoryCodes = new ArrayList<String>();
+            List<Integer> createdTagIds = new ArrayList<Integer>();
             for (int i = 0; i < categoryNames.size(); i++) {
-                String categoryCode = "W" + workspaceId + "-" + String.format("%02d", Integer.valueOf(i + 1));
-                categoryCodes.add(categoryCode);
-
-                ProjectCategory category = new ProjectCategory();
-                category.setWorkspaceId(Integer.valueOf(workspaceId));
-                category.setCategoryCode(categoryCode);
-                category.setClientName(categoryNames.get(i));
-                category.setVisible("Y");
-                category.setSortOrder(Integer.valueOf((i + 1) * 10));
-                category.setClientAcronym("");
-                dataSession.save(category);
+                ProjectTag tag = new ProjectTag();
+                tag.setWorkspaceId(workspaceId);
+                tag.setTagName(categoryNames.get(i));
+                tag.setTagHandle(HandleValidationSupport.resolveHandle("", categoryNames.get(i), 60));
+                tag.setTagStatus(ProjectTag.STATUS_ACTIVE);
+                tag.setSortOrder(Integer.valueOf((i + 1) * 10));
+                tag.setCreatedByWebUserId(webUser.getWebUserId());
+                tag.setCreatedDate(new Date());
+                dataSession.save(tag);
+                dataSession.flush();
+                createdTagIds.add(Integer.valueOf(tag.getProjectTagId()));
             }
 
-            String defaultCategoryCode = categoryCodes.isEmpty() ? "W" + workspaceId + "-01" : categoryCodes.get(0);
+            Integer defaultTagId = createdTagIds.isEmpty() ? null : createdTagIds.get(0);
             for (String projectName : projectNames) {
                 Project project = new Project();
                 project.setWorkspaceId(Integer.valueOf(workspaceId));
                 project.setProjectName(projectName);
                 project.setProjectHandle(HandleValidationSupport.resolveHandle("", projectName, 60));
-                project.setCategoryCode(defaultCategoryCode);
-                project.setPhaseCode("Acti");
+                project.setProjectStatus(ProjectStatus.ACTIVE.getDatabaseValue());
                 project.setPriorityLevel(0);
                 project.setBillCode(".");
                 project.setCreatedByWebUserId(webUser.getWebUserId());
                 project.setLastModifiedByWebUserId(webUser.getWebUserId());
                 project.setWebUser(webUser);
                 dataSession.save(project);
+                dataSession.flush();
+
+                if (defaultTagId != null) {
+                    ProjectTagMap map = new ProjectTagMap();
+                    map.setProjectId(project.getProjectId());
+                    map.setProjectTagId(defaultTagId.intValue());
+                    map.setCreatedDate(new Date());
+                    dataSession.save(map);
+                }
             }
 
             transaction.commit();
@@ -273,16 +283,19 @@ public class DandelionPatchServlet extends ClientServlet {
         }
 
         @SuppressWarnings("unchecked")
-        List<ProjectCategory> categories = dataSession
-                .createQuery("from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName")
+        List<ProjectTag> tags = dataSession
+                .createQuery(
+                        "from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus order by sortOrder, tagName")
                 .setInteger("workspaceId", workspaceId.intValue())
+                .setString("tagStatus", ProjectTag.STATUS_ACTIVE)
                 .list();
 
         @SuppressWarnings("unchecked")
         List<Project> projects = dataSession
                 .createQuery(
-                        "from Project where workspaceId = :workspaceId and (phaseCode is null or phaseCode <> 'Clos') order by priorityLevel desc, projectName")
+                        "from Project where workspaceId = :workspaceId and (projectStatus is null or projectStatus <> :closedStatus) order by priorityLevel desc, projectName")
                 .setInteger("workspaceId", workspaceId.intValue())
+                .setString("closedStatus", ProjectStatus.CLOSED.getDatabaseValue())
                 .list();
 
         @SuppressWarnings("unchecked")
@@ -299,13 +312,13 @@ public class DandelionPatchServlet extends ClientServlet {
                 + "#members\">Manage Members</a> (coming soon)</p>");
 
         out.println("<table class=\"boxed\" style=\"margin-bottom:15px;\">");
-        out.println("  <tr class=\"boxed\"><th class=\"title\" colspan=\"2\">Initial Categories</th></tr>");
-        if (categories.isEmpty()) {
-            out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\">No categories found.</td></tr>");
+        out.println("  <tr class=\"boxed\"><th class=\"title\" colspan=\"2\">Initial Tags</th></tr>");
+        if (tags.isEmpty()) {
+            out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\">No tags found.</td></tr>");
         } else {
-            for (ProjectCategory category : categories) {
-                out.println("  <tr class=\"boxed\"><td class=\"boxed\">" + escapeHtml(category.getClientName())
-                        + "</td><td class=\"boxed\">" + escapeHtml(category.getCategoryCode()) + "</td></tr>");
+            for (ProjectTag tag : tags) {
+                out.println("  <tr class=\"boxed\"><td class=\"boxed\">" + escapeHtml(tag.getTagName())
+                        + "</td><td class=\"boxed\">" + escapeHtml(tag.getTagHandle()) + "</td></tr>");
             }
         }
         out.println("</table>");
@@ -317,7 +330,8 @@ public class DandelionPatchServlet extends ClientServlet {
         } else {
             for (Project project : projects) {
                 out.println("  <tr class=\"boxed\"><td class=\"boxed\">" + escapeHtml(project.getProjectName())
-                        + "</td><td class=\"boxed\">" + escapeHtml(valueOrEmpty(project.getCategoryCode()))
+                        + "</td><td class=\"boxed\">"
+                        + escapeHtml(loadTagSummaryForProject(dataSession, project.getProjectId()))
                         + "</td></tr>");
             }
         }
@@ -373,6 +387,25 @@ public class DandelionPatchServlet extends ClientServlet {
 
     private String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private String loadTagSummaryForProject(Session dataSession, int projectId) {
+        @SuppressWarnings("unchecked")
+        List<String> tagNames = dataSession.createQuery(
+                "select pt.tagName from ProjectTagMap ptm join ProjectTag pt on pt.projectTagId = ptm.projectTagId where ptm.projectId = :projectId order by pt.sortOrder, pt.tagName")
+                .setInteger("projectId", projectId)
+                .list();
+        if (tagNames == null || tagNames.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String tagName : tagNames) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(tagName);
+        }
+        return sb.toString();
     }
 
     private String escapeHtml(String value) {

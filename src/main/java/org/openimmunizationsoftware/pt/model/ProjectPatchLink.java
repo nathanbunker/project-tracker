@@ -7,14 +7,14 @@ public class ProjectPatchLink implements java.io.Serializable {
     private static final long serialVersionUID = 1L;
 
     public static final String LINK_TYPE_DIRECT_PROJECT = "DIRECT_PROJECT";
-    public static final String LINK_TYPE_PATCH_CATEGORY = "PATCH_CATEGORY";
+    public static final String LINK_TYPE_PATCH_TAG = "PATCH_TAG";
 
     private int projectPatchLinkId;
     private int privateProjectId;
     private int patchWorkspaceId;
     private String linkType;
     private Integer linkedPatchProjectId;
-    private Integer linkedPatchCategoryId;
+    private Integer linkedPatchTagId;
     private int createdByWebUserId;
     private Date createdDate;
 
@@ -58,12 +58,12 @@ public class ProjectPatchLink implements java.io.Serializable {
         this.linkedPatchProjectId = linkedPatchProjectId;
     }
 
-    public Integer getLinkedPatchCategoryId() {
-        return linkedPatchCategoryId;
+    public Integer getLinkedPatchTagId() {
+        return linkedPatchTagId;
     }
 
-    public void setLinkedPatchCategoryId(Integer linkedPatchCategoryId) {
-        this.linkedPatchCategoryId = linkedPatchCategoryId;
+    public void setLinkedPatchTagId(Integer linkedPatchTagId) {
+        this.linkedPatchTagId = linkedPatchTagId;
     }
 
     public int getCreatedByWebUserId() {

@@ -27,7 +27,7 @@ import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
@@ -37,6 +37,7 @@ import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
@@ -45,9 +46,10 @@ public class ProjectHealthPageService {
 
     public static final String PARAM_PROJECT_ID = "projectId";
     private static final String BUCKET_NONE = "NONE";
-    private static final String PHASE_ACTIVE = "Acti";
-    private static final String PHASE_PAUSED = "Paus";
-    private static final String PHASE_COMPLETE = "Comp";
+    private static final String STATUS_ACTIVE = ProjectStatus.ACTIVE.getDatabaseValue();
+    private static final String STATUS_PAUSED = ProjectStatus.PAUSED.getDatabaseValue();
+    private static final String STATUS_COMPLETE = ProjectStatus.COMPLETE.getDatabaseValue();
+    private static final String STATUS_CLOSED = ProjectStatus.CLOSED.getDatabaseValue();
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
 
@@ -123,9 +125,9 @@ public class ProjectHealthPageService {
             if (item.isSelected()) {
                 selectedProject = project;
             }
-            String normalizedPhaseCode = normalizePhaseCode(project.getPhaseCode());
+            String normalizedProjectStatus = normalizeProjectStatus(project.getProjectStatus());
             boolean personalProject = isPersonalProject(project, dataSession);
-            if (PHASE_PAUSED.equals(normalizedPhaseCode)) {
+            if (STATUS_PAUSED.equals(normalizedProjectStatus)) {
                 if (personalProject) {
                     pausedPersonalProjects.add(item);
                 } else {
@@ -133,7 +135,7 @@ public class ProjectHealthPageService {
                 }
                 continue;
             }
-            if (PHASE_COMPLETE.equals(normalizedPhaseCode)) {
+            if (STATUS_COMPLETE.equals(normalizedProjectStatus)) {
                 if (personalProject) {
                     completedPersonalProjects.add(item);
                 } else {
@@ -162,8 +164,8 @@ public class ProjectHealthPageService {
             model.setSelectedProjectAvailable(true);
             model.setSelectedProjectName(n(selectedProject.getProjectName()));
             model.setReport(buildReport(appReq, selectedProject, selectedStats));
-            String selectedPhaseCode = normalizePhaseCode(selectedProject.getPhaseCode());
-            boolean healthCheckApplicable = PHASE_ACTIVE.equals(selectedPhaseCode);
+            String selectedProjectStatus = normalizeProjectStatus(selectedProject.getProjectStatus());
+            boolean healthCheckApplicable = STATUS_ACTIVE.equals(selectedProjectStatus);
             model.setHealthCheckApplicable(healthCheckApplicable);
             if (healthCheckApplicable) {
                 model.setIssues(buildIssues(model.getReport(), selectedStats));
@@ -196,9 +198,10 @@ public class ProjectHealthPageService {
 
                     Query patchProjectQuery = dataSession.createQuery(
                             "from Project where workspaceId = :wsId"
-                                    + " and (phaseCode is null or phaseCode <> 'Clos')"
+                                    + " and (projectStatus is null or projectStatus <> :closedStatus)"
                                     + " order by priorityLevel desc, projectName");
                     patchProjectQuery.setParameter("wsId", linkedPatchWorkspaceId);
+                    patchProjectQuery.setParameter("closedStatus", STATUS_CLOSED);
                     List<Project> patchProjects = new ArrayList<Project>();
                     for (Object row : patchProjectQuery.list()) {
                         if (row instanceof Project) {
@@ -207,17 +210,18 @@ public class ProjectHealthPageService {
                     }
                     model.setAvailablePatchProjects(patchProjects);
 
-                    Query patchCategoryQuery = dataSession.createQuery(
-                            "from ProjectCategory where workspaceId = :wsId and visible = 'Y'"
-                                    + " order by sortOrder, clientName");
-                    patchCategoryQuery.setParameter("wsId", linkedPatchWorkspaceId);
-                    List<ProjectCategory> patchCategories = new ArrayList<ProjectCategory>();
-                    for (Object row : patchCategoryQuery.list()) {
-                        if (row instanceof ProjectCategory) {
-                            patchCategories.add((ProjectCategory) row);
+                    Query patchTagQuery = dataSession.createQuery(
+                            "from ProjectTag where workspaceId = :wsId and tagStatus = :tagStatus"
+                                    + " order by sortOrder, tagName");
+                    patchTagQuery.setParameter("wsId", linkedPatchWorkspaceId);
+                    patchTagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+                    List<ProjectTag> patchTags = new ArrayList<ProjectTag>();
+                    for (Object row : patchTagQuery.list()) {
+                        if (row instanceof ProjectTag) {
+                            patchTags.add((ProjectTag) row);
                         }
                     }
-                    model.setAvailablePatchCategories(patchCategories);
+                    model.setAvailablePatchTags(patchTags);
                 }
             }
         }
@@ -587,8 +591,9 @@ public class ProjectHealthPageService {
                     webUser.getWebUserId());
         }
         Query query = dataSession.createQuery(
-                "from Project where workspaceId = :workspaceId and (phaseCode is null or phaseCode <> 'Clos') order by priorityLevel desc, projectName");
+                "from Project where workspaceId = :workspaceId and (projectStatus is null or projectStatus <> :closedStatus) order by priorityLevel desc, projectName");
         query.setParameter("workspaceId", workspaceId);
+        query.setParameter("closedStatus", STATUS_CLOSED);
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
         return projects;
@@ -793,10 +798,8 @@ public class ProjectHealthPageService {
         report.setProjectId(project.getProjectId());
         report.setProjectName(n(project.getProjectName()));
         report.setDescription(n(project.getDescription()));
-        report.setCategory(project.getProjectCategory() == null ? n(project.getCategoryCode())
-                : n(project.getProjectCategory().getClientName()));
-        report.setPhase(project.getProjectPhase() == null ? n(project.getPhaseCode())
-                : n(project.getProjectPhase().getPhaseLabel()));
+        report.setCategory(loadTagSummaryForProject(dataSession, project.getProjectId()));
+        report.setPhase(normalizeProjectStatus(project.getProjectStatus()));
         report.setUndatedOpenCount(stats.undatedOpen);
         report.setOverdueOpenCount(stats.overdueOpen);
         report.setUpdateDueDays(stats.updateDue);
@@ -1047,8 +1050,8 @@ public class ProjectHealthPageService {
         StringBuilder text = new StringBuilder();
         text.append("Project Briefing\n");
         text.append("Project: ").append(n(report.getProjectName())).append("\n");
-        text.append("Category: ").append(n(report.getCategory(), "(unspecified)")).append("\n");
-        text.append("Phase: ").append(n(report.getPhase(), "(unspecified)")).append("\n");
+        text.append("Tags: ").append(n(report.getCategory(), "(none)")).append("\n");
+        text.append("Status: ").append(n(report.getPhase(), "(unspecified)")).append("\n");
         text.append("Description: ").append(n(report.getDescription(), "(none)\n")).append("\n\n");
 
         text.append("Recent Completed Activity\n");
@@ -1135,11 +1138,32 @@ public class ProjectHealthPageService {
         return workspace != null && Workspace.TYPE_PRIVATE.equals(workspace.getWorkspaceType());
     }
 
-    private String normalizePhaseCode(String phaseCode) {
-        if (phaseCode == null || phaseCode.trim().length() == 0) {
-            return PHASE_ACTIVE;
+    private String normalizeProjectStatus(String projectStatus) {
+        return ProjectStatus.fromDatabaseValue(projectStatus).getDatabaseValue();
+    }
+
+    private String loadTagSummaryForProject(Session dataSession, int projectId) {
+        Query query = dataSession.createQuery(
+                "select pt.tagName from ProjectTagMap ptm, ProjectTag pt "
+                        + "where ptm.projectId = :projectId and pt.projectTagId = ptm.projectTagId "
+                        + "order by pt.sortOrder, pt.tagName");
+        query.setParameter("projectId", projectId);
+        @SuppressWarnings("unchecked")
+        List<String> tagNames = query.list();
+        if (tagNames == null || tagNames.isEmpty()) {
+            return "";
         }
-        return phaseCode.trim();
+        StringBuilder sb = new StringBuilder();
+        for (String tagName : tagNames) {
+            if (tagName == null || tagName.trim().length() == 0) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(tagName.trim());
+        }
+        return sb.toString();
     }
 
     private String formatDate(WebUser webUser, Date date) {

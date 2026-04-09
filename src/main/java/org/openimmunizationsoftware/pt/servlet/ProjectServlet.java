@@ -168,11 +168,8 @@ public class ProjectServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">" + n(project.getProjectHandle()) + "</td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Category</th>");
-      out.println("    <td class=\"boxed\">"
-          + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
-              : "")
-          + "</td>");
+      out.println("    <th class=\"boxed\">Status</th>");
+      out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
       out.println("  </tr>");
       if (project.getDescription() != null && !project.getDescription().equals("")) {
         out.println("  <tr class=\"boxed\">");
@@ -180,12 +177,6 @@ public class ProjectServlet extends ClientServlet {
         out.println("    <td class=\"boxed\">" + addBreaks(project.getDescription()) + "</td>");
         out.println("  </tr>");
       }
-      out.println("  <tr class=\"boxed\">");
-      out.println("    <th class=\"boxed\">Phase</th>");
-      out.println("    <td class=\"boxed\">"
-          + (project.getProjectPhase() != null ? project.getProjectPhase().getPhaseLabel() : "")
-          + "</td>");
-      out.println("  </tr>");
       if (projectContactAssignedForThisUser != null) {
         if (projectContactAssignedForThisUser.getUpdateDue() > 0) {
           out.println("  <tr class=\"boxed\">");

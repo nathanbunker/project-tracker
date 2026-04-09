@@ -19,8 +19,8 @@
         <property name="linkedPatchProjectId" type="java.lang.Integer">
             <column name="linked_patch_project_id" />
         </property>
-        <property name="linkedPatchCategoryId" type="java.lang.Integer">
-            <column name="linked_patch_category_id" />
+        <property name="linkedPatchTagId" type="java.lang.Integer">
+            <column name="linked_patch_tag_id" />
         </property>
         <property name="createdByWebUserId" type="int">
             <column name="created_by_web_user_id" not-null="true" />

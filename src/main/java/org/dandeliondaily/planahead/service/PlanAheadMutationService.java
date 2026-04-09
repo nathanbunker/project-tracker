@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
@@ -32,7 +33,7 @@ import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
 
 public class PlanAheadMutationService {
 
-    static final String PHASE_ACTIVE = "Acti";
+    static final String STATUS_ACTIVE = ProjectStatus.ACTIVE.getDatabaseValue();
     static final String BILLABLE_YES = "Y";
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
@@ -1293,10 +1294,10 @@ public class PlanAheadMutationService {
     private List<Map<String, Object>> listProjectsForProvider(Session dataSession, AppReq appReq) {
         Query query = dataSession.createQuery(
                 "from Project p where p.workspaceId = :workspaceId "
-                        + "and (p.phaseCode is null or p.phaseCode = :phaseCode) "
+                        + "and (p.projectStatus is null or p.projectStatus = :projectStatus) "
                         + "order by p.priorityLevel desc, p.projectName");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        query.setParameter("phaseCode", PHASE_ACTIVE);
+        query.setParameter("projectStatus", STATUS_ACTIVE);
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
         List<Project> filteredProjects = filterProjectsForTemplateMode(projects,

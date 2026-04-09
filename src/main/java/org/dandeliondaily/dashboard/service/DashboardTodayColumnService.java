@@ -22,6 +22,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -447,8 +448,9 @@ public class DashboardTodayColumnService {
     private List<Project> loadProjectList(WebUser webUser, Session dataSession) {
         Query query = dataSession
                 .createQuery(
-                        "from Project where workspaceId = ? and (phaseCode is null or phaseCode = 'Acti') order by projectName");
+                        "from Project where workspaceId = ? and (projectStatus is null or projectStatus = :activeStatus) order by projectName");
         query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        query.setParameter("activeStatus", ProjectStatus.ACTIVE.getDatabaseValue());
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();
         return projectList;

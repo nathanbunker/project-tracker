@@ -92,8 +92,8 @@ public class ProjectHealthServlet extends ClientServlet {
                 handleAddDirectProjectLink(appReq);
                 return;
             }
-            if ("addCategoryLink".equals(action)) {
-                handleAddCategoryLink(appReq);
+            if ("addTagLink".equals(action)) {
+                handleAddTagLink(appReq);
                 return;
             }
             if ("removeProjectPatchLink".equals(action)) {
@@ -434,19 +434,19 @@ public class ProjectHealthServlet extends ClientServlet {
         sendJson(appReq, true, "Link added", null);
     }
 
-    private void handleAddCategoryLink(AppReq appReq) throws Exception {
+    private void handleAddTagLink(AppReq appReq) throws Exception {
         String projectIdStr = appReq.getRequest().getParameter("projectId");
-        String patchCategoryIdStr = appReq.getRequest().getParameter("patchCategoryId");
+        String patchTagIdStr = appReq.getRequest().getParameter("patchTagId");
         if (projectIdStr == null || projectIdStr.trim().length() == 0) {
             sendJson(appReq, false, "Project id is required", null);
             return;
         }
-        if (patchCategoryIdStr == null || patchCategoryIdStr.trim().length() == 0) {
-            sendJson(appReq, false, "Patch category is required", null);
+        if (patchTagIdStr == null || patchTagIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Patch tag is required", null);
             return;
         }
         int projectId;
-        int patchCategoryId;
+        int patchTagId;
         try {
             projectId = Integer.parseInt(projectIdStr.trim());
         } catch (NumberFormatException nfe) {
@@ -454,9 +454,9 @@ public class ProjectHealthServlet extends ClientServlet {
             return;
         }
         try {
-            patchCategoryId = Integer.parseInt(patchCategoryIdStr.trim());
+            patchTagId = Integer.parseInt(patchTagIdStr.trim());
         } catch (NumberFormatException nfe) {
-            sendJson(appReq, false, "Invalid patch category id", null);
+            sendJson(appReq, false, "Invalid patch tag id", null);
             return;
         }
         Session dataSession = appReq.getDataSession();
@@ -472,12 +472,12 @@ public class ProjectHealthServlet extends ClientServlet {
         }
         int linkedPatchWorkspaceId = project.getLinkedPatchWorkspaceId().intValue();
         ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
-        if (dao.categoryLinkExists(projectId, patchCategoryId)) {
+        if (dao.tagLinkExists(projectId, patchTagId)) {
             sendJson(appReq, false, "Link already exists", null);
             return;
         }
         ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
-        String error = patchLinkService.validateCategoryLink(dataSession, patchCategoryId, linkedPatchWorkspaceId);
+        String error = patchLinkService.validateTagLink(dataSession, patchTagId, linkedPatchWorkspaceId);
         if (error != null) {
             sendJson(appReq, false, error, null);
             return;
@@ -487,8 +487,8 @@ public class ProjectHealthServlet extends ClientServlet {
             ProjectPatchLink link = new ProjectPatchLink();
             link.setPrivateProjectId(projectId);
             link.setPatchWorkspaceId(linkedPatchWorkspaceId);
-            link.setLinkType(ProjectPatchLink.LINK_TYPE_PATCH_CATEGORY);
-            link.setLinkedPatchCategoryId(patchCategoryId);
+            link.setLinkType(ProjectPatchLink.LINK_TYPE_PATCH_TAG);
+            link.setLinkedPatchTagId(patchTagId);
             link.setCreatedByWebUserId(webUser.getWebUserId());
             link.setCreatedDate(new java.util.Date());
             dao.save(link);

@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
@@ -608,10 +609,11 @@ public class ActionServlet extends MobileBaseServlet {
         Integer workspaceId = org.openimmunizationsoftware.pt.WorkspaceRegistry
                 .getWorkspaceIdForWebUserId(webUser.getWebUserId());
         String queryString = "from Project where workspaceId = :workspaceId";
-        queryString += " and phaseCode <> 'Clos'";
+        queryString += " and (projectStatus is null or projectStatus <> :closedStatus)";
         queryString += " order by projectName";
         Query query = dataSession.createQuery(queryString);
         query.setParameter("workspaceId", workspaceId);
+        query.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
         @SuppressWarnings("unchecked")
         List<Project> allProjects = query.list();
         List<Project> filteredProjects = new ArrayList<Project>();

@@ -43,6 +43,9 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
+import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
@@ -1036,12 +1039,14 @@ public class DandelionDashboardServlet extends ClientServlet {
             String projectName = clip(appReq.getRequest().getParameter("projectName"), 100);
             String projectHandle = HandleValidationSupport.resolveHandle(
                     appReq.getRequest().getParameter("projectHandle"), projectName, 60);
-            String categoryCode = clip(appReq.getRequest().getParameter("categoryCode"), 15);
             String projectIcon = clip(appReq.getRequest().getParameter("projectIcon"), 8);
             String description = clip(appReq.getRequest().getParameter("description"), 1200);
             String outcomeText = clip(appReq.getRequest().getParameter("outcomeText"), 12000);
             String successCriteriaText = clip(appReq.getRequest().getParameter("successCriteriaText"), 12000);
-            String phaseCode = clip(appReq.getRequest().getParameter("phaseCode"), 8);
+            String projectStatus = clip(appReq.getRequest().getParameter("projectStatus"), 20);
+            projectStatus = normalizeProjectStatus(projectStatus);
+            List<Integer> requestedProjectTagIds = parseProjectTagIds(
+                    appReq.getRequest().getParameterValues("projectTagIds"));
             String billCode = clip(appReq.getRequest().getParameter("billCode"), 15);
             String updateEveryStr = clip(appReq.getRequest().getParameter("updateEvery"), 8);
             String linkedPatchWorkspaceIdStr = appReq.getRequest().getParameter("linkedPatchWorkspaceId");
@@ -1062,8 +1067,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
 
-            String phaseCodeNormalized = phaseCode;
-            boolean closedPhase = "Clos".equalsIgnoreCase(phaseCodeNormalized);
+            boolean closedPhase = ProjectStatus.CLOSED.getDatabaseValue().equalsIgnoreCase(projectStatus);
             if (!closedPhase && projectHandle.length() == 0) {
                 transaction.rollback();
                 sendJsonResponse(appReq, false, "Project handle is required for active projects", null);
@@ -1079,10 +1083,11 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             Query uniqueQuery = dataSession.createQuery(
-                    "select count(*) from Project where workspaceId = :workspaceId and lower(projectHandle) = :projectHandle and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
+                    "select count(*) from Project where workspaceId = :workspaceId and lower(projectHandle) = :projectHandle and projectId <> :projectId and projectStatus <> :closedStatus");
             uniqueQuery.setParameter("workspaceId", activeWorkspaceId);
             uniqueQuery.setParameter("projectHandle", projectHandle.toLowerCase());
             uniqueQuery.setParameter("projectId", createMode ? -1 : projectId);
+            uniqueQuery.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
             Number duplicateCount = (Number) uniqueQuery.uniqueResult();
             if (duplicateCount != null && duplicateCount.intValue() > 0) {
                 transaction.rollback();
@@ -1116,7 +1121,6 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             project.setProjectName(projectName);
             project.setProjectHandle(projectHandle.length() > 0 ? projectHandle : null);
-            project.setCategoryCode(categoryCode.length() > 0 ? categoryCode : null);
             if (closedPhase) {
                 project.setPriorityLevel(0);
             }
@@ -1126,7 +1130,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             project.setOutcomeText(outcomeText.length() > 0 ? outcomeText : null);
             // Intentionally store raw newline-separated criteria text for now.
             project.setSuccessCriteriaText(successCriteriaText.length() > 0 ? successCriteriaText : null);
-            project.setPhaseCode(phaseCode.length() > 0 ? phaseCode : null);
+            project.setProjectStatus(projectStatus);
             if (webUser.isTrackTime()) {
                 project.setBillCode(billCode);
             }
@@ -1166,6 +1170,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             if (createMode) {
                 dataSession.flush();
             }
+            syncProjectTags(dataSession, project.getProjectId(), activeWorkspaceId.intValue(), requestedProjectTagIds);
 
             ProjectContactAssigned projectContactAssigned = loadProjectContactAssigned(webUser, dataSession, project);
             if (projectContactAssigned == null) {
@@ -1236,6 +1241,54 @@ public class DandelionDashboardServlet extends ClientServlet {
             return workspaceId;
         }
         return workspaceId;
+    }
+
+    private void syncProjectTags(Session dataSession, int projectId, int workspaceId, List<Integer> requestedTagIds) {
+        Query deleteQuery = dataSession.createQuery("delete from ProjectTagMap where projectId = :projectId");
+        deleteQuery.setParameter("projectId", projectId);
+        deleteQuery.executeUpdate();
+
+        if (requestedTagIds == null || requestedTagIds.isEmpty()) {
+            return;
+        }
+
+        Query validTagQuery = dataSession.createQuery(
+                "select projectTagId from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus and projectTagId in (:tagIds)");
+        validTagQuery.setParameter("workspaceId", workspaceId);
+        validTagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+        validTagQuery.setParameterList("tagIds", requestedTagIds);
+        @SuppressWarnings("unchecked")
+        List<Integer> validTagIds = validTagQuery.list();
+
+        for (Integer tagId : validTagIds) {
+            ProjectTagMap map = new ProjectTagMap();
+            map.setProjectId(projectId);
+            map.setProjectTagId(tagId.intValue());
+            map.setCreatedDate(new Date());
+            dataSession.save(map);
+        }
+    }
+
+    private List<Integer> parseProjectTagIds(String[] values) {
+        List<Integer> tagIds = new ArrayList<Integer>();
+        if (values == null) {
+            return tagIds;
+        }
+        for (String value : values) {
+            if (value == null || value.trim().length() == 0) {
+                continue;
+            }
+            try {
+                tagIds.add(Integer.valueOf(Integer.parseInt(value.trim())));
+            } catch (NumberFormatException nfe) {
+                // Ignore invalid values from request payload.
+            }
+        }
+        return tagIds;
+    }
+
+    private String normalizeProjectStatus(String projectStatus) {
+        return ProjectStatus.fromDatabaseValue(projectStatus).getDatabaseValue();
     }
 
     private String clip(String value, int maxLen) {

@@ -41,13 +41,13 @@ public class ProjectPatchLinkDao {
         return count != null && count.intValue() > 0;
     }
 
-    public boolean categoryLinkExists(int privateProjectId, int patchCategoryId) {
+    public boolean tagLinkExists(int privateProjectId, int patchTagId) {
         Query query = session.createQuery(
                 "select count(*) from ProjectPatchLink where privateProjectId = :pid"
-                        + " and linkType = :lt and linkedPatchCategoryId = :pcid");
+                        + " and linkType = :lt and linkedPatchTagId = :ptid");
         query.setParameter("pid", privateProjectId);
-        query.setParameter("lt", ProjectPatchLink.LINK_TYPE_PATCH_CATEGORY);
-        query.setParameter("pcid", patchCategoryId);
+        query.setParameter("lt", ProjectPatchLink.LINK_TYPE_PATCH_TAG);
+        query.setParameter("ptid", patchTagId);
         Number count = (Number) query.uniqueResult();
         return count != null && count.intValue() > 0;
     }

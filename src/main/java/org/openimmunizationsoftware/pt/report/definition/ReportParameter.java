@@ -10,7 +10,7 @@ import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ReportProfile;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -22,7 +22,7 @@ public class ReportParameter {
   public static final String TYPE_DROPDOWN = "DROPDOWN";
 
   public static final String DROPDOWN_PROJECT_BILLCODE = "Project billCodes";
-  public static final String DROPDOWN_PROJECT_CATEGORY = "Project projectCategory";
+  public static final String DROPDOWN_PROJECT_CATEGORY = "Project projectTag";
   public static final String DROPDOWN_TRACK_BILL_BUDGET_ID = "Track billBudgetId";
 
   private String label = "";
@@ -154,17 +154,18 @@ public class ReportParameter {
       } else if (dropdownLink.equals(DROPDOWN_PROJECT_CATEGORY)) {
         sbuf.append("<select name=\"" + name + "\">");
         Query query = dataSession.createQuery(
-            "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
+            "from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus order by sortOrder, tagName");
         query.setParameter("workspaceId", workspaceId);
+        query.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
         @SuppressWarnings("unchecked")
-        List<ProjectCategory> projectCategoryList = query.list();
-        for (ProjectCategory projectCategory : projectCategoryList) {
-          if (projectCategory.getCategoryCode().equals(value)) {
-            sbuf.append("<option value=\"" + projectCategory.getCategoryCode() + "\" selected>"
-                + projectCategory.getClientNameForDropdown() + "</option>");
+        List<ProjectTag> projectTagList = query.list();
+        for (ProjectTag projectTag : projectTagList) {
+          if (projectTag.getTagHandle().equals(value)) {
+            sbuf.append("<option value=\"" + projectTag.getTagHandle() + "\" selected>"
+                + projectTag.getTagName() + "</option>");
           } else {
-            sbuf.append("<option value=\"" + projectCategory.getCategoryCode() + "\">"
-                + projectCategory.getClientNameForDropdown() + "</option>");
+            sbuf.append("<option value=\"" + projectTag.getTagHandle() + "\">"
+                + projectTag.getTagName() + "</option>");
           }
         }
         sbuf.append("</select>");

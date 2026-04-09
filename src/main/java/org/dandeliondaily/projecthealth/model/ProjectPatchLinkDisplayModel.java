@@ -13,8 +13,8 @@ public class ProjectPatchLinkDisplayModel {
     // For DIRECT_PROJECT links
     private Project directLinkedProject;
 
-    // For PATCH_CATEGORY links
-    private String categoryName;
+    // For PATCH_TAG links
+    private String tagName;
     private List<Project> resolvedProjects = new ArrayList<Project>();
 
     public int getProjectPatchLinkId() {
@@ -41,12 +41,12 @@ public class ProjectPatchLinkDisplayModel {
         this.directLinkedProject = directLinkedProject;
     }
 
-    public String getCategoryName() {
-        return categoryName;
+    public String getTagName() {
+        return tagName;
     }
 
-    public void setCategoryName(String categoryName) {
-        this.categoryName = categoryName;
+    public void setTagName(String tagName) {
+        this.tagName = tagName;
     }
 
     public List<Project> getResolvedProjects() {

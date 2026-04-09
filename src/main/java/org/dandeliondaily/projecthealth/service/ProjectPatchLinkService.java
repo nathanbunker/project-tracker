@@ -8,8 +8,9 @@ import org.hibernate.Session;
 import org.dandeliondaily.projecthealth.model.ProjectPatchLinkDisplayModel;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 
 public class ProjectPatchLinkService {
 
@@ -27,18 +28,20 @@ public class ProjectPatchLinkService {
                     && link.getLinkedPatchProjectId() != null) {
                 Project patchProject = (Project) session.get(Project.class, link.getLinkedPatchProjectId());
                 display.setDirectLinkedProject(patchProject);
-            } else if (ProjectPatchLink.LINK_TYPE_PATCH_CATEGORY.equals(link.getLinkType())
-                    && link.getLinkedPatchCategoryId() != null) {
-                ProjectCategory category = (ProjectCategory) session.get(ProjectCategory.class,
-                        link.getLinkedPatchCategoryId());
-                if (category != null) {
-                    display.setCategoryName(category.getClientName());
+            } else if (ProjectPatchLink.LINK_TYPE_PATCH_TAG.equals(link.getLinkType())
+                    && link.getLinkedPatchTagId() != null) {
+                ProjectTag tag = (ProjectTag) session.get(ProjectTag.class,
+                        link.getLinkedPatchTagId());
+                if (tag != null) {
+                    display.setTagName(tag.getTagName());
                     Query projectQuery = session.createQuery(
-                            "from Project where workspaceId = :wsId and categoryCode = :code"
-                                    + " and (phaseCode is null or phaseCode <> 'Clos')"
-                                    + " order by priorityLevel desc, projectName");
+                            "from Project p where p.workspaceId = :wsId"
+                                    + " and p.projectStatus <> :closedStatus"
+                                    + " and exists (select 1 from ProjectTagMap ptm where ptm.projectId = p.projectId and ptm.projectTagId = :tagId)"
+                                    + " order by p.priorityLevel desc, p.projectName");
                     projectQuery.setParameter("wsId", patchWorkspaceId);
-                    projectQuery.setParameter("code", category.getCategoryCode());
+                    projectQuery.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
+                    projectQuery.setParameter("tagId", tag.getProjectTagId());
                     display.setResolvedProjects((List<Project>) projectQuery.list());
                 }
             }
@@ -59,14 +62,13 @@ public class ProjectPatchLinkService {
         return null;
     }
 
-    public String validateCategoryLink(Session session, int patchCategoryId, int patchWorkspaceId) {
-        ProjectCategory category = (ProjectCategory) session.get(ProjectCategory.class, patchCategoryId);
-        if (category == null) {
-            return "Category not found";
+    public String validateTagLink(Session session, int patchTagId, int patchWorkspaceId) {
+        ProjectTag tag = (ProjectTag) session.get(ProjectTag.class, patchTagId);
+        if (tag == null) {
+            return "Tag not found";
         }
-        if (category.getWorkspaceId() == null
-                || category.getWorkspaceId().intValue() != patchWorkspaceId) {
-            return "Category does not belong to the linked patch workspace";
+        if (tag.getWorkspaceId() != patchWorkspaceId) {
+            return "Tag does not belong to the linked patch workspace";
         }
         return null;
     }

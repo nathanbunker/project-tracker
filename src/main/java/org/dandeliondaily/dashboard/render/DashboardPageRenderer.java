@@ -17,12 +17,12 @@ import org.dandeliondaily.dashboard.model.TimeGaugeVariant;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
-import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -1170,7 +1170,6 @@ public class DashboardPageRenderer {
                 out.println("</div>");
         }
 
-        @SuppressWarnings("unchecked")
         private void printCurrentProjectEditModal(PrintWriter out, AppReq appReq,
                         DashboardNowColumnModel.CurrentProject currentProjectModel) {
                 if (currentProjectModel == null || currentProjectModel.getProjectId() <= 0) {
@@ -1186,6 +1185,11 @@ public class DashboardPageRenderer {
                 ProjectContactAssigned projectContactAssigned = loadProjectContactAssigned(webUser, dataSession,
                                 project);
                 int updateEvery = projectContactAssigned != null ? projectContactAssigned.getUpdateDue() : 0;
+                Query selectedTagIdQuery = dataSession
+                                .createQuery("select projectTagId from ProjectTagMap where projectId = :projectId");
+                selectedTagIdQuery.setParameter("projectId", project.getProjectId());
+                @SuppressWarnings("unchecked")
+                List<Integer> selectedProjectTagIds = selectedTagIdQuery.list();
 
                 out.println(
                                 "<div id=\"ddCurrentProjectEditModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseCurrentProjectEditModal(event)\">");
@@ -1217,26 +1221,21 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
 
                 out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Category:</label>");
-                out.println("        <select id=\"ddCurrentProjectCategory\" name=\"categoryCode\" class=\"dd-form-input\">");
-                Query categoryQuery = dataSession.createQuery(
-                                "from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
-                categoryQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-                List<ProjectCategory> projectCategoryList = categoryQuery.list();
-                for (ProjectCategory projectCategory : projectCategoryList) {
-                        String categoryCode = projectCategory.getCategoryCode();
-                        if (categoryCode != null && categoryCode.startsWith("PER-")) {
-                                String expectedPersonalCategory = "PER-" + webUser.getContactId();
-                                if (!categoryCode.equals(expectedPersonalCategory)) {
-                                        continue;
-                                }
-                        }
-                        String selected = categoryCode != null && categoryCode.equals(project.getCategoryCode())
-                                        ? " selected"
+                out.println("        <label class=\"dd-form-label\">Tags:</label>");
+                out.println(
+                                "        <select id=\"ddCurrentProjectTags\" name=\"projectTagIds\" class=\"dd-form-input\" multiple size=\"6\">");
+                Query tagQuery = dataSession.createQuery(
+                                "from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus order by sortOrder, tagName");
+                tagQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+                tagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+                @SuppressWarnings("unchecked")
+                List<ProjectTag> projectTagList = tagQuery.list();
+                for (ProjectTag projectTag : projectTagList) {
+                        String selected = selectedProjectTagIds.contains(projectTag.getProjectTagId()) ? " selected"
                                         : "";
-                        out.println("          <option value=\"" + escapeHtml(safe(categoryCode)) + "\"" + selected
+                        out.println("          <option value=\"" + projectTag.getProjectTagId() + "\"" + selected
                                         + ">"
-                                        + escapeHtml(projectCategory.getClientNameForDropdown()) + "</option>");
+                                        + escapeHtml(projectTag.getTagName()) + "</option>");
                 }
                 out.println("        </select>");
                 out.println("      </div>");
@@ -1278,17 +1277,14 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
 
                 out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Phase:</label>");
-                out.println("        <select id=\"ddCurrentProjectPhase\" name=\"phaseCode\" class=\"dd-form-input\">");
-                Query phaseQuery = dataSession.createQuery("from ProjectPhase");
-                List<ProjectPhase> projectPhaseList = phaseQuery.list();
-                for (ProjectPhase projectPhase : projectPhaseList) {
-                        String selected = projectPhase.getPhaseCode() != null
-                                        && projectPhase.getPhaseCode().equals(project.getPhaseCode()) ? " selected"
-                                                        : "";
-                        out.println("          <option value=\"" + escapeHtml(safe(projectPhase.getPhaseCode())) + "\""
-                                        + selected
-                                        + ">" + escapeHtml(projectPhase.getPhaseLabel()) + "</option>");
+                out.println("        <label class=\"dd-form-label\">Status:</label>");
+                out.println("        <select id=\"ddCurrentProjectStatus\" name=\"projectStatus\" class=\"dd-form-input\">");
+                String selectedProjectStatus = project.getProjectStatusEnum().getDatabaseValue();
+                for (ProjectStatus status : ProjectStatus.values()) {
+                        String value = status.getDatabaseValue();
+                        String selected = value.equalsIgnoreCase(selectedProjectStatus) ? " selected" : "";
+                        out.println("          <option value=\"" + escapeHtml(value) + "\"" + selected + ">"
+                                        + escapeHtml(value) + "</option>");
                 }
                 out.println("        </select>");
                 out.println("      </div>");
@@ -1305,6 +1301,7 @@ public class DashboardPageRenderer {
                 Query billCodeQuery = dataSession.createQuery(
                                 "from BillCode where workspaceId = :workspaceId and visible = 'Y' order by billLabel");
                 billCodeQuery.setParameter("workspaceId", workspaceId);
+                @SuppressWarnings("unchecked")
                 List<BillCode> billCodeList = billCodeQuery.list();
                 for (BillCode billCode : billCodeList) {
                         String selected = billCode.getBillCode() != null
@@ -1353,7 +1350,7 @@ public class DashboardPageRenderer {
                 out.println("    projectId: '" + project.getProjectId() + "',");
                 out.println("    projectName: '" + escapeJsString(project.getProjectName()) + "',");
                 out.println("    projectHandle: '" + escapeJsString(safe(project.getProjectHandle())) + "',");
-                out.println("    categoryCode: '" + escapeJsString(safe(project.getCategoryCode())) + "',");
+                out.println("    projectTagIds: '" + escapeJsString(joinIntegerList(selectedProjectTagIds)) + "',");
                 out.println("    priorityLevel: '" + project.getPriorityLevel() + "',");
                 out.println("    projectIcon: '" + escapeJsString(safe(project.getProjectIcon())) + "',");
                 out.println("    description: '" + escapeJsString(safe(project.getDescription())) + "',");
@@ -1361,7 +1358,7 @@ public class DashboardPageRenderer {
                 out.println(
                                 "    successCriteriaText: '" + escapeJsString(safe(project.getSuccessCriteriaText()))
                                                 + "',");
-                out.println("    phaseCode: '" + escapeJsString(safe(project.getPhaseCode())) + "',");
+                out.println("    projectStatus: '" + escapeJsString(safe(selectedProjectStatus)) + "',");
                 out.println("    billCode: '" + escapeJsString(safe(project.getBillCode())) + "',");
                 out.println("    updateEvery: '" + updateEvery + "'");
                 out.println("  };");
@@ -1384,7 +1381,7 @@ public class DashboardPageRenderer {
                 out.println(
                                 "    document.getElementById('ddCurrentProjectHandle').value = ddCurrentProjectDefaults.projectHandle;");
                 out.println(
-                                "    document.getElementById('ddCurrentProjectCategory').value = ddCurrentProjectDefaults.categoryCode;");
+                                "    ddSetMultiSelectValues('ddCurrentProjectTags', ddCurrentProjectDefaults.projectTagIds);");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectPriority').value = ddCurrentProjectDefaults.priorityLevel;");
                 out.println(
@@ -1395,7 +1392,7 @@ public class DashboardPageRenderer {
                                 "    document.getElementById('ddCurrentProjectOutcomeText').value = ddCurrentProjectDefaults.outcomeText;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectSuccessCriteriaText').value = ddCurrentProjectDefaults.successCriteriaText;");
-                out.println("    document.getElementById('ddCurrentProjectPhase').value = ddCurrentProjectDefaults.phaseCode;");
+                out.println("    document.getElementById('ddCurrentProjectStatus').value = ddCurrentProjectDefaults.projectStatus;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectBillCode').value = ddCurrentProjectDefaults.billCode;");
                 out.println(
@@ -1409,6 +1406,15 @@ public class DashboardPageRenderer {
                 out.println("    if (billCode) { billCode.value = ''; }");
                 out.println("    var updateEvery = document.getElementById('ddCurrentProjectUpdateEvery');");
                 out.println("    if (updateEvery) { updateEvery.value = '0'; }");
+                out.println("    var tags = document.getElementById('ddCurrentProjectTags');");
+                out.println("    if (tags) { for (var i=0; i<tags.options.length; i++) { tags.options[i].selected = false; } }");
+                out.println("  }");
+                out.println("  function ddSetMultiSelectValues(id, csvValues) {");
+                out.println("    var select = document.getElementById(id);");
+                out.println("    if (!select) { return; }");
+                out.println("    var selected = {}; ");
+                out.println("    if (csvValues) { var parts = csvValues.split(','); for (var i=0;i<parts.length;i++) { var v = parts[i].trim(); if (v.length > 0) { selected[v] = true; } } }");
+                out.println("    for (var j=0; j<select.options.length; j++) { var option = select.options[j]; option.selected = !!selected[option.value]; }");
                 out.println("  }");
                 out.println("  function ddOpenCurrentProjectEditModal(evt) {");
                 out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
@@ -3434,6 +3440,23 @@ public class DashboardPageRenderer {
                         return trimmed;
                 }
                 return trimmed.substring(0, maxLength) + "...";
+        }
+
+        private String joinIntegerList(List<Integer> values) {
+                if (values == null || values.isEmpty()) {
+                        return "";
+                }
+                StringBuilder sb = new StringBuilder();
+                for (Integer value : values) {
+                        if (value == null) {
+                                continue;
+                        }
+                        if (sb.length() > 0) {
+                                sb.append(',');
+                        }
+                        sb.append(value.intValue());
+                }
+                return sb.toString();
         }
 
         private void printDevLabel(PrintWriter out, String label) {
