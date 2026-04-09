@@ -10,6 +10,8 @@ import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
+import org.dandeliondaily.projecthealth.model.ProjectPatchLinkDisplayModel;
+import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -19,6 +21,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectPhase;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.model.Workspace;
 
 public class ProjectHealthPageRenderer {
 
@@ -33,7 +36,10 @@ public class ProjectHealthPageRenderer {
                 String rootClass = "ph-page" + (DEV_LABELS_ENABLED ? " ph-dev-labels-enabled" : "");
                 out.println("<div class=\"" + rootClass + "\">");
                 out.println("  <div class=\"ph-intro\">");
-                out.println("    <h1>Project Health</h1>");
+                out.println("    <div style=\"overflow:auto;\">");
+                out.println("      <h1 style=\"float:left;\">Project Health</h1>");
+                printContextSelector(out, model);
+                out.println("    </div>");
                 out.println(
                                 "    <p>Project triage and maintenance workspace. Use this page to keep projects healthy, not to run daily execution.</p>");
                 out.println("  </div>");
@@ -53,7 +59,7 @@ public class ProjectHealthPageRenderer {
                 out.println("  </div>");
 
                 if (model.isSelectedProjectAvailable()) {
-                        printProjectEditModal(out, appReq, model.getSelectedProjectId());
+                        printProjectEditModal(out, appReq, model, model.getSelectedProjectId());
                 }
                 printReprioritizeModal(out, model);
                 printScheduleReviewModal(out, model);
@@ -293,7 +299,84 @@ public class ProjectHealthPageRenderer {
                                 "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenProjectEditModal(event)\">Edit Project</button>");
                 out.println("  </div>");
 
+                if (model.isPatchLinksVisible()) {
+                        out.println("  <div class=\"ph-divider\"></div>");
+                        printDevLabel(out, "PROJECT PATCH LINKS");
+                        printProjectLinksSection(out, model);
+                }
                 out.println("</div>");
+        }
+
+        private void printProjectLinksSection(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("  <h2>Patch Workspace Links</h2>");
+                if (model.getSelectedProjectLinkedPatchWorkspace() == null) {
+                        out.println(
+                                        "  <p class=\"ph-subtle\">Link a patch workspace in Edit Project to add links.</p>");
+                        return;
+                }
+                out.println("  <p class=\"ph-subtle\">Linked workspace: <strong>"
+                                + escapeHtml(model.getSelectedProjectLinkedPatchWorkspace().getWorkspaceName())
+                                + "</strong></p>");
+                List<ProjectPatchLinkDisplayModel> links = model.getProjectPatchLinks();
+                if (!links.isEmpty()) {
+                        out.println("  <ul class=\"ph-links-list\">");
+                        for (ProjectPatchLinkDisplayModel link : links) {
+                                out.println("    <li class=\"ph-link-item\">");
+                                if (ProjectPatchLink.LINK_TYPE_DIRECT_PROJECT.equals(link.getLinkType())) {
+                                        String name = link.getDirectLinkedProject() != null
+                                                        ? n(link.getDirectLinkedProject().getProjectName())
+                                                        : "(unknown)";
+                                        out.println("      <span>&#128196; " + escapeHtml(name) + "</span>");
+                                } else {
+                                        String catName = link.getCategoryName() != null ? link.getCategoryName()
+                                                        : "(unknown)";
+                                        out.println("      <span>&#128193; " + escapeHtml(catName) + "</span>");
+                                        List<Project> resolved = link.getResolvedProjects();
+                                        if (resolved != null && !resolved.isEmpty()) {
+                                                out.println("      <ul class=\"ph-link-resolved\">");
+                                                for (Project rp : resolved) {
+                                                        out.println("        <li>" + escapeHtml(n(rp.getProjectName()))
+                                                                        + "</li>");
+                                                }
+                                                out.println("      </ul>");
+                                        }
+                                }
+                                out.println("      <button type=\"button\" class=\"ph-mini-btn\" title=\"Remove link\""
+                                                + " onclick=\"phRemoveProjectPatchLink(event,"
+                                                + link.getProjectPatchLinkId() + "," + model.getSelectedProjectId()
+                                                + ")\">&times;</button>");
+                                out.println("    </li>");
+                        }
+                        out.println("  </ul>");
+                }
+                List<Project> patchProjects = model.getAvailablePatchProjects();
+                if (!patchProjects.isEmpty()) {
+                        out.println("  <div class=\"ph-patch-link-form\">");
+                        out.println("    <select id=\"phAddDirectProjectSelect\">");
+                        out.println("      <option value=\"\">Add direct project link...</option>");
+                        for (Project p : patchProjects) {
+                                out.println("      <option value=\"" + p.getProjectId() + "\">"
+                                                + escapeHtml(n(p.getProjectName())) + "</option>");
+                        }
+                        out.println("    </select>");
+                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddDirectProjectLink(event,"
+                                        + model.getSelectedProjectId() + ")\">Add</button>");
+                        out.println("  </div>");
+                }
+                List<ProjectCategory> patchCategories = model.getAvailablePatchCategories();
+                if (!patchCategories.isEmpty()) {
+                        out.println("  <div class=\"ph-patch-link-form\">");
+                        out.println("    <select id=\"phAddCategorySelect\">");
+                        out.println("      <option value=\"\">Add category link...</option>");
+                        for (ProjectCategory cat : patchCategories) {
+                                out.println("      <option value=\"" + cat.getProjectCategoryId() + "\">"
+                                                + escapeHtml(n(cat.getClientName())) + "</option>");
+                        }
+                        out.println("    </select>");
+                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddCategoryLink(event,"
+                                        + model.getSelectedProjectId() + ")\">Add</button>");
+                        out.println("  </div>");
+                }
         }
 
         private void printReprioritizeModal(PrintWriter out, ProjectHealthPageModel model) {
@@ -393,7 +476,8 @@ public class ProjectHealthPageRenderer {
         }
 
         @SuppressWarnings("unchecked")
-        private void printProjectEditModal(PrintWriter out, AppReq appReq, int selectedProjectId) {
+        private void printProjectEditModal(PrintWriter out, AppReq appReq, ProjectHealthPageModel model,
+                        int selectedProjectId) {
                 Session dataSession = appReq.getDataSession();
                 WebUser webUser = appReq.getWebUser();
 
@@ -421,6 +505,9 @@ public class ProjectHealthPageRenderer {
                                 "      <input id=\"phProjectFormAction\" type=\"hidden\" name=\"action\" value=\"saveProjectEdit\" />");
                 out.println("      <input id=\"phProjectId\" type=\"hidden\" name=\"projectId\" value=\""
                                 + project.getProjectId() + "\" />");
+                out.println("      <input type=\"hidden\" name=\"workspaceContextId\" value=\""
+                                + (model.getContextWorkspaceId() == null ? "" : model.getContextWorkspaceId())
+                                + "\" />");
 
                 out.println("      <div class=\"ph-form-field\"><label>Project Name</label>");
                 out.println("      <input id=\"phProjectName\" type=\"text\" name=\"projectName\" value=\""
@@ -430,7 +517,9 @@ public class ProjectHealthPageRenderer {
                 out.println("      <select id=\"phProjectCategory\" name=\"categoryCode\">");
                 Query categoryQuery = dataSession
                                 .createQuery("from ProjectCategory where workspaceId = :workspaceId order by sortOrder, clientName");
-                categoryQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+                Integer workspaceId = model.getContextWorkspaceId() != null ? model.getContextWorkspaceId()
+                                : appReq.getActiveWorkspaceId();
+                categoryQuery.setParameter("workspaceId", workspaceId);
                 List<ProjectCategory> categoryList = categoryQuery.list();
                 for (ProjectCategory category : categoryList) {
                         String categoryCode = category.getCategoryCode();
@@ -482,7 +571,8 @@ public class ProjectHealthPageRenderer {
 
                 out.println("      <div class=\"ph-form-field\"><label>Bill Code</label>");
                 out.println("      <select id=\"phProjectBillCode\" name=\"billCode\"><option value=\"\">(none)</option>");
-                Integer workspaceId = appReq.getActiveWorkspaceId();
+                workspaceId = model.getContextWorkspaceId() != null ? model.getContextWorkspaceId()
+                                : appReq.getActiveWorkspaceId();
                 if (workspaceId == null && webUser != null) {
                         workspaceId = org.openimmunizationsoftware.pt.WorkspaceRegistry
                                         .getWorkspaceIdForWebUserId(webUser.getWebUserId());
@@ -501,6 +591,28 @@ public class ProjectHealthPageRenderer {
                                         + escapeHtml(billCode.getBillLabel()) + "</option>");
                 }
                 out.println("      </select></div>");
+
+                if (model.isPatchLinksVisible()) {
+                        out.println("      <div class=\"ph-form-field\"><label>Linked Patch Workspace</label>");
+                        boolean patchDisabled = !model.isCanChangePatchWorkspace();
+                        out.println("      <select id=\"phProjectLinkedPatchWorkspaceId\" name=\"linkedPatchWorkspaceId\""
+                                        + (patchDisabled ? " disabled" : "") + ">");
+                        out.println("        <option value=\"\">(none)</option>");
+                        for (Workspace patchWs : model.getAccessiblePatchWorkspaces()) {
+                                boolean sel = model.getSelectedProjectLinkedPatchWorkspaceId() != null
+                                                && model.getSelectedProjectLinkedPatchWorkspaceId()
+                                                                .intValue() == patchWs.getWorkspaceId();
+                                out.println("        <option value=\"" + patchWs.getWorkspaceId() + "\""
+                                                + (sel ? " selected" : "") + ">"
+                                                + escapeHtml(patchWs.getWorkspaceName()) + "</option>");
+                        }
+                        out.println("      </select>");
+                        if (patchDisabled) {
+                                out.println(
+                                                "      <div class=\"ph-subtle\">Remove all links before changing the patch workspace.</div>");
+                        }
+                        out.println("      </div>");
+                }
 
                 out.println("      <div class=\"ph-form-field\"><label>Update Every</label>");
                 out.println(
@@ -537,8 +649,38 @@ public class ProjectHealthPageRenderer {
                 out.println("  successCriteriaText: '" + escapeJsString(n(project.getSuccessCriteriaText())) + "',");
                 out.println("  phaseCode: '" + escapeJsString(n(project.getPhaseCode())) + "',");
                 out.println("  billCode: '" + escapeJsString(n(project.getBillCode())) + "',");
-                out.println("  updateEvery: '" + updateEvery + "'\n};");
+                out.println("  updateEvery: '" + updateEvery + "',");
+                String linkedPatchWsId = project.getLinkedPatchWorkspaceId() != null
+                                ? project.getLinkedPatchWorkspaceId().toString()
+                                : "";
+                out.println("  linkedPatchWorkspaceId: '" + linkedPatchWsId + "'\n};");
+                out.println(
+                                "  function phAddDirectProjectLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddDirectProjectSelect'); if (!sel || !sel.value) { alert('Select a project to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addDirectProjectLink'); formData.append('projectId', projectId); formData.append('patchProjectId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
+                out.println(
+                                "  function phAddCategoryLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddCategorySelect'); if (!sel || !sel.value) { alert('Select a category to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addCategoryLink'); formData.append('projectId', projectId); formData.append('patchCategoryId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
+                out.println(
+                                "  function phRemoveProjectPatchLink(evt, linkId, projectId) { if (evt) { evt.preventDefault(); } if (!confirm('Remove this link?')) { return false; } var formData = new URLSearchParams(); formData.append('action','removeProjectPatchLink'); formData.append('projectPatchLinkId', linkId); formData.append('projectId', projectId); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to remove link'); } }).catch(function(){ alert('Unable to remove link'); }); return false; }");
                 out.println("</script>");
+        }
+
+        private void printContextSelector(PrintWriter out, ProjectHealthPageModel model) {
+                if (!model.isShowContextSelector()) {
+                        return;
+                }
+                out.println("      <form method=\"GET\" action=\"ProjectHealthServlet\" style=\"float:right;margin-top:10px;\">");
+                out.println("        <input type=\"hidden\" name=\"action\" value=\"setContext\" />");
+                out.println("        <label for=\"phPatchWorkspaceId\">Dandelion Patch:</label>");
+                out.println("        <select id=\"phPatchWorkspaceId\" name=\"patchWorkspaceId\" onchange=\"this.form.submit()\">\n"
+                                + "          <option value=\"\">Private</option>");
+                for (Workspace workspace : model.getAccessiblePatchWorkspaces()) {
+                        boolean selected = model.getContextWorkspaceId() != null
+                                        && model.getContextWorkspaceId().intValue() == workspace.getWorkspaceId();
+                        out.println("          <option value=\"" + workspace.getWorkspaceId() + "\""
+                                        + (selected ? " selected" : "") + ">"
+                                        + escapeHtml(workspace.getWorkspaceName()) + "</option>");
+                }
+                out.println("        </select>");
+                out.println("      </form>");
         }
 
         private void printScripts(PrintWriter out, ProjectHealthPageModel model) {
@@ -589,12 +731,12 @@ public class ProjectHealthPageRenderer {
                 out.println("  function phSetProjectDefaults() {");
                 out.println("    var d = window.phProjectDefaults || {}; ");
                 out.println(
-                                "    var map = [['phProjectName','projectName'],['phProjectCategory','categoryCode'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery']];");
+                                "    var map = [['phProjectName','projectName'],['phProjectCategory','categoryCode'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
                 out.println(
                                 "    for (var i=0;i<map.length;i++){ var el=document.getElementById(map[i][0]); if (el) { el.value = d[map[i][1]] || ''; } }");
                 out.println("  }");
                 out.println(
-                                "  function phClearProjectCreate() { var f=document.getElementById('phProjectEditForm'); if (f) { f.reset(); } var b=document.getElementById('phProjectBillCode'); if (b) { b.value=''; } var u=document.getElementById('phProjectUpdateEvery'); if (u) { u.value='0'; } }");
+                                "  function phClearProjectCreate() { var f=document.getElementById('phProjectEditForm'); if (f) { f.reset(); } var b=document.getElementById('phProjectBillCode'); if (b) { b.value=''; } var u=document.getElementById('phProjectUpdateEvery'); if (u) { u.value='0'; } var lp=document.getElementById('phProjectLinkedPatchWorkspaceId'); if (lp) { lp.value=''; } }");
                 out.println("  function phSubmitProjectEditForm(evt) {");
                 out.println(
                                 "    evt.preventDefault(); var f=document.getElementById('phProjectEditForm'); if (!f) { return false; }");
@@ -834,6 +976,20 @@ public class ProjectHealthPageRenderer {
                 out.println("  .ph-dev-labels-enabled .ph-dev-label { display: block; }");
 
                 out.println("  @media (max-width: 1180px) { .ph-shell { grid-template-columns: 1fr; } }");
+                out.println(
+                                "  .ph-links-list { list-style: none; margin: 6px 0 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }");
+                out.println(
+                                "  .ph-link-item { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; border: 1px solid #e0d8cb; border-radius: 4px; padding: 5px 7px; background: #faf8f4; }");
+                out.println(
+                                "  .ph-link-item span { flex: 1; color: #364033; }");
+                out.println(
+                                "  .ph-link-resolved { list-style: disc; margin: 4px 0 0 16px; padding: 0; }");
+                out.println(
+                                "  .ph-link-resolved li { color: #5f6d5f; font-size: 11px; margin-bottom: 2px; }");
+                out.println(
+                                "  .ph-patch-link-form { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }");
+                out.println(
+                                "  .ph-patch-link-form select { flex: 1; padding: 5px 6px; border: 1px solid #d2c8ba; border-radius: 4px; font-size: 12px; }");
                 out.println("</style>");
         }
 

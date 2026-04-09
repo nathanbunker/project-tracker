@@ -6,7 +6,8 @@ public class Workspace implements java.io.Serializable {
 
     private static final long serialVersionUID = 3707332874380537788L;
 
-    public static final String TYPE_PERSONAL = "PERSONAL";
+    public static final String TYPE_PRIVATE = "PRIVATE";
+    public static final String TYPE_PATCH = "PATCH";
     public static final String STATUS_ACTIVE = "ACTIVE";
 
     private int workspaceId;

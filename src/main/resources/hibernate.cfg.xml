@@ -44,6 +44,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectPhase.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Workspace.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/WorkspaceMember.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectPatchLink.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportProfile.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ReportSchedule.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/TrackerKeys.hbm.xml"/>

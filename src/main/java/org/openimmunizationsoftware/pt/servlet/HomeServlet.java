@@ -74,6 +74,8 @@ public class HomeServlet extends ClientServlet {
         out.println("<h2>Setup</h2>");
         out.println("<ul>");
         out.println("  <li><a href=\"ProjectsServlet\">Project Health</a></li>");
+        out.println("  <li><a href=\"DandelionPatchServlet\">Dandelion Patches</a></li>");
+        out.println("  <li><a href=\"CategoryManagementServlet\">Categories</a></li>");
         out.println("  <li><a href=\"ProjectContactsServlet\">Contacts</a></li>");
         out.println("  <li><a href=\"SettingsServlet\">Settings</a></li>");
         out.println("  <li><a href=\"DependentAccountsServlet\">Dependent Accounts</a></li>");

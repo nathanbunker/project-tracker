@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectPatchLink" table="project_patch_link">
+        <id name="projectPatchLinkId" type="int">
+            <column name="project_patch_link_id" />
+            <generator class="identity" />
+        </id>
+        <property name="privateProjectId" type="int">
+            <column name="private_project_id" not-null="true" />
+        </property>
+        <property name="patchWorkspaceId" type="int">
+            <column name="patch_workspace_id" not-null="true" />
+        </property>
+        <property name="linkType" type="string">
+            <column name="link_type" length="20" not-null="true" />
+        </property>
+        <property name="linkedPatchProjectId" type="java.lang.Integer">
+            <column name="linked_patch_project_id" />
+        </property>
+        <property name="linkedPatchCategoryId" type="java.lang.Integer">
+            <column name="linked_patch_category_id" />
+        </property>
+        <property name="createdByWebUserId" type="int">
+            <column name="created_by_web_user_id" not-null="true" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

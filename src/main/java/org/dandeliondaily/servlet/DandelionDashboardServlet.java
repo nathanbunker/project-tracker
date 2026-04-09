@@ -36,6 +36,7 @@ import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
 import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
@@ -43,6 +44,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -999,8 +1001,13 @@ public class DandelionDashboardServlet extends ClientServlet {
         Transaction transaction = dataSession.beginTransaction();
         try {
             WebUser webUser = appReq.getWebUser();
-            Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+            Integer activeWorkspaceId = resolveWorkspaceContextIdForProjectEdit(appReq, webUser, dataSession);
             if (webUser == null || activeWorkspaceId == null) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Workspace is not available for this user", null);
+                return;
+            }
+            if (!WorkspaceRegistry.canAdministerWorkspace(dataSession, activeWorkspaceId, webUser.getWebUserId())) {
                 transaction.rollback();
                 sendJsonResponse(appReq, false, "Workspace is not available for this user", null);
                 return;
@@ -1033,6 +1040,17 @@ public class DandelionDashboardServlet extends ClientServlet {
             String phaseCode = clip(appReq.getRequest().getParameter("phaseCode"), 8);
             String billCode = clip(appReq.getRequest().getParameter("billCode"), 15);
             String updateEveryStr = clip(appReq.getRequest().getParameter("updateEvery"), 8);
+            String linkedPatchWorkspaceIdStr = appReq.getRequest().getParameter("linkedPatchWorkspaceId");
+            Integer newLinkedPatchWorkspaceId = null;
+            if (linkedPatchWorkspaceIdStr != null && linkedPatchWorkspaceIdStr.trim().length() > 0) {
+                try {
+                    newLinkedPatchWorkspaceId = Integer.valueOf(Integer.parseInt(linkedPatchWorkspaceIdStr.trim()));
+                } catch (NumberFormatException nfe) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Invalid linked patch workspace id", null);
+                    return;
+                }
+            }
 
             if (projectName.length() == 0) {
                 transaction.rollback();
@@ -1098,6 +1116,31 @@ public class DandelionDashboardServlet extends ClientServlet {
                 project.setCreatedByWebUserId(webUser.getWebUserId());
             }
 
+            Workspace projectWorkspace = (Workspace) dataSession.get(Workspace.class, activeWorkspaceId);
+            boolean isPrivateWorkspace = projectWorkspace != null
+                    && Workspace.TYPE_PRIVATE.equals(projectWorkspace.getWorkspaceType());
+            if (isPrivateWorkspace) {
+                Integer currentLinkedPatchWorkspaceId = createMode ? null : project.getLinkedPatchWorkspaceId();
+                boolean changing = (newLinkedPatchWorkspaceId == null && currentLinkedPatchWorkspaceId != null)
+                        || (newLinkedPatchWorkspaceId != null
+                                && !newLinkedPatchWorkspaceId.equals(currentLinkedPatchWorkspaceId));
+                if (changing && !createMode
+                        && new org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao(dataSession)
+                                .hasLinksForProject(project.getProjectId())) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false,
+                            "Remove all project links before changing the linked patch workspace", null);
+                    return;
+                }
+                if (changing && newLinkedPatchWorkspaceId != null
+                        && !WorkspaceRegistry.hasActiveMembership(dataSession,
+                                newLinkedPatchWorkspaceId.intValue(), webUser.getWebUserId())) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false, "Patch workspace is not accessible", null);
+                    return;
+                }
+                project.setLinkedPatchWorkspaceId(newLinkedPatchWorkspaceId);
+            }
             dataSession.saveOrUpdate(project);
             if (createMode) {
                 dataSession.flush();
@@ -1150,6 +1193,27 @@ public class DandelionDashboardServlet extends ClientServlet {
                     (createMode ? "Unable to create project: " : "Unable to save project: ") + e.getMessage(),
                     null);
         }
+    }
+
+    private Integer resolveWorkspaceContextIdForProjectEdit(AppReq appReq, WebUser webUser, Session dataSession) {
+        if (webUser == null) {
+            return null;
+        }
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        String workspaceContextIdStr = appReq.getRequest().getParameter("workspaceContextId");
+        if (workspaceContextIdStr == null || workspaceContextIdStr.trim().length() == 0) {
+            return workspaceId;
+        }
+        try {
+            Integer requestedWorkspaceId = Integer.valueOf(Integer.parseInt(workspaceContextIdStr.trim()));
+            if (WorkspaceRegistry.hasActiveMembership(dataSession, requestedWorkspaceId.intValue(),
+                    webUser.getWebUserId())) {
+                return requestedWorkspaceId;
+            }
+        } catch (Exception e) {
+            return workspaceId;
+        }
+        return workspaceId;
     }
 
     private String clip(String value, int maxLen) {

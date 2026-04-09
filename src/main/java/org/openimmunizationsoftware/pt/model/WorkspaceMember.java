@@ -7,6 +7,8 @@ public class WorkspaceMember implements java.io.Serializable {
     private static final long serialVersionUID = 6206499277468475146L;
 
     public static final String ROLE_OWNER = "OWNER";
+    public static final String ROLE_ADMIN = "ADMIN";
+    public static final String ROLE_MEMBER = "MEMBER";
     public static final String STATUS_ACTIVE = "ACTIVE";
 
     private int workspaceMemberId;

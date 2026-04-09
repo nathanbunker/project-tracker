@@ -272,8 +272,8 @@ public class RegistrationServlet extends ClientServlet {
             String workCodeLabel = isStudent ? "School" : "Work";
             String personalCodeLabel = isStudent ? "Chores" : "Personal";
             Workspace workspace = new Workspace();
-            workspace.setWorkspaceName(setupFormData.firstName + " " + setupFormData.lastName + " Personal Workspace");
-            workspace.setWorkspaceType(Workspace.TYPE_PERSONAL);
+            workspace.setWorkspaceName(setupFormData.firstName + " " + setupFormData.lastName + " Private Workspace");
+            workspace.setWorkspaceType(Workspace.TYPE_PRIVATE);
             workspace.setCreatedByWebUserId(webUser.getWebUserId());
             workspace.setWorkspaceStatus(Workspace.STATUS_ACTIVE);
             workspace.setCreatedDate(now);

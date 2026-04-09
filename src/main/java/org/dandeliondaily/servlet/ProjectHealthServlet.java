@@ -10,18 +10,29 @@ import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.render.ProjectHealthPageRenderer;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.dandeliondaily.projecthealth.service.ProjectPatchLinkService;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
+import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
+import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class ProjectHealthServlet extends ClientServlet {
 
     private static final long serialVersionUID = 8700180916236040385L;
+    private static final String SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID = "projectHealthContextWorkspaceId";
 
     private final ProjectHealthPageService pageService = new ProjectHealthPageService();
     private final ProjectHealthPageRenderer pageRenderer = new ProjectHealthPageRenderer();
@@ -29,13 +40,26 @@ public class ProjectHealthServlet extends ClientServlet {
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         AppReq appReq = new AppReq(request, response);
+        Integer originalActiveWorkspaceId = appReq.getActiveWorkspaceId();
         try {
             if (appReq.isLoggedOut()) {
                 forwardToHome(request, response);
                 return;
             }
 
+            WebUser webUser = appReq.getWebUser();
+            List<Workspace> patchWorkspaces = WorkspaceRegistry.getPatchWorkspacesForWebUser(appReq.getDataSession(),
+                    webUser.getWebUserId());
             String action = request.getParameter("action");
+            if ("setContext".equals(action)) {
+                handleSetContext(appReq, patchWorkspaces);
+                action = null;
+            }
+
+            Integer contextWorkspaceId = resolveContextWorkspaceId(appReq, patchWorkspaces);
+            if (contextWorkspaceId != null) {
+                appReq.setActiveWorkspaceId(contextWorkspaceId);
+            }
             if ("loadProjectReprioritizeData".equals(action)) {
                 handleLoadProjectReprioritizeData(appReq);
                 return;
@@ -64,15 +88,28 @@ public class ProjectHealthServlet extends ClientServlet {
                 handleReplaceUnscheduledActions(appReq);
                 return;
             }
+            if ("addDirectProjectLink".equals(action)) {
+                handleAddDirectProjectLink(appReq);
+                return;
+            }
+            if ("addCategoryLink".equals(action)) {
+                handleAddCategoryLink(appReq);
+                return;
+            }
+            if ("removeProjectPatchLink".equals(action)) {
+                handleRemoveProjectPatchLink(appReq);
+                return;
+            }
 
             appReq.setTitle("Project Health");
-            ProjectHealthPageModel model = pageService.buildModel(appReq);
+            ProjectHealthPageModel model = pageService.buildModel(appReq, contextWorkspaceId, patchWorkspaces);
             printHtmlHead(appReq);
             pageRenderer.render(appReq, model);
             printHtmlFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
+            appReq.setActiveWorkspaceId(originalActiveWorkspaceId);
             appReq.close();
         }
     }
@@ -330,6 +367,189 @@ public class ProjectHealthServlet extends ClientServlet {
                 data);
     }
 
+    private void handleAddDirectProjectLink(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String patchProjectIdStr = appReq.getRequest().getParameter("patchProjectId");
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Project id is required", null);
+            return;
+        }
+        if (patchProjectIdStr == null || patchProjectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Patch project is required", null);
+            return;
+        }
+        int projectId;
+        int patchProjectId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid project id", null);
+            return;
+        }
+        try {
+            patchProjectId = Integer.parseInt(patchProjectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid patch project id", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project project = (Project) dataSession.get(Project.class, projectId);
+        if (project == null || !Integer.valueOf(appReq.getActiveWorkspaceId()).equals(project.getWorkspaceId())) {
+            sendJson(appReq, false, "Project not found", null);
+            return;
+        }
+        if (project.getLinkedPatchWorkspaceId() == null) {
+            sendJson(appReq, false, "Project has no linked patch workspace", null);
+            return;
+        }
+        int linkedPatchWorkspaceId = project.getLinkedPatchWorkspaceId().intValue();
+        ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.directLinkExists(projectId, patchProjectId)) {
+            sendJson(appReq, false, "Link already exists", null);
+            return;
+        }
+        ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
+        String error = patchLinkService.validateDirectLink(dataSession, patchProjectId, linkedPatchWorkspaceId);
+        if (error != null) {
+            sendJson(appReq, false, error, null);
+            return;
+        }
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectPatchLink link = new ProjectPatchLink();
+            link.setPrivateProjectId(projectId);
+            link.setPatchWorkspaceId(linkedPatchWorkspaceId);
+            link.setLinkType(ProjectPatchLink.LINK_TYPE_DIRECT_PROJECT);
+            link.setLinkedPatchProjectId(patchProjectId);
+            link.setCreatedByWebUserId(webUser.getWebUserId());
+            link.setCreatedDate(new java.util.Date());
+            dao.save(link);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJson(appReq, false, "Unable to add link: " + e.getMessage(), null);
+            return;
+        }
+        sendJson(appReq, true, "Link added", null);
+    }
+
+    private void handleAddCategoryLink(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String patchCategoryIdStr = appReq.getRequest().getParameter("patchCategoryId");
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Project id is required", null);
+            return;
+        }
+        if (patchCategoryIdStr == null || patchCategoryIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Patch category is required", null);
+            return;
+        }
+        int projectId;
+        int patchCategoryId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid project id", null);
+            return;
+        }
+        try {
+            patchCategoryId = Integer.parseInt(patchCategoryIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid patch category id", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project project = (Project) dataSession.get(Project.class, projectId);
+        if (project == null || !Integer.valueOf(appReq.getActiveWorkspaceId()).equals(project.getWorkspaceId())) {
+            sendJson(appReq, false, "Project not found", null);
+            return;
+        }
+        if (project.getLinkedPatchWorkspaceId() == null) {
+            sendJson(appReq, false, "Project has no linked patch workspace", null);
+            return;
+        }
+        int linkedPatchWorkspaceId = project.getLinkedPatchWorkspaceId().intValue();
+        ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.categoryLinkExists(projectId, patchCategoryId)) {
+            sendJson(appReq, false, "Link already exists", null);
+            return;
+        }
+        ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
+        String error = patchLinkService.validateCategoryLink(dataSession, patchCategoryId, linkedPatchWorkspaceId);
+        if (error != null) {
+            sendJson(appReq, false, error, null);
+            return;
+        }
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ProjectPatchLink link = new ProjectPatchLink();
+            link.setPrivateProjectId(projectId);
+            link.setPatchWorkspaceId(linkedPatchWorkspaceId);
+            link.setLinkType(ProjectPatchLink.LINK_TYPE_PATCH_CATEGORY);
+            link.setLinkedPatchCategoryId(patchCategoryId);
+            link.setCreatedByWebUserId(webUser.getWebUserId());
+            link.setCreatedDate(new java.util.Date());
+            dao.save(link);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJson(appReq, false, "Unable to add link: " + e.getMessage(), null);
+            return;
+        }
+        sendJson(appReq, true, "Link added", null);
+    }
+
+    private void handleRemoveProjectPatchLink(AppReq appReq) throws Exception {
+        String linkIdStr = appReq.getRequest().getParameter("projectPatchLinkId");
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        if (linkIdStr == null || linkIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Link id is required", null);
+            return;
+        }
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Project id is required", null);
+            return;
+        }
+        int linkId;
+        int projectId;
+        try {
+            linkId = Integer.parseInt(linkIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid link id", null);
+            return;
+        }
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid project id", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        Project project = (Project) dataSession.get(Project.class, projectId);
+        if (project == null || !Integer.valueOf(appReq.getActiveWorkspaceId()).equals(project.getWorkspaceId())) {
+            sendJson(appReq, false, "Project not found", null);
+            return;
+        }
+        ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        ProjectPatchLink link = dao.getById(linkId);
+        if (link == null || link.getPrivateProjectId() != projectId) {
+            sendJson(appReq, false, "Link not found", null);
+            return;
+        }
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            dao.delete(link);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJson(appReq, false, "Unable to remove link: " + e.getMessage(), null);
+            return;
+        }
+        sendJson(appReq, true, "Link removed", null);
+    }
+
     private void sendJson(AppReq appReq, boolean success, String message, Map<String, Object> data) throws Exception {
         appReq.getResponse().setContentType("application/json; charset=UTF-8");
         PrintWriter out = appReq.getResponse().getWriter();
@@ -477,5 +697,50 @@ public class ProjectHealthServlet extends ClientServlet {
             }
         }
         return escaped.toString();
+    }
+
+    private void handleSetContext(AppReq appReq, List<Workspace> patchWorkspaces) {
+        HttpSession session = appReq.getRequest().getSession(true);
+        String patchWorkspaceIdStr = appReq.getRequest().getParameter("patchWorkspaceId");
+        if (patchWorkspaceIdStr == null || patchWorkspaceIdStr.trim().length() == 0) {
+            session.removeAttribute(SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID);
+            return;
+        }
+        Integer patchWorkspaceId = parseInteger(patchWorkspaceIdStr);
+        if (patchWorkspaceId == null) {
+            session.removeAttribute(SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID);
+            return;
+        }
+        for (Workspace workspace : patchWorkspaces) {
+            if (workspace.getWorkspaceId() == patchWorkspaceId.intValue()) {
+                session.setAttribute(SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID, patchWorkspaceId);
+                return;
+            }
+        }
+        session.removeAttribute(SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID);
+    }
+
+    private Integer resolveContextWorkspaceId(AppReq appReq, List<Workspace> patchWorkspaces) {
+        HttpSession session = appReq.getRequest().getSession(true);
+        Object stored = session.getAttribute(SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID);
+        if (!(stored instanceof Integer)) {
+            return null;
+        }
+        Integer contextWorkspaceId = (Integer) stored;
+        for (Workspace workspace : patchWorkspaces) {
+            if (workspace.getWorkspaceId() == contextWorkspaceId.intValue()) {
+                return contextWorkspaceId;
+            }
+        }
+        session.removeAttribute(SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID);
+        return null;
+    }
+
+    private Integer parseInteger(String value) {
+        try {
+            return Integer.valueOf(Integer.parseInt(value.trim()));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

@@ -24,6 +24,7 @@ public class Project implements java.io.Serializable {
   private Integer workspaceId;
   private Integer createdByWebUserId;
   private Integer lastModifiedByWebUserId;
+  private Integer linkedPatchWorkspaceId;
   private WebUser webUser;
   private ProjectCategory projectCategory = null;
   private ProjectPhase projectPhase = null;
@@ -168,6 +169,14 @@ public class Project implements java.io.Serializable {
 
   public void setWorkspaceId(Integer workspaceId) {
     this.workspaceId = workspaceId;
+  }
+
+  public Integer getLinkedPatchWorkspaceId() {
+    return linkedPatchWorkspaceId;
+  }
+
+  public void setLinkedPatchWorkspaceId(Integer linkedPatchWorkspaceId) {
+    this.linkedPatchWorkspaceId = linkedPatchWorkspaceId;
   }
 
   public Integer getCreatedByWebUserId() {

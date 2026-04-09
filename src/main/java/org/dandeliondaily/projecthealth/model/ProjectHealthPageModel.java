@@ -3,12 +3,25 @@ package org.dandeliondaily.projecthealth.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.openimmunizationsoftware.pt.model.Workspace;
+import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
+
 public class ProjectHealthPageModel {
 
     private int selectedProjectId;
     private String selectedProjectName = "";
     private boolean selectedProjectAvailable;
     private boolean healthCheckApplicable = true;
+
+    private boolean selectedProjectIsPersonal;
+    private boolean patchLinksVisible;
+    private Integer selectedProjectLinkedPatchWorkspaceId;
+    private Workspace selectedProjectLinkedPatchWorkspace;
+    private boolean canChangePatchWorkspace = true;
+    private List<ProjectPatchLinkDisplayModel> projectPatchLinks = new ArrayList<ProjectPatchLinkDisplayModel>();
+    private List<Project> availablePatchProjects = new ArrayList<Project>();
+    private List<ProjectCategory> availablePatchCategories = new ArrayList<ProjectCategory>();
 
     private List<ProjectCadenceGroupModel> workProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
     private List<ProjectCadenceGroupModel> personalProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
@@ -18,6 +31,9 @@ public class ProjectHealthPageModel {
     private List<ProjectListItemModel> completedPersonalProjects = new ArrayList<ProjectListItemModel>();
     private ProjectReportModel report = new ProjectReportModel();
     private List<ProjectHealthIssueModel> issues = new ArrayList<ProjectHealthIssueModel>();
+    private Integer contextWorkspaceId;
+    private List<Workspace> accessiblePatchWorkspaces = new ArrayList<Workspace>();
+    private boolean showContextSelector;
 
     public int getSelectedProjectId() {
         return selectedProjectId;
@@ -113,5 +129,93 @@ public class ProjectHealthPageModel {
 
     public void setIssues(List<ProjectHealthIssueModel> issues) {
         this.issues = issues;
+    }
+
+    public Integer getContextWorkspaceId() {
+        return contextWorkspaceId;
+    }
+
+    public void setContextWorkspaceId(Integer contextWorkspaceId) {
+        this.contextWorkspaceId = contextWorkspaceId;
+    }
+
+    public List<Workspace> getAccessiblePatchWorkspaces() {
+        return accessiblePatchWorkspaces;
+    }
+
+    public void setAccessiblePatchWorkspaces(List<Workspace> accessiblePatchWorkspaces) {
+        this.accessiblePatchWorkspaces = accessiblePatchWorkspaces;
+    }
+
+    public boolean isShowContextSelector() {
+        return showContextSelector;
+    }
+
+    public void setShowContextSelector(boolean showContextSelector) {
+        this.showContextSelector = showContextSelector;
+    }
+
+    public boolean isSelectedProjectIsPersonal() {
+        return selectedProjectIsPersonal;
+    }
+
+    public void setSelectedProjectIsPersonal(boolean selectedProjectIsPersonal) {
+        this.selectedProjectIsPersonal = selectedProjectIsPersonal;
+    }
+
+    public boolean isPatchLinksVisible() {
+        return patchLinksVisible;
+    }
+
+    public void setPatchLinksVisible(boolean patchLinksVisible) {
+        this.patchLinksVisible = patchLinksVisible;
+    }
+
+    public Integer getSelectedProjectLinkedPatchWorkspaceId() {
+        return selectedProjectLinkedPatchWorkspaceId;
+    }
+
+    public void setSelectedProjectLinkedPatchWorkspaceId(Integer selectedProjectLinkedPatchWorkspaceId) {
+        this.selectedProjectLinkedPatchWorkspaceId = selectedProjectLinkedPatchWorkspaceId;
+    }
+
+    public Workspace getSelectedProjectLinkedPatchWorkspace() {
+        return selectedProjectLinkedPatchWorkspace;
+    }
+
+    public void setSelectedProjectLinkedPatchWorkspace(Workspace selectedProjectLinkedPatchWorkspace) {
+        this.selectedProjectLinkedPatchWorkspace = selectedProjectLinkedPatchWorkspace;
+    }
+
+    public boolean isCanChangePatchWorkspace() {
+        return canChangePatchWorkspace;
+    }
+
+    public void setCanChangePatchWorkspace(boolean canChangePatchWorkspace) {
+        this.canChangePatchWorkspace = canChangePatchWorkspace;
+    }
+
+    public List<ProjectPatchLinkDisplayModel> getProjectPatchLinks() {
+        return projectPatchLinks;
+    }
+
+    public void setProjectPatchLinks(List<ProjectPatchLinkDisplayModel> projectPatchLinks) {
+        this.projectPatchLinks = projectPatchLinks;
+    }
+
+    public List<Project> getAvailablePatchProjects() {
+        return availablePatchProjects;
+    }
+
+    public void setAvailablePatchProjects(List<Project> availablePatchProjects) {
+        this.availablePatchProjects = availablePatchProjects;
+    }
+
+    public List<ProjectCategory> getAvailablePatchCategories() {
+        return availablePatchCategories;
+    }
+
+    public void setAvailablePatchCategories(List<ProjectCategory> availablePatchCategories) {
+        this.availablePatchCategories = availablePatchCategories;
     }
 }

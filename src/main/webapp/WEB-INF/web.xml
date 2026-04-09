@@ -29,6 +29,14 @@
     <servlet-class>org.dandeliondaily.servlet.ProjectHealthServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>DandelionPatchServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.DandelionPatchServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>CategoryManagementServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.CategoryManagementServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ReviewDashboardServlet</servlet-name>
     <servlet-class>org.dandeliondaily.servlet.ReviewDashboardServlet</servlet-class>
   </servlet>
@@ -248,6 +256,14 @@
   <servlet-mapping>
     <servlet-name>ProjectHealthServlet</servlet-name>
     <url-pattern>/ProjectHealthServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>DandelionPatchServlet</servlet-name>
+    <url-pattern>/DandelionPatchServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>CategoryManagementServlet</servlet-name>
+    <url-pattern>/CategoryManagementServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ReviewDashboardServlet</servlet-name>

@@ -27,6 +27,9 @@ import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectCategory;
+import org.openimmunizationsoftware.pt.model.Workspace;
+import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
 import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
@@ -88,12 +91,16 @@ public class ProjectHealthPageService {
         }
     }
 
-    public ProjectHealthPageModel buildModel(AppReq appReq) {
+    public ProjectHealthPageModel buildModel(AppReq appReq, Integer contextWorkspaceId,
+            List<Workspace> accessiblePatchWorkspaces) {
         ProjectHealthPageModel model = new ProjectHealthPageModel();
+        model.setContextWorkspaceId(contextWorkspaceId);
+        model.setAccessiblePatchWorkspaces(accessiblePatchWorkspaces);
+        model.setShowContextSelector(accessiblePatchWorkspaces != null && !accessiblePatchWorkspaces.isEmpty());
 
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
-        List<Project> projects = loadProjects(webUser, dataSession);
+        List<Project> projects = loadProjects(webUser, dataSession, contextWorkspaceId);
         int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser, dataSession);
         model.setSelectedProjectId(selectedProjectId);
 
@@ -162,6 +169,56 @@ public class ProjectHealthPageService {
                 model.setIssues(buildIssues(model.getReport(), selectedStats));
             } else {
                 model.setIssues(new ArrayList<ProjectHealthIssueModel>());
+            }
+
+            boolean isPersonal = isPersonalProject(selectedProject, dataSession);
+            model.setSelectedProjectIsPersonal(isPersonal);
+            boolean isInPrivateWorkspace = isProjectInPrivateWorkspace(selectedProject, dataSession);
+            boolean patchLinksVisible = isInPrivateWorkspace
+                    && accessiblePatchWorkspaces != null && !accessiblePatchWorkspaces.isEmpty();
+            model.setPatchLinksVisible(patchLinksVisible);
+
+            if (patchLinksVisible) {
+                Integer linkedPatchWorkspaceId = selectedProject.getLinkedPatchWorkspaceId();
+                model.setSelectedProjectLinkedPatchWorkspaceId(linkedPatchWorkspaceId);
+                if (linkedPatchWorkspaceId != null) {
+                    Workspace linkedPatchWorkspace = (Workspace) dataSession.get(Workspace.class,
+                            linkedPatchWorkspaceId);
+                    model.setSelectedProjectLinkedPatchWorkspace(linkedPatchWorkspace);
+
+                    ProjectPatchLinkDao patchLinkDao = new ProjectPatchLinkDao(dataSession);
+                    model.setCanChangePatchWorkspace(
+                            !patchLinkDao.hasLinksForProject(selectedProject.getProjectId()));
+
+                    ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
+                    model.setProjectPatchLinks(patchLinkService.buildLinkDisplayModels(
+                            dataSession, selectedProject.getProjectId(), linkedPatchWorkspaceId));
+
+                    Query patchProjectQuery = dataSession.createQuery(
+                            "from Project where workspaceId = :wsId"
+                                    + " and (phaseCode is null or phaseCode <> 'Clos')"
+                                    + " order by priorityLevel desc, projectName");
+                    patchProjectQuery.setParameter("wsId", linkedPatchWorkspaceId);
+                    List<Project> patchProjects = new ArrayList<Project>();
+                    for (Object row : patchProjectQuery.list()) {
+                        if (row instanceof Project) {
+                            patchProjects.add((Project) row);
+                        }
+                    }
+                    model.setAvailablePatchProjects(patchProjects);
+
+                    Query patchCategoryQuery = dataSession.createQuery(
+                            "from ProjectCategory where workspaceId = :wsId and visible = 'Y'"
+                                    + " order by sortOrder, clientName");
+                    patchCategoryQuery.setParameter("wsId", linkedPatchWorkspaceId);
+                    List<ProjectCategory> patchCategories = new ArrayList<ProjectCategory>();
+                    for (Object row : patchCategoryQuery.list()) {
+                        if (row instanceof ProjectCategory) {
+                            patchCategories.add((ProjectCategory) row);
+                        }
+                    }
+                    model.setAvailablePatchCategories(patchCategories);
+                }
             }
         }
 
@@ -520,10 +577,15 @@ public class ProjectHealthPageService {
     }
 
     private List<Project> loadProjects(WebUser webUser, Session dataSession) {
-        Integer workspaceId = webUser == null ? null : webUser.getWebUserId() == 0 ? null : null;
-        workspaceId = workspaceId == null
-                ? org.openimmunizationsoftware.pt.WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId())
-                : workspaceId;
+        return loadProjects(webUser, dataSession, null);
+    }
+
+    private List<Project> loadProjects(WebUser webUser, Session dataSession, Integer contextWorkspaceId) {
+        Integer workspaceId = contextWorkspaceId;
+        if (workspaceId == null && webUser != null) {
+            workspaceId = org.openimmunizationsoftware.pt.WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession,
+                    webUser.getWebUserId());
+        }
         Query query = dataSession.createQuery(
                 "from Project where workspaceId = :workspaceId and (phaseCode is null or phaseCode <> 'Clos') order by priorityLevel desc, projectName");
         query.setParameter("workspaceId", workspaceId);
@@ -1063,6 +1125,14 @@ public class ProjectHealthPageService {
         }
         BillCode billCode = ClientServlet.resolveBillCode(dataSession, project);
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
+    }
+
+    private boolean isProjectInPrivateWorkspace(Project project, Session dataSession) {
+        if (project == null || project.getWorkspaceId() == null) {
+            return false;
+        }
+        Workspace workspace = (Workspace) dataSession.get(Workspace.class, project.getWorkspaceId());
+        return workspace != null && Workspace.TYPE_PRIVATE.equals(workspace.getWorkspaceType());
     }
 
     private String normalizePhaseCode(String phaseCode) {

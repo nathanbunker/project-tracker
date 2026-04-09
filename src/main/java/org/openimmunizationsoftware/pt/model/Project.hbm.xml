@@ -48,6 +48,9 @@
             <column name="last_modified_by_web_user_id" />
         </property>
         <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
+        <property name="linkedPatchWorkspaceId" type="java.lang.Integer">
+            <column name="linked_patch_workspace_id" />
+        </property>
         <property name="priorityLevel" type="integer">
             <column name="priority_level" not-null="true" />
         </property>

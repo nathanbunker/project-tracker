@@ -6,7 +6,7 @@
     <class name="ProjectCategory" table="project_category">
      <id name="projectCategoryId" type="int">
             <column name="project_category_id" length="30" />
-            <generator class="assigned" />
+             <generator class="native" />
         </id>
         <property name="categoryCode" type="string">
             <column name="category_code" length="150" />

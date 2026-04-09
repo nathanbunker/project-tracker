@@ -1,5 +1,5 @@
 -- v5: workspace ownership foundation
--- Introduces workspace and workspace_member with seeded PERSONAL workspaces.
+-- Introduces workspace and workspace_member with seeded PRIVATE workspaces.
 
 CREATE TABLE IF NOT EXISTS workspace (
     workspace_id INT NOT NULL,
@@ -26,11 +26,11 @@ CREATE TABLE IF NOT EXISTS workspace_member (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO workspace (workspace_id, workspace_name, workspace_type, created_by_web_user_id, workspace_status, created_date)
-SELECT 1, 'Nathan Personal Workspace', 'PERSONAL', 33, 'ACTIVE', NOW()
+SELECT 1, 'Nathan Private Workspace', 'PRIVATE', 33, 'ACTIVE', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM workspace WHERE workspace_id = 1);
 
 INSERT INTO workspace (workspace_id, workspace_name, workspace_type, created_by_web_user_id, workspace_status, created_date)
-SELECT 2, 'Abbie Personal Workspace', 'PERSONAL', 45, 'ACTIVE', NOW()
+SELECT 2, 'Abbie Private Workspace', 'PRIVATE', 45, 'ACTIVE', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM workspace WHERE workspace_id = 2);
 
 INSERT INTO workspace_member (workspace_id, web_user_id, member_role, membership_status, created_date)
@@ -286,3 +286,37 @@ ALTER TABLE web_api_client
     DROP COLUMN provider_id;
 
 DROP TABLE project_provider;
+
+-- v5 phase A: allow users to be members of more than one workspace (personal + patches).
+ALTER TABLE workspace_member
+    DROP INDEX uk_workspace_member_user;
+
+-- v5 phase B precondition: FK-participating tables must be InnoDB.
+-- Legacy environments may still have MyISAM tables, which cannot enforce foreign keys.
+ALTER TABLE workspace ENGINE=InnoDB;
+ALTER TABLE project ENGINE=InnoDB;
+ALTER TABLE project_category ENGINE=InnoDB;
+ALTER TABLE web_user ENGINE=InnoDB;
+
+-- v5 phase B: project patch linking
+ALTER TABLE project
+    ADD COLUMN linked_patch_workspace_id INT NULL,
+    ADD CONSTRAINT fk_project_linked_patch_workspace
+        FOREIGN KEY (linked_patch_workspace_id) REFERENCES workspace(workspace_id);
+
+CREATE TABLE project_patch_link (
+    project_patch_link_id    INT NOT NULL AUTO_INCREMENT,
+    private_project_id       INT NOT NULL,
+    patch_workspace_id       INT NOT NULL,
+    link_type                VARCHAR(20) NOT NULL,
+    linked_patch_project_id  INT NULL,
+    linked_patch_category_id INT NULL,
+    created_by_web_user_id   INT NOT NULL,
+    created_date             DATETIME NOT NULL,
+    PRIMARY KEY (project_patch_link_id),
+    CONSTRAINT fk_ppl_private_project   FOREIGN KEY (private_project_id)       REFERENCES project(project_id),
+    CONSTRAINT fk_ppl_patch_workspace   FOREIGN KEY (patch_workspace_id)        REFERENCES workspace(workspace_id),
+    CONSTRAINT fk_ppl_patch_project     FOREIGN KEY (linked_patch_project_id)   REFERENCES project(project_id),
+    CONSTRAINT fk_ppl_patch_category    FOREIGN KEY (linked_patch_category_id)  REFERENCES project_category(project_category_id),
+    CONSTRAINT fk_ppl_created_by        FOREIGN KEY (created_by_web_user_id)    REFERENCES web_user(web_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
