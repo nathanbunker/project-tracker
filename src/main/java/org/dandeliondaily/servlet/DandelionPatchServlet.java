@@ -12,6 +12,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.dandeliondaily.patch.service.PatchSeedImportService;
+import org.dandeliondaily.patch.service.PatchSeedImportService.SeedImportException;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -30,6 +32,7 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 public class DandelionPatchServlet extends ClientServlet {
 
     private static final long serialVersionUID = 4947375755365109818L;
+    private static final int MAX_SEED_JSON_LEN = 60000;
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -82,6 +85,8 @@ public class DandelionPatchServlet extends ClientServlet {
                 appReq.getRequest().getParameter("patchHandle"), patchName, 60);
         String categoriesRaw = clip(appReq.getRequest().getParameter("categories"), 4000);
         String projectsRaw = clip(appReq.getRequest().getParameter("projects"), 4000);
+        String jsonSeedPackage = clip(appReq.getRequest().getParameter("jsonSeedPackage"), MAX_SEED_JSON_LEN);
+        boolean hasJsonSeed = jsonSeedPackage.length() > 0;
 
         if (patchName.length() == 0) {
             appReq.setMessageProblem("Patch name is required.");
@@ -109,9 +114,6 @@ public class DandelionPatchServlet extends ClientServlet {
             return null;
         }
 
-        List<String> categoryNames = parseCommaSeparatedNames(categoriesRaw, "General", 150);
-        List<String> projectNames = parseCommaSeparatedNames(projectsRaw, "Start", 100);
-
         Transaction transaction = dataSession.beginTransaction();
         try {
             Workspace workspace = new Workspace();
@@ -134,48 +136,22 @@ public class DandelionPatchServlet extends ClientServlet {
             ownerMembership.setCreatedDate(new Date());
             dataSession.save(ownerMembership);
 
-            List<Integer> createdTagIds = new ArrayList<Integer>();
-            for (int i = 0; i < categoryNames.size(); i++) {
-                ProjectTag tag = new ProjectTag();
-                tag.setWorkspaceId(workspaceId);
-                tag.setTagName(categoryNames.get(i));
-                tag.setTagHandle(HandleValidationSupport.resolveHandle("", categoryNames.get(i), 60));
-                tag.setTagStatus(ProjectTag.STATUS_ACTIVE);
-                tag.setSortOrder(Integer.valueOf((i + 1) * 10));
-                tag.setCreatedByWebUserId(webUser.getWebUserId());
-                tag.setCreatedDate(new Date());
-                dataSession.save(tag);
-                dataSession.flush();
-                createdTagIds.add(Integer.valueOf(tag.getProjectTagId()));
-            }
-
-            Integer defaultTagId = createdTagIds.isEmpty() ? null : createdTagIds.get(0);
-            for (String projectName : projectNames) {
-                Project project = new Project();
-                project.setWorkspaceId(Integer.valueOf(workspaceId));
-                project.setProjectName(projectName);
-                project.setProjectHandle(HandleValidationSupport.resolveHandle("", projectName, 60));
-                project.setProjectStatus(ProjectStatus.ACTIVE.getDatabaseValue());
-                project.setPriorityLevel(0);
-                project.setBillCode(".");
-                project.setCreatedByWebUserId(webUser.getWebUserId());
-                project.setLastModifiedByWebUserId(webUser.getWebUserId());
-                project.setWebUser(webUser);
-                dataSession.save(project);
-                dataSession.flush();
-
-                if (defaultTagId != null) {
-                    ProjectTagMap map = new ProjectTagMap();
-                    map.setProjectId(project.getProjectId());
-                    map.setProjectTagId(defaultTagId.intValue());
-                    map.setCreatedDate(new Date());
-                    dataSession.save(map);
-                }
+            if (hasJsonSeed) {
+                PatchSeedImportService seedImportService = new PatchSeedImportService();
+                seedImportService.importSeedPackage(dataSession, webUser, workspaceId, jsonSeedPackage);
+            } else {
+                List<String> categoryNames = parseCommaSeparatedNames(categoriesRaw, "General", 100);
+                List<String> projectNames = parseCommaSeparatedNames(projectsRaw, "Start", 100);
+                createManualSeedData(dataSession, webUser, workspaceId, categoryNames, projectNames);
             }
 
             transaction.commit();
             appReq.setMessageConfirmation("Dandelion Patch created.");
             return Integer.valueOf(workspaceId);
+        } catch (SeedImportException e) {
+            transaction.rollback();
+            appReq.setMessageProblem(e.getMessage());
+            return null;
         } catch (Exception e) {
             transaction.rollback();
             appReq.setMessageProblem("Unable to create patch: " + e.getMessage());
@@ -202,6 +178,7 @@ public class DandelionPatchServlet extends ClientServlet {
         }
         String categoriesValue = valueOrEmpty(appReq.getRequest().getParameter("categories"));
         String projectsValue = valueOrEmpty(appReq.getRequest().getParameter("projects"));
+        String jsonSeedValue = valueOrEmpty(appReq.getRequest().getParameter("jsonSeedPackage"));
         if (categoriesValue.length() == 0) {
             categoriesValue = "General";
         }
@@ -226,6 +203,9 @@ public class DandelionPatchServlet extends ClientServlet {
                 + "        <div style=\"margin-top:8px;\"><label>Projects (comma separated)</label><br/><input type=\"text\" name=\"projects\" size=\"65\" value=\""
                 + escapeHtml(projectsValue)
                 + "\"/></div>\n"
+                + "        <div style=\"margin-top:8px;\"><label>JSON Seed Package</label><br/><textarea name=\"jsonSeedPackage\" rows=\"12\" cols=\"90\">"
+                + escapeHtml(jsonSeedValue)
+                + "</textarea><br/><small>If JSON seed content is provided, it overrides Categories and Projects for initial workspace data.</small></div>\n"
                 + "        <div style=\"margin-top:10px;\"><input type=\"submit\" value=\"Create Patch\"/></div>\n"
                 + "      </form>");
         out.println("    </td></tr>");
@@ -361,6 +341,48 @@ public class DandelionPatchServlet extends ClientServlet {
             deduped.put(fallback.toLowerCase(), fallback);
         }
         return new ArrayList<String>(deduped.values());
+    }
+
+    private void createManualSeedData(Session dataSession, WebUser webUser, int workspaceId,
+            List<String> categoryNames, List<String> projectNames) {
+        List<Integer> createdTagIds = new ArrayList<Integer>();
+        for (int i = 0; i < categoryNames.size(); i++) {
+            ProjectTag tag = new ProjectTag();
+            tag.setWorkspaceId(workspaceId);
+            tag.setTagName(categoryNames.get(i));
+            tag.setTagHandle(HandleValidationSupport.resolveHandle("", categoryNames.get(i), 60));
+            tag.setTagStatus(ProjectTag.STATUS_ACTIVE);
+            tag.setSortOrder(Integer.valueOf((i + 1) * 10));
+            tag.setCreatedByWebUserId(webUser.getWebUserId());
+            tag.setCreatedDate(new Date());
+            dataSession.save(tag);
+            dataSession.flush();
+            createdTagIds.add(Integer.valueOf(tag.getProjectTagId()));
+        }
+
+        Integer defaultTagId = createdTagIds.isEmpty() ? null : createdTagIds.get(0);
+        for (String projectName : projectNames) {
+            Project project = new Project();
+            project.setWorkspaceId(Integer.valueOf(workspaceId));
+            project.setProjectName(projectName);
+            project.setProjectHandle(HandleValidationSupport.resolveHandle("", projectName, 60));
+            project.setProjectStatus(ProjectStatus.ACTIVE.getDatabaseValue());
+            project.setPriorityLevel(0);
+            project.setBillCode(".");
+            project.setCreatedByWebUserId(webUser.getWebUserId());
+            project.setLastModifiedByWebUserId(webUser.getWebUserId());
+            project.setWebUser(webUser);
+            dataSession.save(project);
+            dataSession.flush();
+
+            if (defaultTagId != null) {
+                ProjectTagMap map = new ProjectTagMap();
+                map.setProjectId(project.getProjectId());
+                map.setProjectTagId(defaultTagId.intValue());
+                map.setCreatedDate(new Date());
+                dataSession.save(map);
+            }
+        }
     }
 
     private Integer parseInteger(String value) {

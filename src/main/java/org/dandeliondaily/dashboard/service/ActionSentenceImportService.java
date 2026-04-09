@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectActionNext;
@@ -41,6 +42,23 @@ public class ActionSentenceImportService {
 
     public ProjectActionNext saveNewActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput) {
+        ProjectActionNext nextAction = buildActionFromSentence(webUser, dataSession, defaultProject, projectList,
+                sentenceInput, null);
+        if (nextAction == null) {
+            return null;
+        }
+
+        Transaction trans = dataSession.beginTransaction();
+        dataSession.saveOrUpdate(nextAction);
+        trans.commit();
+        return nextAction;
+    }
+
+    public ProjectActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
+            Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride) {
+        if (sentenceInput == null || sentenceInput.trim().length() == 0) {
+            return null;
+        }
         UrlExtractionResult urlResult = extractAndRemoveUrl(sentenceInput);
         String extractedUrl = urlResult.extractedUrl;
         sentenceInput = urlResult.cleanedText;
@@ -190,8 +208,9 @@ public class ActionSentenceImportService {
         nextAction.setNextDescription(actionToTake);
         nextAction.setNextTimeEstimate(nextTimeEstimate);
         nextAction.setNextChangeDate(new Date());
-        nextAction.setWorkspaceId(org.openimmunizationsoftware.pt.WorkspaceRegistry
-                .getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        Integer workspaceId = workspaceIdOverride != null ? workspaceIdOverride
+                : WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        nextAction.setWorkspaceId(workspaceId);
         nextAction.setContact(webUser.getProjectContact());
         nextAction.setBillable(resolveBillable(dataSession, foundProject));
         if (extractedUrl != null && extractedUrl.length() > 0) {
@@ -207,11 +226,7 @@ public class ActionSentenceImportService {
                 }
             }
         }
-
-        Transaction trans = dataSession.beginTransaction();
         nextAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
-        dataSession.saveOrUpdate(nextAction);
-        trans.commit();
         return nextAction;
     }
 
