@@ -13,6 +13,7 @@ import org.openimmunizationsoftware.pt.model.ProjectActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
+import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -208,6 +209,7 @@ public class ActionSentenceImportService {
         }
 
         Transaction trans = dataSession.beginTransaction();
+        nextAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
         dataSession.saveOrUpdate(nextAction);
         trans.commit();
         return nextAction;

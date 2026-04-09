@@ -42,6 +42,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private TimeSlot timeSlot;
     private Integer gamePoints;
     private Set<GamePointLedger> gamePointEntries = new HashSet<>();
+    private ProjectActionSet actionSet;
 
     public int getActionNextId() {
         return actionNextId;
@@ -525,6 +526,14 @@ public class ProjectActionNext implements java.io.Serializable {
 
     public void setGamePointEntries(Set<GamePointLedger> gamePointEntries) {
         this.gamePointEntries = gamePointEntries;
+    }
+
+    public ProjectActionSet getActionSet() {
+        return actionSet;
+    }
+
+    public void setActionSet(ProjectActionSet actionSet) {
+        this.actionSet = actionSet;
     }
 
     public static String getTimeForDisplay(int nextTimeEstimateTotal) {

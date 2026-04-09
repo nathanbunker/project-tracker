@@ -25,6 +25,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/BillWorkStatus.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ContactEvent.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Project.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionSet.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionNext.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionTaken.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionProposal.hbm.xml"/>

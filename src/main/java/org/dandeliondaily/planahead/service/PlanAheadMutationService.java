@@ -28,6 +28,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
+import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
 
 public class PlanAheadMutationService {
 
@@ -971,6 +972,7 @@ public class PlanAheadMutationService {
             action.setNextChangeDate(new Date());
 
             if (isAdd) {
+                action.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
                 dataSession.save(action);
             } else {
                 dataSession.update(action);
@@ -1190,6 +1192,8 @@ public class PlanAheadMutationService {
                     generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
                             ? Integer.valueOf(0)
                             : templateAction.getNextTimeEstimate());
+                    generatedAction.setActionSet(
+                            new ProjectActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
                     dataSession.save(generatedAction);
                 } else {
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);

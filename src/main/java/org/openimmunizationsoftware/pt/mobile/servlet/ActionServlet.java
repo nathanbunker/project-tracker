@@ -27,6 +27,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
 import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 /**
@@ -406,6 +407,7 @@ public class ActionServlet extends MobileBaseServlet {
             blockingAction.setNextActionType(ProjectNextActionType.WILL);
             blockingAction.setBillable(resolveBillable(dataSession, project));
             blockingAction.setNextChangeDate(new Date());
+            blockingAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
             dataSession.saveOrUpdate(blockingAction);
 
             actionToBlock.setBlockedBy(blockingAction);
@@ -526,6 +528,7 @@ public class ActionServlet extends MobileBaseServlet {
             editProjectAction.setProject(nextProject);
             editProjectAction.setProjectId(nextProject.getProjectId());
             editProjectAction.setBillable(resolveBillable(dataSession, nextProject));
+            editProjectAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
         }
         editProjectAction.setContactId(webUser.getContactId());
         editProjectAction.setContact(webUser.getProjectContact());

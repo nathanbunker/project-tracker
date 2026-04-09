@@ -14,6 +14,7 @@ public class ProjectActionTaken implements java.io.Serializable {
     private String actionDescription;
     private ProjectContact contact;
     private Project project;
+    private ProjectActionSet actionSet;
 
     public int getActionTakenId() {
         return actionTakenId;
@@ -87,5 +88,13 @@ public class ProjectActionTaken implements java.io.Serializable {
         if (project != null) {
             this.projectId = project.getProjectId();
         }
+    }
+
+    public ProjectActionSet getActionSet() {
+        return actionSet;
+    }
+
+    public void setActionSet(ProjectActionSet actionSet) {
+        this.actionSet = actionSet;
     }
 }

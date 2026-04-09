@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="ProjectActionSet" table="project_action_set">
+    <id name="actionSetId" type="int">
+      <column name="action_set_id" />
+      <generator class="native" />
+    </id>
+    <property name="actionSetTypeString" type="string">
+      <column name="action_set_type" length="16" not-null="true" />
+    </property>
+    <property name="createdByWebUserId" type="int">
+      <column name="created_by_web_user_id" not-null="true" />
+    </property>
+    <many-to-one name="createdByWebUser" column="created_by_web_user_id" class="WebUser" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <property name="createdDate" type="timestamp">
+      <column name="created_date" length="19" not-null="true" />
+    </property>
+  </class>
+</hibernate-mapping>

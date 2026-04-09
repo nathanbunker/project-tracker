@@ -45,6 +45,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
+import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
@@ -1197,6 +1198,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 setupAction.setNextActionStatus(ProjectNextActionStatus.READY);
                 setupAction.setNextChangeDate(new Date());
                 setupAction.setBillable(project.getBillCode() != null && project.getBillCode().trim().length() > 0);
+                setupAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
                 dataSession.save(setupAction);
             }
 

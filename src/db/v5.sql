@@ -356,3 +356,21 @@ ALTER TABLE project
 
 ALTER TABLE project_contact
     ADD KEY idx_project_contact_workspace_status_handle (workspace_id, contact_status, contact_handle);
+
+-- v5 phase D: action sets (Stage 2 refactor)
+CREATE TABLE project_action_set (
+  action_set_id          INT         NOT NULL AUTO_INCREMENT,
+  action_set_type        VARCHAR(16) NOT NULL DEFAULT 'S',
+  created_by_web_user_id INT         NOT NULL,
+  created_date           DATETIME    NOT NULL,
+  PRIMARY KEY (action_set_id),
+  KEY idx_pas_web_user (created_by_web_user_id)
+);
+
+ALTER TABLE project_action_next
+  ADD COLUMN action_set_id INT NULL,
+  ADD KEY idx_pan_action_set (action_set_id);
+
+ALTER TABLE project_action_taken
+  ADD COLUMN action_set_id INT NULL,
+  ADD KEY idx_pat_action_set (action_set_id);

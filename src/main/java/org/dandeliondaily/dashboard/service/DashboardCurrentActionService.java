@@ -22,6 +22,8 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.model.ProjectActionSet;
 
 public class DashboardCurrentActionService {
 
@@ -233,6 +235,13 @@ public class DashboardCurrentActionService {
             actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
             actionTaken.setContact(webUser.getProjectContact());
             actionTaken.setContactId(webUser.getContactId());
+            ProjectActionSet actionSet = projectAction.getActionSet();
+            if (actionSet == null) {
+                actionSet = new ProjectActionSetDao(dataSession).createStandardActionSet(webUser);
+                projectAction.setActionSet(actionSet);
+                dataSession.update(projectAction);
+            }
+            actionTaken.setActionSet(actionSet);
             dataSession.saveOrUpdate(actionTaken);
         }
         projectAction.setNextActionStatus(nextActionStatus);

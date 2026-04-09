@@ -30,6 +30,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
 
 public class PlanAheadBoardService {
 
@@ -442,6 +443,8 @@ public class PlanAheadBoardService {
                             ? Integer.valueOf(0)
                             : templateAction.getNextTimeEstimate());
                     generatedAction.setNextChangeDate(new Date());
+                    generatedAction.setActionSet(
+                            new ProjectActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
                     dataSession.save(generatedAction);
 
                     generatedByTemplateDay.put(key, generatedAction);
