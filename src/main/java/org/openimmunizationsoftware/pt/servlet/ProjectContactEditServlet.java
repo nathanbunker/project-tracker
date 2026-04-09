@@ -62,8 +62,11 @@ public class ProjectContactEditServlet extends ClientServlet {
         projectContact = new ProjectContact();
         projectContact.setWorkspaceId(activeWorkspaceId);
         projectContact.setEmailAlert("Y");
+        projectContact.setContactStatus(ProjectContact.STATUS_ACTIVE);
         projectContact.setNameFirst(n(request.getParameter("nameFirst")));
         projectContact.setNameLast(n(request.getParameter("nameLast")));
+        projectContact.setContactHandle(
+            HandleValidationSupport.resolveHandle("", projectContact.getNameFirst(), 60));
       } else {
         int projectContactId = Integer.parseInt(request.getParameter("projectContactId"));
         Query query = dataSession.createQuery("from ProjectContact where contactId = ? ");
@@ -90,10 +93,35 @@ public class ProjectContactEditServlet extends ClientServlet {
           projectContact.setPhoneNumber(trim(request.getParameter("numberPhone"), 30));
           projectContact.setEmailAddress(trim(request.getParameter("email"), 60));
           projectContact.setContactInfo(trim(request.getParameter("contactInfo"), 1500));
+          String contactHandle = HandleValidationSupport.resolveHandle(
+              request.getParameter("contactHandle"), projectContact.getNameFirst(), 60);
+          String contactStatus = trim(request.getParameter("contactStatus"), 20).toUpperCase();
+          if (contactStatus.equals("")) {
+            contactStatus = ProjectContact.STATUS_ACTIVE;
+          }
+          projectContact.setContactHandle(contactHandle);
+          projectContact.setContactStatus(contactStatus);
           if (projectContact.getNameFirst().equals("")) {
             message = "First name is required";
           } else if (projectContact.getNameLast().equals("")) {
             message = "Last name is required";
+          } else if (ProjectContact.STATUS_ACTIVE.equals(projectContact.getContactStatus())
+              && contactHandle.length() == 0) {
+            message = "Contact handle is required for active contacts";
+          } else {
+            message = HandleValidationSupport.validateHandleCharacters("Contact handle", contactHandle);
+            if (message == null && ProjectContact.STATUS_ACTIVE.equals(projectContact.getContactStatus())) {
+              Query uniqueQuery = dataSession.createQuery(
+                  "select count(*) from ProjectContact where workspaceId = :workspaceId and lower(contactHandle) = :contactHandle and contactId <> :contactId and contactStatus = :contactStatus");
+              uniqueQuery.setParameter("workspaceId", activeWorkspaceId);
+              uniqueQuery.setParameter("contactHandle", contactHandle.toLowerCase());
+              uniqueQuery.setParameter("contactId", projectContact.getContactId());
+              uniqueQuery.setParameter("contactStatus", ProjectContact.STATUS_ACTIVE);
+              Number duplicateCount = (Number) uniqueQuery.uniqueResult();
+              if (duplicateCount != null && duplicateCount.intValue() > 0) {
+                message = "Contact handle must be unique among active contacts in this workspace";
+              }
+            }
           }
           if (message != null) {
             appReq.setMessageProblem(message);
@@ -161,6 +189,24 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Organization</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"organizationName\" value=\""
           + n(projectContact.getOrganizationName()) + "\" size=\"15\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Handle</th>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"contactHandle\" value=\""
+          + n(projectContact.getContactHandle()) + "\" size=\"20\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Status</th>");
+      out.println("    <td class=\"boxed\"><select name=\"contactStatus\">");
+      String contactStatusValue = n(projectContact.getContactStatus(), ProjectContact.STATUS_ACTIVE);
+      if (ProjectContact.STATUS_ACTIVE.equals(contactStatusValue)) {
+        out.println("      <option value=\"ACTIVE\" selected>ACTIVE</option>");
+        out.println("      <option value=\"INACTIVE\">INACTIVE</option>");
+      } else {
+        out.println("      <option value=\"ACTIVE\">ACTIVE</option>");
+        out.println("      <option value=\"INACTIVE\" selected>INACTIVE</option>");
+      }
+      out.println("    </select></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Department</th>");

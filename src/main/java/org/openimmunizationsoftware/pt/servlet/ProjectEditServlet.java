@@ -94,6 +94,9 @@ public class ProjectEditServlet extends ClientServlet {
           project.setWorkspaceId(activeWorkspaceId);
           project.setLastModifiedByWebUserId(webUser.getWebUserId());
           project.setProjectName(trim(request.getParameter("projectName"), 100));
+          String projectHandle = HandleValidationSupport.resolveHandle(
+              request.getParameter("projectHandle"), project.getProjectName(), 60);
+          project.setProjectHandle(projectHandle);
           String projectIcon = trim(request.getParameter("projectIcon"), 8);
           if (projectIcon.equals("")) {
             projectIcon = null;
@@ -104,6 +107,22 @@ public class ProjectEditServlet extends ClientServlet {
           }
           if (project.getProjectName().equals("")) {
             message = "Project name is required";
+          } else if ((project.getPhaseCode() == null || !project.getPhaseCode().equals("Clos"))
+              && projectHandle.length() == 0) {
+            message = "Project handle is required for active projects";
+          } else {
+            message = HandleValidationSupport.validateHandleCharacters("Project handle", projectHandle);
+            if (message == null && (project.getPhaseCode() == null || !project.getPhaseCode().equals("Clos"))) {
+              Query uniqueQuery = dataSession.createQuery(
+                  "select count(*) from Project where workspaceId = :workspaceId and lower(projectHandle) = :projectHandle and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
+              uniqueQuery.setParameter("workspaceId", activeWorkspaceId);
+              uniqueQuery.setParameter("projectHandle", projectHandle.toLowerCase());
+              uniqueQuery.setParameter("projectId", project.getProjectId());
+              Number duplicateCount = (Number) uniqueQuery.uniqueResult();
+              if (duplicateCount != null && duplicateCount.intValue() > 0) {
+                message = "Project handle must be unique among active projects in this workspace";
+              }
+            }
           }
         }
         if (message != null) {
@@ -146,6 +165,11 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Project Name</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"projectName\" value=\""
           + n(project.getProjectName()) + "\" size=\"30\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project Handle</th>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"projectHandle\" value=\""
+          + n(project.getProjectHandle()) + "\" size=\"30\"></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");

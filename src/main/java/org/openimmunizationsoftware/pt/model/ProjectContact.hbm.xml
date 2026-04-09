@@ -14,6 +14,9 @@
         <property name="nameFirst" type="string">
             <column name="name_first" length="60" not-null="true" />
         </property>
+        <property name="contactHandle" type="string">
+            <column name="contact_handle" length="60" />
+        </property>
         <property name="nameTitle" type="string">
             <column name="name_title" length="10" />
         </property>
@@ -46,6 +49,9 @@
         </property>
         <property name="emailAlert" type="string">
             <column name="email_alert" length="1" not-null="true" />
+        </property>
+        <property name="contactStatus" type="string">
+            <column name="contact_status" length="20" not-null="true" />
         </property>
         <property name="workspaceId" type="java.lang.Integer">
             <column name="workspace_id" />

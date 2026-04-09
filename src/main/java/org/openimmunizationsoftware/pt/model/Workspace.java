@@ -12,6 +12,7 @@ public class Workspace implements java.io.Serializable {
 
     private int workspaceId;
     private String workspaceName;
+    private String workspaceHandle;
     private String workspaceType;
     private int createdByWebUserId;
     private String workspaceStatus;
@@ -31,6 +32,14 @@ public class Workspace implements java.io.Serializable {
 
     public void setWorkspaceName(String workspaceName) {
         this.workspaceName = workspaceName;
+    }
+
+    public String getWorkspaceHandle() {
+        return workspaceHandle;
+    }
+
+    public void setWorkspaceHandle(String workspaceHandle) {
+        this.workspaceHandle = workspaceHandle;
     }
 
     public String getWorkspaceType() {

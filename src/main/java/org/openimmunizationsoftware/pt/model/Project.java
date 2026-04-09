@@ -13,6 +13,7 @@ public class Project implements java.io.Serializable {
   private int projectId;
   private String categoryCode;
   private String projectName;
+  private String projectHandle;
   private String providerName;
   private String description;
   private String outcomeText;
@@ -97,6 +98,14 @@ public class Project implements java.io.Serializable {
 
   public void setProjectName(String projectName) {
     this.projectName = projectName;
+  }
+
+  public String getProjectHandle() {
+    return projectHandle;
+  }
+
+  public void setProjectHandle(String projectHandle) {
+    this.projectHandle = projectHandle;
   }
 
   public String getProviderName() {

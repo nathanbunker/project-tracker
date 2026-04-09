@@ -320,3 +320,39 @@ CREATE TABLE project_patch_link (
     CONSTRAINT fk_ppl_patch_category    FOREIGN KEY (linked_patch_category_id)  REFERENCES project_category(project_category_id),
     CONSTRAINT fk_ppl_created_by        FOREIGN KEY (created_by_web_user_id)    REFERENCES web_user(web_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- v5 phase C: editable handles for workspace/project/contact
+ALTER TABLE workspace
+    ADD COLUMN workspace_handle VARCHAR(60) NULL;
+
+ALTER TABLE project
+    ADD COLUMN project_handle VARCHAR(60) NULL;
+
+ALTER TABLE project_contact
+    ADD COLUMN contact_handle VARCHAR(60) NULL,
+    ADD COLUMN contact_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+UPDATE workspace
+SET workspace_handle = LEFT(workspace_name, 60)
+WHERE workspace_handle IS NULL OR TRIM(workspace_handle) = '';
+
+UPDATE project
+SET project_handle = LEFT(project_name, 60)
+WHERE project_handle IS NULL OR TRIM(project_handle) = '';
+
+UPDATE project_contact
+SET contact_handle = LEFT(name_first, 60)
+WHERE contact_handle IS NULL OR TRIM(contact_handle) = '';
+
+UPDATE project_contact
+SET contact_status = 'ACTIVE'
+WHERE contact_status IS NULL OR TRIM(contact_status) = '';
+
+ALTER TABLE workspace
+    ADD KEY idx_workspace_status_handle (workspace_status, workspace_handle);
+
+ALTER TABLE project
+    ADD KEY idx_project_workspace_phase_handle (workspace_id, phase_code, project_handle);
+
+ALTER TABLE project_contact
+    ADD KEY idx_project_contact_workspace_status_handle (workspace_id, contact_status, contact_handle);

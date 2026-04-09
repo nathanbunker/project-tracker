@@ -164,6 +164,10 @@ public class ProjectServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">" + project.getProjectName() + "</td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Project Handle</th>");
+      out.println("    <td class=\"boxed\">" + n(project.getProjectHandle()) + "</td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Category</th>");
       out.println("    <td class=\"boxed\">"
           + (project.getProjectCategory() != null ? project.getProjectCategory().getClientName()
@@ -203,6 +207,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Name</th>");
+      out.println("    <th class=\"boxed\">Handle</th>");
       out.println("    <th class=\"boxed\">Organization</th>");
       out.println("    <th class=\"boxed\">Phone</th>");
       out.println("    <th class=\"boxed\">Actions</th>");
@@ -228,6 +233,7 @@ public class ProjectServlet extends ClientServlet {
         out.println("    <td class=\"boxed\"><a href=\"ProjectContactServlet?projectContactId="
             + projectContact.getContactId() + "\" class=\"button\">" + projectContact.getName()
             + "</a></td>");
+        out.println("    <td class=\"boxed\">" + n(projectContact.getContactHandle()) + "</td>");
         out.println("    <td class=\"boxed\">" + n(projectContact.getOrganizationName()) + "</td>");
         out.println("    <td class=\"boxed\">" + n(projectContact.getPhoneNumber()) + "</td>");
         out.println("    <td class=\"boxed\">");

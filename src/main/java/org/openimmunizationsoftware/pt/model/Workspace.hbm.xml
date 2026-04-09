@@ -10,6 +10,9 @@
         <property name="workspaceName" type="string">
             <column name="workspace_name" length="100" not-null="true" />
         </property>
+        <property name="workspaceHandle" type="string">
+            <column name="workspace_handle" length="60" />
+        </property>
         <property name="workspaceType" type="string">
             <column name="workspace_type" length="20" not-null="true" />
         </property>

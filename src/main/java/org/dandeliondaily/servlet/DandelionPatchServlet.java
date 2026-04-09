@@ -22,6 +22,7 @@ import org.openimmunizationsoftware.pt.model.ProjectCategory;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.model.WorkspaceMember;
+import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class DandelionPatchServlet extends ClientServlet {
@@ -75,6 +76,8 @@ public class DandelionPatchServlet extends ClientServlet {
         Session dataSession = appReq.getDataSession();
         WebUser webUser = appReq.getWebUser();
         String patchName = clip(appReq.getRequest().getParameter("patchName"), 100);
+        String patchHandle = HandleValidationSupport.resolveHandle(
+                appReq.getRequest().getParameter("patchHandle"), patchName, 60);
         String categoriesRaw = clip(appReq.getRequest().getParameter("categories"), 4000);
         String projectsRaw = clip(appReq.getRequest().getParameter("projects"), 4000);
 
@@ -83,13 +86,24 @@ public class DandelionPatchServlet extends ClientServlet {
             return null;
         }
 
+        if (patchHandle.length() == 0) {
+            appReq.setMessageProblem("Patch handle is required for active workspaces.");
+            return null;
+        }
+
+        String handleMessage = HandleValidationSupport.validateHandleCharacters("Patch handle", patchHandle);
+        if (handleMessage != null) {
+            appReq.setMessageProblem(handleMessage);
+            return null;
+        }
+
         Query duplicatePatchQuery = dataSession.createQuery(
-                "select count(*) from Workspace w where w.workspaceType = :workspaceType and lower(w.workspaceName) = :workspaceName");
-        duplicatePatchQuery.setString("workspaceType", Workspace.TYPE_PATCH);
-        duplicatePatchQuery.setString("workspaceName", patchName.toLowerCase());
+                "select count(*) from Workspace w where w.workspaceStatus = :workspaceStatus and lower(w.workspaceHandle) = :workspaceHandle");
+        duplicatePatchQuery.setString("workspaceStatus", Workspace.STATUS_ACTIVE);
+        duplicatePatchQuery.setString("workspaceHandle", patchHandle.toLowerCase());
         Number duplicatePatchCount = (Number) duplicatePatchQuery.uniqueResult();
         if (duplicatePatchCount != null && duplicatePatchCount.intValue() > 0) {
-            appReq.setMessageProblem("Patch name must be unique.");
+            appReq.setMessageProblem("Patch handle must be unique among active workspaces.");
             return null;
         }
 
@@ -100,6 +114,7 @@ public class DandelionPatchServlet extends ClientServlet {
         try {
             Workspace workspace = new Workspace();
             workspace.setWorkspaceName(patchName);
+            workspace.setWorkspaceHandle(patchHandle);
             workspace.setWorkspaceType(Workspace.TYPE_PATCH);
             workspace.setWorkspaceStatus(Workspace.STATUS_ACTIVE);
             workspace.setCreatedByWebUserId(webUser.getWebUserId());
@@ -137,6 +152,7 @@ public class DandelionPatchServlet extends ClientServlet {
                 Project project = new Project();
                 project.setWorkspaceId(Integer.valueOf(workspaceId));
                 project.setProjectName(projectName);
+                project.setProjectHandle(HandleValidationSupport.resolveHandle("", projectName, 60));
                 project.setCategoryCode(defaultCategoryCode);
                 project.setPhaseCode("Acti");
                 project.setPriorityLevel(0);
@@ -170,6 +186,10 @@ public class DandelionPatchServlet extends ClientServlet {
         out.println("  <p>Create and manage private invite-only patches.</p>");
 
         String patchNameValue = valueOrEmpty(appReq.getRequest().getParameter("patchName"));
+        String patchHandleValue = valueOrEmpty(appReq.getRequest().getParameter("patchHandle"));
+        if (patchHandleValue.length() == 0) {
+            patchHandleValue = patchNameValue;
+        }
         String categoriesValue = valueOrEmpty(appReq.getRequest().getParameter("categories"));
         String projectsValue = valueOrEmpty(appReq.getRequest().getParameter("projects"));
         if (categoriesValue.length() == 0) {
@@ -186,6 +206,9 @@ public class DandelionPatchServlet extends ClientServlet {
                 + "        <input type=\"hidden\" name=\"action\" value=\"createPatch\"/>\n"
                 + "        <div><label>Patch Name</label><br/><input type=\"text\" name=\"patchName\" size=\"45\" value=\""
                 + escapeHtml(patchNameValue)
+                + "\"/></div>\n"
+                + "        <div style=\"margin-top:8px;\"><label>Patch Handle</label><br/><input type=\"text\" name=\"patchHandle\" size=\"45\" value=\""
+                + escapeHtml(patchHandleValue)
                 + "\"/></div>\n"
                 + "        <div style=\"margin-top:8px;\"><label>Categories (comma separated)</label><br/><input type=\"text\" name=\"categories\" size=\"65\" value=\""
                 + escapeHtml(categoriesValue)

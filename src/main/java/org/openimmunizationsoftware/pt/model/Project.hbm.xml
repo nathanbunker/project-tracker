@@ -14,6 +14,9 @@
         <property name="projectName" type="string">
             <column name="project_name" length="100" not-null="true" />
         </property>
+        <property name="projectHandle" type="string">
+            <column name="project_handle" length="60" />
+        </property>
         <property name="providerName" type="string">
             <column name="provider_name" length="45" />
         </property>

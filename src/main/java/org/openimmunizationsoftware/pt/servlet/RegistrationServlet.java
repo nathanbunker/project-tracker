@@ -179,6 +179,8 @@ public class RegistrationServlet extends ClientServlet {
             ProjectContact projectContact = new ProjectContact();
             projectContact.setNameFirst(firstName);
             projectContact.setNameLast(lastName);
+            projectContact.setContactHandle(HandleValidationSupport.resolveHandle("", firstName, 60));
+            projectContact.setContactStatus(ProjectContact.STATUS_ACTIVE);
             projectContact.setEmailAddress(emailAddress);
             projectContact.setEmailConfirmed(false);
             projectContact.setEmailAlert("N");
@@ -273,6 +275,9 @@ public class RegistrationServlet extends ClientServlet {
             String personalCodeLabel = isStudent ? "Chores" : "Personal";
             Workspace workspace = new Workspace();
             workspace.setWorkspaceName(setupFormData.firstName + " " + setupFormData.lastName + " Private Workspace");
+            workspace.setWorkspaceHandle(resolveUniqueActiveWorkspaceHandle(dataSession,
+                    HandleValidationSupport.resolveHandle("", workspace.getWorkspaceName(), 60),
+                    webUser.getWebUserId()));
             workspace.setWorkspaceType(Workspace.TYPE_PRIVATE);
             workspace.setCreatedByWebUserId(webUser.getWebUserId());
             workspace.setWorkspaceStatus(Workspace.STATUS_ACTIVE);
@@ -562,6 +567,39 @@ public class RegistrationServlet extends ClientServlet {
         return billCode;
     }
 
+    private String resolveUniqueActiveWorkspaceHandle(Session dataSession, String baseHandle,
+            int webUserId) {
+        String seed = HandleValidationSupport.clip(baseHandle, 60);
+        if (seed.equals("")) {
+            seed = "Workspace";
+        }
+        String candidate = seed;
+        int suffix = 2;
+        while (isActiveWorkspaceHandleInUse(dataSession, candidate)) {
+            String suffixText = " " + suffix;
+            int maxBaseLength = 60 - suffixText.length();
+            if (maxBaseLength < 1) {
+                maxBaseLength = 1;
+            }
+            candidate = HandleValidationSupport.clip(seed, maxBaseLength) + suffixText;
+            suffix++;
+            if (suffix > 9999) {
+                candidate = HandleValidationSupport.clip(seed, 54) + " " + webUserId;
+                break;
+            }
+        }
+        return candidate;
+    }
+
+    private boolean isActiveWorkspaceHandleInUse(Session dataSession, String workspaceHandle) {
+        Query query = dataSession.createQuery(
+                "select count(*) from Workspace where workspaceStatus = :workspaceStatus and lower(workspaceHandle) = :workspaceHandle");
+        query.setString("workspaceStatus", Workspace.STATUS_ACTIVE);
+        query.setString("workspaceHandle", workspaceHandle.toLowerCase());
+        Number count = (Number) query.uniqueResult();
+        return count != null && count.intValue() > 0;
+    }
+
     private Project createProjectIfNeeded(Session dataSession, Map<String, Project> projectMap,
             String projectName, BillCode billCode, int workspaceId,
             WebUser webUser, ProjectContact projectContact) {
@@ -576,6 +614,7 @@ public class RegistrationServlet extends ClientServlet {
         project.setProviderName(trim(setupDisplayName(webUser), 45));
         project.setWebUser(webUser);
         project.setProjectName(trim(projectName, 100));
+        project.setProjectHandle(HandleValidationSupport.resolveHandle("", project.getProjectName(), 60));
         project.setBillCode(billCode.getBillCode());
         project.setPhaseCode("Acti");
         project.setPriorityLevel(0);

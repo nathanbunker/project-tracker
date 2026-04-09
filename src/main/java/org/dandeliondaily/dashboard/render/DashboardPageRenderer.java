@@ -1210,6 +1210,13 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
 
                 out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Project Handle:</label>");
+                out.println(
+                                "        <input id=\"ddCurrentProjectHandle\" type=\"text\" name=\"projectHandle\" class=\"dd-form-input\" value=\""
+                                                + escapeHtml(safe(project.getProjectHandle())) + "\">");
+                out.println("      </div>");
+
+                out.println("      <div class=\"dd-form-field\">");
                 out.println("        <label class=\"dd-form-label\">Category:</label>");
                 out.println("        <select id=\"ddCurrentProjectCategory\" name=\"categoryCode\" class=\"dd-form-input\">");
                 Query categoryQuery = dataSession.createQuery(
@@ -1345,6 +1352,7 @@ public class DashboardPageRenderer {
                 out.println("  var ddCurrentProjectDefaults = {");
                 out.println("    projectId: '" + project.getProjectId() + "',");
                 out.println("    projectName: '" + escapeJsString(project.getProjectName()) + "',");
+                out.println("    projectHandle: '" + escapeJsString(safe(project.getProjectHandle())) + "',");
                 out.println("    categoryCode: '" + escapeJsString(safe(project.getCategoryCode())) + "',");
                 out.println("    priorityLevel: '" + project.getPriorityLevel() + "',");
                 out.println("    projectIcon: '" + escapeJsString(safe(project.getProjectIcon())) + "',");
@@ -1373,6 +1381,8 @@ public class DashboardPageRenderer {
                 out.println("    if (!form) { return; }");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectName').value = ddCurrentProjectDefaults.projectName;");
+                out.println(
+                                "    document.getElementById('ddCurrentProjectHandle').value = ddCurrentProjectDefaults.projectHandle;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectCategory').value = ddCurrentProjectDefaults.categoryCode;");
                 out.println(

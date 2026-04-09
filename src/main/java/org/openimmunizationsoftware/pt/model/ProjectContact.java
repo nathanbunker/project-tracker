@@ -9,9 +9,13 @@ public class ProjectContact implements java.io.Serializable {
 
   private static final long serialVersionUID = 4034025707997290581L;
 
+  public static final String STATUS_ACTIVE = "ACTIVE";
+  public static final String STATUS_INACTIVE = "INACTIVE";
+
   private int contactId;
   private String nameLast;
   private String nameFirst;
+  private String contactHandle;
   private String nameTitle;
   private String organizationName;
   private String departmentName;
@@ -22,6 +26,7 @@ public class ProjectContact implements java.io.Serializable {
   private boolean emailConfirmed = false;
   private String contactInfo;
   private String emailAlert;
+  private String contactStatus = STATUS_ACTIVE;
   private Integer workspaceId;
   private String timeZone = "";
   private ProjectAddress address = null;
@@ -52,6 +57,14 @@ public class ProjectContact implements java.io.Serializable {
 
   public void setNameFirst(String nameFirst) {
     this.nameFirst = nameFirst;
+  }
+
+  public String getContactHandle() {
+    return contactHandle;
+  }
+
+  public void setContactHandle(String contactHandle) {
+    this.contactHandle = contactHandle;
   }
 
   public String getNameTitle() {
@@ -116,6 +129,14 @@ public class ProjectContact implements java.io.Serializable {
 
   public void setEmailAlert(String emailAlert) {
     this.emailAlert = emailAlert;
+  }
+
+  public String getContactStatus() {
+    return contactStatus;
+  }
+
+  public void setContactStatus(String contactStatus) {
+    this.contactStatus = contactStatus;
   }
 
   public Integer getWorkspaceId() {

@@ -513,6 +513,10 @@ public class ProjectHealthPageRenderer {
                 out.println("      <input id=\"phProjectName\" type=\"text\" name=\"projectName\" value=\""
                                 + escapeHtml(n(project.getProjectName())) + "\" /></div>");
 
+                out.println("      <div class=\"ph-form-field\"><label>Project Handle</label>");
+                out.println("      <input id=\"phProjectHandle\" type=\"text\" name=\"projectHandle\" value=\""
+                                + escapeHtml(n(project.getProjectHandle())) + "\" /></div>");
+
                 out.println("      <div class=\"ph-form-field\"><label>Category</label>");
                 out.println("      <select id=\"phProjectCategory\" name=\"categoryCode\">");
                 Query categoryQuery = dataSession
@@ -642,6 +646,7 @@ public class ProjectHealthPageRenderer {
                 out.println("window.phProjectDefaults = {");
                 out.println("  projectId: '" + project.getProjectId() + "',");
                 out.println("  projectName: '" + escapeJsString(n(project.getProjectName())) + "',");
+                out.println("  projectHandle: '" + escapeJsString(n(project.getProjectHandle())) + "',");
                 out.println("  categoryCode: '" + escapeJsString(n(project.getCategoryCode())) + "',");
                 out.println("  projectIcon: '" + escapeJsString(n(project.getProjectIcon())) + "',");
                 out.println("  description: '" + escapeJsString(n(project.getDescription())) + "',");
@@ -731,7 +736,7 @@ public class ProjectHealthPageRenderer {
                 out.println("  function phSetProjectDefaults() {");
                 out.println("    var d = window.phProjectDefaults || {}; ");
                 out.println(
-                                "    var map = [['phProjectName','projectName'],['phProjectCategory','categoryCode'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
+                                "    var map = [['phProjectName','projectName'],['phProjectHandle','projectHandle'],['phProjectCategory','categoryCode'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectPhase','phaseCode'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
                 out.println(
                                 "    for (var i=0;i<map.length;i++){ var el=document.getElementById(map[i][0]); if (el) { el.value = d[map[i][1]] || ''; } }");
                 out.println("  }");

@@ -76,6 +76,7 @@ public class ProjectContactsServlet extends ClientServlet {
           out.println("  </tr>");
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Name</th>");
+          out.println("    <th class=\"boxed\">Handle</th>");
           out.println("    <th class=\"boxed\">Phone</th>");
           out.println("    <th class=\"boxed\">Organization</th>");
           out.println("    <th class=\"boxed\">Actions</th>");
@@ -94,6 +95,7 @@ public class ProjectContactsServlet extends ClientServlet {
             out.println("    <td class=\"boxed\"><a href=\"ProjectContactServlet?projectContactId="
                 + projectContact.getContactId() + "\" class=\"button\">"
                 + projectContact.getNameFirst() + " " + projectContact.getNameLast() + "</a></td>");
+            out.println("    <td class=\"boxed\">" + n(projectContact.getContactHandle()) + "</td>");
             out.println("    <td class=\"boxed\">" + projectContact.getPhoneNumber() + "</td>");
             out.println(
                 "    <td class=\"boxed\">" + projectContact.getOrganizationName() + "</td>");

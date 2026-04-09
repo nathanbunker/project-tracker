@@ -47,6 +47,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
+import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
 
 public class DandelionDashboardServlet extends ClientServlet {
 
@@ -1032,6 +1033,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             String projectName = clip(appReq.getRequest().getParameter("projectName"), 100);
+            String projectHandle = HandleValidationSupport.resolveHandle(
+                    appReq.getRequest().getParameter("projectHandle"), projectName, 60);
             String categoryCode = clip(appReq.getRequest().getParameter("categoryCode"), 15);
             String projectIcon = clip(appReq.getRequest().getParameter("projectIcon"), 8);
             String description = clip(appReq.getRequest().getParameter("description"), 1200);
@@ -1058,15 +1061,32 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
 
+            String phaseCodeNormalized = phaseCode;
+            boolean closedPhase = "Clos".equalsIgnoreCase(phaseCodeNormalized);
+            if (!closedPhase && projectHandle.length() == 0) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Project handle is required for active projects", null);
+                return;
+            }
+
+            String handleValidationMessage = HandleValidationSupport.validateHandleCharacters("Project handle",
+                    projectHandle);
+            if (handleValidationMessage != null) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, handleValidationMessage, null);
+                return;
+            }
+
             Query uniqueQuery = dataSession.createQuery(
-                    "select count(*) from Project where workspaceId = :workspaceId and lower(projectName) = :projectName and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
+                    "select count(*) from Project where workspaceId = :workspaceId and lower(projectHandle) = :projectHandle and projectId <> :projectId and (phaseCode <> 'Clos' or phaseCode is null)");
             uniqueQuery.setParameter("workspaceId", activeWorkspaceId);
-            uniqueQuery.setParameter("projectName", projectName.toLowerCase());
+            uniqueQuery.setParameter("projectHandle", projectHandle.toLowerCase());
             uniqueQuery.setParameter("projectId", createMode ? -1 : projectId);
             Number duplicateCount = (Number) uniqueQuery.uniqueResult();
             if (duplicateCount != null && duplicateCount.intValue() > 0) {
                 transaction.rollback();
-                sendJsonResponse(appReq, false, "Project name must be unique", null);
+                sendJsonResponse(appReq, false,
+                        "Project handle must be unique among active projects in this workspace", null);
                 return;
             }
 
@@ -1094,8 +1114,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             project.setProjectName(projectName);
+            project.setProjectHandle(projectHandle.length() > 0 ? projectHandle : null);
             project.setCategoryCode(categoryCode.length() > 0 ? categoryCode : null);
-            boolean closedPhase = "Clos".equalsIgnoreCase(phaseCode);
             if (closedPhase) {
                 project.setPriorityLevel(0);
             }
