@@ -67,6 +67,10 @@ public class DashboardTodayColumnModel {
             return formAction;
         }
 
+        public void setFormAction(String formAction) {
+            this.formAction = formAction;
+        }
+
         public String getSentenceInputName() {
             return sentenceInputName;
         }

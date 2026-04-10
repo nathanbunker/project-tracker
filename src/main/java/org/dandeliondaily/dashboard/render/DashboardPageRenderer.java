@@ -28,6 +28,11 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class DashboardPageRenderer {
 
+        public enum DashboardLayoutMode {
+                DEFAULT,
+                PROJECT_EXPANDED
+        }
+
         // Temporary layout aid: keep true while iterating dashboard structure.
         // Set to false to disable all developer panel labels in one place.
         private static final boolean DEV_LABELS_ENABLED = false;
@@ -37,13 +42,30 @@ public class DashboardPageRenderer {
         private static final String TODAY_SECTION_SESSION_KEY = "DASHBOARD_TODAY_SECTION_FILTER";
 
         private final TimeGaugeRenderer timeGaugeRenderer = new TimeGaugeRenderer();
+        private String dashboardPath = "DandelionDashboardServlet";
+        private DashboardLayoutMode layoutMode = DashboardLayoutMode.DEFAULT;
 
         public void render(AppReq appReq, DashboardNowColumnModel nowColumnModel,
                         DashboardTodayColumnModel todayColumnModel,
                         DashboardNextColumnModel nextColumnModel,
                         TimeGaugeModel nowGaugeModel,
                         TimeGaugeModel todayGaugeModel) {
+                render(appReq, nowColumnModel, todayColumnModel, nextColumnModel, nowGaugeModel, todayGaugeModel,
+                                DashboardLayoutMode.DEFAULT, "DandelionDashboardServlet");
+        }
+
+        public void render(AppReq appReq, DashboardNowColumnModel nowColumnModel,
+                        DashboardTodayColumnModel todayColumnModel,
+                        DashboardNextColumnModel nextColumnModel,
+                        TimeGaugeModel nowGaugeModel,
+                        TimeGaugeModel todayGaugeModel,
+                        DashboardLayoutMode layoutMode,
+                        String dashboardPath) {
                 PrintWriter out = appReq.getOut();
+                this.layoutMode = layoutMode == null ? DashboardLayoutMode.DEFAULT : layoutMode;
+                this.dashboardPath = (dashboardPath == null || dashboardPath.trim().length() == 0)
+                                ? "DandelionDashboardServlet"
+                                : dashboardPath.trim();
                 String rootClass = "dd-dashboard-page" + (DEV_LABELS_ENABLED ? " dd-dashboard-dev-labels-enabled" : "");
 
                 printStyles(out);
@@ -87,9 +109,10 @@ public class DashboardPageRenderer {
                 out.println("          <div class=\"dd-header-text\">");
                 out.println(
                                 "            <div class=\"dd-header-label\">"
-                                                + escapeHtml(buildTodayHeaderLabel(appReq)) + "</div>");
+                                                + escapeHtml(buildCenterHeaderLabel(appReq, nowColumnModel))
+                                                + "</div>");
                 out.println("            <div class=\"dd-header-subtitle\" id=\"ddTodayHeaderCurrentTime\">"
-                                + escapeHtml(buildTodayHeaderCurrentTime(appReq)) + "</div>");
+                                + escapeHtml(buildCenterHeaderSubtitle(appReq, nowColumnModel)) + "</div>");
                 out.println("          </div>");
                 out.println("          <div class=\"dd-header-gauge-wrap\">");
                 out.println("            <div id=\"ddTodayHeaderGauge\">");
@@ -100,22 +123,30 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
                 out.println("      <div class=\"dd-header-cell dd-header-next dd-panel dd-panel-open\">");
                 printDevLabel(out, "NEXT HEADER");
-                String nextHeaderLabel = nextColumnModel.getSelectedDay().getDayKey().length() > 0
-                                ? nextColumnModel.getSelectedDay().getFullDateLabel()
-                                : "Next";
+                String nextHeaderLabel = this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
+                                ? ""
+                                : (nextColumnModel.getSelectedDay().getDayKey().length() > 0
+                                                ? nextColumnModel.getSelectedDay().getFullDateLabel()
+                                                : "Next");
                 out.println("        <div class=\"dd-header-main\">");
                 out.println("          <div class=\"dd-header-text\">");
                 out.println("            <div class=\"dd-header-label\">"
                                 + escapeHtml(nextHeaderLabel) + "</div>");
-                String nextHeaderSubtitle = nextColumnModel.getSelectedDay().getDayKey().length() > 0
-                                ? nextColumnModel.getSelectedDay().getPlannedDisplay() + " planned"
-                                : "No planned day selected";
+                String nextHeaderSubtitle = this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
+                                ? ""
+                                : (nextColumnModel.getSelectedDay().getDayKey().length() > 0
+                                                ? nextColumnModel.getSelectedDay().getPlannedDisplay() + " planned"
+                                                : "No planned day selected");
                 out.println("            <div class=\"dd-header-subtitle\">" + escapeHtml(nextHeaderSubtitle)
                                 + "</div>");
                 out.println("          </div>");
                 out.println("          <div class=\"dd-header-gauge-wrap\">");
                 out.println("            <div id=\"ddNextHeaderGauge\">");
-                timeGaugeRenderer.render(out, nextColumnModel.getSelectedDay().getHeaderGauge());
+                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
+                        timeGaugeRenderer.render(out, new TimeGaugeModel());
+                } else {
+                        timeGaugeRenderer.render(out, nextColumnModel.getSelectedDay().getHeaderGauge());
+                }
                 out.println("            </div>");
                 out.println("          </div>");
                 out.println("        </div>");
@@ -125,15 +156,27 @@ public class DashboardPageRenderer {
                 out.println("    <div class=\"dd-dashboard-columns\">");
                 out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-now\">");
                 out.println("        <!-- Real data wiring starts here for the dashboard now column. -->");
-                printNowColumn(out, nowColumnModel, appReq);
+                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
+                        printNowCurrentActionColumn(out, nowColumnModel);
+                } else {
+                        printNowColumn(out, nowColumnModel, appReq);
+                }
                 out.println("      </div>");
                 out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-today\">");
                 out.println("        <!-- Real data wiring starts here for the dashboard today column. -->");
-                printTodayColumn(out, todayColumnModel, appReq);
+                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
+                        printProjectExpandedCenterColumn(out, nowColumnModel, appReq);
+                } else {
+                        printTodayColumn(out, todayColumnModel, appReq);
+                }
                 out.println("      </div>");
                 out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-next\">");
                 out.println("        <!-- Real data wiring starts here for the dashboard next column. -->");
-                printNextColumn(out, nextColumnModel);
+                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
+                        printProjectExpandedRightColumn(out);
+                } else {
+                        printNextColumn(out, nextColumnModel);
+                }
                 out.println("      </div>");
                 out.println("    </div>");
                 out.println("  </div>");
@@ -151,7 +194,7 @@ public class DashboardPageRenderer {
                 out.println("        return;");
                 out.println("      }");
                 out.println("      var body = 'action=refreshHeaderGauges';");
-                out.println("      fetch('DandelionDashboardServlet', {");
+                out.println("      fetch('" + dashboardPath + "', {");
                 out.println("        method: 'POST',");
                 out.println("        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
                 out.println("        body: body");
@@ -170,7 +213,8 @@ public class DashboardPageRenderer {
                 out.println("          todayContainer.innerHTML = data.todayGaugeHtml;");
                 out.println("        }");
                 out.println("        var todayTime = document.getElementById('ddTodayHeaderCurrentTime');");
-                out.println("        if (todayTime && data.todayCurrentTime) {");
+                out.println("        if (todayTime && data.todayCurrentTime && '"
+                                + this.layoutMode.name() + "' !== 'PROJECT_EXPANDED') {");
                 out.println("          todayTime.textContent = data.todayCurrentTime;");
                 out.println("        }");
                 out.println("      })");
@@ -1030,11 +1074,43 @@ public class DashboardPageRenderer {
         private void printNowColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel, AppReq appReq) {
                 // Future refinement point for project backlog logic lives in the service/model
                 // layer so this renderer stays focused on layout.
+                printNowCurrentActionPanel(out, nowColumnModel);
+                printNowCurrentProjectPanel(out, nowColumnModel, true);
+                printNowOpenIssuesPanel(out, appReq, nowColumnModel);
+                printNowProjectBacklogPanel(out, nowColumnModel);
+                if (nowColumnModel.getCurrentProject().isAvailable()) {
+                        printCurrentProjectEditModal(out, appReq, nowColumnModel.getCurrentProject());
+                }
+        }
+
+        private void printNowCurrentActionColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
+                printNowCurrentActionPanel(out, nowColumnModel);
+        }
+
+        private void printProjectExpandedCenterColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel,
+                        AppReq appReq) {
+                printNowCurrentProjectPanel(out, nowColumnModel, false);
+                printNowOpenIssuesPanel(out, appReq, nowColumnModel);
+                printNowProjectBacklogPanel(out, nowColumnModel);
+                printTodayActionModalScaffolding(out, appReq);
+                if (nowColumnModel.getCurrentProject().isAvailable()) {
+                        printCurrentProjectEditModal(out, appReq, nowColumnModel.getCurrentProject());
+                }
+        }
+
+        private void printProjectExpandedRightColumn(PrintWriter out) {
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "PROJECT EXPANDED PLACEHOLDER");
+                out.println("  <p class=\"dd-subtle\">&nbsp;</p>");
+                out.println("</div>");
+        }
+
+        private void printNowCurrentActionPanel(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
                 out.println("<div class=\"dd-now-action-wrap dd-panel dd-panel-open\">");
                 printDevLabel(out, "CURRENT ACTION");
                 if (nowColumnModel.getCurrentAction().isAvailable()) {
                         int currentActionNextId = nowColumnModel.getCurrentAction().getActionNextId();
-                        out.println("  <form method=\"POST\" action=\"DandelionDashboardServlet\">");
+                        out.println("  <form method=\"POST\" action=\"" + dashboardPath + "\">");
                         out.println("    <div class=\"dd-current-action-tools\">");
                         out.println(
                                         "      <a href=\"javascript:void(0);\" class=\"dd-current-action-tool\" title=\"Add note\" onclick=\"ddOpenCurrentActionNoteModal(); return false;\">📓</a>");
@@ -1145,7 +1221,8 @@ public class DashboardPageRenderer {
                         out.println("      formData.append('actionNextId', actionNextId);");
                         out.println("      formData.append('nextNote', input.value.trim());");
                         out.println(
-                                        "      fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                        "      fetch('" + dashboardPath
+                                                        + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                         out.println("        .then(function(response) { return response.json(); })");
                         out.println("        .then(function(data) {");
                         out.println("          if (data && data.success) {");
@@ -1163,7 +1240,10 @@ public class DashboardPageRenderer {
                                         + "</p>");
                 }
                 out.println("</div>");
+        }
 
+        private void printNowCurrentProjectPanel(PrintWriter out, DashboardNowColumnModel nowColumnModel,
+                        boolean includeExpandButton) {
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "CURRENT PROJECT");
                 if (nowColumnModel.getCurrentProject().isAvailable()) {
@@ -1173,6 +1253,12 @@ public class DashboardPageRenderer {
                                         "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Edit project\" onclick=\"ddOpenCurrentProjectEditModal(event)\">✏️</button>");
                         out.println(
                                         "      <button type=\"button\" class=\"dd-current-action-tool\" title=\"Add project\" onclick=\"ddOpenCurrentProjectCreateModal(event)\">➕</button>");
+                        if (includeExpandButton) {
+                                out.println(
+                                                "      <a href=\"ProjectDashboardServlet?projectId="
+                                                                + nowColumnModel.getCurrentProject().getProjectId()
+                                                                + "\" class=\"dd-current-action-tool\" title=\"Expand project view\">↗️</a>");
+                        }
                         out.println("    </div>");
                         out.println("    <div>");
                         out.println(
@@ -1187,11 +1273,9 @@ public class DashboardPageRenderer {
                                         + nowColumnModel.getCurrentProject().getFallbackMessage() + "</p>");
                 }
                 out.println("</div>");
+        }
 
-                if (nowColumnModel.getCurrentProject().isAvailable()) {
-                        printCurrentProjectEditModal(out, appReq, nowColumnModel.getCurrentProject());
-                }
-
+        private void printNowOpenIssuesPanel(PrintWriter out, AppReq appReq, DashboardNowColumnModel nowColumnModel) {
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "OPEN ISSUES");
                 if (nowColumnModel.getCurrentProject().isAvailable()) {
@@ -1200,7 +1284,9 @@ public class DashboardPageRenderer {
                         out.println("  <p class=\"dd-subtle\">Select a project to view issues.</p>");
                 }
                 out.println("</div>");
+        }
 
+        private void printNowProjectBacklogPanel(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "PROJECT BACKLOG");
                 printBacklogScheduled(out, nowColumnModel.getScheduledActions());
@@ -1241,7 +1327,9 @@ public class DashboardPageRenderer {
                                 "      <button class=\"dd-modal-close\" onclick=\"ddCloseCurrentProjectEditModal(event)\">&times;</button>");
                 out.println("    </div>");
                 out.println(
-                                "    <form id=\"ddCurrentProjectEditForm\" class=\"dd-edit-form\" method=\"POST\" action=\"DandelionDashboardServlet\" onsubmit=\"return ddSubmitCurrentProjectEditForm(event)\">");
+                                "    <form id=\"ddCurrentProjectEditForm\" class=\"dd-edit-form\" method=\"POST\" action=\""
+                                                + dashboardPath
+                                                + "\" onsubmit=\"return ddSubmitCurrentProjectEditForm(event)\">");
                 out.println(
                                 "      <input id=\"ddCurrentProjectFormAction\" type=\"hidden\" name=\"action\" value=\"saveProjectEdit\">");
                 out.println("      <input id=\"ddCurrentProjectId\" type=\"hidden\" name=\"projectId\" value=\""
@@ -1485,7 +1573,8 @@ public class DashboardPageRenderer {
                 out.println("    if (!form) { return false; }");
                 out.println("    var formData = new URLSearchParams(new FormData(form));");
                 out.println(
-                                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "    fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(response => response.json())");
                 out.println("      .then(data => {");
                 out.println("        if (data && data.success) {");
@@ -1631,7 +1720,7 @@ public class DashboardPageRenderer {
                 out.println("    var body = 'action=addIssue&projectId=' + encodeURIComponent(projectId)");
                 out.println("      + '&issueText=' + encodeURIComponent(issueText)");
                 out.println("      + '&issueType=' + encodeURIComponent(issueType);");
-                out.println("    fetch('DandelionDashboardServlet', { method: 'POST',");
+                out.println("    fetch('" + dashboardPath + "', { method: 'POST',");
                 out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
                 out.println("      body: body })");
                 out.println("      .then(r => r.json())");
@@ -1667,7 +1756,7 @@ public class DashboardPageRenderer {
                 out.println("      + '&issueText=' + encodeURIComponent(issueText)");
                 out.println("      + '&issueType=' + encodeURIComponent(issueType)");
                 out.println("      + '&resolved=' + encodeURIComponent(resolved);");
-                out.println("    fetch('DandelionDashboardServlet', { method: 'POST',");
+                out.println("    fetch('" + dashboardPath + "', { method: 'POST',");
                 out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
                 out.println("      body: body })");
                 out.println("      .then(r => r.json())");
@@ -1826,7 +1915,7 @@ public class DashboardPageRenderer {
                                                 + "</span>");
                                 out.println("    </span>");
                         } else {
-                                String chipLink = "DandelionDashboardServlet?" + TODAY_SECTION_PARAM + "="
+                                String chipLink = dashboardPath + "?" + TODAY_SECTION_PARAM + "="
                                                 + escapeHtml(section.getId());
                                 out.println("    <a class=\"" + chipClass + "\" href=\"" + chipLink + "\">");
                                 out.println("      <span>" + escapeHtml(section.getTitle()) + "</span>");
@@ -1868,7 +1957,8 @@ public class DashboardPageRenderer {
                                 }
                                 out.println("      </tr>");
                                 for (DashboardTodayColumnModel.TodayActionItemModel item : section.getItems()) {
-                                        String todayRowOnclick = " onclick=\"window.location='DandelionDashboardServlet?action=SelectAction&completingActionNextId="
+                                        String todayRowOnclick = " onclick=\"window.location='" + dashboardPath
+                                                        + "?action=SelectAction&completingActionNextId="
                                                         + item.getActionNextId() + "'\"";
                                         out.println("      <tr class=\"dd-row-clickable\"" + todayRowOnclick + ">");
                                         out.println("        <td class=\"dd-today-cell-action-main\">"
@@ -1898,7 +1988,8 @@ public class DashboardPageRenderer {
                                 out.println("    </table>");
                                 if (filteredView) {
                                         out.println(
-                                                        "    <p class=\"dd-today-show-all-wrap\"><a class=\"dd-today-show-all-link\" href=\"DandelionDashboardServlet?"
+                                                        "    <p class=\"dd-today-show-all-wrap\"><a class=\"dd-today-show-all-link\" href=\""
+                                                                        + dashboardPath + "?"
                                                                         + TODAY_SECTION_PARAM + "=" + TODAY_SECTION_ALL
                                                                         + "\">Show all</a></p>");
                                 }
@@ -1987,7 +2078,8 @@ public class DashboardPageRenderer {
                                 "      <button class=\"dd-modal-close\" onclick=\"ddCloseActionModal('ddWorkdayReviewModal',event)\">&times;</button>");
                 out.println("    </div>");
                 out.println(
-                                "    <form method=\"POST\" action=\"DandelionDashboardServlet\" class=\"dd-workday-review-modal-body\">");
+                                "    <form method=\"POST\" action=\"" + dashboardPath
+                                                + "\" class=\"dd-workday-review-modal-body\">");
                 out.println("      <input type=\"hidden\" name=\"action\" value=\"saveWorkdayProjectReview\"/>");
                 out.println("      <input type=\"hidden\" id=\"ddWorkdayReviewProjectId\" name=\"projectId\" value=\"\"/>");
 
@@ -2130,7 +2222,8 @@ public class DashboardPageRenderer {
                 out.println("  }");
                 out.println("  function ddFetchDashboardJson(formData, contextLabel) {");
                 out.println(
-                                "    return fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "    return fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(function(response) {");
                 out.println("        return response.text().then(function(text) {");
                 out.println("          if (!response.ok) {");
@@ -2279,7 +2372,8 @@ public class DashboardPageRenderer {
                 out.println("    formData.append('actionNextId', actionId);");
                 out.println("    formData.append('moveType', moveType);");
                 out.println(
-                                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "    fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(response => response.json())");
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
@@ -2305,7 +2399,8 @@ public class DashboardPageRenderer {
                 out.println("    formData.append('moveType', 'before');");
                 out.println("    formData.append('targetActionId', targetActionId);");
                 out.println(
-                                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "    fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(response => response.json())");
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
@@ -2515,7 +2610,8 @@ public class DashboardPageRenderer {
                 out.println("      formData.append('actionNextId', actionId);");
                 out.println("      formData.append('nextActionDate', formattedDate);");
                 out.println(
-                                "      fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "      fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("        .then(response => response.json())");
                 out.println("        .then(data => {");
                 out.println("          if (data.success) {");
@@ -2543,7 +2639,9 @@ public class DashboardPageRenderer {
                                 "      <button class=\"dd-modal-close\" onclick=\"ddCloseActionModal('editActionModal',event)\">&times;</button>");
                 out.println("    </div>");
                 out.println(
-                                "    <form id=\"ddEditActionForm\" class=\"dd-edit-form\" method=\"POST\" action=\"DandelionDashboardServlet\" onsubmit=\"return ddSubmitEditActionForm(event)\">");
+                                "    <form id=\"ddEditActionForm\" class=\"dd-edit-form\" method=\"POST\" action=\""
+                                                + dashboardPath
+                                                + "\" onsubmit=\"return ddSubmitEditActionForm(event)\">");
                 out.println("      <input type=\"hidden\" name=\"action\" value=\"editAction\">");
                 out.println("      <input type=\"hidden\" name=\"actionNextId\" id=\"ddEditActionId\" value=\"\">");
                 out.println("      <input type=\"hidden\" id=\"ddEditActionDateOriginal\" value=\"\">");
@@ -2842,7 +2940,8 @@ public class DashboardPageRenderer {
                 out.println("    }");
                 out.println("    var formData = new URLSearchParams(new FormData(form));");
                 out.println(
-                                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "    fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(response => response.json())");
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
@@ -3133,6 +3232,28 @@ public class DashboardPageRenderer {
                                 appReq.getWebUser().getTimeZone());
         }
 
+        private String buildCenterHeaderLabel(AppReq appReq, DashboardNowColumnModel nowColumnModel) {
+                if (layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
+                                && nowColumnModel.getCurrentProject() != null
+                                && nowColumnModel.getCurrentProject().isAvailable()) {
+                        return safe(nowColumnModel.getCurrentProject().getName());
+                }
+                return buildTodayHeaderLabel(appReq);
+        }
+
+        private String buildCenterHeaderSubtitle(AppReq appReq, DashboardNowColumnModel nowColumnModel) {
+                if (layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
+                                && nowColumnModel.getCurrentProject() != null
+                                && nowColumnModel.getCurrentProject().isAvailable()) {
+                        String projectHandle = safe(nowColumnModel.getCurrentProject().getHandle());
+                        if (projectHandle.length() == 0) {
+                                return "(no handle)";
+                        }
+                        return projectHandle;
+                }
+                return buildTodayHeaderCurrentTime(appReq);
+        }
+
         private String buildTodayHeaderCurrentTime(AppReq appReq) {
                 return appReq.getWebUser().getDateFormatService().formatPattern(new java.util.Date(), "hh:mm:ss aaa z",
                                 appReq.getWebUser().getTimeZone());
@@ -3303,7 +3424,7 @@ public class DashboardPageRenderer {
                                         .getDaySummaries()) {
                                 String chipClass = "dd-next-day-chip"
                                                 + (daySummary.isSelected() ? " dd-next-day-chip-selected" : "");
-                                String dayLink = "DandelionDashboardServlet?"
+                                String dayLink = dashboardPath + "?"
                                                 + DashboardNextColumnModel.getSelectedDayParam()
                                                 + "=" + escapeHtml(daySummary.getDayKey());
                                 out.println("    <a class=\"" + chipClass + "\" href=\"" + dayLink + "\">");
@@ -3414,7 +3535,8 @@ public class DashboardPageRenderer {
                 out.println("    formData.append('action', 'loadActionData');");
                 out.println("    formData.append('actionNextId', actionId);");
                 out.println(
-                                "    fetch('DandelionDashboardServlet', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
+                                "    fetch('" + dashboardPath
+                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
                 out.println("      .then(function(response) { return response.json(); })");
                 out.println("      .then(function(data) {");
                 out.println("        if (!data || !data.success) { alert('Unable to load details'); return; }");

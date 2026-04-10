@@ -250,6 +250,10 @@
     <url-pattern>/DandelionDashboardServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
+    <servlet-name>DandelionDashboardServlet</servlet-name>
+    <url-pattern>/ProjectDashboardServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
     <servlet-name>FocusedActionServlet</servlet-name>
     <url-pattern>/FocusedActionServlet</url-pattern>
   </servlet-mapping>

@@ -24,6 +24,7 @@ import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
+import org.dandeliondaily.dashboard.render.DashboardPageRenderer.DashboardLayoutMode;
 import org.dandeliondaily.dashboard.render.DashboardPageRenderer;
 import org.dandeliondaily.dashboard.render.TimeGaugeRenderer;
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
@@ -145,9 +146,16 @@ public class DandelionDashboardServlet extends ClientServlet {
             dashboardTodayColumnService.handleQuickCapture(appReq);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
-            appReq.setTitle("Dandelion Dashboard");
+            String dashboardPath = resolveDashboardPath(request);
+            boolean projectExpandedLayout = "ProjectDashboardServlet".equals(dashboardPath);
+            if (projectExpandedLayout) {
+                applyProjectOverride(appReq);
+            }
+
+            appReq.setTitle(projectExpandedLayout ? "Project Dashboard" : "Dandelion Dashboard");
             DashboardNowColumnModel nowColumnModel = dashboardNowColumnService.buildModel(appReq);
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
+            todayColumnModel.getQuickCapture().setFormAction(dashboardPath);
             TimeGaugeModel nowGaugeModel = dashboardTimeGaugeService.buildNowGauge(appReq);
             int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
                     appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
@@ -158,7 +166,9 @@ public class DandelionDashboardServlet extends ClientServlet {
                     dashboardTimeGaugeService);
             printHtmlHead(appReq);
             dashboardPageRenderer.render(appReq, nowColumnModel, todayColumnModel, nextColumnModel,
-                    nowGaugeModel, todayGaugeModel);
+                    nowGaugeModel, todayGaugeModel,
+                    projectExpandedLayout ? DashboardLayoutMode.PROJECT_EXPANDED : DashboardLayoutMode.DEFAULT,
+                    dashboardPath);
             printHtmlFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();
@@ -209,6 +219,42 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("nextNote", action.getNextNotes() != null ? action.getNextNotes() : "");
 
         sendJsonResponse(appReq, true, "OK", data);
+    }
+
+    private String resolveDashboardPath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath == null || servletPath.trim().length() == 0) {
+            return "DandelionDashboardServlet";
+        }
+        String normalized = servletPath.trim();
+        if (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized.length() == 0 ? "DandelionDashboardServlet" : normalized;
+    }
+
+    private void applyProjectOverride(AppReq appReq) {
+        String projectIdParam = appReq.getRequest().getParameter("projectId");
+        if (projectIdParam == null || projectIdParam.trim().length() == 0) {
+            return;
+        }
+        int projectId;
+        try {
+            projectId = Integer.parseInt(projectIdParam.trim());
+        } catch (NumberFormatException nfe) {
+            return;
+        }
+        Project project = (Project) appReq.getDataSession().get(Project.class, projectId);
+        if (project == null) {
+            return;
+        }
+        Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+        if (activeWorkspaceId != null && project.getWorkspaceId() != null
+                && activeWorkspaceId.intValue() != project.getWorkspaceId().intValue()) {
+            return;
+        }
+        appReq.setProject(project);
+        appReq.setProjectSelected(project);
     }
 
     private void handleSaveWorkdayProjectReview(AppReq appReq) throws Exception {
