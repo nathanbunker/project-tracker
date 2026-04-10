@@ -22,6 +22,7 @@ import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 
 public class DashboardNowColumnService {
 
@@ -58,6 +59,8 @@ public class DashboardNowColumnService {
             model.setTemplatedActions(buildTemplatedItems(webUser, openActions));
             model.setRecentCompleted(buildRecentCompleted(webUser, dataSession, currentProject));
             model.setOpenIssues(buildOpenIssueItems(webUser, dataSession, currentProject));
+            model.setTakenToday(buildTakenToday(webUser, dataSession, currentProject));
+            model.setTakenActions(buildTakenActions(webUser, dataSession, currentProject));
         }
 
         return model;
@@ -116,6 +119,7 @@ public class DashboardNowColumnService {
             item.setActionNextId(action.getActionNextId());
             item.setCurrentSelection(currentAction != null
                     && currentAction.getActionNextId() == action.getActionNextId());
+            item.setToday(isTodayDate(webUser, action.getNextActionDate()));
             items.add(item);
         }
         return items;
@@ -187,6 +191,12 @@ public class DashboardNowColumnService {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         return LocalDate.parse(sdf.format(date));
+    }
+
+    private boolean isTodayDate(WebUser webUser, Date date) {
+        LocalDate actionDate = toStoredLocalDate(date, webUser);
+        LocalDate today = toStoredLocalDate(webUser.getToday(), webUser);
+        return actionDate != null && today != null && today.equals(actionDate);
     }
 
     private List<DashboardNowColumnModel.RecentCompletedItem> buildRecentCompleted(WebUser webUser,
@@ -349,6 +359,65 @@ public class DashboardNowColumnService {
             item.setCreatedDate(issue.getCreatedDate());
             item.setCreatedDisplay(webUser.getDateFormatService().formatPattern(issue.getCreatedDate(),
                     webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private List<DashboardNowColumnModel.TakenActionItem> buildTakenToday(WebUser webUser, Session dataSession,
+            Project currentProject) {
+        Calendar cal = webUser.getCalendar();
+        cal.setTime(webUser.getToday());
+        Date todayStart = cal.getTime();
+        cal.add(Calendar.DAY_OF_MONTH, 1);
+        Date tomorrowStart = cal.getTime();
+
+        Query query = dataSession.createQuery(
+                "select at from ActionTaken at left join fetch at.contact"
+                        + " where at.projectId = :projectId"
+                        + " and at.actionDate >= :todayStart"
+                        + " and at.actionDate < :tomorrowStart"
+                        + " order by at.actionDate desc");
+        query.setParameter("projectId", currentProject.getProjectId());
+        query.setParameter("todayStart", todayStart);
+        query.setParameter("tomorrowStart", tomorrowStart);
+        @SuppressWarnings("unchecked")
+        List<ActionTaken> rows = query.list();
+        return buildTakenItemList(webUser, rows);
+    }
+
+    private List<DashboardNowColumnModel.TakenActionItem> buildTakenActions(WebUser webUser, Session dataSession,
+            Project currentProject) {
+        Calendar cutoff = webUser.getCalendar();
+        cutoff.setTime(webUser.getToday());
+        cutoff.add(Calendar.DAY_OF_MONTH, -COMPLETED_DAYS);
+
+        Query query = dataSession.createQuery(
+                "select at from ActionTaken at left join fetch at.contact"
+                        + " where at.projectId = :projectId"
+                        + " and at.actionDate >= :cutoff"
+                        + " order by at.actionDate desc");
+        query.setParameter("projectId", currentProject.getProjectId());
+        query.setParameter("cutoff", cutoff.getTime());
+        @SuppressWarnings("unchecked")
+        List<ActionTaken> rows = query.list();
+        return buildTakenItemList(webUser, rows);
+    }
+
+    private List<DashboardNowColumnModel.TakenActionItem> buildTakenItemList(WebUser webUser,
+            List<ActionTaken> rows) {
+        List<DashboardNowColumnModel.TakenActionItem> items = new ArrayList<>();
+        for (ActionTaken at : rows) {
+            DashboardNowColumnModel.TakenActionItem item = new DashboardNowColumnModel.TakenActionItem();
+            item.setActionTakenId(at.getActionTakenId());
+            item.setDescription(n(at.getActionDescription(), "-"));
+            item.setDateLabel(webUser.getDateFormatService().formatPattern(at.getActionDate(),
+                    webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            String who = "";
+            if (at.getContact() != null) {
+                who = n(at.getContact().getName(), "");
+            }
+            item.setWhoLabel(who);
             items.add(item);
         }
         return items;

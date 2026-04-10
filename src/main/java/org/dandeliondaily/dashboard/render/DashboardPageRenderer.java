@@ -42,6 +42,8 @@ public class DashboardPageRenderer {
         private static final String TODAY_SECTION_PARAM = "todaySection";
         private static final String TODAY_SECTION_ALL = "all";
         private static final String TODAY_SECTION_SESSION_KEY = "DASHBOARD_TODAY_SECTION_FILTER";
+        private static final String PROJECT_SECTION_PARAM = "projectSection";
+        private static final String PROJECT_SECTION_SESSION_KEY = "PROJECT_SECTION_FILTER";
 
         private final TimeGaugeRenderer timeGaugeRenderer = new TimeGaugeRenderer();
         private String dashboardPath = "DandelionDashboardServlet";
@@ -77,11 +79,21 @@ public class DashboardPageRenderer {
                 out.println("<div class=\"" + rootClass + "\">");
                 out.println("  <div class=\"dd-intro-bar\">");
                 out.println("    <div class=\"dd-dashboard-intro\">");
-                out.println("      <h1>Dandelion Dashboard</h1>");
-                String overClass = todayColumnModel.getTotals().isOverCommitted() ? " dd-over-under-over" : "";
-                out.println("      <p class=\"dd-over-under" + overClass + "\">"
-                                + escapeHtml(todayColumnModel.getTotals().getGuidanceMessage()) + "</p>");
+                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
+                        out.println("      <h1>Project Dashboard</h1>");
+                        out.println("      <p class=\"dd-dashboard-parent-label\">Dandelion Dashboard</p>");
+                } else {
+                        String overClass = todayColumnModel.getTotals().isOverCommitted() ? " dd-over-under-over" : "";
+                        out.println("      <h1>Dandelion Dashboard</h1>");
+                        out.println("      <p class=\"dd-over-under" + overClass + "\">"
+                                        + escapeHtml(todayColumnModel.getTotals().getGuidanceMessage()) + "</p>");
+                }
                 out.println("    </div>");
+                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
+                        out.println("    <div class=\"dd-back-nav-wrap\">");
+                        out.println("      <a class=\"dd-back-nav\" href=\"DandelionDashboardServlet\">&#9664; Dandelion Dashboard</a>");
+                        out.println("    </div>");
+                }
                 printDashboardQuickCapture(out, todayColumnModel);
                 out.println("  </div>");
 
@@ -287,6 +299,27 @@ public class DashboardPageRenderer {
                 out.println("  }");
                 out.println("  .dd-dashboard-intro p {");
                 out.println("    margin: 4px 0;");
+                out.println("  }");
+                out.println("  .dd-dashboard-parent-label {");
+                out.println("    font-size: 12px;");
+                out.println("    color: rgba(255, 253, 248, 0.7);");
+                out.println("    margin: 0 0 4px 0;");
+                out.println("    letter-spacing: 0.05em;");
+                out.println("  }");
+                out.println("  .dd-back-nav-wrap {");
+                out.println("    margin-top: 6px;");
+                out.println("  }");
+                out.println("  .dd-back-nav {");
+                out.println("    display: inline-block;");
+                out.println("    color: #fffdf8;");
+                out.println("    text-decoration: none;");
+                out.println("    font-size: 13px;");
+                out.println("    border: 1px solid rgba(255, 253, 248, 0.4);");
+                out.println("    padding: 3px 8px;");
+                out.println("    border-radius: 3px;");
+                out.println("  }");
+                out.println("  .dd-back-nav:hover {");
+                out.println("    background: rgba(255, 253, 248, 0.15);");
                 out.println("  }");
                 out.println("  .dd-dashboard-shell {");
                 out.println("    border: 1px solid #cbbda7;");
@@ -617,6 +650,10 @@ public class DashboardPageRenderer {
                 out.println("    border: 1px solid #ddceb7;");
                 out.println("    background: #f8f2e8;");
                 out.println("    padding: 6px 8px;");
+                out.println("  }");
+                out.println("  .dd-backlog-col-who {");
+                out.println("    width: 90px;");
+                out.println("    white-space: nowrap;");
                 out.println("  }");
                 out.println("  .dd-today-chips {");
                 out.println("    display: grid;");
@@ -1108,17 +1145,151 @@ public class DashboardPageRenderer {
 
         private void printNowCurrentActionColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
                 printNowCurrentActionPanel(out, nowColumnModel);
+                printLeftScheduledToday(out, nowColumnModel);
+                printLeftUnscheduledActions(out, nowColumnModel);
+                printLeftTakenToday(out, nowColumnModel);
         }
 
         private void printProjectExpandedCenterColumn(PrintWriter out, DashboardNowColumnModel nowColumnModel,
                         AppReq appReq) {
-                printNowCurrentProjectPanel(out, nowColumnModel, false);
-                printNowOpenIssuesPanel(out, appReq, nowColumnModel);
-                printNowProjectBacklogPanel(out, nowColumnModel);
+                printProjectSectionPanel(out, nowColumnModel, appReq);
                 printTodayActionModalScaffolding(out, appReq);
                 if (nowColumnModel.getCurrentProject().isAvailable()) {
                         printCurrentProjectEditModal(out, appReq, nowColumnModel.getCurrentProject());
                 }
+        }
+
+        private void printProjectSectionPanel(PrintWriter out, DashboardNowColumnModel nowColumnModel,
+                        AppReq appReq) {
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "PROJECT SECTIONS");
+                List<ProjectChipModel> chips = buildProjectChips(nowColumnModel);
+                String selectedSectionId = resolveSelectedProjectSectionId(appReq, chips);
+                boolean filteredView = selectedSectionId.length() > 0;
+                out.println("  <div class=\"dd-today-chips\">");
+                for (ProjectChipModel chip : chips) {
+                        String chipClass = "dd-today-chip"
+                                        + (chip.getCount() == 0 ? " dd-today-chip-empty" : "");
+                        if (chip.isAlert() && chip.getCount() > 0) {
+                                chipClass += " dd-today-chip-alert";
+                        }
+                        if (chip.getCount() == 0) {
+                                out.println("    <span class=\"" + chipClass + "\">");
+                                out.println("      <span>" + escapeHtml(chip.getTitle()) + "</span>");
+                                out.println("      <span class=\"dd-today-chip-count\">0</span>");
+                                out.println("    </span>");
+                        } else {
+                                String chipLink = dashboardPath + "?" + PROJECT_SECTION_PARAM + "="
+                                                + escapeHtml(chip.getId());
+                                out.println("    <a class=\"" + chipClass + "\" href=\"" + chipLink + "\">");
+                                out.println("      <span>" + escapeHtml(chip.getTitle()) + "</span>");
+                                out.println("      <span class=\"dd-today-chip-count\">" + chip.getCount() + "</span>");
+                                out.println("    </a>");
+                        }
+                }
+                out.println("  </div>");
+                out.println("</div>");
+                printProjectSectionTables(out, nowColumnModel, appReq, selectedSectionId, filteredView);
+        }
+
+        private void printProjectSectionTables(PrintWriter out, DashboardNowColumnModel nowColumnModel,
+                        AppReq appReq, String selectedSectionId, boolean filteredView) {
+                printProjectSectionTable(out, "scheduled", "Scheduled Actions",
+                                selectedSectionId, filteredView, nowColumnModel.getScheduledActions().size(), () -> {
+                                        printBacklogScheduled(out, nowColumnModel.getScheduledActions());
+                                });
+                printProjectSectionTable(out, "unscheduled", "Not Scheduled",
+                                selectedSectionId, filteredView, nowColumnModel.getUnscheduledActions().size(), () -> {
+                                        printBacklogUnscheduled(out, nowColumnModel.getUnscheduledActions());
+                                });
+                printProjectSectionTable(out, "issues", "Issues",
+                                selectedSectionId, filteredView, nowColumnModel.getOpenIssues().size(), () -> {
+                                        printOpenIssuesSection(out, appReq, nowColumnModel);
+                                });
+                printProjectSectionTable(out, "taken", "Taken Actions",
+                                selectedSectionId, filteredView, nowColumnModel.getTakenActions().size(), () -> {
+                                        printBacklogTakenActions(out, nowColumnModel.getTakenActions());
+                                });
+                printProjectSectionTable(out, "completed", "Completed Actions",
+                                selectedSectionId, filteredView, nowColumnModel.getRecentCompleted().size(), () -> {
+                                        printBacklogRecentCompleted(out, nowColumnModel.getRecentCompleted());
+                                });
+                printProjectSectionTable(out, "templated", "Templated Actions",
+                                selectedSectionId, filteredView, nowColumnModel.getTemplatedActions().size(), () -> {
+                                        printBacklogTemplated(out, nowColumnModel.getTemplatedActions());
+                                });
+        }
+
+        private void printProjectSectionTable(PrintWriter out, String sectionId, String title,
+                        String selectedSectionId, boolean filteredView, int count, Runnable tableRenderer) {
+                if (count == 0) {
+                        return;
+                }
+                if (filteredView && !selectedSectionId.equals(sectionId)) {
+                        return;
+                }
+                out.println("<div id=\"dd-project-section-" + sectionId
+                                + "\" class=\"dd-today-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "PROJECT SECTION " + title.toUpperCase());
+                out.println("  <h3 class=\"dd-today-section-title\">" + escapeHtml(title)
+                                + "<span class=\"dd-today-section-count\">(" + count + ")</span></h3>");
+                out.println("  <div class=\"dd-panel dd-panel-open\">");
+                tableRenderer.run();
+                if (filteredView) {
+                        out.println("    <p class=\"dd-today-show-all-wrap\"><a class=\"dd-today-show-all-link\" href=\""
+                                        + dashboardPath + "?" + PROJECT_SECTION_PARAM + "=all\">Show all</a></p>");
+                }
+                out.println("  </div>");
+                out.println("</div>");
+        }
+
+        private List<ProjectChipModel> buildProjectChips(DashboardNowColumnModel nowColumnModel) {
+                List<ProjectChipModel> chips = new ArrayList<ProjectChipModel>();
+                chips.add(new ProjectChipModel("scheduled", "Scheduled",
+                                nowColumnModel.getScheduledActions().size(), false));
+                chips.add(new ProjectChipModel("unscheduled", "Not Scheduled",
+                                nowColumnModel.getUnscheduledActions().size(), true));
+                chips.add(new ProjectChipModel("issues", "Issues",
+                                nowColumnModel.getOpenIssues().size(), false));
+                chips.add(new ProjectChipModel("taken", "Taken Actions",
+                                nowColumnModel.getTakenActions().size(), false));
+                chips.add(new ProjectChipModel("completed", "Completed Actions",
+                                nowColumnModel.getRecentCompleted().size(), false));
+                chips.add(new ProjectChipModel("templated", "Templated Actions",
+                                nowColumnModel.getTemplatedActions().size(), false));
+                return chips;
+        }
+
+        private String resolveSelectedProjectSectionId(AppReq appReq, List<ProjectChipModel> chips) {
+                List<String> availableIds = new ArrayList<String>();
+                for (ProjectChipModel chip : chips) {
+                        if (chip.getCount() > 0) {
+                                availableIds.add(chip.getId());
+                        }
+                }
+                String selected = appReq.getRequest().getParameter(PROJECT_SECTION_PARAM);
+                if (selected != null) {
+                        selected = selected.trim();
+                }
+                if (selected != null && selected.length() > 0) {
+                        if ("all".equals(selected)) {
+                                appReq.getWebSession().removeAttribute(PROJECT_SECTION_SESSION_KEY);
+                                return "";
+                        }
+                        if (availableIds.contains(selected)) {
+                                appReq.getWebSession().setAttribute(PROJECT_SECTION_SESSION_KEY, selected);
+                                return selected;
+                        }
+                }
+                Object sessionValue = appReq.getWebSession().getAttribute(PROJECT_SECTION_SESSION_KEY);
+                if (sessionValue instanceof String) {
+                        String sessionSelected = ((String) sessionValue).trim();
+                        if (availableIds.contains(sessionSelected)) {
+                                return sessionSelected;
+                        }
+                        appReq.getWebSession().removeAttribute(PROJECT_SECTION_SESSION_KEY);
+                }
+                return "";
         }
 
         private void printProjectExpandedRightColumn(PrintWriter out, ProjectDashboardChatState chatState,
@@ -1993,6 +2164,106 @@ public class DashboardPageRenderer {
                         out.println("    </tr>");
                 }
                 out.println("  </table>");
+        }
+
+        private void printBacklogTakenActions(PrintWriter out,
+                        List<DashboardNowColumnModel.TakenActionItem> items) {
+                out.println("  <h3 class=\"dd-backlog-section-title\">Taken Actions</h3>");
+                if (items.isEmpty()) {
+                        out.println("  <p class=\"dd-subtle dd-backlog-empty\">No taken actions in the last 90 days.</p>");
+                        return;
+                }
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-date\">Date</th>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
+                out.println("      <th class=\"dd-backlog-col-who\">Who</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.TakenActionItem item : items) {
+                        out.println("    <tr>");
+                        out.println("      <td class=\"dd-backlog-col-date\">" + escapeHtml(item.getDateLabel())
+                                        + "</td>");
+                        out.println("      <td class=\"dd-backlog-col-desc\">" + escapeHtml(item.getDescription())
+                                        + "</td>");
+                        out.println("      <td class=\"dd-backlog-col-who\">" + escapeHtml(item.getWhoLabel())
+                                        + "</td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+        }
+
+        private void printLeftScheduledToday(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
+                List<DashboardNowColumnModel.ScheduledActionItem> todayItems = new ArrayList<DashboardNowColumnModel.ScheduledActionItem>();
+                for (DashboardNowColumnModel.ScheduledActionItem item : nowColumnModel.getScheduledActions()) {
+                        if (item.isToday()) {
+                                todayItems.add(item);
+                        }
+                }
+                if (todayItems.isEmpty()) {
+                        return;
+                }
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "SCHEDULED TODAY");
+                out.println("  <h3 class=\"dd-backlog-section-title\">Scheduled Today</h3>");
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.ScheduledActionItem item : todayItems) {
+                        out.println("    <tr>");
+                        out.println("      <td class=\"dd-backlog-col-desc\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\" onclick=\"ddOpenNextTaskDetails("
+                                        + item.getActionNextId() + ", event)\">" + item.getDescriptionHtml()
+                                        + "</a></td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+                out.println("</div>");
+        }
+
+        private void printLeftUnscheduledActions(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
+                if (nowColumnModel.getUnscheduledActions().isEmpty()) {
+                        return;
+                }
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "UNSCHEDULED ACTIONS");
+                out.println("  <h3 class=\"dd-backlog-section-title\">Un-Scheduled Actions</h3>");
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.UnscheduledActionItem item : nowColumnModel.getUnscheduledActions()) {
+                        out.println("    <tr>");
+                        out.println("      <td class=\"dd-backlog-col-desc\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\" onclick=\"ddOpenNextTaskDetails("
+                                        + item.getActionNextId() + ", event)\">" + item.getDescriptionHtml()
+                                        + "</a></td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+                out.println("</div>");
+        }
+
+        private void printLeftTakenToday(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
+                if (nowColumnModel.getTakenToday().isEmpty()) {
+                        return;
+                }
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "TAKEN TODAY");
+                out.println("  <h3 class=\"dd-backlog-section-title\">Action Taken Today</h3>");
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
+                out.println("      <th class=\"dd-backlog-col-who\">Who</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.TakenActionItem item : nowColumnModel.getTakenToday()) {
+                        out.println("    <tr>");
+                        out.println("      <td class=\"dd-backlog-col-desc\">" + escapeHtml(item.getDescription())
+                                        + "</td>");
+                        out.println("      <td class=\"dd-backlog-col-who\">" + escapeHtml(item.getWhoLabel())
+                                        + "</td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+                out.println("</div>");
         }
 
         private void printTodayColumn(PrintWriter out, DashboardTodayColumnModel todayColumnModel, AppReq appReq) {
@@ -3185,6 +3456,36 @@ public class DashboardPageRenderer {
                 return new ArrayList<TodaySectionRenderModel>(sections.values());
         }
 
+        private static class ProjectChipModel {
+                private final String id;
+                private final String title;
+                private final int count;
+                private final boolean alert;
+
+                private ProjectChipModel(String id, String title, int count, boolean alert) {
+                        this.id = id;
+                        this.title = title;
+                        this.count = count;
+                        this.alert = alert;
+                }
+
+                public String getId() {
+                        return id;
+                }
+
+                public String getTitle() {
+                        return title;
+                }
+
+                public int getCount() {
+                        return count;
+                }
+
+                public boolean isAlert() {
+                        return alert;
+                }
+        }
+
         private static class TodaySectionRenderModel {
                 private final String id;
                 private final String title;
@@ -3341,7 +3642,12 @@ public class DashboardPageRenderer {
                 if (layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
                                 && nowColumnModel.getCurrentProject() != null
                                 && nowColumnModel.getCurrentProject().isAvailable()) {
-                        return safe(nowColumnModel.getCurrentProject().getName());
+                        String name = safe(nowColumnModel.getCurrentProject().getName());
+                        String handle = safe(nowColumnModel.getCurrentProject().getHandle());
+                        if (handle.length() > 0 && !handle.equalsIgnoreCase(name)) {
+                                return name + " (" + handle + ")";
+                        }
+                        return name;
                 }
                 return buildTodayHeaderLabel(appReq);
         }
@@ -3350,11 +3656,11 @@ public class DashboardPageRenderer {
                 if (layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
                                 && nowColumnModel.getCurrentProject() != null
                                 && nowColumnModel.getCurrentProject().isAvailable()) {
-                        String projectHandle = safe(nowColumnModel.getCurrentProject().getHandle());
-                        if (projectHandle.length() == 0) {
-                                return "(no handle)";
+                        String desc = safe(nowColumnModel.getCurrentProject().getDescription());
+                        if (desc.length() > 1000) {
+                                desc = desc.substring(0, 1000) + "...";
                         }
-                        return projectHandle;
+                        return desc;
                 }
                 return buildTodayHeaderCurrentTime(appReq);
         }

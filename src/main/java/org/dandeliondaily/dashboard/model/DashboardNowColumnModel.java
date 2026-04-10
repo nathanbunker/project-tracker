@@ -14,6 +14,8 @@ public class DashboardNowColumnModel {
     private List<TemplatedActionItem> templatedActions = new ArrayList<>();
     private List<RecentCompletedItem> recentCompleted = new ArrayList<>();
     private List<OpenIssueItem> openIssues = new ArrayList<>();
+    private List<TakenActionItem> takenToday = new ArrayList<>();
+    private List<TakenActionItem> takenActions = new ArrayList<>();
 
     public CurrentAction getCurrentAction() {
         return currentAction;
@@ -77,6 +79,22 @@ public class DashboardNowColumnModel {
 
     public void setOpenIssues(List<OpenIssueItem> openIssues) {
         this.openIssues = openIssues;
+    }
+
+    public List<TakenActionItem> getTakenToday() {
+        return takenToday;
+    }
+
+    public void setTakenToday(List<TakenActionItem> takenToday) {
+        this.takenToday = takenToday;
+    }
+
+    public List<TakenActionItem> getTakenActions() {
+        return takenActions;
+    }
+
+    public void setTakenActions(List<TakenActionItem> takenActions) {
+        this.takenActions = takenActions;
     }
 
     public static class CurrentAction {
@@ -270,6 +288,7 @@ public class DashboardNowColumnModel {
         private String descriptionHtml = "";
         private boolean currentSelection;
         private int actionNextId;
+        private boolean today;
 
         public String getDateLabel() {
             return dateLabel;
@@ -301,6 +320,14 @@ public class DashboardNowColumnModel {
 
         public void setActionNextId(int actionNextId) {
             this.actionNextId = actionNextId;
+        }
+
+        public boolean isToday() {
+            return today;
+        }
+
+        public void setToday(boolean today) {
+            this.today = today;
         }
     }
 
@@ -439,6 +466,45 @@ public class DashboardNowColumnModel {
 
         public void setCreatedDate(Date createdDate) {
             this.createdDate = createdDate;
+        }
+    }
+
+    public static class TakenActionItem {
+        private int actionTakenId;
+        private String dateLabel = "";
+        private String description = "";
+        private String whoLabel = "";
+
+        public int getActionTakenId() {
+            return actionTakenId;
+        }
+
+        public void setActionTakenId(int actionTakenId) {
+            this.actionTakenId = actionTakenId;
+        }
+
+        public String getDateLabel() {
+            return dateLabel;
+        }
+
+        public void setDateLabel(String dateLabel) {
+            this.dateLabel = dateLabel;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public String getWhoLabel() {
+            return whoLabel;
+        }
+
+        public void setWhoLabel(String whoLabel) {
+            this.whoLabel = whoLabel;
         }
     }
 }
