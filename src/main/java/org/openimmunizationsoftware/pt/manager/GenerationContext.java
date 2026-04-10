@@ -4,8 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.Project;
 
@@ -14,19 +14,19 @@ public class GenerationContext {
     private final LocalDate periodStart;
     private final LocalDate periodEnd;
     private final String prompt;
-    private final List<ProjectActionTaken> completedActions;
+    private final List<ActionTaken> completedActions;
     private final Map<Integer, Integer> timeByProject;
     private final Map<Integer, String> projectNames;
     private final Map<Integer, Project> projectsById;
     private final Map<Integer, List<String>> openIssuesByProject;
     private final List<ProjectNarrative> projectNarratives;
-    private final List<ProjectActionNext> waitingActions;
+    private final List<ActionNext> waitingActions;
 
     public GenerationContext(LocalDate periodStart, LocalDate periodEnd, String prompt,
-            List<ProjectActionTaken> completedActions, Map<Integer, Integer> timeByProject,
+            List<ActionTaken> completedActions, Map<Integer, Integer> timeByProject,
             Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
             Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
-            List<ProjectActionNext> waitingActions) {
+            List<ActionNext> waitingActions) {
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
         this.prompt = prompt;
@@ -51,7 +51,7 @@ public class GenerationContext {
         return prompt;
     }
 
-    public List<ProjectActionTaken> getCompletedActions() {
+    public List<ActionTaken> getCompletedActions() {
         return completedActions;
     }
 
@@ -75,7 +75,7 @@ public class GenerationContext {
         return projectNarratives;
     }
 
-    public List<ProjectActionNext> getWaitingActions() {
+    public List<ActionNext> getWaitingActions() {
         return waitingActions;
     }
 }

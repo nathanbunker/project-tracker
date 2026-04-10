@@ -29,7 +29,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -283,7 +283,7 @@ public class ClientServlet extends HttpServlet {
     result.append("</td><td class=\"right\">");
     if (loggedIn) {
       Project project = appReq.getProject();
-      ProjectActionNext completingAction = appReq.getCompletingAction();
+      ActionNext completingAction = appReq.getCompletingAction();
       if (project == null && completingAction != null) {
         project = completingAction.getProject();
       }
@@ -324,7 +324,7 @@ public class ClientServlet extends HttpServlet {
     return result.toString();
   }
 
-  private static String createWorkToggleLink(Project project, ProjectActionNext completingAction,
+  private static String createWorkToggleLink(Project project, ActionNext completingAction,
       TimeTracker timeTracker) {
     if (timeTracker != null && timeTracker.isRunningClock()) {
       return "TrackServlet?action=StopTimer";

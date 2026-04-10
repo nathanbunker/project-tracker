@@ -113,15 +113,15 @@ created_by_web_user_id = COALESCE(created_by_web_user_id, web_user_id),
 last_modified_by_web_user_id = COALESCE(last_modified_by_web_user_id, web_user_id)
 WHERE workspace_id IS NULL;
 
-UPDATE project_action_next pan
-JOIN project p ON p.project_id = pan.project_id
-SET pan.workspace_id = p.workspace_id
-WHERE pan.workspace_id IS NULL;
+UPDATE project_action_next an
+JOIN project p ON p.project_id = an.project_id
+SET an.workspace_id = p.workspace_id
+WHERE an.workspace_id IS NULL;
 
-UPDATE project_action_taken pat
-JOIN project p ON p.project_id = pat.project_id
-SET pat.workspace_id = p.workspace_id
-WHERE pat.workspace_id IS NULL;
+UPDATE project_action_taken atk
+JOIN project p ON p.project_id = atk.project_id
+SET atk.workspace_id = p.workspace_id
+WHERE atk.workspace_id IS NULL;
 
 UPDATE project_category pc
 JOIN (
@@ -526,3 +526,14 @@ ALTER TABLE project
 
 DROP TABLE project_phase;
 DROP TABLE project_category;
+-- v5 phase F: remove legacy project_action_ table prefixes
+RENAME TABLE
+    project_action_next TO action_next,
+    project_action_taken TO action_taken,
+    project_action_set TO action_set,
+    project_action_proposal TO action_proposal,
+    project_action_change_log TO action_change_log;
+
+ALTER TABLE action_set RENAME INDEX idx_pas_web_user TO idx_aset_web_user;
+ALTER TABLE action_next RENAME INDEX idx_pan_action_set TO idx_an_action_set;
+ALTER TABLE action_taken RENAME INDEX idx_pat_action_set TO idx_atk_action_set;

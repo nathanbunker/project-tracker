@@ -25,11 +25,11 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/BillWorkStatus.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ContactEvent.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/Project.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionSet.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionNext.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionTaken.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionProposal.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectActionChangeLog.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ActionSet.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ActionNext.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ActionTaken.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ActionProposal.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ActionChangeLog.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAddress.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectArea.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAreaAssigned.hbm.xml"/>

@@ -26,11 +26,11 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
@@ -412,7 +412,7 @@ public class ProjectHealthPageService {
 
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext reviewAction = new ProjectActionNext();
+            ActionNext reviewAction = new ActionNext();
             reviewAction.setProject(project);
             reviewAction.setProjectId(project.getProjectId());
             reviewAction.setContact(webUser.getProjectContact());
@@ -487,25 +487,25 @@ public class ProjectHealthPageService {
                 bulkImportText);
     }
 
-    public List<ProjectActionNext> loadUnscheduledReviewActions(AppReq appReq) {
+    public List<ActionNext> loadUnscheduledReviewActions(AppReq appReq) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionStatusString = :status "
-                        + "and pan.nextActionDate is null "
-                        + "order by pan.projectId, pan.priorityLevel desc, pan.nextChangeDate");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionStatusString = :status "
+                        + "and an.nextActionDate is null "
+                        + "order by an.projectId, an.priorityLevel desc, an.nextChangeDate");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> actions = query.list();
+        List<ActionNext> actions = query.list();
         return actions;
     }
 
@@ -534,19 +534,19 @@ public class ProjectHealthPageService {
         }
 
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "where pan.actionNextId in (:ids) "
-                        + "and pan.workspaceId = :workspaceId "
-                        + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextActionStatusString = :status "
-                        + "and pan.nextActionDate is null");
+                "select distinct an from ActionNext an "
+                        + "where an.actionNextId in (:ids) "
+                        + "and an.workspaceId = :workspaceId "
+                        + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextActionStatusString = :status "
+                        + "and an.nextActionDate is null");
         query.setParameterList("ids", selectedActionIds);
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> selectedActions = query.list();
+        List<ActionNext> selectedActions = query.list();
 
         if (selectedActions.isEmpty()) {
             throw new IllegalArgumentException("Selected actions were not available for replacement");
@@ -556,7 +556,7 @@ public class ProjectHealthPageService {
         int cancelledCount = 0;
         try {
             Date now = new Date();
-            for (ProjectActionNext action : selectedActions) {
+            for (ActionNext action : selectedActions) {
                 action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
                 action.setNextChangeDate(now);
                 dataSession.update(action);
@@ -898,15 +898,15 @@ public class ProjectHealthPageService {
     private List<ProjectReportModel.ReportActionLine> loadCompletedLines(Session dataSession, WebUser webUser,
             Project project) {
         Query query = dataSession.createQuery(
-                "from ProjectActionTaken where projectId = :projectId and contactId = :contactId order by actionDate desc");
+                "from ActionTaken where projectId = :projectId and contactId = :contactId order by actionDate desc");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("contactId", webUser.getContactId());
         query.setMaxResults(8);
         @SuppressWarnings("unchecked")
-        List<ProjectActionTaken> rows = query.list();
+        List<ActionTaken> rows = query.list();
 
         List<ProjectReportModel.ReportActionLine> lines = new ArrayList<ProjectReportModel.ReportActionLine>();
-        for (ProjectActionTaken row : rows) {
+        for (ActionTaken row : rows) {
             ProjectReportModel.ReportActionLine line = new ProjectReportModel.ReportActionLine();
             line.setActionId(row.getActionTakenId());
             line.setDescription(n(row.getActionDescription()));
@@ -919,15 +919,15 @@ public class ProjectHealthPageService {
     private List<ProjectReportModel.ReportActionLine> loadScheduledOpenLines(Session dataSession, WebUser webUser,
             Project project) {
         Query query = dataSession.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionStatusString = :status and pan.nextDescription <> '' and pan.nextActionDate is not null order by pan.nextActionDate, pan.priorityLevel desc");
+                "from ActionNext an where an.projectId = :projectId and an.nextActionStatusString = :status and an.nextDescription <> '' and an.nextActionDate is not null order by an.nextActionDate, an.priorityLevel desc");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setMaxResults(20);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> rows = query.list();
+        List<ActionNext> rows = query.list();
 
         List<ProjectReportModel.ReportActionLine> lines = new ArrayList<ProjectReportModel.ReportActionLine>();
-        for (ProjectActionNext row : rows) {
+        for (ActionNext row : rows) {
             ProjectReportModel.ReportActionLine line = new ProjectReportModel.ReportActionLine();
             line.setActionId(row.getActionNextId());
             line.setDescription(n(row.getNextDescription()));
@@ -940,15 +940,15 @@ public class ProjectHealthPageService {
     private List<ProjectReportModel.ReportActionLine> loadUnscheduledOpenLines(Session dataSession, WebUser webUser,
             Project project) {
         Query query = dataSession.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionStatusString = :status and pan.nextDescription <> '' and pan.nextActionDate is null order by pan.priorityLevel desc, pan.nextChangeDate");
+                "from ActionNext an where an.projectId = :projectId and an.nextActionStatusString = :status and an.nextDescription <> '' and an.nextActionDate is null order by an.priorityLevel desc, an.nextChangeDate");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setMaxResults(20);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> rows = query.list();
+        List<ActionNext> rows = query.list();
 
         List<ProjectReportModel.ReportActionLine> lines = new ArrayList<ProjectReportModel.ReportActionLine>();
-        for (ProjectActionNext row : rows) {
+        for (ActionNext row : rows) {
             ProjectReportModel.ReportActionLine line = new ProjectReportModel.ReportActionLine();
             line.setActionId(row.getActionNextId());
             line.setDescription(n(row.getNextDescription()));
@@ -1008,7 +1008,7 @@ public class ProjectHealthPageService {
 
     private int countOpenUndated(Session dataSession, Project project) {
         Query query = dataSession.createQuery(
-                "select count(*) from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionStatusString = :status and pan.nextDescription <> '' and pan.nextActionDate is null");
+                "select count(*) from ActionNext an where an.projectId = :projectId and an.nextActionStatusString = :status and an.nextDescription <> '' and an.nextActionDate is null");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         Number result = (Number) query.uniqueResult();
@@ -1017,7 +1017,7 @@ public class ProjectHealthPageService {
 
     private int countOpenOverdue(Session dataSession, Project project, LocalDate today) {
         Query query = dataSession.createQuery(
-                "select count(*) from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionStatusString = :status and pan.nextDescription <> '' and pan.nextActionDate is not null and pan.nextActionDate < :today");
+                "select count(*) from ActionNext an where an.projectId = :projectId and an.nextActionStatusString = :status and an.nextDescription <> '' and an.nextActionDate is not null and an.nextActionDate < :today");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setParameter("today", java.sql.Date.valueOf(today));
@@ -1027,7 +1027,7 @@ public class ProjectHealthPageService {
 
     private Date loadLastReview(Session dataSession, WebUser webUser, Project project) {
         Query query = dataSession.createQuery(
-                "select max(actionDate) from ProjectActionTaken where projectId = :projectId and contactId = :contactId");
+                "select max(actionDate) from ActionTaken where projectId = :projectId and contactId = :contactId");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("contactId", webUser.getContactId());
         return (Date) query.uniqueResult();
@@ -1035,10 +1035,10 @@ public class ProjectHealthPageService {
 
     private boolean hasReviewScheduledToday(Session dataSession, Project project, LocalDate today) {
         Query query = dataSession.createQuery(
-                "select count(*) from ProjectActionNext pan "
-                        + "where pan.projectId = :projectId "
-                        + "and pan.nextActionStatusString = :status "
-                        + "and pan.nextActionDate = :today");
+                "select count(*) from ActionNext an "
+                        + "where an.projectId = :projectId "
+                        + "and an.nextActionStatusString = :status "
+                        + "and an.nextActionDate = :today");
         query.setParameter("projectId", project.getProjectId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         query.setParameter("today", java.sql.Date.valueOf(today));

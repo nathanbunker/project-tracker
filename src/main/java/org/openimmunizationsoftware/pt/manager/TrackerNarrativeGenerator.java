@@ -19,8 +19,8 @@ import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.CentralControl;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectIssueStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
@@ -89,11 +89,11 @@ public class TrackerNarrativeGenerator {
                 Date startDate = toDate(periodStart);
                 Date endDate = toDate(endExclusive);
 
-                List<ProjectActionTaken> completedActions = loadCompletedActions(session, startDate, endDate);
+                List<ActionTaken> completedActions = loadCompletedActions(session, startDate, endDate);
                 Map<Integer, Integer> timeByProject = loadMinutesByProject(session, startDate, endDate);
                 Map<Integer, String> projectNames = loadProjectNames(session, timeByProject.keySet(), completedActions);
                 List<ProjectNarrative> projectNarratives = loadProjectNarratives(session, startDate, endDate);
-                List<ProjectActionNext> waitingActions = loadWaitingActions(session, startDate, endDate);
+                List<ActionNext> waitingActions = loadWaitingActions(session, startDate, endDate);
                 Set<Integer> projectIds = collectProjectIds(timeByProject, completedActions, projectNarratives,
                         waitingActions);
                 Map<Integer, Project> projectsById = loadProjectsById(session, projectIds);
@@ -139,12 +139,12 @@ public class TrackerNarrativeGenerator {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<ProjectActionTaken> loadCompletedActions(Session session, Date startDate, Date endDate) {
+    private static List<ActionTaken> loadCompletedActions(Session session, Date startDate, Date endDate) {
         Query query = session.createQuery(
-                "from ProjectActionTaken pat left join fetch pat.project "
-                        + "where pat.actionDate >= :start and pat.actionDate < :end "
-                        + "and pat.actionDescription is not null and pat.actionDescription <> '' "
-                        + "order by pat.actionDate asc");
+                "from ActionTaken atk left join fetch atk.project "
+                        + "where atk.actionDate >= :start and atk.actionDate < :end "
+                        + "and atk.actionDescription is not null and atk.actionDescription <> '' "
+                        + "order by atk.actionDate asc");
         query.setTimestamp("start", startDate);
         query.setTimestamp("end", endDate);
         return query.list();
@@ -174,9 +174,9 @@ public class TrackerNarrativeGenerator {
     }
 
     private static Map<Integer, String> loadProjectNames(Session session, Iterable<Integer> projectIds,
-            List<ProjectActionTaken> completedActions) {
+            List<ActionTaken> completedActions) {
         Map<Integer, String> names = new LinkedHashMap<Integer, String>();
-        for (ProjectActionTaken action : completedActions) {
+        for (ActionTaken action : completedActions) {
             Project project = action.getProject();
             if (project != null) {
                 names.put(project.getProjectId(), project.getProjectName());
@@ -250,12 +250,12 @@ public class TrackerNarrativeGenerator {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<ProjectActionNext> loadWaitingActions(Session session, Date startDate, Date endDate) {
+    private static List<ActionNext> loadWaitingActions(Session session, Date startDate, Date endDate) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan left join fetch pan.project "
-                        + "where pan.nextActionType = :waiting and pan.nextDescription <> '' "
-                        + "and pan.nextChangeDate >= :start and pan.nextChangeDate < :end "
-                        + "order by pan.nextChangeDate asc");
+                "from ActionNext an left join fetch an.project "
+                        + "where an.nextActionType = :waiting and an.nextDescription <> '' "
+                        + "and an.nextChangeDate >= :start and an.nextChangeDate < :end "
+                        + "order by an.nextChangeDate asc");
         query.setString("waiting", ProjectNextActionType.WAITING);
         query.setTimestamp("start", startDate);
         query.setTimestamp("end", endDate);
@@ -263,10 +263,10 @@ public class TrackerNarrativeGenerator {
     }
 
     private static String buildPrompt(TrackerNarrative narrative, LocalDate periodStart, LocalDate periodEnd,
-            List<ProjectActionTaken> completedActions, Map<Integer, Integer> timeByProject,
+            List<ActionTaken> completedActions, Map<Integer, Integer> timeByProject,
             Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
             Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
-            List<ProjectActionNext> waitingActions) {
+            List<ActionNext> waitingActions) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are writing a tracker narrative for period ")
                 .append(periodStart).append(" to ").append(periodEnd).append(".\n");
@@ -292,7 +292,7 @@ public class TrackerNarrativeGenerator {
         if (completedActions.isEmpty()) {
             sb.append("- No completed actions recorded.\n\n");
         } else {
-            for (ProjectActionTaken action : completedActions) {
+            for (ActionTaken action : completedActions) {
                 String projectName = action.getProject() == null ? "" : action.getProject().getProjectName();
                 sb.append("- ");
                 if (!isEmpty(projectName)) {
@@ -315,7 +315,7 @@ public class TrackerNarrativeGenerator {
         if (waitingActions.isEmpty()) {
             sb.append("- No waiting items recorded.\n");
         } else {
-            for (ProjectActionNext action : waitingActions) {
+            for (ActionNext action : waitingActions) {
                 String projectName = action.getProject() == null ? "" : action.getProject().getProjectName();
                 sb.append("- ");
                 if (!isEmpty(projectName)) {
@@ -406,12 +406,12 @@ public class TrackerNarrativeGenerator {
     }
 
     private static Set<Integer> collectProjectIds(Map<Integer, Integer> timeByProject,
-            List<ProjectActionTaken> completedActions, List<ProjectNarrative> projectNarratives,
-            List<ProjectActionNext> waitingActions) {
+            List<ActionTaken> completedActions, List<ProjectNarrative> projectNarratives,
+            List<ActionNext> waitingActions) {
         Set<Integer> projectIds = new HashSet<Integer>();
         projectIds.addAll(timeByProject.keySet());
 
-        for (ProjectActionTaken action : completedActions) {
+        for (ActionTaken action : completedActions) {
             if (action != null && action.getProject() != null) {
                 projectIds.add(action.getProject().getProjectId());
             }
@@ -421,7 +421,7 @@ public class TrackerNarrativeGenerator {
                 projectIds.add(narrative.getProjectId());
             }
         }
-        for (ProjectActionNext action : waitingActions) {
+        for (ActionNext action : waitingActions) {
             if (action != null && action.getProject() != null) {
                 projectIds.add(action.getProject().getProjectId());
             }

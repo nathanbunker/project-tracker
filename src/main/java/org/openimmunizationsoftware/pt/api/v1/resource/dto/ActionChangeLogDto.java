@@ -2,7 +2,7 @@ package org.openimmunizationsoftware.pt.api.v1.resource.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-import org.openimmunizationsoftware.pt.model.ProjectActionChangeLog;
+import org.openimmunizationsoftware.pt.model.ActionChangeLog;
 
 @Schema(name = "ActionChangeLog")
 public class ActionChangeLogDto {
@@ -22,7 +22,7 @@ public class ActionChangeLogDto {
     private String changePatch;
     private String changeReason;
 
-    public static ActionChangeLogDto from(ProjectActionChangeLog log) {
+    public static ActionChangeLogDto from(ActionChangeLog log) {
         ActionChangeLogDto dto = new ActionChangeLogDto();
         dto.setChangeId(log.getChangeId());
         dto.setActionNextId(log.getActionNextId());

@@ -4,7 +4,7 @@ import java.io.PrintWriter;
 import java.util.List;
 
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 
 public class FocusedActionPageRenderer {
 
@@ -44,7 +44,7 @@ public class FocusedActionPageRenderer {
                 }
         }
 
-        public void render(AppReq appReq, ProjectActionNext action, List<String> notes,
+        public void render(AppReq appReq, ActionNext action, List<String> notes,
                         List<MeetingOption> meetingOptions,
                         List<PreviousActionOption> previousActions,
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,

@@ -20,7 +20,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.dandeliondaily.timereview.model.TimeEntryModel;
@@ -417,7 +417,7 @@ public class TimeReviewService {
             }
         }
 
-        ProjectActionNext action = billEntry.getAction();
+        ActionNext action = billEntry.getAction();
         if (action != null) {
             String desc = action.getNextDescriptionForDisplay(null);
             model.setActionDescription(desc == null ? "" : desc.replaceAll("<[^>]+>", ""));

@@ -19,7 +19,7 @@ import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
@@ -61,11 +61,11 @@ public class DashboardTodayColumnService {
 
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
-        ProjectActionNext selectedAction = appReq.getCompletingAction();
+        ActionNext selectedAction = appReq.getCompletingAction();
         Project selectedProject = selectedAction == null ? null : selectedAction.getProject();
 
         List<Project> projectList = loadProjectList(webUser, dataSession);
-        ProjectActionNext nextAction = actionSentenceImportService.saveNewActionFromSentence(webUser, dataSession,
+        ActionNext nextAction = actionSentenceImportService.saveNewActionFromSentence(webUser, dataSession,
                 selectedProject, projectList, sentenceInput);
         if (nextAction == null) {
             appReq.addErrorMessage("Unable to create action from quick capture sentence.");
@@ -100,21 +100,21 @@ public class DashboardTodayColumnService {
         model.getQuickCapture().setProjectNames(projectNames);
 
         // Real data wiring starts here for the middle Today column.
-        List<ProjectActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
-        List<ProjectActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
+        List<ActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+        List<ActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
         dueTodayList = filterActionsForDashboardVisibility(dueTodayList, false);
         overdueList = filterActionsForDashboardVisibility(overdueList, true);
-        List<ProjectActionNext> ideasList = getWouldLikeToIdeasList(webUser, dataSession);
+        List<ActionNext> ideasList = getWouldLikeToIdeasList(webUser, dataSession);
         sortProjectActionListByCompletionOrder(dueTodayList, webUser);
         sortProjectActionListByCompletionOrder(overdueList, webUser);
 
         model.setActionGroups(buildTodayGroups(webUser, dueTodayList, overdueList, ideasList));
 
-        List<ProjectActionNext> completedToday = getProjectActionListClosedToday(webUser, dataSession);
+        List<ActionNext> completedToday = getProjectActionListClosedToday(webUser, dataSession);
         model.setCompletedToday(toActionItems(webUser, completedToday, "Completed"));
         model.setWorkdayReview(buildWorkdayReviewModel(webUser, dataSession, model.getActionGroups(), completedToday));
 
-        List<ProjectActionNext> todayAndOverdue = new ArrayList<ProjectActionNext>();
+        List<ActionNext> todayAndOverdue = new ArrayList<ActionNext>();
         todayAndOverdue.addAll(overdueList);
         todayAndOverdue.addAll(dueTodayList);
         model.setTotals(buildTotals(appReq, webUser, todayAndOverdue));
@@ -137,7 +137,7 @@ public class DashboardTodayColumnService {
 
     private DashboardTodayColumnModel.WorkdayReviewModel buildWorkdayReviewModel(WebUser webUser, Session dataSession,
             List<DashboardTodayColumnModel.TodayActionGroupModel> actionGroups,
-            List<ProjectActionNext> completedToday) {
+            List<ActionNext> completedToday) {
         DashboardTodayColumnModel.WorkdayReviewModel model = new DashboardTodayColumnModel.WorkdayReviewModel();
         model.setTopPriority(isWorkdayComplete(actionGroups));
 
@@ -148,7 +148,7 @@ public class DashboardTodayColumnService {
         }
 
         List<Integer> completedActionProjectIds = new ArrayList<Integer>();
-        for (ProjectActionNext action : completedToday) {
+        for (ActionNext action : completedToday) {
             if (action == null || action.getProject() == null || action.getProject().getProjectId() <= 0) {
                 continue;
             }
@@ -172,7 +172,7 @@ public class DashboardTodayColumnService {
             item.setProjectName(summary.getProjectName());
             item.setCompletedCount(summary.getCompletedCount());
             item.setMinutesSpent(summary.getMinutesSpent());
-            item.setMinutesDisplay(ProjectActionNext.getTimeForDisplay(summary.getMinutesSpent()));
+            item.setMinutesDisplay(ActionNext.getTimeForDisplay(summary.getMinutesSpent()));
             item.setReviewed(summary.isReviewed());
             item.setNote(summary.getNarrativeEntry().getNote());
             item.setDecision(summary.getNarrativeEntry().getDecision());
@@ -182,7 +182,7 @@ public class DashboardTodayColumnService {
 
             // Add completed actions for this project
             List<String> projectCompletedActions = new ArrayList<>();
-            for (ProjectActionNext action : completedToday) {
+            for (ActionNext action : completedToday) {
                 if (action != null && action.getProject() != null &&
                         action.getProject().getProjectId() == summary.getProjectId()) {
                     if (action.getNextDescription() != null && !action.getNextDescription().isEmpty()) {
@@ -229,7 +229,7 @@ public class DashboardTodayColumnService {
     }
 
     private DashboardTodayColumnModel.TodayTotalsModel buildTotals(AppReq appReq, WebUser webUser,
-            List<ProjectActionNext> todayAndOverdue) {
+            List<ActionNext> todayAndOverdue) {
         DashboardTodayColumnModel.TodayTotalsModel totals = new DashboardTodayColumnModel.TodayTotalsModel();
 
         TimeAdder timeAdderToday = new TimeAdder(todayAndOverdue, appReq);
@@ -242,11 +242,11 @@ public class DashboardTodayColumnService {
         int remainingPlannedTotal = committedEst + willEst + willMeetEst;
         int plannedTotal = completedAct + remainingPlannedTotal;
 
-        totals.setCompletedDisplay(ProjectActionNext.getTimeForDisplay(completedAct));
-        totals.setCommittedDisplay(ProjectActionNext.getTimeForDisplay(committedEst));
-        totals.setWillDisplay(ProjectActionNext.getTimeForDisplay(willEst));
-        totals.setWillMeetDisplay(ProjectActionNext.getTimeForDisplay(willMeetEst));
-        totals.setTotalPlannedDisplay(ProjectActionNext.getTimeForDisplay(plannedTotal));
+        totals.setCompletedDisplay(ActionNext.getTimeForDisplay(completedAct));
+        totals.setCommittedDisplay(ActionNext.getTimeForDisplay(committedEst));
+        totals.setWillDisplay(ActionNext.getTimeForDisplay(willEst));
+        totals.setWillMeetDisplay(ActionNext.getTimeForDisplay(willMeetEst));
+        totals.setTotalPlannedDisplay(ActionNext.getTimeForDisplay(plannedTotal));
         totals.setCompletedMinutes(completedAct);
         totals.setPlannedMinutes(plannedTotal);
 
@@ -270,15 +270,15 @@ public class DashboardTodayColumnService {
     }
 
     private List<DashboardTodayColumnModel.TodayActionGroupModel> buildTodayGroups(WebUser webUser,
-            List<ProjectActionNext> dueTodayList, List<ProjectActionNext> overdueList,
-            List<ProjectActionNext> ideasList) {
-        Map<Integer, List<ProjectActionNext>> bucketMap = new HashMap<Integer, List<ProjectActionNext>>();
+            List<ActionNext> dueTodayList, List<ActionNext> overdueList,
+            List<ActionNext> ideasList) {
+        Map<Integer, List<ActionNext>> bucketMap = new HashMap<Integer, List<ActionNext>>();
         for (int bucket = BUCKET_START_OF_WORK_DAY; bucket <= BUCKET_OTHER; bucket++) {
-            bucketMap.put(bucket, new ArrayList<ProjectActionNext>());
+            bucketMap.put(bucket, new ArrayList<ActionNext>());
         }
 
         bucketMap.get(BUCKET_OVERDUE).addAll(overdueList);
-        for (ProjectActionNext projectAction : dueTodayList) {
+        for (ActionNext projectAction : dueTodayList) {
             int bucket = getCompletionBucket(projectAction, webUser);
             if (bucket > BUCKET_OTHER) {
                 continue;
@@ -308,19 +308,19 @@ public class DashboardTodayColumnService {
         return groups;
     }
 
-    private List<ProjectActionNext> getWouldLikeToIdeasList(WebUser webUser, Session dataSession) {
+    private List<ActionNext> getWouldLikeToIdeasList(WebUser webUser, Session dataSession) {
         Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionStatusString = :nextActionStatus "
-                        + "and pan.nextActionType = :nextActionType "
-                        + "and pan.billable = :billable "
-                        + "order by pan.actionNextId DESC");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionStatusString = :nextActionStatus "
+                        + "and an.nextActionType = :nextActionType "
+                        + "and an.billable = :billable "
+                        + "order by an.actionNextId DESC");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
@@ -328,14 +328,14 @@ public class DashboardTodayColumnService {
         query.setParameter("nextActionType", ProjectNextActionType.WOULD_LIKE_TO);
         query.setParameter("billable", true);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> projectActionList = query.list();
+        List<ActionNext> projectActionList = query.list();
         return projectActionList;
     }
 
-    private List<ProjectActionNext> filterActionsForDashboardVisibility(List<ProjectActionNext> actions,
+    private List<ActionNext> filterActionsForDashboardVisibility(List<ActionNext> actions,
             boolean workOnly) {
-        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
-        for (ProjectActionNext action : actions) {
+        List<ActionNext> filtered = new ArrayList<ActionNext>();
+        for (ActionNext action : actions) {
             if (action == null) {
                 continue;
             }
@@ -355,9 +355,9 @@ public class DashboardTodayColumnService {
     }
 
     private List<DashboardTodayColumnModel.TodayActionItemModel> toActionItems(WebUser webUser,
-            List<ProjectActionNext> actions, String contextLabel) {
+            List<ActionNext> actions, String contextLabel) {
         List<DashboardTodayColumnModel.TodayActionItemModel> items = new ArrayList<DashboardTodayColumnModel.TodayActionItemModel>();
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             DashboardTodayColumnModel.TodayActionItemModel item = new DashboardTodayColumnModel.TodayActionItemModel();
             item.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName(), ""));
             item.setDescriptionText(n(action.getNextDescription(), ""));
@@ -379,36 +379,36 @@ public class DashboardTodayColumnService {
         return items;
     }
 
-    private List<ProjectActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
+    private List<ActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
         Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         LocalDate today = webUser.getLocalDateToday();
         Query query;
         if (dayOffset < 0) {
             LocalDate oldestDate = today.minusYears(1);
             query = dataSession.createQuery(
-                    "select distinct pan from ProjectActionNext pan "
-                            + "left join fetch pan.project "
-                            + "left join fetch pan.contact "
-                            + "left join fetch pan.nextProjectContact "
-                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                            + "and pan.nextDescription <> '' "
-                            + "and pan.nextActionStatusString = :nextActionStatus "
-                            + "and pan.nextActionDate >= :oldestDate and pan.nextActionDate < :cutoffDate "
-                            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                    "select distinct an from ActionNext an "
+                            + "left join fetch an.project "
+                            + "left join fetch an.contact "
+                            + "left join fetch an.nextProjectContact "
+                            + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                            + "and an.nextDescription <> '' "
+                            + "and an.nextActionStatusString = :nextActionStatus "
+                            + "and an.nextActionDate >= :oldestDate and an.nextActionDate < :cutoffDate "
+                            + "order by an.nextActionDate, an.priorityLevel DESC, an.nextTimeEstimate, an.nextChangeDate");
             query.setParameter("oldestDate", java.sql.Date.valueOf(oldestDate));
             query.setParameter("cutoffDate", java.sql.Date.valueOf(today));
         } else {
             LocalDate targetDate = today.plusDays(dayOffset);
             query = dataSession.createQuery(
-                    "select distinct pan from ProjectActionNext pan "
-                            + "left join fetch pan.project "
-                            + "left join fetch pan.contact "
-                            + "left join fetch pan.nextProjectContact "
-                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                            + "and pan.nextDescription <> '' "
-                            + "and pan.nextActionStatusString = :nextActionStatus "
-                            + "and pan.nextActionDate = :targetDate "
-                            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                    "select distinct an from ActionNext an "
+                            + "left join fetch an.project "
+                            + "left join fetch an.contact "
+                            + "left join fetch an.nextProjectContact "
+                            + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                            + "and an.nextDescription <> '' "
+                            + "and an.nextActionStatusString = :nextActionStatus "
+                            + "and an.nextActionDate = :targetDate "
+                            + "order by an.nextActionDate, an.priorityLevel DESC, an.nextTimeEstimate, an.nextChangeDate");
             query.setParameter("targetDate", java.sql.Date.valueOf(targetDate));
         }
         query.setParameter("workspaceId", workspaceId);
@@ -416,24 +416,24 @@ public class DashboardTodayColumnService {
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> projectActionList = query.list();
+        List<ActionNext> projectActionList = query.list();
         sortProjectActionList(projectActionList, webUser);
         return projectActionList;
     }
 
-    private List<ProjectActionNext> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
+    private List<ActionNext> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
         Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Date today = TimeTracker.createToday(webUser).getTime();
         Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextActionStatusString = :nextActionStatus and pan.nextDescription <> '' "
-                        + "and pan.nextChangeDate >= :today and pan.nextChangeDate < :tomorrow "
-                        + "order by pan.nextTimeActual DESC, pan.nextTimeEstimate DESC");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextActionStatusString = :nextActionStatus and an.nextDescription <> '' "
+                        + "and an.nextChangeDate >= :today and an.nextChangeDate < :tomorrow "
+                        + "order by an.nextTimeActual DESC, an.nextTimeEstimate DESC");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
@@ -441,7 +441,7 @@ public class DashboardTodayColumnService {
         query.setParameter("today", today);
         query.setParameter("tomorrow", tomorrow);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> projectActionList = query.list();
+        List<ActionNext> projectActionList = query.list();
         return projectActionList;
     }
 
@@ -456,7 +456,7 @@ public class DashboardTodayColumnService {
         return projectList;
     }
 
-    private String resolveStatusLabel(ProjectActionNext projectAction) {
+    private String resolveStatusLabel(ActionNext projectAction) {
         if (projectAction.getNextActionStatus() != null) {
             return projectAction.getNextActionStatus().getLabel();
         }
@@ -467,7 +467,7 @@ public class DashboardTodayColumnService {
         return n(value, "-");
     }
 
-    private static void sortProjectActionList(List<ProjectActionNext> projectActionList, WebUser webUser) {
+    private static void sortProjectActionList(List<ActionNext> projectActionList, WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
             int c2 = pa2.getCompletionOrder();
@@ -486,7 +486,7 @@ public class DashboardTodayColumnService {
         });
     }
 
-    private static void sortProjectActionListByCompletionOrder(List<ProjectActionNext> projectActionList,
+    private static void sortProjectActionListByCompletionOrder(List<ActionNext> projectActionList,
             WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
@@ -517,7 +517,7 @@ public class DashboardTodayColumnService {
         });
     }
 
-    private static int compareInsideBucket(ProjectActionNext pa1, ProjectActionNext pa2) {
+    private static int compareInsideBucket(ActionNext pa1, ActionNext pa2) {
         ProcessStage ps1 = pa1.getProcessStage();
         ProcessStage ps2 = pa2.getProcessStage();
         if ((ps1 != null || ps2 != null) && ps1 != ps2) {
@@ -562,7 +562,7 @@ public class DashboardTodayColumnService {
         return pa1.getActionNextId() - pa2.getActionNextId();
     }
 
-    private static int getCompletionBucket(ProjectActionNext projectAction, WebUser webUser) {
+    private static int getCompletionBucket(ActionNext projectAction, WebUser webUser) {
         if (projectAction == null) {
             return 99;
         }

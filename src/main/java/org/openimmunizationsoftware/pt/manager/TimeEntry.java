@@ -2,13 +2,13 @@ package org.openimmunizationsoftware.pt.manager;
 
 import java.util.List;
 
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 
 public class TimeEntry implements Comparable<TimeEntry> {
   private String label;
   private int minutes;
   private String id;
-  private List<ProjectActionTaken> projectActionList;
+  private List<ActionTaken> projectActionList;
   private int minutesAdjusted = 0;
 
   public int getMinutesAdjusted() {
@@ -19,11 +19,11 @@ public class TimeEntry implements Comparable<TimeEntry> {
     this.minutesAdjusted = minutesAdjusted;
   }
 
-  public List<ProjectActionTaken> getProjectActionList() {
+  public List<ActionTaken> getProjectActionList() {
     return projectActionList;
   }
 
-  public void setProjectActionList(List<ProjectActionTaken> projectActionList) {
+  public void setProjectActionList(List<ActionTaken> projectActionList) {
     this.projectActionList = projectActionList;
   }
 

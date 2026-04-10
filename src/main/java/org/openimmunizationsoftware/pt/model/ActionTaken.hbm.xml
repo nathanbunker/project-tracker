@@ -2,7 +2,7 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
-  <class name="ProjectActionTaken" table="project_action_taken">
+  <class name="ActionTaken" table="action_taken">
     <id name="actionTakenId" type="int">
       <column name="action_taken_id" />
       <generator class="native" />
@@ -24,6 +24,6 @@
     <property name="actionDescription" type="string">
       <column name="action_description" length="12000" not-null="true" />
     </property>
-    <many-to-one name="actionSet" column="action_set_id" class="ProjectActionSet" lazy="proxy" fetch="select"/>
+    <many-to-one name="actionSet" column="action_set_id" class="ActionSet" lazy="proxy" fetch="select"/>
   </class>
 </hibernate-mapping>

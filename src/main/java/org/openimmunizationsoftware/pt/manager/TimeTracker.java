@@ -13,7 +13,7 @@ import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillEntry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -63,7 +63,7 @@ public class TimeTracker {
     return timeEntryList;
   }
 
-  public synchronized int getTotalMinsForAction(ProjectActionNext projectAction) {
+  public synchronized int getTotalMinsForAction(ActionNext projectAction) {
     int totalMins = 0;
     if (hasRunningEntry()) {
       if (billEntryActionNextId != null && projectAction != null
@@ -263,7 +263,7 @@ public class TimeTracker {
 
   }
 
-  public synchronized void update(Project project, ProjectActionNext action, Session dataSession) {
+  public synchronized void update(Project project, ActionNext action, Session dataSession) {
     if (runningClock) {
       if (hasRunningEntry()) {
         saveTime(dataSession);
@@ -276,7 +276,7 @@ public class TimeTracker {
     }
   }
 
-  public synchronized void update(ProjectActionNext projectAction, Session dataSession) {
+  public synchronized void update(ActionNext projectAction, Session dataSession) {
     if (runningClock) {
       Project project = projectAction.getProject();
       if (hasRunningEntry()) {
@@ -290,7 +290,7 @@ public class TimeTracker {
     }
   }
 
-  public synchronized void startClock(Project project, ProjectActionNext action, Session dataSession) {
+  public synchronized void startClock(Project project, ActionNext action, Session dataSession) {
     if (runningClock) {
       saveTime(dataSession);
       if (projectOrActionChanged(project, action)) {
@@ -302,7 +302,7 @@ public class TimeTracker {
     }
   }
 
-  private boolean projectOrActionChanged(Project project, ProjectActionNext action) {
+  private boolean projectOrActionChanged(Project project, ActionNext action) {
     if (billEntryProjectId != project.getProjectId()) {
       return true;
     }
@@ -326,7 +326,7 @@ public class TimeTracker {
     }
   }
 
-  private void startTime(Project project, ProjectActionNext action, Session dataSession) {
+  private void startTime(Project project, ActionNext action, Session dataSession) {
     if (hasRunningEntry()) {
       addRunningEntryToTotals();
     }

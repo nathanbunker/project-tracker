@@ -2,9 +2,9 @@ package org.openimmunizationsoftware.pt.api.v1.resource.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 
-@Schema(name = "ProjectActionTaken")
+@Schema(name = "ActionTaken")
 public class ActionTakenDto {
 
     @Schema(example = "456")
@@ -15,7 +15,7 @@ public class ActionTakenDto {
     private Date actionDate;
     private String actionDescription;
 
-    public static ActionTakenDto from(ProjectActionTaken action) {
+    public static ActionTakenDto from(ActionTaken action) {
         ActionTakenDto dto = new ActionTakenDto();
         dto.setActionTakenId(action.getActionTakenId());
         dto.setProjectId(action.getProjectId());

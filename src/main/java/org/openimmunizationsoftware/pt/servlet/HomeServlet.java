@@ -23,7 +23,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
@@ -124,7 +124,7 @@ public class HomeServlet extends ClientServlet {
     SimpleDateFormat sdf1 = webUser.getDateFormat();
     Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
     Query query = dataSession.createQuery(
-        "from ProjectActionNext where workspaceId = :workspaceId and (contactId = :contactId or nextContactId = :nextContactId) "
+        "from ActionNext where workspaceId = :workspaceId and (contactId = :contactId or nextContactId = :nextContactId) "
             + "and nextDescription <> '' and nextActionStatusString = :nextActionStatus "
             + "order by nextActionDate, priority_level DESC, nextTimeEstimate, nextChangeDate");
     query.setParameter("workspaceId", workspaceId);
@@ -132,9 +132,9 @@ public class HomeServlet extends ClientServlet {
     query.setParameter("nextContactId", webUser.getContactId());
     query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
     @SuppressWarnings("unchecked")
-    List<ProjectActionNext> projectActionList = query.list();
+    List<ActionNext> projectActionList = query.list();
 
-    List<ProjectActionNext> projectActionListOverdue = prepareProjectActionListAndIdentifyOverdue(dataSession,
+    List<ActionNext> projectActionListOverdue = prepareProjectActionListAndIdentifyOverdue(dataSession,
         projectActionList, webUser);
     out.println("<div class=\"main\">");
     if (projectActionListOverdue.size() > 0) {
@@ -153,7 +153,7 @@ public class HomeServlet extends ClientServlet {
       int nextTimeEstimateWill = 0;
       int nextTimeEstimateWillMeet = 0;
       int nextTimeEstimateMight = 0;
-      for (ProjectActionNext projectAction : projectActionListOverdue) {
+      for (ActionNext projectAction : projectActionListOverdue) {
         if (projectAction.getNextTimeEstimate() != null) {
           nextTimeEstimateTotal += projectAction.getNextTimeEstimate();
           if (ProjectNextActionType.COMMITTED_TO.equals(projectAction.getNextActionType())
@@ -169,7 +169,7 @@ public class HomeServlet extends ClientServlet {
           }
         }
       }
-      for (ProjectActionNext projectAction : projectActionListOverdue) {
+      for (ActionNext projectAction : projectActionListOverdue) {
         printActionOverdueLine(webUser, out, sdf1, nextActionType, nextActionDate, projectAction,
             showLink);
       }
@@ -227,9 +227,9 @@ public class HomeServlet extends ClientServlet {
       runningTotal += time;
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">" + title + "</th>");
-      out.println("    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(time) + "</th>");
+      out.println("    <td class=\"boxed\">" + ActionNext.getTimeForDisplay(time) + "</th>");
       out.println(
-          "    <td class=\"boxed\">" + ProjectActionNext.getTimeForDisplay(runningTotal) + "</th>");
+          "    <td class=\"boxed\">" + ActionNext.getTimeForDisplay(runningTotal) + "</th>");
       out.println("  </tr>");
     }
     return runningTotal;
@@ -339,13 +339,13 @@ public class HomeServlet extends ClientServlet {
     out.println("</form>");
   }
 
-  protected static List<ProjectActionNext> prepareProjectActionListAndIdentifyOverdue(
-      Session dataSession, List<ProjectActionNext> projectActionList, WebUser webUser) {
-    List<ProjectActionNext> projectActionListOverdue = new ArrayList<ProjectActionNext>();
+  protected static List<ActionNext> prepareProjectActionListAndIdentifyOverdue(
+      Session dataSession, List<ActionNext> projectActionList, WebUser webUser) {
+    List<ActionNext> projectActionListOverdue = new ArrayList<ActionNext>();
 
     {
       Date today = TimeTracker.createToday(webUser).getTime();
-      for (ProjectActionNext projectAction : projectActionList) {
+      for (ActionNext projectAction : projectActionList) {
         projectAction
             .setProject((Project) dataSession.get(Project.class, projectAction.getProjectId()));
         if (projectAction.getProject() == null) {
@@ -367,7 +367,7 @@ public class HomeServlet extends ClientServlet {
   }
 
   private static void printDueTable(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
-      String nextActionType, Date nextActionDate, List<ProjectActionNext> projectActionList,
+      String nextActionType, Date nextActionDate, List<ActionNext> projectActionList,
       Calendar cIndicated, Calendar cToday, Calendar cTomorrow, boolean showLink) {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
@@ -391,7 +391,7 @@ public class HomeServlet extends ClientServlet {
     int nextTimeEstimateWill = 0;
     int nextTimeEstimateWillMeet = 0;
     int nextTimeEstimateMight = 0;
-    for (ProjectActionNext projectAction : projectActionList) {
+    for (ActionNext projectAction : projectActionList) {
       if (!sameDay(cIndicated, projectAction.getNextActionDate(), webUser)) {
         continue;
       }
@@ -420,21 +420,21 @@ public class HomeServlet extends ClientServlet {
       }
     }
 
-    for (ProjectActionNext projectAction : projectActionList) {
+    for (ActionNext projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)) {
         printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
     }
-    for (ProjectActionNext projectAction : projectActionList) {
+    for (ActionNext projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && projectAction.getNextActionType().equals(ProjectNextActionType.COMMITTED_TO)) {
         printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
     }
-    for (ProjectActionNext projectAction : projectActionList) {
+    for (ActionNext projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && (projectAction.getNextActionType().equals(ProjectNextActionType.WILL)
               || projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT))) {
@@ -442,7 +442,7 @@ public class HomeServlet extends ClientServlet {
             showLink);
       }
     }
-    for (ProjectActionNext projectAction : projectActionList) {
+    for (ActionNext projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && !projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)
           && !projectAction.getNextActionType().equals(ProjectNextActionType.COMMITTED_TO)
@@ -467,7 +467,7 @@ public class HomeServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Time</th>");
       out.println("    <th class=\"boxed\">To Do</th>");
       out.println("  </tr>");
-      for (ProjectActionNext projectAction : projectActionList) {
+      for (ActionNext projectAction : projectActionList) {
         if (!sameDay(cIndicated, projectAction.getNextActionDate(), webUser)) {
           continue;
         }
@@ -489,7 +489,7 @@ public class HomeServlet extends ClientServlet {
   }
 
   private static void printActionLine(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
-      String nextActionType, Date nextActionDate, Calendar cIndicated, ProjectActionNext projectAction,
+      String nextActionType, Date nextActionDate, Calendar cIndicated, ActionNext projectAction,
       boolean showLink) {
     if (!sameDay(cIndicated, projectAction.getNextActionDate(), webUser)) {
       return;
@@ -518,7 +518,7 @@ public class HomeServlet extends ClientServlet {
   }
 
   private static void printActionOverdueLine(WebUser webUser, PrintWriter out,
-      SimpleDateFormat sdf1, String nextActionType, Date nextActionDate, ProjectActionNext projectAction,
+      SimpleDateFormat sdf1, String nextActionType, Date nextActionDate, ActionNext projectAction,
       boolean showLink) {
     out.println("  <tr class=\"boxed\">");
     if (showLink) {
@@ -543,7 +543,7 @@ public class HomeServlet extends ClientServlet {
   }
 
   private static String printOutAction(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
-      String nextActionType, Date nextActionDate, ProjectActionNext projectAction, boolean showLink) {
+      String nextActionType, Date nextActionDate, ActionNext projectAction, boolean showLink) {
     String changeBoxId = "changeBox" + projectAction.getActionNextId();
     if (showLink) {
       out.println("    <td class=\"boxed\"><a href=\"javascript: void toggleLayer('" + changeBoxId

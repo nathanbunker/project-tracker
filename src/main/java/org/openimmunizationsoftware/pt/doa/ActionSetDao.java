@@ -5,23 +5,23 @@ import java.util.Date;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
-import org.openimmunizationsoftware.pt.model.ProjectActionSet;
+import org.openimmunizationsoftware.pt.model.ActionSet;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
-public class ProjectActionSetDao {
+public class ActionSetDao {
 
     private final Session session;
 
-    public ProjectActionSetDao() {
+    public ActionSetDao() {
         this.session = HibernateRequestContext.getCurrentSession();
     }
 
-    public ProjectActionSetDao(Session session) {
+    public ActionSetDao(Session session) {
         this.session = session;
     }
 
-    public ProjectActionSet createStandardActionSet(WebUser webUser) {
-        ProjectActionSet actionSet = new ProjectActionSet();
+    public ActionSet createStandardActionSet(WebUser webUser) {
+        ActionSet actionSet = new ActionSet();
         actionSet.setActionSetType(ActionSetType.STANDARD);
         actionSet.setCreatedByWebUserId(webUser.getWebUserId());
         actionSet.setCreatedByWebUser(webUser);
@@ -30,7 +30,7 @@ public class ProjectActionSetDao {
         return actionSet;
     }
 
-    public ProjectActionSet getActionSet(int actionSetId) {
-        return (ProjectActionSet) session.get(ProjectActionSet.class, actionSetId);
+    public ActionSet getActionSet(int actionSetId) {
+        return (ActionSet) session.get(ActionSet.class, actionSetId);
     }
 }

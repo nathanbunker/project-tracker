@@ -22,14 +22,14 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 
 public class PlanAheadMutationService {
 
@@ -88,7 +88,7 @@ public class PlanAheadMutationService {
         String sourceDayKey;
         String sourceRowKey;
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -181,7 +181,7 @@ public class PlanAheadMutationService {
         }
 
         Session dataSession = appReq.getDataSession();
-        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
         if (action == null) {
             result.setSuccess(false);
             result.setMessage("Action not found");
@@ -291,7 +291,7 @@ public class PlanAheadMutationService {
         String targetDayKey;
         String targetRowKey;
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -418,7 +418,7 @@ public class PlanAheadMutationService {
         String dayKey;
         String rowKey;
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -504,7 +504,7 @@ public class PlanAheadMutationService {
         String dayKey;
         String rowKey;
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -593,7 +593,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -643,7 +643,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -701,7 +701,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext templateAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+            ActionNext templateAction = (ActionNext) dataSession.get(ActionNext.class,
                     templateActionNextId);
             if (templateAction == null) {
                 transaction.rollback();
@@ -728,13 +728,13 @@ public class PlanAheadMutationService {
 
             Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
             Query query = dataSession.createQuery(
-                    "from ProjectActionNext pan where pan.workspaceId = :workspaceId "
-                            + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                            + "and pan.billable = :billable "
-                            + "and pan.templateActionNextId = :templateActionNextId "
-                            + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
-                            + "and pan.nextActionStatusString <> :cancelled "
-                            + "and pan.nextActionStatusString <> :completed");
+                    "from ActionNext an where an.workspaceId = :workspaceId "
+                            + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                            + "and an.billable = :billable "
+                            + "and an.templateActionNextId = :templateActionNextId "
+                            + "and an.nextActionDate is not null and an.nextActionDate >= :today "
+                            + "and an.nextActionStatusString <> :cancelled "
+                            + "and an.nextActionStatusString <> :completed");
             query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
             query.setParameter("contactId", appReq.getWebUser().getContactId());
             query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -744,8 +744,8 @@ public class PlanAheadMutationService {
             query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
             query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
             @SuppressWarnings("unchecked")
-            List<ProjectActionNext> generatedActions = query.list();
-            for (ProjectActionNext generatedAction : generatedActions) {
+            List<ActionNext> generatedActions = query.list();
+            for (ActionNext generatedAction : generatedActions) {
                 generatedAction.setNextTimeEstimate(nextTimeEstimate);
                 generatedAction.setNextChangeDate(new Date());
                 dataSession.update(generatedAction);
@@ -813,7 +813,7 @@ public class PlanAheadMutationService {
             return result;
         }
 
-        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
         if (action == null) {
             result.setSuccess(false);
             result.setMessage("Template action not found");
@@ -896,7 +896,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action;
+            ActionNext action;
             if (isAdd) {
                 int projectId;
                 try {
@@ -915,7 +915,7 @@ public class PlanAheadMutationService {
                     return result;
                 }
 
-                action = new ProjectActionNext();
+                action = new ActionNext();
                 action.setProjectId(project.getProjectId());
                 action.setProject(project);
                 action.setContactId(appReq.getWebUser().getContactId());
@@ -938,7 +938,7 @@ public class PlanAheadMutationService {
                     result.setMessage("actionNextId must be a whole number");
                     return result;
                 }
-                action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+                action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
                 if (action == null) {
                     transaction.rollback();
                     result.setSuccess(false);
@@ -973,20 +973,20 @@ public class PlanAheadMutationService {
             action.setNextChangeDate(new Date());
 
             if (isAdd) {
-                action.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
+                action.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
                 dataSession.save(action);
             } else {
                 dataSession.update(action);
 
                 Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
                 Query query = dataSession.createQuery(
-                        "from ProjectActionNext pan where pan.workspaceId = :workspaceId "
-                                + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                                + "and pan.billable = :billable "
-                                + "and pan.templateActionNextId = :templateActionNextId "
-                                + "and pan.nextActionDate is not null and pan.nextActionDate >= :today "
-                                + "and pan.nextActionStatusString <> :cancelled "
-                                + "and pan.nextActionStatusString <> :completed");
+                        "from ActionNext an where an.workspaceId = :workspaceId "
+                                + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                                + "and an.billable = :billable "
+                                + "and an.templateActionNextId = :templateActionNextId "
+                                + "and an.nextActionDate is not null and an.nextActionDate >= :today "
+                                + "and an.nextActionStatusString <> :cancelled "
+                                + "and an.nextActionStatusString <> :completed");
                 query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
                 query.setParameter("contactId", appReq.getWebUser().getContactId());
                 query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -996,8 +996,8 @@ public class PlanAheadMutationService {
                 query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
                 query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
                 @SuppressWarnings("unchecked")
-                List<ProjectActionNext> generatedActions = query.list();
-                for (ProjectActionNext generatedAction : generatedActions) {
+                List<ActionNext> generatedActions = query.list();
+                for (ActionNext generatedAction : generatedActions) {
                     generatedAction.setNextActionType(action.getNextActionType());
                     generatedAction.setNextDescription(action.getNextDescription());
                     generatedAction.setNextTimeEstimate(action.getNextTimeEstimate());
@@ -1034,7 +1034,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -1084,7 +1084,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 result.setSuccess(false);
@@ -1136,7 +1136,7 @@ public class PlanAheadMutationService {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext templateAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+            ActionNext templateAction = (ActionNext) dataSession.get(ActionNext.class,
                     templateActionNextId);
             if (templateAction == null) {
                 transaction.rollback();
@@ -1158,7 +1158,7 @@ public class PlanAheadMutationService {
                 return result;
             }
 
-            ProjectActionNext generatedAction = findGeneratedTemplateAction(dataSession, appReq, templateActionNextId,
+            ActionNext generatedAction = findGeneratedTemplateAction(dataSession, appReq, templateActionNextId,
                     day);
             Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
             String todayKey = toDayKey(today);
@@ -1169,7 +1169,7 @@ public class PlanAheadMutationService {
                     nextActionType = ProjectNextActionType.WILL;
                 }
                 if (generatedAction == null) {
-                    generatedAction = new ProjectActionNext();
+                    generatedAction = new ActionNext();
                     generatedAction.setProjectId(templateAction.getProjectId());
                     generatedAction.setProject(templateAction.getProject());
                     generatedAction.setContactId(appReq.getWebUser().getContactId());
@@ -1194,7 +1194,7 @@ public class PlanAheadMutationService {
                             ? Integer.valueOf(0)
                             : templateAction.getNextTimeEstimate());
                     generatedAction.setActionSet(
-                            new ProjectActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
+                            new ActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
                     dataSession.save(generatedAction);
                 } else {
                     generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
@@ -1269,14 +1269,14 @@ public class PlanAheadMutationService {
         return result;
     }
 
-    private ProjectActionNext findGeneratedTemplateAction(Session dataSession, AppReq appReq, int templateActionNextId,
+    private ActionNext findGeneratedTemplateAction(Session dataSession, AppReq appReq, int templateActionNextId,
             Date day) {
         boolean billable = !isPersonalMode(appReq);
         Query query = dataSession.createQuery(
-                "from ProjectActionNext pan where pan.workspaceId = :workspaceId "
-                        + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = :billable "
-                        + "and pan.templateActionNextId = :templateActionNextId and pan.nextActionDate = :nextActionDate");
+                "from ActionNext an where an.workspaceId = :workspaceId "
+                        + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and an.templateActionNextId = :templateActionNextId and an.nextActionDate = :nextActionDate");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -1284,7 +1284,7 @@ public class PlanAheadMutationService {
         query.setParameter("templateActionNextId", templateActionNextId);
         query.setParameter("nextActionDate", day);
         @SuppressWarnings("unchecked")
-        java.util.List<ProjectActionNext> list = query.list();
+        java.util.List<ActionNext> list = query.list();
         if (list.size() > 0) {
             return list.get(0);
         }
@@ -1465,7 +1465,7 @@ public class PlanAheadMutationService {
         return PlanAheadBoardService.MODE_PERSONAL.equalsIgnoreCase(resolveMode(appReq));
     }
 
-    private boolean isActionCompatibleWithMode(ProjectActionNext action, AppReq appReq) {
+    private boolean isActionCompatibleWithMode(ActionNext action, AppReq appReq) {
         if (action == null) {
             return false;
         }
@@ -1473,7 +1473,7 @@ public class PlanAheadMutationService {
         return personalMode ? !action.isBillable() : action.isBillable();
     }
 
-    private String resolveRowKeyForAction(ProjectActionNext action, AppReq appReq) {
+    private String resolveRowKeyForAction(ActionNext action, AppReq appReq) {
         if (action == null) {
             return "";
         }

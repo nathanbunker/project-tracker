@@ -20,7 +20,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -28,7 +28,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 /**
@@ -85,7 +85,7 @@ public class ActionServlet extends MobileBaseServlet {
             }
 
             List<Project> projectList = getProjectList(webUser, dataSession);
-            ProjectActionNext editProjectAction = readEditProjectAction(appReq);
+            ActionNext editProjectAction = readEditProjectAction(appReq);
             Project project = resolveProject(request, dataSession, projectList, editProjectAction);
             if (project != null && (project.getWorkspaceId() == null || workspaceId == null
                     || !workspaceId.equals(project.getWorkspaceId()))) {
@@ -149,7 +149,7 @@ public class ActionServlet extends MobileBaseServlet {
         HttpServletRequest request = appReq.getRequest();
         HttpServletResponse response = appReq.getResponse();
 
-        ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class, viewActionId);
+        ActionNext projectAction = (ActionNext) dataSession.get(ActionNext.class, viewActionId);
 
         if (projectAction == null) {
             appReq.setTitle("Action");
@@ -210,7 +210,7 @@ public class ActionServlet extends MobileBaseServlet {
         printHtmlFoot(appReq);
     }
 
-    private void printActionSummary(AppReq appReq, ProjectActionNext action, WebUser webUser) {
+    private void printActionSummary(AppReq appReq, ActionNext action, WebUser webUser) {
         PrintWriter out = appReq.getOut();
 
         Date today = webUser.getToday();
@@ -366,7 +366,7 @@ public class ActionServlet extends MobileBaseServlet {
         return "todo";
     }
 
-    private String buildActionViewRedirectUrl(HttpServletRequest request, ProjectActionNext action) {
+    private String buildActionViewRedirectUrl(HttpServletRequest request, ActionNext action) {
         StringBuilder redirect = new StringBuilder();
         redirect.append("action?").append(PARAM_VIEW_ACTION_ID).append("=").append(action.getActionNextId());
         String dateParam = request.getParameter(PARAM_DATE);
@@ -376,7 +376,7 @@ public class ActionServlet extends MobileBaseServlet {
         return redirect.toString();
     }
 
-    private void scheduleAndBlock(ProjectActionNext actionToBlock, String blockingDescription, Session dataSession,
+    private void scheduleAndBlock(ActionNext actionToBlock, String blockingDescription, Session dataSession,
             WebUser webUser) {
         if (actionToBlock == null || blockingDescription == null || blockingDescription.trim().isEmpty()) {
             return;
@@ -396,7 +396,7 @@ public class ActionServlet extends MobileBaseServlet {
                 project = (Project) dataSession.get(Project.class, actionToBlock.getProjectId());
             }
 
-            ProjectActionNext blockingAction = new ProjectActionNext();
+            ActionNext blockingAction = new ActionNext();
             blockingAction.setProject(project);
             blockingAction.setProjectId(actionToBlock.getProjectId());
             blockingAction.setContact(webUser.getProjectContact());
@@ -408,7 +408,7 @@ public class ActionServlet extends MobileBaseServlet {
             blockingAction.setNextActionType(ProjectNextActionType.WILL);
             blockingAction.setBillable(resolveBillable(dataSession, project));
             blockingAction.setNextChangeDate(new Date());
-            blockingAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
+            blockingAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
             dataSession.saveOrUpdate(blockingAction);
 
             actionToBlock.setBlockedBy(blockingAction);
@@ -479,7 +479,7 @@ public class ActionServlet extends MobileBaseServlet {
     }
 
     private Project resolveProject(HttpServletRequest request, Session dataSession, List<Project> projectList,
-            ProjectActionNext editProjectAction) {
+            ActionNext editProjectAction) {
         if (editProjectAction != null && editProjectAction.getProject() != null) {
             return editProjectAction.getProject();
         }
@@ -498,16 +498,16 @@ public class ActionServlet extends MobileBaseServlet {
         return projectList.get(0);
     }
 
-    private ProjectActionNext readEditProjectAction(AppReq appReq) {
+    private ActionNext readEditProjectAction(AppReq appReq) {
         Session dataSession = appReq.getDataSession();
         HttpServletRequest request = appReq.getRequest();
         String actionNextIdString = request.getParameter(PARAM_EDIT_ACTION_NEXT_ID);
         if (actionNextIdString == null) {
             actionNextIdString = request.getParameter(PARAM_ACTION_NEXT_ID);
         }
-        ProjectActionNext editProjectAction = null;
+        ActionNext editProjectAction = null;
         if (actionNextIdString != null) {
-            editProjectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+            editProjectAction = (ActionNext) dataSession.get(ActionNext.class,
                     Integer.parseInt(actionNextIdString));
             if (editProjectAction != null && (editProjectAction.getWorkspaceId() == null
                     || appReq.getActiveWorkspaceId() == null
@@ -518,18 +518,18 @@ public class ActionServlet extends MobileBaseServlet {
         return editProjectAction;
     }
 
-    private ProjectActionNext saveProjectAction(AppReq appReq,
-            ProjectActionNext editProjectAction, Project nextProject) {
+    private ActionNext saveProjectAction(AppReq appReq,
+            ActionNext editProjectAction, Project nextProject) {
         HttpServletRequest request = appReq.getRequest();
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         boolean isNewAction = editProjectAction == null;
         if (isNewAction) {
-            editProjectAction = new ProjectActionNext();
+            editProjectAction = new ActionNext();
             editProjectAction.setProject(nextProject);
             editProjectAction.setProjectId(nextProject.getProjectId());
             editProjectAction.setBillable(resolveBillable(dataSession, nextProject));
-            editProjectAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
+            editProjectAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
         }
         editProjectAction.setContactId(webUser.getContactId());
         editProjectAction.setContact(webUser.getProjectContact());
@@ -590,7 +590,7 @@ public class ActionServlet extends MobileBaseServlet {
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 
-    private void closeAction(AppReq appReq, ProjectActionNext projectAction, Project project,
+    private void closeAction(AppReq appReq, ActionNext projectAction, Project project,
             String nextDescription, ProjectNextActionStatus nextActionStatus) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
@@ -625,7 +625,7 @@ public class ActionServlet extends MobileBaseServlet {
         return filteredProjects;
     }
 
-    private void printEditProjectActionForm(AppReq appReq, ProjectActionNext editProjectAction,
+    private void printEditProjectActionForm(AppReq appReq, ActionNext editProjectAction,
             List<ProjectContact> projectContactList, String formName, Project project,
             List<Project> projectList) {
         WebUser webUser = appReq.getWebUser();
@@ -677,7 +677,7 @@ public class ActionServlet extends MobileBaseServlet {
     }
 
     private void printCurrentActionEdit(AppReq appReq, WebUser webUser, PrintWriter out,
-            ProjectActionNext projectAction,
+            ActionNext projectAction,
             Project project,
             List<ProjectContact> projectContactList,
             String formName, List<Project> projectList) {
@@ -726,7 +726,7 @@ public class ActionServlet extends MobileBaseServlet {
     }
 
     private void printEditNextAction(HttpServletRequest request, WebUser webUser, PrintWriter out,
-            ProjectActionNext projectAction, Project project, String formName, String disabled,
+            ActionNext projectAction, Project project, String formName, String disabled,
             List<ProjectContact> projectContactList,
             List<Project> projectList) {
         SimpleDateFormat sdf2 = webUser.getDateFormat();

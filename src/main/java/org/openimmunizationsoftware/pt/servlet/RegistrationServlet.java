@@ -33,7 +33,7 @@ import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.model.WorkspaceMember;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
@@ -318,11 +318,11 @@ public class RegistrationServlet extends ClientServlet {
                 LinkedHashMap<String, Project> projectMap = workSection ? workProjectMap : personalProjectMap;
                 Project project = createProjectIfNeeded(dataSession, projectMap, templateRow.projectName, billCode,
                         workspaceId, webUser, projectContact);
-                ProjectActionNext templateAction = createTemplateAction(projectContact, project,
+                ActionNext templateAction = createTemplateAction(projectContact, project,
                         workspaceId, templateRow, templateAnchorDate);
                 dataSession.save(templateAction);
                 for (int dayOffset = 0; dayOffset <= 7; dayOffset++) {
-                    ProjectActionNext scheduledAction = createScheduledAction(webUser, projectContact,
+                    ActionNext scheduledAction = createScheduledAction(webUser, projectContact,
                             project, workspaceId, templateAction, webUser.addDays(webUser.getToday(), dayOffset));
                     dataSession.save(scheduledAction);
                 }
@@ -633,9 +633,9 @@ public class RegistrationServlet extends ClientServlet {
         return project;
     }
 
-    private ProjectActionNext createTemplateAction(ProjectContact projectContact, Project project,
+    private ActionNext createTemplateAction(ProjectContact projectContact, Project project,
             int workspaceId, TemplateRow templateRow, Date templateAnchorDate) {
-        ProjectActionNext templateAction = new ProjectActionNext();
+        ActionNext templateAction = new ActionNext();
         templateAction.setProjectId(project.getProjectId());
         templateAction.setContactId(projectContact.getContactId());
         templateAction.setContact(projectContact);
@@ -658,10 +658,10 @@ public class RegistrationServlet extends ClientServlet {
         return templateAction;
     }
 
-    private ProjectActionNext createScheduledAction(WebUser webUser, ProjectContact projectContact,
-            Project project, int workspaceId, ProjectActionNext templateAction,
+    private ActionNext createScheduledAction(WebUser webUser, ProjectContact projectContact,
+            Project project, int workspaceId, ActionNext templateAction,
             Date actionDate) {
-        ProjectActionNext projectAction = new ProjectActionNext();
+        ActionNext projectAction = new ActionNext();
         projectAction.setProjectId(project.getProjectId());
         projectAction.setContactId(projectContact.getContactId());
         projectAction.setContact(projectContact);

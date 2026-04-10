@@ -2,7 +2,7 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
-  <class name="ProjectActionProposal" table="project_action_proposal">
+  <class name="ActionProposal" table="action_proposal">
     <id name="proposalId" type="int">
       <column name="proposal_id" />
       <generator class="native" />
@@ -17,7 +17,7 @@
     <property name="actionNextId" type="java.lang.Integer">
       <column name="action_next_id" />
     </property>
-    <many-to-one name="action" column="action_next_id" class="ProjectActionNext" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <many-to-one name="action" column="action_next_id" class="ActionNext" insert="false" update="false" lazy="proxy" fetch="select"/>
     <property name="contactId" type="java.lang.Integer">
       <column name="contact_id" />
     </property>

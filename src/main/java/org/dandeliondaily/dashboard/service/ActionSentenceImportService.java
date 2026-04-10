@@ -10,11 +10,11 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -31,7 +31,7 @@ public class ActionSentenceImportService {
             if (line == null || line.trim().length() == 0) {
                 continue;
             }
-            ProjectActionNext created = saveNewActionFromSentence(webUser, dataSession, defaultProject, projectList,
+            ActionNext created = saveNewActionFromSentence(webUser, dataSession, defaultProject, projectList,
                     line);
             if (created != null) {
                 importedCount++;
@@ -40,9 +40,9 @@ public class ActionSentenceImportService {
         return importedCount;
     }
 
-    public ProjectActionNext saveNewActionFromSentence(WebUser webUser, Session dataSession,
+    public ActionNext saveNewActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput) {
-        ProjectActionNext nextAction = buildActionFromSentence(webUser, dataSession, defaultProject, projectList,
+        ActionNext nextAction = buildActionFromSentence(webUser, dataSession, defaultProject, projectList,
                 sentenceInput, null);
         if (nextAction == null) {
             return null;
@@ -54,7 +54,7 @@ public class ActionSentenceImportService {
         return nextAction;
     }
 
-    public ProjectActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
+    public ActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride) {
         if (sentenceInput == null || sentenceInput.trim().length() == 0) {
             return null;
@@ -182,7 +182,7 @@ public class ActionSentenceImportService {
             }
         }
 
-        ProjectActionNext nextAction = new ProjectActionNext();
+        ActionNext nextAction = new ActionNext();
         nextAction.setProject(foundProject);
         nextAction.setProjectId(foundProject.getProjectId());
         nextAction.setContactId(webUser.getContactId());
@@ -226,7 +226,7 @@ public class ActionSentenceImportService {
                 }
             }
         }
-        nextAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
+        nextAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
         return nextAction;
     }
 
@@ -288,7 +288,7 @@ public class ActionSentenceImportService {
         return actionDate;
     }
 
-    private void defaultPersonalTimeSlot(ProjectActionNext projectAction) {
+    private void defaultPersonalTimeSlot(ActionNext projectAction) {
         if (projectAction != null && !projectAction.isBillable() && projectAction.getTimeSlot() == null) {
             projectAction.setTimeSlot(TimeSlot.AFTERNOON);
         }

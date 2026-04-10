@@ -24,18 +24,18 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
-import org.openimmunizationsoftware.pt.api.v1.service.ProjectActionProposalService;
+import org.openimmunizationsoftware.pt.api.v1.service.ActionProposalService;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
-import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionProposal;
 
 @Path("/v1/projects")
 @Produces(MediaType.APPLICATION_JSON)
 @SecurityRequirement(name = "ApiKeyAuth")
 public class ProjectsResource extends BaseApiResource {
 
-    private final ProjectActionProposalService proposalService = new ProjectActionProposalService();
+    private final ActionProposalService proposalService = new ActionProposalService();
 
     @GET
     @Operation(summary = "List projects visible to client")
@@ -66,9 +66,9 @@ public class ProjectsResource extends BaseApiResource {
         ApiRequestContext.ApiClientInfo client = requireClient();
         int workspaceId = requireWorkspaceId(client);
         requireProject(workspaceId, projectId);
-        List<ProjectActionNext> actions = proposalService.listActionsNextForProject(workspaceId, projectId);
+        List<ActionNext> actions = proposalService.listActionsNextForProject(workspaceId, projectId);
         List<ActionNextDto> result = new ArrayList<ActionNextDto>();
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             result.add(ActionNextDto.from(action));
         }
         return result;
@@ -87,9 +87,9 @@ public class ProjectsResource extends BaseApiResource {
         ApiRequestContext.ApiClientInfo client = requireClient();
         int workspaceId = requireWorkspaceId(client);
         requireProject(workspaceId, projectId);
-        List<ProjectActionTaken> actions = proposalService.listActionsTakenForProject(workspaceId, projectId);
+        List<ActionTaken> actions = proposalService.listActionsTakenForProject(workspaceId, projectId);
         List<ActionTakenDto> result = new ArrayList<ActionTakenDto>();
-        for (ProjectActionTaken action : actions) {
+        for (ActionTaken action : actions) {
             result.add(ActionTakenDto.from(action));
         }
         return result;
@@ -119,7 +119,7 @@ public class ProjectsResource extends BaseApiResource {
                             "actionNextId must be a positive integer.", null))
                     .build());
         }
-        ProjectActionProposal proposal = proposalService.createProposal(workspaceId, agentName, projectId,
+        ActionProposal proposal = proposalService.createProposal(workspaceId, agentName, projectId,
                 actionNextId, request.getProposedPatchJson(), request.getSummary(), request.getRationale(),
                 request.getContactId());
         return Response.status(Response.Status.CREATED).entity(ProposalDto.from(proposal)).build();

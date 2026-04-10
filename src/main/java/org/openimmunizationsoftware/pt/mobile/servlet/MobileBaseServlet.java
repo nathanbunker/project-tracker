@@ -15,7 +15,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -108,7 +108,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
 
     // ==================== Shared Action Methods ====================
 
-    protected void completeAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
+    protected void completeAction(ActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
             action.setNextActionStatus(ProjectNextActionStatus.COMPLETED);
@@ -122,7 +122,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
         }
     }
 
-    protected void cancelAction(ProjectActionNext action, Session dataSession, WebUser webUser) {
+    protected void cancelAction(ActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
             action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
@@ -136,7 +136,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
         }
     }
 
-    protected void rescheduleAction(ProjectActionNext action, HttpServletRequest request,
+    protected void rescheduleAction(ActionNext action, HttpServletRequest request,
             WebUser webUser, Session dataSession) {
         Transaction trans = dataSession.beginTransaction();
         try {
@@ -171,7 +171,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
         }
     }
 
-    protected void postponeToTomorrow(ProjectActionNext action, Session dataSession, WebUser webUser) {
+    protected void postponeToTomorrow(ActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
             Date today = webUser.startOfDay(webUser.getToday());
@@ -193,7 +193,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
         }
     }
 
-    protected void rescheduleActionSimple(ProjectActionNext action, Session dataSession, WebUser webUser) {
+    protected void rescheduleActionSimple(ActionNext action, Session dataSession, WebUser webUser) {
         Transaction trans = dataSession.beginTransaction();
         try {
             Date today = webUser.getToday();
@@ -219,21 +219,21 @@ public abstract class MobileBaseServlet extends ClientServlet {
 
     // ==================== Shared Rendering Methods ====================
 
-    protected void printPostponeMenu(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser) {
+    protected void printPostponeMenu(PrintWriter out, ActionNext action, String dateParam, WebUser webUser) {
         printPostponeMenuInternal(out, action, dateParam, webUser, "todo");
     }
 
-    protected void printPostponeMenuForProject(PrintWriter out, ProjectActionNext action, String dateParam,
+    protected void printPostponeMenuForProject(PrintWriter out, ActionNext action, String dateParam,
             WebUser webUser, int projectId) {
         printPostponeMenuInternal(out, action, dateParam, webUser, "project", projectId);
     }
 
-    private void printPostponeMenuInternal(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser,
+    private void printPostponeMenuInternal(PrintWriter out, ActionNext action, String dateParam, WebUser webUser,
             String servletName) {
         printPostponeMenuInternal(out, action, dateParam, webUser, servletName, -1);
     }
 
-    private void printPostponeMenuInternal(PrintWriter out, ProjectActionNext action, String dateParam, WebUser webUser,
+    private void printPostponeMenuInternal(PrintWriter out, ActionNext action, String dateParam, WebUser webUser,
             String servletName, int projectId) {
         int actionNextId = action.getActionNextId();
         String actionDay = action.getNextActionDate() == null

@@ -13,7 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -100,7 +100,7 @@ public abstract class StudentBaseServlet extends ClientServlet {
         return webUser.getToday();
     }
 
-    protected int getAvailablePoints(ProjectActionNext action) {
+    protected int getAvailablePoints(ActionNext action) {
         if (action == null || action.getGamePoints() == null) {
             return 0;
         }

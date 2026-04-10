@@ -38,7 +38,7 @@ import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -48,7 +48,7 @@ import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
@@ -185,8 +185,8 @@ public class DandelionDashboardServlet extends ClientServlet {
 
         WebUser webUser = appReq.getWebUser();
 
-        ProjectActionNext action = (ProjectActionNext) appReq.getDataSession()
-                .get(ProjectActionNext.class, actionNextId);
+        ActionNext action = (ActionNext) appReq.getDataSession()
+                .get(ActionNext.class, actionNextId);
 
         if (action == null) {
             sendJsonResponse(appReq, false, "Action not found", null);
@@ -250,8 +250,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         Transaction transaction = dataSession.beginTransaction();
 
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession
-                    .get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession
+                    .get(ActionNext.class, actionNextId);
 
             if (action == null) {
                 transaction.rollback();
@@ -492,7 +492,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         int actionNextId = Integer.parseInt(actionNextIdStr);
 
         Session dataSession = appReq.getDataSession();
-        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
 
         if (action == null) {
             sendJsonResponse(appReq, false, "Action not found", null);
@@ -544,7 +544,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         for (DashboardTodayColumnModel.TodayActionItemModel itemModel : sectionItems) {
             int sectionActionId = itemModel.getActionNextId();
             if (sectionActionId != actionNextId) {
-                ProjectActionNext sectionAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                ActionNext sectionAction = (ActionNext) dataSession.get(ActionNext.class,
                         sectionActionId);
                 if (sectionAction != null) {
                     Map<String, Object> item = new LinkedHashMap<>();
@@ -591,7 +591,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         Transaction transaction = dataSession.beginTransaction();
 
         try {
-            ProjectActionNext currentAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+            ActionNext currentAction = (ActionNext) dataSession.get(ActionNext.class,
                     actionNextId);
             if (currentAction == null) {
                 transaction.rollback();
@@ -603,7 +603,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             DashboardTodayColumnModel todayModel = dashboardTodayColumnService.buildModel(appReq);
 
             // Find which section this action belongs to and get all section actions
-            List<ProjectActionNext> sectionActions = new ArrayList<>();
+            List<ActionNext> sectionActions = new ArrayList<>();
             int actionIndex = -1;
 
             for (DashboardTodayColumnModel.TodayActionGroupModel group : todayModel.getActionGroups()) {
@@ -619,7 +619,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 if (currentIndex >= 0) {
                     // This is the correct section
                     for (Integer id : groupActionIds) {
-                        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, id);
+                        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, id);
                         if (action != null) {
                             sectionActions.add(action);
                         }
@@ -642,7 +642,7 @@ public class DandelionDashboardServlet extends ClientServlet {
 
                 if (currentIndex >= 0) {
                     for (Integer id : completedIds) {
-                        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, id);
+                        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, id);
                         if (action != null) {
                             sectionActions.add(action);
                         }
@@ -705,7 +705,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             // Perform the swap
-            ProjectActionNext targetAction = sectionActions.get(targetIndex);
+            ActionNext targetAction = sectionActions.get(targetIndex);
             int currentOrder = currentAction.getCompletionOrder();
             int targetOrder = targetAction.getCompletionOrder();
 
@@ -732,8 +732,8 @@ public class DandelionDashboardServlet extends ClientServlet {
 
         WebUser webUser = appReq.getWebUser();
 
-        ProjectActionNext action = (ProjectActionNext) appReq.getDataSession()
-                .get(ProjectActionNext.class, actionNextId);
+        ActionNext action = (ActionNext) appReq.getDataSession()
+                .get(ActionNext.class, actionNextId);
 
         if (action == null) {
             sendJsonResponse(appReq, false, "Action not found", null);
@@ -756,8 +756,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         Transaction transaction = dataSession.beginTransaction();
 
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession
-                    .get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession
+                    .get(ActionNext.class, actionNextId);
 
             if (action == null) {
                 transaction.rollback();
@@ -818,7 +818,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 sendJsonResponse(appReq, false, "Action not found", null);
@@ -845,11 +845,11 @@ public class DandelionDashboardServlet extends ClientServlet {
 
     private void handleRefreshHeaderGauges(AppReq appReq) throws Exception {
         Session dataSession = appReq.getDataSession();
-        ProjectActionNext completingAction = appReq.getCompletingAction();
+        ActionNext completingAction = appReq.getCompletingAction();
 
         // Keep the running billing entry synchronized with real elapsed time.
         if (completingAction != null) {
-            ProjectActionNext persistedAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+            ActionNext persistedAction = (ActionNext) dataSession.get(ActionNext.class,
                     completingAction.getActionNextId());
             if (persistedAction != null) {
                 appReq.setCompletingAction(persistedAction);
@@ -1188,9 +1188,9 @@ public class DandelionDashboardServlet extends ClientServlet {
                 projectHealthPageService.normalizeOpenProjectPriorities(webUser, dataSession);
             }
 
-            ProjectActionNext setupAction = null;
+            ActionNext setupAction = null;
             if (createMode) {
-                setupAction = new ProjectActionNext();
+                setupAction = new ActionNext();
                 setupAction.setProject(project);
                 setupAction.setProjectId(project.getProjectId());
                 setupAction.setContactId(webUser.getContactId());
@@ -1203,7 +1203,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 setupAction.setNextActionStatus(ProjectNextActionStatus.READY);
                 setupAction.setNextChangeDate(new Date());
                 setupAction.setBillable(project.getBillCode() != null && project.getBillCode().trim().length() > 0);
-                setupAction.setActionSet(new ProjectActionSetDao(dataSession).createStandardActionSet(webUser));
+                setupAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
                 dataSession.save(setupAction);
             }
 
@@ -1351,11 +1351,11 @@ public class DandelionDashboardServlet extends ClientServlet {
         return webUser.getDateFormatService().formatPattern(new Date(), "hh:mm:ss aaa z", webUser.getTimeZone());
     }
 
-    private boolean clearCurrentActionIfMovedOffToday(AppReq appReq, ProjectActionNext action) {
+    private boolean clearCurrentActionIfMovedOffToday(AppReq appReq, ActionNext action) {
         if (action == null) {
             return false;
         }
-        ProjectActionNext current = appReq.getCompletingAction();
+        ActionNext current = appReq.getCompletingAction();
         if (current == null || current.getActionNextId() != action.getActionNextId()) {
             return false;
         }
@@ -1392,7 +1392,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
             if (action == null) {
                 transaction.rollback();
                 sendJsonResponse(appReq, false, "Action not found", null);
@@ -1427,13 +1427,13 @@ public class DandelionDashboardServlet extends ClientServlet {
 
         Session dataSession = appReq.getDataSession();
         Project project = appReq.getProject();
-        ProjectActionNext completingAction = appReq.getCompletingAction();
+        ActionNext completingAction = appReq.getCompletingAction();
 
         String actionIdStr = appReq.getRequest().getParameter("completingActionNextId");
         if (actionIdStr != null && actionIdStr.trim().length() > 0) {
             try {
                 int actionNextId = Integer.parseInt(actionIdStr.trim());
-                ProjectActionNext selected = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+                ActionNext selected = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
                 if (selected != null) {
                     completingAction = selected;
                     appReq.setCompletingAction(selected);

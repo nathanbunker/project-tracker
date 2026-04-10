@@ -10,7 +10,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 
 public class DashboardTimeGaugeService {
 
@@ -26,7 +26,7 @@ public class DashboardTimeGaugeService {
         model.setVariant(TimeGaugeVariant.STACKED);
         model.setShowTitle(false);
 
-        ProjectActionNext currentAction = appReq.getCompletingAction();
+        ActionNext currentAction = appReq.getCompletingAction();
         if (currentAction == null) {
             model.setCurrentMinutes(0);
             model.setTargetMinutes(0);
@@ -160,7 +160,7 @@ public class DashboardTimeGaugeService {
         return targetMinutesOverride > 0 ? targetMinutesOverride : DAILY_TARGET_MINUTES;
     }
 
-    private int loadSpentMinutesToday(Session dataSession, Calendar userCalendar, ProjectActionNext action) {
+    private int loadSpentMinutesToday(Session dataSession, Calendar userCalendar, ActionNext action) {
         Query query = dataSession.createQuery(
                 "select sum(billMins) from BillEntry where action.actionNextId = :actionNextId "
                         + "and startTime >= :today and startTime < :tomorrow");

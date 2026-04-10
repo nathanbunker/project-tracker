@@ -2,7 +2,7 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.util.Date;
 
-public class ProjectActionProposal implements java.io.Serializable {
+public class ActionProposal implements java.io.Serializable {
 
     private static final long serialVersionUID = -2523512022399490700L;
 
@@ -21,7 +21,7 @@ public class ProjectActionProposal implements java.io.Serializable {
     private String proposedPatch;
     private String inputSnapshot;
     private Project project;
-    private ProjectActionNext action;
+    private ActionNext action;
     private ProjectContact contact;
 
     public int getProposalId() {
@@ -158,11 +158,11 @@ public class ProjectActionProposal implements java.io.Serializable {
         }
     }
 
-    public ProjectActionNext getAction() {
+    public ActionNext getAction() {
         return action;
     }
 
-    public void setAction(ProjectActionNext action) {
+    public void setAction(ActionNext action) {
         this.action = action;
         if (action != null) {
             this.actionNextId = action.getActionNextId();

@@ -2,7 +2,7 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping package="org.openimmunizationsoftware.pt.model">
-  <class name="ProjectActionChangeLog" table="project_action_change_log">
+  <class name="ActionChangeLog" table="action_change_log">
     <id name="changeId" type="int">
       <column name="change_id" />
       <generator class="native" />
@@ -10,7 +10,7 @@
     <property name="actionNextId" type="int">
       <column name="action_next_id" not-null="true" />
     </property>
-    <many-to-one name="action" column="action_next_id" class="ProjectActionNext" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <many-to-one name="action" column="action_next_id" class="ActionNext" insert="false" update="false" lazy="proxy" fetch="select"/>
     <property name="projectId" type="int">
       <column name="project_id" not-null="true" />
     </property>
@@ -18,7 +18,7 @@
     <property name="proposalId" type="java.lang.Integer">
       <column name="proposal_id" />
     </property>
-    <many-to-one name="proposal" column="proposal_id" class="ProjectActionProposal" insert="false" update="false" lazy="proxy" fetch="select"/>
+    <many-to-one name="proposal" column="proposal_id" class="ActionProposal" insert="false" update="false" lazy="proxy" fetch="select"/>
     <property name="changeDate" type="timestamp">
       <column name="change_date" length="19" not-null="true" />
     </property>

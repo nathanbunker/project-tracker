@@ -2,7 +2,7 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.util.Date;
 
-public class ProjectActionSet implements java.io.Serializable {
+public class ActionSet implements java.io.Serializable {
 
     private static final long serialVersionUID = 1L;
 

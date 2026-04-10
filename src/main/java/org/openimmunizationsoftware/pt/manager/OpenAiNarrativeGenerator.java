@@ -6,8 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -136,7 +136,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
 
         sb.append("Completed Actions\n");
         Map<String, List<String>> completedByProject = new LinkedHashMap<String, List<String>>();
-        for (ProjectActionTaken action : ctx.getCompletedActions()) {
+        for (ActionTaken action : ctx.getCompletedActions()) {
             String projectName = action.getProject() == null ? "Unassigned" : action.getProject().getProjectName();
             List<String> actions = completedByProject.get(projectName);
             if (actions == null) {
@@ -158,7 +158,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         if (ctx.getWaitingActions().isEmpty()) {
             sb.append("- None\n");
         } else {
-            for (ProjectActionNext action : ctx.getWaitingActions()) {
+            for (ActionNext action : ctx.getWaitingActions()) {
                 String projectName = action.getProject() == null ? "Unassigned" : action.getProject().getProjectName();
                 sb.append("- ").append(projectName).append(": ").append(action.getNextDescription()).append("\n");
             }

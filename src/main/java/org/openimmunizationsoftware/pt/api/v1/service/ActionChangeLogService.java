@@ -10,9 +10,9 @@ import java.util.StringJoiner;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionChangeLog;
-import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionChangeLog;
+import org.openimmunizationsoftware.pt.model.ActionProposal;
 
 public class ActionChangeLogService {
 
@@ -21,16 +21,16 @@ public class ActionChangeLogService {
     public void logChange(int workspaceId, int actionNextId, int projectId, String actorType,
             String actorId, String sourceType, Integer proposalId, Map<String, FromTo> patch,
             String reason) {
-        ProjectActionNext action = requireAction(workspaceId, actionNextId, projectId);
+        ActionNext action = requireAction(workspaceId, actionNextId, projectId);
         Session session = HibernateRequestContext.getCurrentSession();
 
-        ProjectActionChangeLog changeLog = new ProjectActionChangeLog();
+        ActionChangeLog changeLog = new ActionChangeLog();
         changeLog.setAction(action);
         changeLog.setActionNextId(actionNextId);
         changeLog.setProjectId(projectId);
         if (proposalId != null) {
-            ProjectActionProposal proposal = (ProjectActionProposal) session.get(
-                    ProjectActionProposal.class, proposalId);
+            ActionProposal proposal = (ActionProposal) session.get(
+                    ActionProposal.class, proposalId);
             changeLog.setProposal(proposal);
             changeLog.setProposalId(proposalId);
         }
@@ -45,15 +45,15 @@ public class ActionChangeLogService {
         session.save(changeLog);
     }
 
-    private ProjectActionNext requireAction(int workspaceId, int actionNextId, int projectId) {
+    private ActionNext requireAction(int workspaceId, int actionNextId, int projectId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId "
-                        + "and pan.workspaceId = :workspaceId");
+                "from ActionNext an where an.actionNextId = :actionNextId and an.projectId = :projectId "
+                        + "and an.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
         query.setInteger("workspaceId", workspaceId);
-        ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
+        ActionNext action = (ActionNext) query.uniqueResult();
         if (action == null) {
             throw new IllegalStateException("Action not found for workspace.");
         }

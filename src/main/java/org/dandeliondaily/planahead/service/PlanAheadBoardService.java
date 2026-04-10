@@ -24,13 +24,13 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.PageMessageSeverity;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 
 public class PlanAheadBoardService {
 
@@ -130,8 +130,8 @@ public class PlanAheadBoardService {
         Date startDate = dayList.get(0);
         Date endDateExclusive = nextDay(dayList.get(dayList.size() - 1), webUser);
 
-        List<ProjectActionNext> templateActions = loadTemplateActions(appReq, mode);
-        List<ProjectActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate,
+        List<ActionNext> templateActions = loadTemplateActions(appReq, mode);
+        List<ActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate,
                 endDateExclusive);
         boolean shouldMaterializeDefaults = action.length() == 0
                 || "Schedule".equals(action)
@@ -142,23 +142,23 @@ public class PlanAheadBoardService {
                 && ensureDefaultTemplateGeneratedActions(appReq, mode, templateActions, dayList, dayCapacityMap,
                         generatedTemplateActions);
 
-        List<ProjectActionNext> movableActions = loadMovableActions(appReq, mode, startDate, endDateExclusive);
-        List<ProjectActionNext> plannedActions = loadPlannedActions(appReq, mode, startDate, endDateExclusive);
+        List<ActionNext> movableActions = loadMovableActions(appReq, mode, startDate, endDateExclusive);
+        List<ActionNext> plannedActions = loadPlannedActions(appReq, mode, startDate, endDateExclusive);
         if (createdDefaults) {
             generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate, endDateExclusive);
         }
 
-        Map<String, List<ProjectActionNext>> plannedByDay = bucketByDay(plannedActions);
-        Map<String, List<ProjectActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions, mode);
+        Map<String, List<ActionNext>> plannedByDay = bucketByDay(plannedActions);
+        Map<String, List<ActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions, mode);
 
         List<PlanAheadBoardModel.DayHeaderModel> dayHeaders = new ArrayList<PlanAheadBoardModel.DayHeaderModel>();
         String todayKey = toDayKey(stripToDate(webUser, webUser.getToday()));
         for (Date day : dayList) {
             String dayKey = toDayKey(day);
             PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayKey);
-            List<ProjectActionNext> dayPlannedActions = plannedByDay.get(dayKey);
+            List<ActionNext> dayPlannedActions = plannedByDay.get(dayKey);
             if (dayPlannedActions == null) {
-                dayPlannedActions = new ArrayList<ProjectActionNext>();
+                dayPlannedActions = new ArrayList<ActionNext>();
             }
 
             TimeAdder timeAdder;
@@ -200,7 +200,7 @@ public class PlanAheadBoardService {
     private List<PlanAheadBoardModel.RowModel> createRows(AppReq appReq,
             String mode,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
-            Map<String, List<ProjectActionNext>> movableByDayRow) {
+            Map<String, List<ActionNext>> movableByDayRow) {
         List<PlanAheadBoardModel.RowModel> rows = new ArrayList<PlanAheadBoardModel.RowModel>();
         if (MODE_PERSONAL.equalsIgnoreCase(mode)) {
             rows.add(createRow(appReq, ROW_WAKE, "Wake", dayHeaders, movableByDayRow));
@@ -218,7 +218,7 @@ public class PlanAheadBoardService {
 
     private PlanAheadBoardModel.RowModel createRow(AppReq appReq, String rowKey, String rowLabel,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
-            Map<String, List<ProjectActionNext>> movableByDayRow) {
+            Map<String, List<ActionNext>> movableByDayRow) {
         PlanAheadBoardModel.RowModel row = new PlanAheadBoardModel.RowModel();
         row.setRowKey(rowKey);
         row.setRowLabel(rowLabel);
@@ -230,17 +230,17 @@ public class PlanAheadBoardService {
             cell.setRowKey(rowKey);
 
             String bucketKey = dayHeader.getDayKey() + "|" + rowKey;
-            List<ProjectActionNext> actions = movableByDayRow.get(bucketKey);
+            List<ActionNext> actions = movableByDayRow.get(bucketKey);
             if (actions == null) {
-                actions = new ArrayList<ProjectActionNext>();
+                actions = new ArrayList<ActionNext>();
             }
             actions.sort(Comparator
-                    .comparing((ProjectActionNext pa) -> n(pa.getNextTimeEstimate())).reversed()
-                    .thenComparing(ProjectActionNext::getPriorityLevel, Comparator.reverseOrder())
-                    .thenComparing(ProjectActionNext::getActionNextId));
+                    .comparing((ActionNext pa) -> n(pa.getNextTimeEstimate())).reversed()
+                    .thenComparing(ActionNext::getPriorityLevel, Comparator.reverseOrder())
+                    .thenComparing(ActionNext::getActionNextId));
 
             List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
-            for (ProjectActionNext action : actions) {
+            for (ActionNext action : actions) {
                 PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
                 card.setActionNextId(action.getActionNextId());
                 card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
@@ -260,16 +260,16 @@ public class PlanAheadBoardService {
 
     private PlanAheadBoardModel.TemplateRowModel createTemplateRow(AppReq appReq,
             String mode,
-            List<ProjectActionNext> templateActions,
+            List<ActionNext> templateActions,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
             Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
-            List<ProjectActionNext> generatedTemplateActions,
+            List<ActionNext> generatedTemplateActions,
             boolean allowDefaultSelections) {
         boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
         PlanAheadBoardModel.TemplateRowModel row = new PlanAheadBoardModel.TemplateRowModel();
-        Map<String, ProjectActionNext> generatedByTemplateDay = new HashMap<String, ProjectActionNext>();
+        Map<String, ActionNext> generatedByTemplateDay = new HashMap<String, ActionNext>();
         Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
-        for (ProjectActionNext generatedAction : generatedTemplateActions) {
+        for (ActionNext generatedAction : generatedTemplateActions) {
             if (generatedAction.getTemplateActionNextId() == null || generatedAction.getNextActionDate() == null) {
                 continue;
             }
@@ -279,15 +279,15 @@ public class PlanAheadBoardService {
                     generatedAction);
         }
 
-        List<ProjectActionNext> orderedTemplates = new ArrayList<ProjectActionNext>(templateActions);
+        List<ActionNext> orderedTemplates = new ArrayList<ActionNext>(templateActions);
         if (personalMode) {
             orderedTemplates.sort(Comparator
-                    .comparingInt((ProjectActionNext pa) -> toTimeSlotOrder(pa.getTimeSlot()))
-                    .thenComparing((ProjectActionNext pa) -> n(pa.getNextDescription())));
+                    .comparingInt((ActionNext pa) -> toTimeSlotOrder(pa.getTimeSlot()))
+                    .thenComparing((ActionNext pa) -> n(pa.getNextDescription())));
         }
 
         List<PlanAheadBoardModel.TemplateCardModel> cards = new ArrayList<PlanAheadBoardModel.TemplateCardModel>();
-        for (ProjectActionNext action : orderedTemplates) {
+        for (ActionNext action : orderedTemplates) {
             PlanAheadBoardModel.TemplateCardModel card = new PlanAheadBoardModel.TemplateCardModel();
             card.setTemplateActionNextId(action.getActionNextId());
             card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
@@ -306,7 +306,7 @@ public class PlanAheadBoardService {
                         : dayHeader.getDayLabel());
 
                 String key = action.getActionNextId() + "|" + dayHeader.getDayKey();
-                ProjectActionNext generatedAction = generatedByTemplateDay.get(key);
+                ActionNext generatedAction = generatedByTemplateDay.get(key);
                 if (generatedAction != null) {
                     boolean active = generatedAction.getNextActionStatus() != null
                             && generatedAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED;
@@ -331,18 +331,18 @@ public class PlanAheadBoardService {
         return row;
     }
 
-    private List<ProjectActionNext> loadGeneratedTemplateActions(AppReq appReq, String mode, Date startDate,
+    private List<ActionNext> loadGeneratedTemplateActions(AppReq appReq, String mode, Date startDate,
             Date endDateExclusive) {
         boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = :billable "
-                        + "and pan.templateActionNextId is not null "
-                        + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
-                        + "and pan.nextActionStatusString <> :completed "
-                        + "order by pan.nextActionDate");
+                "select distinct an from ActionNext an "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and an.templateActionNextId is not null "
+                        + "and an.nextActionDate >= :startDate and an.nextActionDate < :endDate "
+                        + "and an.nextActionStatusString <> :completed "
+                        + "order by an.nextActionDate");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -351,24 +351,24 @@ public class PlanAheadBoardService {
         query.setParameter("endDate", endDateExclusive);
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> list = query.list();
+        List<ActionNext> list = query.list();
         return list;
     }
 
     private boolean ensureDefaultTemplateGeneratedActions(AppReq appReq,
             String mode,
-            List<ProjectActionNext> templateActions,
+            List<ActionNext> templateActions,
             List<Date> dayList,
             Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
-            List<ProjectActionNext> generatedTemplateActions) {
+            List<ActionNext> generatedTemplateActions) {
         boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
         if (templateActions == null || templateActions.isEmpty() || dayList == null || dayList.isEmpty()) {
             return false;
         }
 
-        Map<String, ProjectActionNext> generatedByTemplateDay = new HashMap<String, ProjectActionNext>();
+        Map<String, ActionNext> generatedByTemplateDay = new HashMap<String, ActionNext>();
         Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
-        for (ProjectActionNext generatedAction : generatedTemplateActions) {
+        for (ActionNext generatedAction : generatedTemplateActions) {
             if (generatedAction == null || generatedAction.getTemplateActionNextId() == null
                     || generatedAction.getNextActionDate() == null) {
                 continue;
@@ -385,7 +385,7 @@ public class PlanAheadBoardService {
         Transaction transaction = dataSession.beginTransaction();
         boolean created = false;
         try {
-            for (ProjectActionNext templateAction : templateActions) {
+            for (ActionNext templateAction : templateActions) {
                 if (templateAction == null || templateAction.getActionNextId() <= 0) {
                     continue;
                 }
@@ -419,7 +419,7 @@ public class PlanAheadBoardService {
                         continue;
                     }
 
-                    ProjectActionNext generatedAction = new ProjectActionNext();
+                    ActionNext generatedAction = new ActionNext();
                     generatedAction.setProjectId(templateAction.getProjectId());
                     generatedAction.setProject(templateAction.getProject());
                     generatedAction.setContactId(appReq.getWebUser().getContactId());
@@ -444,7 +444,7 @@ public class PlanAheadBoardService {
                             : templateAction.getNextTimeEstimate());
                     generatedAction.setNextChangeDate(new Date());
                     generatedAction.setActionSet(
-                            new ProjectActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
+                            new ActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
                     dataSession.save(generatedAction);
 
                     generatedByTemplateDay.put(key, generatedAction);
@@ -462,21 +462,21 @@ public class PlanAheadBoardService {
         return created;
     }
 
-    private List<ProjectActionNext> loadMovableActions(AppReq appReq, String mode, Date startDate,
+    private List<ActionNext> loadMovableActions(AppReq appReq, String mode, Date startDate,
             Date endDateExclusive) {
         boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = :billable "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
-                        + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
-                        + "and pan.templateActionNextId is null "
-                        + "and (pan.templateTypeString is null or pan.templateTypeString = '') "
-                        + "order by pan.nextActionDate, pan.priorityLevel desc, pan.nextTimeEstimate desc");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionDate >= :startDate and an.nextActionDate < :endDate "
+                        + "and an.nextActionStatusString <> :completed and an.nextActionStatusString <> :cancelled "
+                        + "and an.templateActionNextId is null "
+                        + "and (an.templateTypeString is null or an.templateTypeString = '') "
+                        + "order by an.nextActionDate, an.priorityLevel desc, an.nextTimeEstimate desc");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -486,9 +486,9 @@ public class PlanAheadBoardService {
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> list = query.list();
-        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
-        for (ProjectActionNext action : list) {
+        List<ActionNext> list = query.list();
+        List<ActionNext> filtered = new ArrayList<ActionNext>();
+        for (ActionNext action : list) {
             if (toRowKey(action, mode).length() > 0) {
                 filtered.add(action);
             }
@@ -496,19 +496,19 @@ public class PlanAheadBoardService {
         return filtered;
     }
 
-    private List<ProjectActionNext> loadPlannedActions(AppReq appReq, String mode, Date startDate,
+    private List<ActionNext> loadPlannedActions(AppReq appReq, String mode, Date startDate,
             Date endDateExclusive) {
         boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = :billable "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
-                        + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
-                        + "order by pan.nextActionDate");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionDate >= :startDate and an.nextActionDate < :endDate "
+                        + "and an.nextActionStatusString <> :completed and an.nextActionStatusString <> :cancelled "
+                        + "order by an.nextActionDate");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -518,21 +518,21 @@ public class PlanAheadBoardService {
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> list = query.list();
+        List<ActionNext> list = query.list();
         return list;
     }
 
-    private List<ProjectActionNext> loadTemplateActions(AppReq appReq, String mode) {
+    private List<ActionNext> loadTemplateActions(AppReq appReq, String mode) {
         boolean billable = MODE_WORK.equalsIgnoreCase(mode);
         Session dataSession = appReq.getDataSession();
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.billable = :billable "
-                        + "and (pan.templateTypeString is not null and pan.templateTypeString <> '') "
-                        + "and pan.nextActionStatusString <> :completed and pan.nextActionStatusString <> :cancelled "
-                        + "order by pan.priorityLevel desc, pan.nextTimeEstimate desc");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and (an.templateTypeString is not null and an.templateTypeString <> '') "
+                        + "and an.nextActionStatusString <> :completed and an.nextActionStatusString <> :cancelled "
+                        + "order by an.priorityLevel desc, an.nextTimeEstimate desc");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
         query.setParameter("contactId", appReq.getWebUser().getContactId());
         query.setParameter("nextContactId", appReq.getWebUser().getContactId());
@@ -540,21 +540,21 @@ public class PlanAheadBoardService {
         query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> list = query.list();
+        List<ActionNext> list = query.list();
         return list;
     }
 
-    private Map<String, List<ProjectActionNext>> bucketMovableByDayRow(List<ProjectActionNext> actions, String mode) {
-        Map<String, List<ProjectActionNext>> map = new LinkedHashMap<String, List<ProjectActionNext>>();
-        for (ProjectActionNext action : actions) {
+    private Map<String, List<ActionNext>> bucketMovableByDayRow(List<ActionNext> actions, String mode) {
+        Map<String, List<ActionNext>> map = new LinkedHashMap<String, List<ActionNext>>();
+        for (ActionNext action : actions) {
             String rowKey = toRowKey(action, mode);
             if (rowKey.length() == 0 || action.getNextActionDate() == null) {
                 continue;
             }
             String key = toDayKey(action.getNextActionDate()) + "|" + rowKey;
-            List<ProjectActionNext> bucket = map.get(key);
+            List<ActionNext> bucket = map.get(key);
             if (bucket == null) {
-                bucket = new ArrayList<ProjectActionNext>();
+                bucket = new ArrayList<ActionNext>();
                 map.put(key, bucket);
             }
             bucket.add(action);
@@ -562,16 +562,16 @@ public class PlanAheadBoardService {
         return map;
     }
 
-    private Map<String, List<ProjectActionNext>> bucketByDay(List<ProjectActionNext> actions) {
-        Map<String, List<ProjectActionNext>> map = new HashMap<String, List<ProjectActionNext>>();
-        for (ProjectActionNext action : actions) {
+    private Map<String, List<ActionNext>> bucketByDay(List<ActionNext> actions) {
+        Map<String, List<ActionNext>> map = new HashMap<String, List<ActionNext>>();
+        for (ActionNext action : actions) {
             if (action.getNextActionDate() == null) {
                 continue;
             }
             String key = toDayKey(action.getNextActionDate());
-            List<ProjectActionNext> bucket = map.get(key);
+            List<ActionNext> bucket = map.get(key);
             if (bucket == null) {
-                bucket = new ArrayList<ProjectActionNext>();
+                bucket = new ArrayList<ActionNext>();
                 map.put(key, bucket);
             }
             bucket.add(action);
@@ -579,7 +579,7 @@ public class PlanAheadBoardService {
         return map;
     }
 
-    private String toRowKey(ProjectActionNext action, String mode) {
+    private String toRowKey(ActionNext action, String mode) {
         if (MODE_PERSONAL.equalsIgnoreCase(mode)) {
             TimeSlot timeSlot = action.getTimeSlot();
             if (timeSlot == null) {

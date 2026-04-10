@@ -17,7 +17,7 @@ import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -52,10 +52,10 @@ public class DashboardNextColumnService {
         planningCalendar.add(Calendar.DAY_OF_MONTH, 13);
         Date planningEndDate = planningCalendar.getTime();
 
-        List<ProjectActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
+        List<ActionNext> planningRangeList = getProjectActionListForPlanningRange(webUser, dataSession,
                 planningStartDate, planningEndDate);
         planningRangeList = filterActionsForDashboardVisibility(planningRangeList);
-        Map<String, List<ProjectActionNext>> planningBuckets = bucketByDate(planningRangeList);
+        Map<String, List<ActionNext>> planningBuckets = bucketByDate(planningRangeList);
 
         List<DashboardNextColumnModel.NextDaySummaryModel> summaries = new ArrayList<DashboardNextColumnModel.NextDaySummaryModel>();
         Map<String, Integer> dayTargetMinutesByKey = new HashMap<String, Integer>();
@@ -65,7 +65,7 @@ public class DashboardNextColumnService {
             Date dayDate = dayCalendar.getTime();
             String dayKey = toDatabaseDateKey(dayDate);
             int dayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq, dayDate);
-            List<ProjectActionNext> dayActions = planningBuckets.get(dayKey);
+            List<ActionNext> dayActions = planningBuckets.get(dayKey);
             if (dayActions == null || dayActions.isEmpty()) {
                 continue;
             }
@@ -85,10 +85,10 @@ public class DashboardNextColumnService {
                     webUser.getTimeZone()));
             summary.setFullDateLabel(webUser.getDateFormatService().formatPattern(dayDate, "EEEE dd MMM yyyy",
                     webUser.getTimeZone()));
-            summary.setCommittedDisplay(ProjectActionNext.getTimeForDisplay(timeAdder.getCommittedEst()));
-            summary.setWillDisplay(ProjectActionNext.getTimeForDisplay(timeAdder.getWillEst()));
-            summary.setWillMeetDisplay(ProjectActionNext.getTimeForDisplay(timeAdder.getWillMeetEst()));
-            summary.setPlannedDisplay(ProjectActionNext.getTimeForDisplay(plannedMinutes));
+            summary.setCommittedDisplay(ActionNext.getTimeForDisplay(timeAdder.getCommittedEst()));
+            summary.setWillDisplay(ActionNext.getTimeForDisplay(timeAdder.getWillEst()));
+            summary.setWillMeetDisplay(ActionNext.getTimeForDisplay(timeAdder.getWillMeetEst()));
+            summary.setPlannedDisplay(ActionNext.getTimeForDisplay(plannedMinutes));
             summary.setPlannedMinutes(plannedMinutes);
             summary.setInlineGauge(gaugeService.buildInlineBarLongGauge(plannedMinutes, dayTargetMinutes));
             summaries.add(summary);
@@ -120,7 +120,7 @@ public class DashboardNextColumnService {
                     : selectedDayTargetMinutes.intValue();
             selectedDay.setHeaderGauge(gaugeService.buildPlannedDayGauge(selectedSummary.getPlannedMinutes(),
                     targetMinutes));
-            List<ProjectActionNext> selectedDayActions = planningBuckets.get(selectedSummary.getDayKey());
+            List<ActionNext> selectedDayActions = planningBuckets.get(selectedSummary.getDayKey());
             selectedDay.setSections(buildSelectedDaySections(webUser, selectedDayActions));
             model.setSelectedDay(selectedDay);
         }
@@ -148,18 +148,18 @@ public class DashboardNextColumnService {
     }
 
     private List<DashboardNextColumnModel.SelectedDaySectionModel> buildSelectedDaySections(WebUser webUser,
-            List<ProjectActionNext> selectedDayActions) {
+            List<ActionNext> selectedDayActions) {
         List<DashboardNextColumnModel.SelectedDaySectionModel> sections = new ArrayList<DashboardNextColumnModel.SelectedDaySectionModel>();
         if (selectedDayActions == null || selectedDayActions.isEmpty()) {
             return sections;
         }
 
-        Map<Integer, List<ProjectActionNext>> bucketMap = new HashMap<Integer, List<ProjectActionNext>>();
+        Map<Integer, List<ActionNext>> bucketMap = new HashMap<Integer, List<ActionNext>>();
         for (int bucket = BUCKET_START_OF_WORK_DAY; bucket <= BUCKET_OTHER; bucket++) {
-            bucketMap.put(bucket, new ArrayList<ProjectActionNext>());
+            bucketMap.put(bucket, new ArrayList<ActionNext>());
         }
 
-        for (ProjectActionNext action : selectedDayActions) {
+        for (ActionNext action : selectedDayActions) {
             int bucket = getCompletionBucket(action);
             if (bucket > BUCKET_OTHER) {
                 continue;
@@ -196,9 +196,9 @@ public class DashboardNextColumnService {
     }
 
     private List<DashboardNextColumnModel.SelectedDayActionItemModel> toSelectedDayItems(WebUser webUser,
-            List<ProjectActionNext> actions) {
+            List<ActionNext> actions) {
         List<DashboardNextColumnModel.SelectedDayActionItemModel> items = new ArrayList<DashboardNextColumnModel.SelectedDayActionItemModel>();
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             DashboardNextColumnModel.SelectedDayActionItemModel item = new DashboardNextColumnModel.SelectedDayActionItemModel();
             item.setActionNextId(action.getActionNextId());
             item.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
@@ -212,13 +212,13 @@ public class DashboardNextColumnService {
         return items;
     }
 
-    private Map<String, List<ProjectActionNext>> bucketByDate(List<ProjectActionNext> planningRangeList) {
-        Map<String, List<ProjectActionNext>> planningBuckets = new HashMap<String, List<ProjectActionNext>>();
-        for (ProjectActionNext projectAction : planningRangeList) {
+    private Map<String, List<ActionNext>> bucketByDate(List<ActionNext> planningRangeList) {
+        Map<String, List<ActionNext>> planningBuckets = new HashMap<String, List<ActionNext>>();
+        for (ActionNext projectAction : planningRangeList) {
             String bucketKey = toDatabaseDateKey(projectAction.getNextActionDate());
-            List<ProjectActionNext> bucketList = planningBuckets.get(bucketKey);
+            List<ActionNext> bucketList = planningBuckets.get(bucketKey);
             if (bucketList == null) {
-                bucketList = new ArrayList<ProjectActionNext>();
+                bucketList = new ArrayList<ActionNext>();
                 planningBuckets.put(bucketKey, bucketList);
             }
             bucketList.add(projectAction);
@@ -226,31 +226,31 @@ public class DashboardNextColumnService {
         return planningBuckets;
     }
 
-    private List<ProjectActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
+    private List<ActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
             Date startDate, Date endDate) {
         Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionDate >= :startDate and pan.nextActionDate < :endDate "
-                        + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionDate >= :startDate and an.nextActionDate < :endDate "
+                        + "order by an.nextActionDate, an.priorityLevel DESC, an.nextTimeEstimate, an.nextChangeDate");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("startDate", startDate);
         query.setParameter("endDate", endDate);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> projectActionList = query.list();
+        List<ActionNext> projectActionList = query.list();
         return projectActionList;
     }
 
-    private List<ProjectActionNext> filterActionsForDashboardVisibility(List<ProjectActionNext> actions) {
-        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
-        for (ProjectActionNext action : actions) {
+    private List<ActionNext> filterActionsForDashboardVisibility(List<ActionNext> actions) {
+        List<ActionNext> filtered = new ArrayList<ActionNext>();
+        for (ActionNext action : actions) {
             if (action == null) {
                 continue;
             }
@@ -279,7 +279,7 @@ public class DashboardNextColumnService {
         return sdf.format(date);
     }
 
-    private static void sortProjectActionList(List<ProjectActionNext> projectActionList) {
+    private static void sortProjectActionList(List<ActionNext> projectActionList) {
         projectActionList.sort((pa1, pa2) -> {
             int bucket1 = getCompletionBucket(pa1);
             int bucket2 = getCompletionBucket(pa2);
@@ -290,7 +290,7 @@ public class DashboardNextColumnService {
         });
     }
 
-    private static void sortProjectActionListByCompletionOrder(List<ProjectActionNext> projectActionList) {
+    private static void sortProjectActionListByCompletionOrder(List<ActionNext> projectActionList) {
         projectActionList.sort((pa1, pa2) -> {
             int c1 = pa1 == null ? 0 : pa1.getCompletionOrder();
             int c2 = pa2 == null ? 0 : pa2.getCompletionOrder();
@@ -312,7 +312,7 @@ public class DashboardNextColumnService {
         });
     }
 
-    private static int compareInsideBucket(ProjectActionNext pa1, ProjectActionNext pa2) {
+    private static int compareInsideBucket(ActionNext pa1, ActionNext pa2) {
         ProcessStage ps1 = pa1.getProcessStage();
         ProcessStage ps2 = pa2.getProcessStage();
         if ((ps1 != null || ps2 != null) && ps1 != ps2) {
@@ -356,7 +356,7 @@ public class DashboardNextColumnService {
         return pa1.getActionNextId() - pa2.getActionNextId();
     }
 
-    private static int getCompletionBucket(ProjectActionNext projectAction) {
+    private static int getCompletionBucket(ActionNext projectAction) {
         if (projectAction == null) {
             return 99;
         }
@@ -402,7 +402,7 @@ public class DashboardNextColumnService {
         return BUCKET_OTHER;
     }
 
-    private String resolveStatusLabel(ProjectActionNext projectAction) {
+    private String resolveStatusLabel(ActionNext projectAction) {
         if (projectAction.getNextActionStatus() != null) {
             return projectAction.getNextActionStatus().getLabel();
         }

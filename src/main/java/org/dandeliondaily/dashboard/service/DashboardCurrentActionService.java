@@ -16,15 +16,15 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
-import org.openimmunizationsoftware.pt.model.ProjectActionSet;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
+import org.openimmunizationsoftware.pt.model.ActionSet;
 
 public class DashboardCurrentActionService {
 
@@ -66,7 +66,7 @@ public class DashboardCurrentActionService {
         try {
             int actionId = Integer.parseInt(actionIdString.trim());
             Session dataSession = appReq.getDataSession();
-            ProjectActionNext selected = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+            ActionNext selected = (ActionNext) dataSession.get(ActionNext.class, actionId);
             if (selected != null) {
                 appReq.setCompletingAction(selected);
                 if (selected.getProject() != null) {
@@ -79,12 +79,12 @@ public class DashboardCurrentActionService {
     }
 
     public void ensureCurrentActionSelected(AppReq appReq) {
-        ProjectActionNext currentAction = appReq.getCompletingAction();
+        ActionNext currentAction = appReq.getCompletingAction();
         if (currentAction != null) {
             return;
         }
 
-        ProjectActionNext nextAction = selectNextActionForWorkFlow(appReq.getWebUser(), appReq.getDataSession(), 0);
+        ActionNext nextAction = selectNextActionForWorkFlow(appReq.getWebUser(), appReq.getDataSession(), 0);
         appReq.setCompletingAction(nextAction);
         if (nextAction != null && nextAction.getProject() != null) {
             appReq.setProject(nextAction.getProject());
@@ -100,7 +100,7 @@ public class DashboardCurrentActionService {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
 
-        ProjectActionNext actionToWork = resolveActionToWork(appReq, dataSession);
+        ActionNext actionToWork = resolveActionToWork(appReq, dataSession);
         if (actionToWork == null) {
             appReq.addErrorMessage("Current action was not found.");
             return;
@@ -121,7 +121,7 @@ public class DashboardCurrentActionService {
             return;
         }
 
-        ProjectActionNext followUpAction = null;
+        ActionNext followUpAction = null;
         if (hasFollowUp) {
             followUpAction = createFollowUpActionFromSentence(webUser, dataSession, actionToWork, followUpText);
         }
@@ -148,7 +148,7 @@ public class DashboardCurrentActionService {
         rationalizeCompletionOrderForCurrentDate(webUser, dataSession);
 
         int actionToWorkId = actionToWork.getActionNextId();
-        ProjectActionNext nextCompletingAction;
+        ActionNext nextCompletingAction;
         if ((WORK_STATUS_BLOCKED.equals(workStatus) || WORK_STATUS_IN_PROGRESS.equals(workStatus))
                 && followUpAction != null
                 && followUpAction.getNextActionDate() != null
@@ -175,7 +175,7 @@ public class DashboardCurrentActionService {
         }
     }
 
-    private String buildCompletionMessage(ProjectActionNext actionToWork) {
+    private String buildCompletionMessage(ActionNext actionToWork) {
         if (actionToWork == null || actionToWork.getNextTimeEstimate() == null
                 || actionToWork.getNextTimeActual() == null) {
             return "Action completed.";
@@ -189,13 +189,13 @@ public class DashboardCurrentActionService {
         return "Action completed.";
     }
 
-    private ProjectActionNext resolveActionToWork(AppReq appReq, Session dataSession) {
-        ProjectActionNext actionToWork = appReq.getCompletingAction();
+    private ActionNext resolveActionToWork(AppReq appReq, Session dataSession) {
+        ActionNext actionToWork = appReq.getCompletingAction();
         String actionIdString = appReq.getRequest().getParameter(PARAM_COMPLETING_ACTION_NEXT_ID);
         if (actionIdString != null && actionIdString.trim().length() > 0) {
             try {
                 int actionId = Integer.parseInt(actionIdString);
-                actionToWork = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+                actionToWork = (ActionNext) dataSession.get(ActionNext.class, actionId);
             } catch (NumberFormatException nfe) {
                 // Keep existing session action if request id is invalid.
             }
@@ -217,9 +217,9 @@ public class DashboardCurrentActionService {
         Session dataSession = appReq.getDataSession();
 
         Transaction trans = dataSession.beginTransaction();
-        ProjectActionSet actionSet = new ProjectActionSetDao(dataSession).createStandardActionSet(webUser);
+        ActionSet actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
 
-        ProjectActionTaken actionTaken = new ProjectActionTaken();
+        ActionTaken actionTaken = new ActionTaken();
         actionTaken.setProject(project);
         actionTaken.setProjectId(project.getProjectId());
         actionTaken.setActionDate(new Date());
@@ -232,22 +232,22 @@ public class DashboardCurrentActionService {
         trans.commit();
     }
 
-    private ProjectActionNext createFollowUpActionFromSentence(WebUser webUser, Session dataSession,
-            ProjectActionNext sourceAction, String sentenceInput) {
+    private ActionNext createFollowUpActionFromSentence(WebUser webUser, Session dataSession,
+            ActionNext sourceAction, String sentenceInput) {
         List<Project> projectList = loadProjectList(webUser, dataSession);
         Project defaultProject = sourceAction == null ? null : sourceAction.getProject();
         return actionSentenceImportService.saveNewActionFromSentence(webUser, dataSession,
                 defaultProject, projectList, sentenceInput);
     }
 
-    private ProjectActionNext closeAction(AppReq appReq, ProjectActionNext projectAction, Project project,
+    private ActionNext closeAction(AppReq appReq, ActionNext projectAction, Project project,
             String nextDescription, ProjectNextActionStatus nextActionStatus) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
-        ProjectActionNext unblockedAction = null;
+        ActionNext unblockedAction = null;
         Transaction trans = dataSession.beginTransaction();
         if (nextDescription != null && !nextDescription.trim().isEmpty()) {
-            ProjectActionTaken actionTaken = new ProjectActionTaken();
+            ActionTaken actionTaken = new ActionTaken();
             actionTaken.setProject(project);
             actionTaken.setProjectId(project.getProjectId());
             actionTaken.setActionDate(new Date());
@@ -255,9 +255,9 @@ public class DashboardCurrentActionService {
             actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
             actionTaken.setContact(webUser.getProjectContact());
             actionTaken.setContactId(webUser.getContactId());
-            ProjectActionSet actionSet = projectAction.getActionSet();
+            ActionSet actionSet = projectAction.getActionSet();
             if (actionSet == null) {
-                actionSet = new ProjectActionSetDao(dataSession).createStandardActionSet(webUser);
+                actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
                 projectAction.setActionSet(actionSet);
                 dataSession.update(projectAction);
             }
@@ -276,10 +276,10 @@ public class DashboardCurrentActionService {
         return unblockedAction;
     }
 
-    private ProjectActionNext selectNextActionForWorkFlow(WebUser webUser, Session dataSession,
+    private ActionNext selectNextActionForWorkFlow(WebUser webUser, Session dataSession,
             int excludeActionNextId) {
-        List<ProjectActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
-        List<ProjectActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
+        List<ActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
+        List<ActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
         dueTodayList = filterActionsForDashboardVisibility(dueTodayList, false);
         overdueList = filterActionsForDashboardVisibility(overdueList, true);
         if (excludeActionNextId > 0) {
@@ -287,7 +287,7 @@ public class DashboardCurrentActionService {
             overdueList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
         }
 
-        List<ProjectActionNext> orderedList = new ArrayList<ProjectActionNext>();
+        List<ActionNext> orderedList = new ArrayList<ActionNext>();
         orderedList.addAll(overdueList);
         orderedList.addAll(dueTodayList);
         if (orderedList.isEmpty()) {
@@ -297,36 +297,36 @@ public class DashboardCurrentActionService {
         return orderedList.get(0);
     }
 
-    private List<ProjectActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
+    private List<ActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
         LocalDate today = webUser.getLocalDateToday();
         Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         Query query;
         if (dayOffset < 0) {
             LocalDate oldestDate = today.minusYears(1);
             query = dataSession.createQuery(
-                    "select distinct pan from ProjectActionNext pan "
-                            + "left join fetch pan.project "
-                            + "left join fetch pan.contact "
-                            + "left join fetch pan.nextProjectContact "
-                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                            + "and pan.nextDescription <> '' "
-                            + "and pan.nextActionStatusString = :nextActionStatus "
-                            + "and pan.nextActionDate >= :oldestDate and pan.nextActionDate < :cutoffDate "
-                            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                    "select distinct an from ActionNext an "
+                            + "left join fetch an.project "
+                            + "left join fetch an.contact "
+                            + "left join fetch an.nextProjectContact "
+                            + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                            + "and an.nextDescription <> '' "
+                            + "and an.nextActionStatusString = :nextActionStatus "
+                            + "and an.nextActionDate >= :oldestDate and an.nextActionDate < :cutoffDate "
+                            + "order by an.nextActionDate, an.priorityLevel DESC, an.nextTimeEstimate, an.nextChangeDate");
             query.setParameter("oldestDate", java.sql.Date.valueOf(oldestDate));
             query.setParameter("cutoffDate", java.sql.Date.valueOf(today));
         } else {
             LocalDate targetDate = today.plusDays(dayOffset);
             query = dataSession.createQuery(
-                    "select distinct pan from ProjectActionNext pan "
-                            + "left join fetch pan.project "
-                            + "left join fetch pan.contact "
-                            + "left join fetch pan.nextProjectContact "
-                            + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                            + "and pan.nextDescription <> '' "
-                            + "and pan.nextActionStatusString = :nextActionStatus "
-                            + "and pan.nextActionDate = :targetDate "
-                            + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                    "select distinct an from ActionNext an "
+                            + "left join fetch an.project "
+                            + "left join fetch an.contact "
+                            + "left join fetch an.nextProjectContact "
+                            + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                            + "and an.nextDescription <> '' "
+                            + "and an.nextActionStatusString = :nextActionStatus "
+                            + "and an.nextActionDate = :targetDate "
+                            + "order by an.nextActionDate, an.priorityLevel DESC, an.nextTimeEstimate, an.nextChangeDate");
             query.setParameter("targetDate", java.sql.Date.valueOf(targetDate));
         }
         query.setParameter("workspaceId", workspaceId);
@@ -334,40 +334,40 @@ public class DashboardCurrentActionService {
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> projectActionList = query.list();
+        List<ActionNext> projectActionList = query.list();
         sortProjectActionList(projectActionList, webUser);
         return projectActionList;
     }
 
-    private List<ProjectActionNext> getProjectActionListForTodayOrEarlier(WebUser webUser, Session dataSession) {
+    private List<ActionNext> getProjectActionListForTodayOrEarlier(WebUser webUser, Session dataSession) {
         LocalDate tomorrow = webUser.getLocalDateToday().plusDays(1);
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionStatusString = :nextActionStatus "
-                        + "and pan.nextActionDate is not null and pan.nextActionDate < :tomorrow ");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionStatusString = :nextActionStatus "
+                        + "and an.nextActionDate is not null and an.nextActionDate < :tomorrow ");
         query.setParameter("workspaceId", WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
         query.setParameter("tomorrow", java.sql.Date.valueOf(tomorrow));
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> projectActionList = query.list();
+        List<ActionNext> projectActionList = query.list();
         return projectActionList;
     }
 
     private void rationalizeCompletionOrderForCurrentDate(WebUser webUser, Session dataSession) {
-        List<ProjectActionNext> candidateList = getProjectActionListForTodayOrEarlier(webUser, dataSession);
+        List<ActionNext> candidateList = getProjectActionListForTodayOrEarlier(webUser, dataSession);
         if (candidateList.isEmpty()) {
             return;
         }
 
         boolean needsRationalization = false;
-        for (ProjectActionNext projectAction : candidateList) {
+        for (ActionNext projectAction : candidateList) {
             if (projectAction.getCompletionOrder() <= 0) {
                 needsRationalization = true;
                 break;
@@ -377,25 +377,25 @@ public class DashboardCurrentActionService {
             return;
         }
 
-        Map<Integer, List<ProjectActionNext>> existingByBucket = new HashMap<Integer, List<ProjectActionNext>>();
-        Map<Integer, List<ProjectActionNext>> newByBucket = new HashMap<Integer, List<ProjectActionNext>>();
-        for (ProjectActionNext projectAction : candidateList) {
+        Map<Integer, List<ActionNext>> existingByBucket = new HashMap<Integer, List<ActionNext>>();
+        Map<Integer, List<ActionNext>> newByBucket = new HashMap<Integer, List<ActionNext>>();
+        for (ActionNext projectAction : candidateList) {
             int bucket = getCompletionBucket(projectAction, webUser);
             if (projectAction.getCompletionOrder() > 0) {
-                existingByBucket.computeIfAbsent(bucket, k -> new ArrayList<ProjectActionNext>()).add(projectAction);
+                existingByBucket.computeIfAbsent(bucket, k -> new ArrayList<ActionNext>()).add(projectAction);
             } else {
-                newByBucket.computeIfAbsent(bucket, k -> new ArrayList<ProjectActionNext>()).add(projectAction);
+                newByBucket.computeIfAbsent(bucket, k -> new ArrayList<ActionNext>()).add(projectAction);
             }
         }
 
-        List<ProjectActionNext> orderedList = new ArrayList<ProjectActionNext>();
+        List<ActionNext> orderedList = new ArrayList<ActionNext>();
         for (int bucket = BUCKET_START_OF_WORK_DAY; bucket <= BUCKET_OTHER; bucket++) {
-            List<ProjectActionNext> existing = existingByBucket.get(bucket);
+            List<ActionNext> existing = existingByBucket.get(bucket);
             if (existing != null && !existing.isEmpty()) {
                 existing.sort((pa1, pa2) -> pa1.getCompletionOrder() - pa2.getCompletionOrder());
                 orderedList.addAll(existing);
             }
-            List<ProjectActionNext> pending = newByBucket.get(bucket);
+            List<ActionNext> pending = newByBucket.get(bucket);
             if (pending != null && !pending.isEmpty()) {
                 pending.sort((pa1, pa2) -> compareInsideBucket(pa1, pa2));
                 orderedList.addAll(pending);
@@ -404,7 +404,7 @@ public class DashboardCurrentActionService {
 
         Transaction trans = dataSession.beginTransaction();
         int completionOrder = 1;
-        for (ProjectActionNext projectAction : orderedList) {
+        for (ActionNext projectAction : orderedList) {
             if (projectAction.getCompletionOrder() != completionOrder) {
                 projectAction.setCompletionOrder(completionOrder);
                 projectAction.setNextChangeDate(new Date());
@@ -426,10 +426,10 @@ public class DashboardCurrentActionService {
         return projectList;
     }
 
-    private List<ProjectActionNext> filterActionsForDashboardVisibility(List<ProjectActionNext> actions,
+    private List<ActionNext> filterActionsForDashboardVisibility(List<ActionNext> actions,
             boolean workOnly) {
-        List<ProjectActionNext> filtered = new ArrayList<ProjectActionNext>();
-        for (ProjectActionNext action : actions) {
+        List<ActionNext> filtered = new ArrayList<ActionNext>();
+        for (ActionNext action : actions) {
             if (action == null) {
                 continue;
             }
@@ -440,7 +440,7 @@ public class DashboardCurrentActionService {
         return filtered;
     }
 
-    private static void sortProjectActionList(List<ProjectActionNext> projectActionList, WebUser webUser) {
+    private static void sortProjectActionList(List<ActionNext> projectActionList, WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
             int c2 = pa2.getCompletionOrder();
@@ -459,7 +459,7 @@ public class DashboardCurrentActionService {
         });
     }
 
-    private static void sortProjectActionListByCompletionOrder(List<ProjectActionNext> projectActionList,
+    private static void sortProjectActionListByCompletionOrder(List<ActionNext> projectActionList,
             WebUser webUser) {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
@@ -490,7 +490,7 @@ public class DashboardCurrentActionService {
         });
     }
 
-    private static int compareInsideBucket(ProjectActionNext pa1, ProjectActionNext pa2) {
+    private static int compareInsideBucket(ActionNext pa1, ActionNext pa2) {
         ProcessStage ps1 = pa1.getProcessStage();
         ProcessStage ps2 = pa2.getProcessStage();
         if ((ps1 != null || ps2 != null) && ps1 != ps2) {
@@ -535,7 +535,7 @@ public class DashboardCurrentActionService {
         return pa1.getActionNextId() - pa2.getActionNextId();
     }
 
-    private static int getCompletionBucket(ProjectActionNext projectAction, WebUser webUser) {
+    private static int getCompletionBucket(ActionNext projectAction, WebUser webUser) {
         if (projectAction == null) {
             return 99;
         }

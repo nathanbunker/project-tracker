@@ -19,10 +19,10 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.api.v1.dao.ActionChangeLogDao;
-import org.openimmunizationsoftware.pt.api.v1.service.ProjectActionProposalService;
-import org.openimmunizationsoftware.pt.model.ProjectActionChangeLog;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionProposal;
+import org.openimmunizationsoftware.pt.api.v1.service.ActionProposalService;
+import org.openimmunizationsoftware.pt.model.ActionChangeLog;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionProposal;
 
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ActionChangeLogDto;
 import org.openimmunizationsoftware.pt.api.v1.resource.dto.ApiErrorResponse;
@@ -41,7 +41,7 @@ public class ActionsResource extends BaseApiResource {
     private static final int DEFAULT_LIMIT = 50;
     private static final int MAX_LIMIT = 200;
 
-    private final ProjectActionProposalService proposalService = new ProjectActionProposalService();
+    private final ActionProposalService proposalService = new ActionProposalService();
     private final ActionChangeLogDao changeLogDao = new ActionChangeLogDao();
 
     @GET
@@ -57,9 +57,9 @@ public class ActionsResource extends BaseApiResource {
         ApiRequestContext.ApiClientInfo client = requireClient();
         int workspaceId = requireWorkspaceId(client);
         requireAction(workspaceId, actionNextId);
-        List<ProjectActionProposal> proposals = proposalService.listProposalsForAction(workspaceId, actionNextId);
+        List<ActionProposal> proposals = proposalService.listProposalsForAction(workspaceId, actionNextId);
         List<ProposalDto> result = new ArrayList<ProposalDto>();
-        for (ProjectActionProposal proposal : proposals) {
+        for (ActionProposal proposal : proposals) {
             result.add(ProposalDto.from(proposal));
         }
         return result;
@@ -79,10 +79,10 @@ public class ActionsResource extends BaseApiResource {
         requirePositiveId(actionNextId, "actionNextId");
         ApiRequestContext.ApiClientInfo client = requireClient();
         int workspaceId = requireWorkspaceId(client);
-        ProjectActionNext action = requireAction(workspaceId, actionNextId);
+        ActionNext action = requireAction(workspaceId, actionNextId);
         validateProposalRequest(request);
         String agentName = client.getAgentName() != null ? client.getAgentName() : String.valueOf(workspaceId);
-        ProjectActionProposal proposal = proposalService.createProposal(workspaceId, agentName,
+        ActionProposal proposal = proposalService.createProposal(workspaceId, agentName,
                 action.getProjectId(), actionNextId, request.getProposedPatchJson(), request.getSummary(),
                 request.getRationale(), request.getContactId());
         return Response.status(Response.Status.CREATED).entity(ProposalDto.from(proposal)).build();
@@ -103,9 +103,9 @@ public class ActionsResource extends BaseApiResource {
         int workspaceId = requireWorkspaceId(client);
         requireAction(workspaceId, actionNextId);
         int effectiveLimit = normalizeLimit(limit);
-        List<ProjectActionChangeLog> changeLogs = changeLogDao.listByAction(workspaceId, actionNextId, effectiveLimit);
+        List<ActionChangeLog> changeLogs = changeLogDao.listByAction(workspaceId, actionNextId, effectiveLimit);
         List<ActionChangeLogDto> result = new ArrayList<ActionChangeLogDto>();
-        for (ProjectActionChangeLog log : changeLogs) {
+        for (ActionChangeLog log : changeLogs) {
             result.add(ActionChangeLogDto.from(log));
         }
         return result;
@@ -124,13 +124,13 @@ public class ActionsResource extends BaseApiResource {
         return Math.min(limit.intValue(), MAX_LIMIT);
     }
 
-    private ProjectActionNext requireAction(int workspaceId, int actionNextId) {
+    private ActionNext requireAction(int workspaceId, int actionNextId) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.workspaceId = :workspaceId");
+                "from ActionNext an where an.actionNextId = :actionNextId and an.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
         query.setInteger("workspaceId", workspaceId);
-        ProjectActionNext action = (ProjectActionNext) query.uniqueResult();
+        ActionNext action = (ActionNext) query.uniqueResult();
         if (action == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
                     .entity(new ApiErrorResponse("not_found", "Action not found.", null))

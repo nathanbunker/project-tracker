@@ -26,7 +26,7 @@ import org.openimmunizationsoftware.pt.doa.WeUserDependencyDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.GamePointLedger;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
@@ -114,8 +114,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
             Calendar dayRangeEnd = (Calendar) dayList.get(dayList.size() - 1).clone();
             dayRangeEnd.add(Calendar.DAY_OF_MONTH, 1);
 
-            Map<Project, List<ProjectActionNext>> templateMap = new HashMap<Project, List<ProjectActionNext>>();
-            Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap = new HashMap<ProjectActionNext, Map<Calendar, ProjectActionNext>>();
+            Map<Project, List<ActionNext>> templateMap = new HashMap<Project, List<ActionNext>>();
+            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap = new HashMap<ActionNext, Map<Calendar, ActionNext>>();
             populateTemplateData(dataSession, dependentUser, projectList, dayList, dayRangeEnd, activeWorkspaceId,
                     templateMap,
                     projectActionDayMap);
@@ -281,8 +281,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
     private void populateTemplateData(Session dataSession, WebUser dependentUser, List<Project> projectList,
             List<Calendar> dayList, Calendar dayRangeEnd, Integer workspaceId,
-            Map<Project, List<ProjectActionNext>> templateMap,
-            Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap) {
+            Map<Project, List<ActionNext>> templateMap,
+            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap) {
 
         Map<String, Calendar> dayByKey = new HashMap<String, Calendar>();
         for (Calendar day : dayList) {
@@ -291,22 +291,22 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         for (Project project : projectList) {
             Query templateQuery = dataSession.createQuery(
-                    "from ProjectActionNext where projectId = :projectId and nextDescription <> '' "
+                    "from ActionNext where projectId = :projectId and nextDescription <> '' "
                             + "and templateTypeString is NOT NULL and templateTypeString <> '' "
                             + "and nextActionStatusString = :nextActionStatus "
                             + "order by nextActionDate asc, nextDescription");
             templateQuery.setParameter("projectId", project.getProjectId());
             templateQuery.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
             @SuppressWarnings("unchecked")
-            List<ProjectActionNext> templateList = templateQuery.list();
+            List<ActionNext> templateList = templateQuery.list();
             templateMap.put(project, templateList);
 
-            for (ProjectActionNext templateAction : templateList) {
-                Map<Calendar, ProjectActionNext> projectActionMap = new HashMap<Calendar, ProjectActionNext>();
+            for (ActionNext templateAction : templateList) {
+                Map<Calendar, ActionNext> projectActionMap = new HashMap<Calendar, ActionNext>();
                 projectActionDayMap.put(templateAction, projectActionMap);
 
                 Query dayQuery = dataSession.createQuery(
-                        "from ProjectActionNext where templateActionNextId = :templateActionNextId "
+                        "from ActionNext where templateActionNextId = :templateActionNextId "
                                 + "and nextActionDate >= :nextActionDate "
                                 + "and nextActionDate < :nextActionDateEnd "
                                 + "and contactId = :contactId "
@@ -322,8 +322,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 dayQuery.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
                 dayQuery.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
                 @SuppressWarnings("unchecked")
-                List<ProjectActionNext> scheduledList = dayQuery.list();
-                for (ProjectActionNext scheduledAction : scheduledList) {
+                List<ActionNext> scheduledList = dayQuery.list();
+                for (ActionNext scheduledAction : scheduledList) {
                     Calendar calendar = dayByKey.get(toDayKey(scheduledAction.getNextActionDate()));
                     if (calendar != null && !projectActionMap.containsKey(calendar)) {
                         projectActionMap.put(calendar, scheduledAction);
@@ -336,8 +336,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private void handleTemplateUpdate(HttpServletRequest request, Session dataSession, WebUser dependentUser,
             List<Project> projectList, Map<Integer, Boolean> projectBillableMap,
             List<Calendar> dayList,
-            Map<Project, List<ProjectActionNext>> templateMap,
-            Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap,
+            Map<Project, List<ActionNext>> templateMap,
+            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap,
             Integer workspaceId) {
 
         SimpleDateFormat sdfField = dependentUser.getDateFormat("yyyyMMdd");
@@ -348,13 +348,13 @@ public class ScheduleSchoolServlet extends ClientServlet {
             for (Project project : projectList) {
                 boolean projectBillable = Boolean.TRUE
                         .equals(projectBillableMap.get(Integer.valueOf(project.getProjectId())));
-                List<ProjectActionNext> templateList = templateMap.get(project);
+                List<ActionNext> templateList = templateMap.get(project);
                 if (templateList == null) {
                     continue;
                 }
 
-                for (ProjectActionNext templateAction : templateList) {
-                    Map<Calendar, ProjectActionNext> projectActionMap = projectActionDayMap.get(templateAction);
+                for (ActionNext templateAction : templateList) {
+                    Map<Calendar, ActionNext> projectActionMap = projectActionDayMap.get(templateAction);
                     String nextDescription = trim(
                             request.getParameter(NEXT_DESCRIPTION + templateAction.getActionNextId()),
                             12000);
@@ -403,7 +403,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                         String fieldName = TEMPLATE_SELECTED + templateAction.getActionNextId() + "."
                                 + sdfField.format(day.getTime());
                         boolean checked = request.getParameter(fieldName) != null;
-                        ProjectActionNext assignedAction = projectActionMap == null ? null : projectActionMap.get(day);
+                        ActionNext assignedAction = projectActionMap == null ? null : projectActionMap.get(day);
                         boolean hasTemplateDescription = templateAction.getNextDescription() != null
                                 && !templateAction.getNextDescription().trim().equals("");
 
@@ -425,7 +425,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                                 continue;
                             }
                             if (assignedAction == null) {
-                                assignedAction = new ProjectActionNext();
+                                assignedAction = new ActionNext();
                                 assignedAction.setProjectId(project.getProjectId());
                                 assignedAction.setContactId(dependentUser.getContactId());
                                 assignedAction.setContact(dependentUser.getProjectContact());
@@ -484,7 +484,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 Project project = (Project) dataSession.get(Project.class, Integer.parseInt(addTemplateRequest[0]));
                 boolean projectBillable = Boolean.TRUE
                         .equals(projectBillableMap.get(Integer.valueOf(project.getProjectId())));
-                ProjectActionNext templateAction = new ProjectActionNext();
+                ActionNext templateAction = new ActionNext();
                 templateAction.setContactId(dependentUser.getContactId());
                 templateAction.setContact(dependentUser.getProjectContact());
                 templateAction.setNextChangeDate(new Date());
@@ -524,7 +524,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             return;
         }
 
-        ProjectActionNext pivot = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId.intValue());
+        ActionNext pivot = (ActionNext) dataSession.get(ActionNext.class, actionNextId.intValue());
         if (pivot == null || pivot.getNextActionDate() == null) {
             return;
         }
@@ -536,7 +536,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
 
         Query query = dataSession.createQuery(
-                "from ProjectActionNext where workspaceId = :workspaceId and contactId = :contactId "
+                "from ActionNext where workspaceId = :workspaceId and contactId = :contactId "
                         + "and nextActionDate = :nextActionDate "
                         + "and nextDescription <> '' "
                         + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus)");
@@ -547,7 +547,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         query.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> dayList = query.list();
+        List<ActionNext> dayList = query.list();
         sortAssignments(dayList);
 
         int index = -1;
@@ -566,7 +566,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             return;
         }
 
-        ProjectActionNext swap = dayList.get(swapIndex);
+        ActionNext swap = dayList.get(swapIndex);
         Integer pivotOrder = Integer.valueOf(pivot.getCompletionOrder());
         Integer swapOrder = Integer.valueOf(swap.getCompletionOrder());
 
@@ -611,8 +611,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
     private void printTemplateTable(PrintWriter out, WebUser dependentUser, List<Calendar> dayList,
             List<Project> filteredProjectList,
-            Map<Project, List<ProjectActionNext>> templateMap,
-            Map<ProjectActionNext, Map<Calendar, ProjectActionNext>> projectActionDayMap,
+            Map<Project, List<ActionNext>> templateMap,
+            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap,
             String heading,
             String addFieldSuffix,
             boolean choreTable) {
@@ -668,22 +668,22 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
         });
 
-        List<ProjectActionNext> rowTemplates = new ArrayList<ProjectActionNext>();
-        Map<ProjectActionNext, Project> templateProjectMap = new HashMap<ProjectActionNext, Project>();
+        List<ActionNext> rowTemplates = new ArrayList<ActionNext>();
+        Map<ActionNext, Project> templateProjectMap = new HashMap<ActionNext, Project>();
         for (Project project : orderedProjectList) {
-            List<ProjectActionNext> tl = templateMap.get(project);
+            List<ActionNext> tl = templateMap.get(project);
             if (tl != null) {
-                for (ProjectActionNext pan : tl) {
-                    rowTemplates.add(pan);
-                    templateProjectMap.put(pan, project);
+                for (ActionNext an : tl) {
+                    rowTemplates.add(an);
+                    templateProjectMap.put(an, project);
                 }
             }
         }
 
         if (choreTable) {
-            Collections.sort(rowTemplates, new Comparator<ProjectActionNext>() {
+            Collections.sort(rowTemplates, new Comparator<ActionNext>() {
                 @Override
-                public int compare(ProjectActionNext left, ProjectActionNext right) {
+                public int compare(ActionNext left, ActionNext right) {
                     TimeSlot leftSlot = left.getTimeSlot() == null ? TimeSlot.AFTERNOON : left.getTimeSlot();
                     TimeSlot rightSlot = right.getTimeSlot() == null ? TimeSlot.AFTERNOON : right.getTimeSlot();
                     if (leftSlot.ordinal() != rightSlot.ordinal()) {
@@ -705,9 +705,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
             });
         }
 
-        for (ProjectActionNext templateAction : rowTemplates) {
+        for (ActionNext templateAction : rowTemplates) {
             Project project = templateProjectMap.get(templateAction);
-            Map<Calendar, ProjectActionNext> dayMap = projectActionDayMap.get(templateAction);
+            Map<Calendar, ActionNext> dayMap = projectActionDayMap.get(templateAction);
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
@@ -737,7 +737,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             for (Calendar day : dayList) {
-                ProjectActionNext dayAction = dayMap == null ? null : dayMap.get(day);
+                ActionNext dayAction = dayMap == null ? null : dayMap.get(day);
                 boolean checked = dayAction != null
                         && dayAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED;
                 String style = onWeekend.contains(day) ? "boxed-lowlight" : "boxed";
@@ -799,7 +799,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         for (Calendar day : dayList) {
             out.println("    <td class=\"boxed\">");
             if (!choreTable) {
-                out.println(ProjectActionNext.getTimeForDisplay(timeMap.get(day).intValue()));
+                out.println(ActionNext.getTimeForDisplay(timeMap.get(day).intValue()));
             }
             out.println("    </td>");
         }
@@ -811,12 +811,12 @@ public class ScheduleSchoolServlet extends ClientServlet {
     }
 
     private void printTemplateEditDialogs(PrintWriter out, WebUser dependentUser, int dependencyId,
-            Map<Project, List<ProjectActionNext>> templateMap) {
-        for (List<ProjectActionNext> templateList : templateMap.values()) {
+            Map<Project, List<ActionNext>> templateMap) {
+        for (List<ActionNext> templateList : templateMap.values()) {
             if (templateList == null) {
                 continue;
             }
-            for (ProjectActionNext templateAction : templateList) {
+            for (ActionNext templateAction : templateList) {
                 printScheduleActionEditDialog(out, dependentUser, dependencyId, templateAction);
             }
         }
@@ -830,7 +830,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Date rangeEnd = dependentUser.endOfDay(dependentUser.addDays(dependentUser.getToday(), ASSIGNMENT_FUTURE_DAYS));
 
         Query query = dataSession.createQuery(
-                "from ProjectActionNext where workspaceId = :workspaceId and contactId = :contactId "
+                "from ActionNext where workspaceId = :workspaceId and contactId = :contactId "
                         + "and nextDescription <> '' "
                         + "and nextActionDate >= :rangeStart and nextActionDate <= :rangeEnd "
                         + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus)");
@@ -842,10 +842,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
         query.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> assignmentList = query.list();
+        List<ActionNext> assignmentList = query.list();
 
         Map<Integer, Project> projectMap = new HashMap<Integer, Project>();
-        for (ProjectActionNext action : assignmentList) {
+        for (ActionNext action : assignmentList) {
             if (action.getProject() == null && action.getProjectId() > 0) {
                 Project project = projectMap.get(Integer.valueOf(action.getProjectId()));
                 if (project == null) {
@@ -858,19 +858,19 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         sortAssignments(assignmentList);
 
-        Map<String, List<ProjectActionNext>> byDay = new HashMap<String, List<ProjectActionNext>>();
+        Map<String, List<ActionNext>> byDay = new HashMap<String, List<ActionNext>>();
         List<Date> dayOrder = new ArrayList<Date>();
         Calendar day = dependentUser.getCalendar(rangeStart);
         while (!day.getTime().after(rangeEnd)) {
             Date dayDate = day.getTime();
             dayOrder.add(dayDate);
-            byDay.put(toDayKey(dayDate), new ArrayList<ProjectActionNext>());
+            byDay.put(toDayKey(dayDate), new ArrayList<ActionNext>());
             day.add(Calendar.DAY_OF_MONTH, 1);
         }
 
-        for (ProjectActionNext action : assignmentList) {
+        for (ActionNext action : assignmentList) {
             String key = toDayKey(action.getNextActionDate());
-            List<ProjectActionNext> rows = byDay.get(key);
+            List<ActionNext> rows = byDay.get(key);
             if (rows != null) {
                 rows.add(action);
             }
@@ -892,12 +892,12 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         for (Date dayDate : dayOrder) {
             String dayKey = toDayKey(dayDate);
-            List<ProjectActionNext> rows = byDay.get(dayKey);
+            List<ActionNext> rows = byDay.get(dayKey);
             if (rows == null) {
-                rows = new ArrayList<ProjectActionNext>();
+                rows = new ArrayList<ActionNext>();
             }
 
-            List<ProjectActionNext> dialogActions = new ArrayList<ProjectActionNext>();
+            List<ActionNext> dialogActions = new ArrayList<ActionNext>();
             String addDialogId = "add" + dayKey.replace("-", "");
 
             out.println("<h3>"
@@ -921,7 +921,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             int totalActual = 0;
 
             for (int i = 0; i < rows.size(); i++) {
-                ProjectActionNext action = rows.get(i);
+                ActionNext action = rows.get(i);
                 if (action.getNextActionStatus() == ProjectNextActionStatus.CANCELLED) {
                     continue;
                 }
@@ -969,9 +969,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 out.println("    <td class=\"boxed\">" + sourceLabel + "</td>");
                 out.println("    <td class=\"boxed\">" + escapeHtml(statusLabel) + "</td>");
                 out.println("    <td class=\"boxed\">"
-                        + (billable ? ProjectActionNext.getTimeForDisplay(estimate) : "&nbsp;") + "</td>");
+                        + (billable ? ActionNext.getTimeForDisplay(estimate) : "&nbsp;") + "</td>");
                 out.println("    <td class=\"boxed\">"
-                        + (billable ? ProjectActionNext.getTimeForDisplay(actual) : "&nbsp;") + "</td>");
+                        + (billable ? ActionNext.getTimeForDisplay(actual) : "&nbsp;") + "</td>");
                 out.println("    <td class=\"boxed\">" + points + "</td>");
                 out.println("    <td class=\"boxed\"><a href=\"javascript:void(0);\" class=\"button\" "
                         + "onclick=\"openScheduleEditDialog(" + action.getActionNextId()
@@ -996,15 +996,15 @@ public class ScheduleSchoolServlet extends ClientServlet {
             int earnedPoints = intValue(earnedPointsByDay.get(dayKey));
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\" colspan=\"5\"><strong>Totals</strong></td>");
-            out.println("    <td class=\"boxed\"><strong>" + ProjectActionNext.getTimeForDisplay(totalEstimate)
+            out.println("    <td class=\"boxed\"><strong>" + ActionNext.getTimeForDisplay(totalEstimate)
                     + "</strong></td>");
-            out.println("    <td class=\"boxed\"><strong>" + ProjectActionNext.getTimeForDisplay(totalActual)
+            out.println("    <td class=\"boxed\"><strong>" + ActionNext.getTimeForDisplay(totalActual)
                     + "</strong></td>");
             out.println("    <td class=\"boxed\"><strong>" + earnedPoints + "</strong></td>");
             out.println("    <td class=\"boxed\">&nbsp;</td>");
             out.println("  </tr>");
             out.println("</table>");
-            for (ProjectActionNext action : dialogActions) {
+            for (ActionNext action : dialogActions) {
                 printScheduleActionEditDialog(out, dependentUser, dependencyId, action);
             }
             printScheduleActionAddDialog(out, dependentUser, dependencyId, dayDate, addDialogId, projectList,
@@ -1125,7 +1125,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
     }
 
     private void printScheduleActionEditDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
-            ProjectActionNext action) {
+            ActionNext action) {
         SimpleDateFormat dateFormat = dependentUser.getDateFormat();
         String dateString = action.getNextActionDate() == null ? "" : dateFormat.format(action.getNextActionDate());
         String nextActionType = safe(action.getNextActionType());
@@ -1198,7 +1198,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             return;
         }
 
-        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class,
                 actionNextId.intValue());
         if (action == null || action.getWorkspaceId() == null || !action.getWorkspaceId().equals(workspaceId)
                 || action.getContactId() != dependentUser.getContactId()) {
@@ -1260,7 +1260,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             return;
         }
 
-        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class,
                 actionNextId.intValue());
         if (action == null || action.getWorkspaceId() == null || !action.getWorkspaceId().equals(workspaceId)
                 || action.getContactId() != dependentUser.getContactId()) {
@@ -1320,8 +1320,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         Integer completionOrder = Integer.valueOf(1);
         Query orderQuery = dataSession.createQuery(
-                "select max(pan.completionOrder) from ProjectActionNext pan "
-                        + "where pan.workspaceId = :workspaceId and pan.contactId = :contactId and pan.nextActionDate = :nextActionDate");
+                "select max(an.completionOrder) from ActionNext an "
+                        + "where an.workspaceId = :workspaceId and an.contactId = :contactId and an.nextActionDate = :nextActionDate");
         orderQuery.setParameter("workspaceId", workspaceId);
         orderQuery.setParameter("contactId", dependentUser.getContactId());
         orderQuery.setParameter("nextActionDate", nextActionDate);
@@ -1334,7 +1334,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         Transaction trans = dataSession.beginTransaction();
         try {
-            ProjectActionNext action = new ProjectActionNext();
+            ActionNext action = new ActionNext();
             action.setProjectId(project.getProjectId());
             action.setProject(project);
             action.setContactId(dependentUser.getContactId());
@@ -1372,10 +1372,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 
-    private void sortAssignments(List<ProjectActionNext> actionList) {
-        Collections.sort(actionList, new Comparator<ProjectActionNext>() {
+    private void sortAssignments(List<ActionNext> actionList) {
+        Collections.sort(actionList, new Comparator<ActionNext>() {
             @Override
-            public int compare(ProjectActionNext left, ProjectActionNext right) {
+            public int compare(ActionNext left, ActionNext right) {
                 String leftDay = toDayKey(left.getNextActionDate());
                 String rightDay = toDayKey(right.getNextActionDate());
                 int dayCmp = leftDay.compareTo(rightDay);

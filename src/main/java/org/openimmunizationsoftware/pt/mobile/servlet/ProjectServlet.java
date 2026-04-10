@@ -17,7 +17,7 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -57,7 +57,7 @@ public class ProjectServlet extends MobileBaseServlet {
             Integer actionId = parseInteger(request.getParameter(PARAM_ACTION_ID));
             if (paramAction != null && actionId != null) {
                 try {
-                    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(ProjectActionNext.class,
+                    ActionNext projectAction = (ActionNext) dataSession.get(ActionNext.class,
                             actionId);
                     if (projectAction != null) {
                         if (ACTION_COMPLETE.equals(paramAction)) {
@@ -150,7 +150,7 @@ public class ProjectServlet extends MobileBaseServlet {
         out.println("</table>");
     }
 
-    private void printProjectDetail(PrintWriter out, Project project, List<ProjectActionNext> actions,
+    private void printProjectDetail(PrintWriter out, Project project, List<ActionNext> actions,
             WebUser webUser) {
         out.println("<h1>" + escapeHtml(project.getProjectName()) + "</h1>");
         out.println("<p><a href=\"project\" class=\"box\">All Projects</a> ");
@@ -159,7 +159,7 @@ public class ProjectServlet extends MobileBaseServlet {
         printProjectActionList(out, actions, project.getProjectId(), webUser);
     }
 
-    private void printProjectActionList(PrintWriter out, List<ProjectActionNext> actions, int projectId,
+    private void printProjectActionList(PrintWriter out, List<ActionNext> actions, int projectId,
             WebUser webUser) {
         if (actions.isEmpty()) {
             out.println("<table class=\"boxed-mobile\">");
@@ -172,12 +172,12 @@ public class ProjectServlet extends MobileBaseServlet {
 
         String todayKey = toDatabaseDateKey(webUser.getToday());
 
-        List<ProjectActionNext> overdueActions = new ArrayList<ProjectActionNext>();
-        List<ProjectActionNext> dueTodayActions = new ArrayList<ProjectActionNext>();
-        List<ProjectActionNext> dueLaterActions = new ArrayList<ProjectActionNext>();
-        List<ProjectActionNext> unscheduledActions = new ArrayList<ProjectActionNext>();
+        List<ActionNext> overdueActions = new ArrayList<ActionNext>();
+        List<ActionNext> dueTodayActions = new ArrayList<ActionNext>();
+        List<ActionNext> dueLaterActions = new ArrayList<ActionNext>();
+        List<ActionNext> unscheduledActions = new ArrayList<ActionNext>();
 
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             Date nextActionDate = action.getNextActionDate();
             if (nextActionDate == null) {
                 unscheduledActions.add(action);
@@ -199,7 +199,7 @@ public class ProjectServlet extends MobileBaseServlet {
         printProjectActionTable(out, "Unscheduled", unscheduledActions, projectId, webUser);
     }
 
-    private void printProjectActionTable(PrintWriter out, String tableTitle, List<ProjectActionNext> actions,
+    private void printProjectActionTable(PrintWriter out, String tableTitle, List<ActionNext> actions,
             int projectId, WebUser webUser) {
         if (actions.isEmpty()) {
             return;
@@ -212,7 +212,7 @@ public class ProjectServlet extends MobileBaseServlet {
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
 
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             String description = action.getNextDescriptionForDisplay(action.getContact());
 
             // Build todo detail link
@@ -273,26 +273,26 @@ public class ProjectServlet extends MobileBaseServlet {
         return null;
     }
 
-    private List<ProjectActionNext> fetchOpenActionsForProject(WebUser webUser, Session dataSession,
+    private List<ActionNext> fetchOpenActionsForProject(WebUser webUser, Session dataSession,
             Integer workspaceId, int projectId) {
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan " +
-                        "left join fetch pan.project " +
-                        "left join fetch pan.contact " +
-                        "left join fetch pan.nextProjectContact " +
-                        "where pan.workspaceId = :workspaceId " +
-                        "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
-                        "and pan.projectId = :projectId " +
-                        "and pan.nextActionStatusString = :status " +
-                        "and (pan.templateTypeString is null or pan.templateTypeString = '') " +
-                        "and pan.nextDescription <> '' " +
-                        "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate");
+                "select distinct an from ActionNext an " +
+                        "left join fetch an.project " +
+                        "left join fetch an.contact " +
+                        "left join fetch an.nextProjectContact " +
+                        "where an.workspaceId = :workspaceId " +
+                        "and (an.contactId = :contactId or an.nextContactId = :contactId) " +
+                        "and an.projectId = :projectId " +
+                        "and an.nextActionStatusString = :status " +
+                        "and (an.templateTypeString is null or an.templateTypeString = '') " +
+                        "and an.nextDescription <> '' " +
+                        "order by an.nextActionDate, an.priorityLevel DESC, an.nextChangeDate");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("projectId", projectId);
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
@@ -321,14 +321,14 @@ public class ProjectServlet extends MobileBaseServlet {
         Date tomorrow = webUser.getTomorrow();
 
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan " +
-                        "left join fetch pan.project " +
-                        "where pan.workspaceId = :workspaceId " +
-                        "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
-                        "and pan.nextActionStatusString = :status " +
-                        "and (pan.templateTypeString is null or pan.templateTypeString = '') " +
-                        "and pan.nextDescription <> '' " +
-                        "and pan.nextActionDate >= :today and pan.nextActionDate < :tomorrow");
+                "select distinct an from ActionNext an " +
+                        "left join fetch an.project " +
+                        "where an.workspaceId = :workspaceId " +
+                        "and (an.contactId = :contactId or an.nextContactId = :contactId) " +
+                        "and an.nextActionStatusString = :status " +
+                        "and (an.templateTypeString is null or an.templateTypeString = '') " +
+                        "and an.nextDescription <> '' " +
+                        "and an.nextActionDate >= :today and an.nextActionDate < :tomorrow");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("status", ProjectNextActionStatus.READY.getId());
@@ -336,10 +336,10 @@ public class ProjectServlet extends MobileBaseServlet {
         query.setParameter("tomorrow", tomorrow);
 
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> actions = query.list();
+        List<ActionNext> actions = query.list();
 
         Map<Integer, Integer> countMap = new HashMap<Integer, Integer>();
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             if (action.isBillable()) {
                 continue;
             }

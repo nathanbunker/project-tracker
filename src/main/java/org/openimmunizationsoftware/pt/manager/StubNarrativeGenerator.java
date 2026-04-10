@@ -2,8 +2,8 @@ package org.openimmunizationsoftware.pt.manager;
 
 import java.util.Map;
 
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 
@@ -34,7 +34,7 @@ public class StubNarrativeGenerator implements NarrativeGenerator {
         if (ctx.getCompletedActions().isEmpty()) {
             sb.append("- No completed actions recorded.\n\n");
         } else {
-            for (ProjectActionTaken action : ctx.getCompletedActions()) {
+            for (ActionTaken action : ctx.getCompletedActions()) {
                 String projectName = action.getProject() == null ? "" : action.getProject().getProjectName();
                 sb.append("- ");
                 if (!isEmpty(projectName)) {
@@ -55,7 +55,7 @@ public class StubNarrativeGenerator implements NarrativeGenerator {
         if (ctx.getWaitingActions().isEmpty()) {
             sb.append("- No waiting items recorded.\n");
         } else {
-            for (ProjectActionNext action : ctx.getWaitingActions()) {
+            for (ActionNext action : ctx.getWaitingActions()) {
                 String projectName = action.getProject() == null ? "" : action.getProject().getProjectName();
                 sb.append("- ");
                 if (!isEmpty(projectName)) {

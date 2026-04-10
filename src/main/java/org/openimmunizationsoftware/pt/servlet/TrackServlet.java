@@ -31,8 +31,8 @@ import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillDay;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactSupervisor;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -311,8 +311,8 @@ public class TrackServlet extends ClientServlet {
       printTotalWorkingTime(out, type, billableMins, targetHours);
       List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
       Collections.sort(timeEntryList);
-      List<ProjectActionTaken> projectActionTakenList = getProjectActionTakenList(webUser, dataSession, timeTracker);
-      List<ProjectActionNext> projectActionCompletedList = getProjectActionNextCompletedList(webUser, dataSession,
+      List<ActionTaken> projectActionTakenList = getActionTakenList(webUser, dataSession, timeTracker);
+      List<ActionNext> projectActionCompletedList = getActionNextCompletedList(webUser, dataSession,
           timeTracker);
 
       if (timeEntryList.size() > 0 || projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
@@ -343,8 +343,8 @@ public class TrackServlet extends ClientServlet {
       }
 
       printTotalWorkingTime(out, type, billableMins, targetHours);
-      List<ProjectActionTaken> projectActionTakenList = getProjectActionTakenList(webUser, dataSession, timeTracker);
-      List<ProjectActionNext> projectActionCompletedList = getProjectActionNextCompletedList(webUser, dataSession,
+      List<ActionTaken> projectActionTakenList = getActionTakenList(webUser, dataSession, timeTracker);
+      List<ActionNext> projectActionCompletedList = getActionNextCompletedList(webUser, dataSession,
           timeTracker);
 
       if (timeEntryList.size() > 0 || projectActionTakenList.size() > 0 || projectActionCompletedList.size() > 0) {
@@ -416,8 +416,8 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectLineNoTimeEntered(WebUser webUser, PrintWriter out, Session dataSession, String type,
-      boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
-      List<ProjectActionNext> projectActionCompletedList) {
+      boolean showLinks, List<ActionTaken> projectActionTakenList,
+      List<ActionNext> projectActionCompletedList) {
     Integer projectId = null;
     if (!projectActionTakenList.isEmpty()) {
       projectId = projectActionTakenList.get(0).getProjectId();
@@ -445,8 +445,8 @@ public class TrackServlet extends ClientServlet {
     out.println("    <td class=\"boxed\">");
     boolean first = true;
     String actionDatePattern = type.equals(TYPE_WEEK) ? "EEE" : webUser.getTimeDisplayPattern();
-    for (Iterator<ProjectActionTaken> it = projectActionTakenList.iterator(); it.hasNext();) {
-      ProjectActionTaken actionTaken = it.next();
+    for (Iterator<ActionTaken> it = projectActionTakenList.iterator(); it.hasNext();) {
+      ActionTaken actionTaken = it.next();
       if (actionTaken.getProjectId() == project.getProjectId()) {
         it.remove();
         if (!first) {
@@ -459,8 +459,8 @@ public class TrackServlet extends ClientServlet {
         out.println("    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + actionTaken.getActionDescription());
       }
     }
-    for (Iterator<ProjectActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
-      ProjectActionNext actionNext = it.next();
+    for (Iterator<ActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+      ActionNext actionNext = it.next();
       if (actionNext.getProjectId() == project.getProjectId()) {
         it.remove();
         if (!first) {
@@ -479,8 +479,8 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectLineWithTimeEntry(WebUser webUser, PrintWriter out, Session dataSession,
-      TimeTracker timeTracker, String type, boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
-      List<ProjectActionNext> projectActionCompletedList, TimeEntry timeEntry) {
+      TimeTracker timeTracker, String type, boolean showLinks, List<ActionTaken> projectActionTakenList,
+      List<ActionNext> projectActionCompletedList, TimeEntry timeEntry) {
     // if displaying for week then time needs to be rounded to 30 minutes.
     // The rounding rule is anything under 7 minutes is rounded down, and everything
     // 7 minutes
@@ -498,10 +498,10 @@ public class TrackServlet extends ClientServlet {
     }
     out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeInMinutes) + "</td>");
 
-    List<ProjectActionTaken> projectActionList = timeEntry.getProjectActionList();
+    List<ActionTaken> projectActionList = timeEntry.getProjectActionList();
     int projectId = Integer.parseInt(timeEntry.getId());
     boolean hasCompletedNext = false;
-    for (ProjectActionNext actionNext : projectActionCompletedList) {
+    for (ActionNext actionNext : projectActionCompletedList) {
       if (actionNext.getProjectId() == projectId) {
         hasCompletedNext = true;
         break;
@@ -512,7 +512,7 @@ public class TrackServlet extends ClientServlet {
       String actionDatePattern = type.equals(TYPE_WEEK) ? "EEE" : webUser.getTimeDisplayPattern();
       boolean first = true;
       if (projectActionList != null) {
-        for (ProjectActionTaken projectAction : projectActionList) {
+        for (ActionTaken projectAction : projectActionList) {
           projectActionTakenList.remove(projectAction);
           if (!first) {
             out.println("    <br/>");
@@ -525,8 +525,8 @@ public class TrackServlet extends ClientServlet {
               "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + projectAction.getActionDescription());
         }
       }
-      for (Iterator<ProjectActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
-        ProjectActionNext actionNext = it.next();
+      for (Iterator<ActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+        ActionNext actionNext = it.next();
         if (actionNext.getProjectId() == projectId) {
           it.remove();
           if (!first) {
@@ -552,8 +552,8 @@ public class TrackServlet extends ClientServlet {
   }
 
   private static void printProjectLineWithTimeEntrySummaryOnly(WebUser webUser, PrintWriter out, Session dataSession,
-      TimeTracker timeTracker, String type, boolean showLinks, List<ProjectActionTaken> projectActionTakenList,
-      List<ProjectActionNext> projectActionCompletedList, TimeEntry timeEntry) {
+      TimeTracker timeTracker, String type, boolean showLinks, List<ActionTaken> projectActionTakenList,
+      List<ActionNext> projectActionCompletedList, TimeEntry timeEntry) {
     out.println("  <tr class=\"boxed\">");
     String link = "<a href=\"ProjectServlet?projectId=" + timeEntry.getId() + "\" class=\"button\">";
     if (showLinks) {
@@ -579,18 +579,18 @@ public class TrackServlet extends ClientServlet {
     return timeEntryList;
   }
 
-  private static List<ProjectActionTaken> getProjectActionTakenList(WebUser webUser, Session dataSession,
+  private static List<ActionTaken> getActionTakenList(WebUser webUser, Session dataSession,
       TimeTracker timeTracker) {
     Query query = dataSession.createQuery(
-        "from ProjectActionTaken where contactId = ? and actionDescription <> '' "
+        "from ActionTaken where contactId = ? and actionDescription <> '' "
             + "and actionDate >= ? and actionDate < ? order by actionDate asc");
     query.setParameter(0, webUser.getContactId());
     query.setParameter(1, timeTracker.getStartDate());
     query.setParameter(2, timeTracker.getEndDate());
     @SuppressWarnings("unchecked")
-    List<ProjectActionTaken> projectActionListComplete = query.list();
-    for (Iterator<ProjectActionTaken> it = projectActionListComplete.iterator(); it.hasNext();) {
-      ProjectActionTaken actionTaken = it.next();
+    List<ActionTaken> projectActionListComplete = query.list();
+    for (Iterator<ActionTaken> it = projectActionListComplete.iterator(); it.hasNext();) {
+      ActionTaken actionTaken = it.next();
       Project project = (Project) dataSession.get(Project.class, actionTaken.getProjectId());
       if (!isBillableProject(dataSession, project)) {
         it.remove();
@@ -599,10 +599,10 @@ public class TrackServlet extends ClientServlet {
     return projectActionListComplete;
   }
 
-  private static List<ProjectActionNext> getProjectActionNextCompletedList(WebUser webUser, Session dataSession,
+  private static List<ActionNext> getActionNextCompletedList(WebUser webUser, Session dataSession,
       TimeTracker timeTracker) {
     Query query = dataSession.createQuery(
-        "from ProjectActionNext where contactId = ? and nextDescription <> '' "
+        "from ActionNext where contactId = ? and nextDescription <> '' "
             + "and nextActionStatusString = ? and nextChangeDate >= ? and nextChangeDate < ? "
             + "order by nextChangeDate asc");
     query.setParameter(0, webUser.getContactId());
@@ -610,9 +610,9 @@ public class TrackServlet extends ClientServlet {
     query.setParameter(2, timeTracker.getStartDate());
     query.setParameter(3, timeTracker.getEndDate());
     @SuppressWarnings("unchecked")
-    List<ProjectActionNext> projectActionCompletedList = query.list();
-    for (Iterator<ProjectActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
-      ProjectActionNext actionNext = it.next();
+    List<ActionNext> projectActionCompletedList = query.list();
+    for (Iterator<ActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+      ActionNext actionNext = it.next();
       Project project = (Project) dataSession.get(Project.class, actionNext.getProjectId());
       if (!isBillableProject(dataSession, project)) {
         it.remove();

@@ -2,9 +2,9 @@ package org.openimmunizationsoftware.pt.api.v1.resource.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 
-@Schema(name = "ProjectActionNext")
+@Schema(name = "ActionNext")
 public class ActionNextDto {
 
     @Schema(example = "456")
@@ -18,7 +18,7 @@ public class ActionNextDto {
     private String nextActionType;
     private int priorityLevel;
 
-    public static ActionNextDto from(ProjectActionNext action) {
+    public static ActionNextDto from(ActionNext action) {
         ActionNextDto dto = new ActionNextDto();
         dto.setActionNextId(action.getActionNextId());
         dto.setProjectId(action.getProjectId());

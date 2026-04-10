@@ -12,14 +12,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.openimmunizationsoftware.pt.api.common.ApiRequestContext;
-import org.openimmunizationsoftware.pt.api.v1.service.ProjectActionProposalService;
+import org.openimmunizationsoftware.pt.api.v1.service.ActionProposalService;
 
 @Path("/v1/proposals")
 @Produces(MediaType.APPLICATION_JSON)
 @SecurityRequirement(name = "ApiKeyAuth")
 public class ProposalsResource extends BaseApiResource {
 
-    private final ProjectActionProposalService proposalService = new ProjectActionProposalService();
+    private final ActionProposalService proposalService = new ActionProposalService();
 
     @POST
     @Path("/{proposalId}/supersede")

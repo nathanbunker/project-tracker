@@ -17,7 +17,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.GamePointLedger;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -64,10 +64,10 @@ public class StudentSchoolServlet extends StudentBaseServlet {
                 return;
             }
 
-            List<ProjectActionNext> actions = fetchDayActions(selectedDate, webUser, dataSession, workspaceId);
-            List<ProjectActionNext> schoolActions = new ArrayList<ProjectActionNext>();
-            List<ProjectActionNext> choreActions = new ArrayList<ProjectActionNext>();
-            for (ProjectActionNext actionRow : actions) {
+            List<ActionNext> actions = fetchDayActions(selectedDate, webUser, dataSession, workspaceId);
+            List<ActionNext> schoolActions = new ArrayList<ActionNext>();
+            List<ActionNext> choreActions = new ArrayList<ActionNext>();
+            for (ActionNext actionRow : actions) {
                 if (actionRow.isBillable()) {
                     schoolActions.add(actionRow);
                 } else {
@@ -120,7 +120,7 @@ public class StudentSchoolServlet extends StudentBaseServlet {
     private void completeStudentAction(String actionIdString, Date selectedDate, WebUser webUser,
             Session dataSession, Integer workspaceId) {
         int actionId = Integer.parseInt(actionIdString);
-        ProjectActionNext action = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionId);
         if (action == null) {
             return;
         }
@@ -156,7 +156,7 @@ public class StudentSchoolServlet extends StudentBaseServlet {
                 }
                 GamePointLedger ledger = new GamePointLedger();
                 ledger.setContact(contact);
-                ledger.setProjectActionNext(action);
+                ledger.setActionNext(action);
                 ledger.setPointChange(points);
                 ledger.setEntryType("COMPLETE");
                 ledger.setEntryNote(action.getNextDescription());
@@ -172,21 +172,21 @@ public class StudentSchoolServlet extends StudentBaseServlet {
         }
     }
 
-    private List<ProjectActionNext> fetchDayActions(Date selectedDate, WebUser webUser, Session dataSession,
+    private List<ActionNext> fetchDayActions(Date selectedDate, WebUser webUser, Session dataSession,
             Integer workspaceId) {
         String selectedDateKey = toDatabaseDateKey(selectedDate);
         java.sql.Date selectedSqlDate = java.sql.Date.valueOf(selectedDateKey);
 
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan " +
-                        "left join fetch pan.project " +
-                        "left join fetch pan.contact " +
-                        "where pan.workspaceId = :workspaceId " +
-                        "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
-                        "and pan.nextDescription <> '' " +
-                        "and pan.nextActionDate = :selectedDate " +
-                        "and pan.nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) " +
-                        "order by pan.billable desc, pan.priorityLevel DESC, pan.nextChangeDate");
+                "select distinct an from ActionNext an " +
+                        "left join fetch an.project " +
+                        "left join fetch an.contact " +
+                        "where an.workspaceId = :workspaceId " +
+                        "and (an.contactId = :contactId or an.nextContactId = :contactId) " +
+                        "and an.nextDescription <> '' " +
+                        "and an.nextActionDate = :selectedDate " +
+                        "and an.nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) " +
+                        "order by an.billable desc, an.priorityLevel DESC, an.nextChangeDate");
 
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
@@ -196,9 +196,9 @@ public class StudentSchoolServlet extends StudentBaseServlet {
         query.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
 
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
 
-        for (ProjectActionNext action : results) {
+        for (ActionNext action : results) {
             if (action.getProject() == null && action.getProjectId() > 0) {
                 action.setProject((Project) dataSession.get(Project.class, action.getProjectId()));
             }
@@ -225,7 +225,7 @@ public class StudentSchoolServlet extends StudentBaseServlet {
         return intValue((Number) query.uniqueResult());
     }
 
-    private void printActionTable(PrintWriter out, List<ProjectActionNext> actions, Date selectedDate,
+    private void printActionTable(PrintWriter out, List<ActionNext> actions, Date selectedDate,
             WebUser webUser, boolean schoolSection) {
         String dateParam = toUserDateKey(selectedDate, webUser);
 
@@ -238,7 +238,7 @@ public class StudentSchoolServlet extends StudentBaseServlet {
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
 
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             ProjectNextActionStatus status = action.getNextActionStatus();
             boolean isCompleted = status == ProjectNextActionStatus.COMPLETED;
             boolean isCancelled = status == ProjectNextActionStatus.CANCELLED;

@@ -11,11 +11,11 @@ import java.util.Set;
 import org.dandeliondaily.dashboard.service.ActionSentenceImportService;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.openimmunizationsoftware.pt.doa.ProjectActionSetDao;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionSet;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionSet;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ProjectTagMap;
@@ -69,7 +69,7 @@ public class PatchSeedImportService {
                     seedItem.tags, tagLookup, nextTagSortOrder);
             nextTagSortOrder = tagImportResult.nextSortOrder;
 
-            ProjectActionNext nextAction = null;
+            ActionNext nextAction = null;
             if (hasText(seedItem.actionNext)) {
                 nextAction = actionSentenceImportService.buildActionFromSentence(webUser, dataSession, project, null,
                         seedItem.actionNext.trim(), Integer.valueOf(workspaceId));
@@ -79,11 +79,11 @@ public class PatchSeedImportService {
             }
 
             if (hasText(seedItem.actionTaken)) {
-                ProjectActionSet actionSet = nextAction == null ? null : nextAction.getActionSet();
+                ActionSet actionSet = nextAction == null ? null : nextAction.getActionSet();
                 if (actionSet == null) {
-                    actionSet = new ProjectActionSetDao(dataSession).createStandardActionSet(webUser);
+                    actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
                 }
-                ProjectActionTaken actionTaken = new ProjectActionTaken();
+                ActionTaken actionTaken = new ActionTaken();
                 actionTaken.setProject(project);
                 actionTaken.setProjectId(project.getProjectId());
                 actionTaken.setActionDate(new Date());

@@ -16,14 +16,14 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
- * Mobile Todo landing page showing READY ProjectActionNext items.
+ * Mobile Todo landing page showing READY ActionNext items.
  * 
  * @author nathan
  */
@@ -70,8 +70,8 @@ public class TodoServlet extends MobileBaseServlet {
             if (paramAction != null && actionIdStr != null) {
                 try {
                     int actionId = Integer.parseInt(actionIdStr);
-                    ProjectActionNext projectAction = (ProjectActionNext) dataSession.get(
-                            ProjectActionNext.class, actionId);
+                    ActionNext projectAction = (ActionNext) dataSession.get(
+                            ActionNext.class, actionId);
 
                     if (projectAction != null) {
                         if (ACTION_COMPLETE.equals(paramAction)) {
@@ -104,16 +104,16 @@ public class TodoServlet extends MobileBaseServlet {
             // Fetch READY actions for the selected date using UTC-based key for database
             // query
             String selectedDateKeyUtc = toDatabaseDateKey(selectedDate);
-            List<ProjectActionNext> allActions = fetchReadyActions(selectedDateKeyUtc, webUser, dataSession,
+            List<ActionNext> allActions = fetchReadyActions(selectedDateKeyUtc, webUser, dataSession,
                     workspaceId);
 
             // Filter by personal/work
-            List<ProjectActionNext> overdueActions = new ArrayList<>();
-            List<ProjectActionNext> todayActions = new ArrayList<>();
+            List<ActionNext> overdueActions = new ArrayList<>();
+            List<ActionNext> todayActions = new ArrayList<>();
 
             boolean isToday = selectedDateKey.equals(todayDateKey);
 
-            for (ProjectActionNext action : allActions) {
+            for (ActionNext action : allActions) {
                 if (action.isBillable()) {
                     continue;
                 }
@@ -157,12 +157,12 @@ public class TodoServlet extends MobileBaseServlet {
             }
 
             // Organize today's actions into categories
-            List<ProjectActionNext> wakeActions = new ArrayList<>();
-            List<ProjectActionNext> morningActions = new ArrayList<>();
-            List<ProjectActionNext> afternoonActions = new ArrayList<>();
-            List<ProjectActionNext> eveningActions = new ArrayList<>();
+            List<ActionNext> wakeActions = new ArrayList<>();
+            List<ActionNext> morningActions = new ArrayList<>();
+            List<ActionNext> afternoonActions = new ArrayList<>();
+            List<ActionNext> eveningActions = new ArrayList<>();
 
-            for (ProjectActionNext action : todayActions) {
+            for (ActionNext action : todayActions) {
                 TimeSlot ts = action.getTimeSlot();
                 if (ts == TimeSlot.WAKE) {
                     wakeActions.add(action);
@@ -215,22 +215,22 @@ public class TodoServlet extends MobileBaseServlet {
         return TimeTracker.createToday(webUser).getTime();
     }
 
-    private List<ProjectActionNext> fetchReadyActions(String selectedDateKey, WebUser webUser, Session dataSession,
+    private List<ActionNext> fetchReadyActions(String selectedDateKey, WebUser webUser, Session dataSession,
             Integer workspaceId) {
         java.sql.Date selectedSqlDate = java.sql.Date.valueOf(selectedDateKey);
 
         // Fetch all READY actions due on or before selected date.
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan " +
-                        "left join fetch pan.project " +
-                        "left join fetch pan.contact " +
-                        "left join fetch pan.nextProjectContact " +
-                        "where pan.workspaceId = :workspaceId " +
-                        "and (pan.contactId = :contactId or pan.nextContactId = :contactId) " +
-                        "and pan.nextActionStatusString = :status " +
-                        "and pan.nextDescription <> '' " +
-                        "and pan.nextActionDate <= :selectedDate " +
-                        "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextChangeDate, lower(pan.nextDescription)");
+                "select distinct an from ActionNext an " +
+                        "left join fetch an.project " +
+                        "left join fetch an.contact " +
+                        "left join fetch an.nextProjectContact " +
+                        "where an.workspaceId = :workspaceId " +
+                        "and (an.contactId = :contactId or an.nextContactId = :contactId) " +
+                        "and an.nextActionStatusString = :status " +
+                        "and an.nextDescription <> '' " +
+                        "and an.nextActionDate <= :selectedDate " +
+                        "order by an.nextActionDate, an.priorityLevel DESC, an.nextChangeDate, lower(an.nextDescription)");
 
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", webUser.getContactId());
@@ -238,11 +238,11 @@ public class TodoServlet extends MobileBaseServlet {
         query.setParameter("selectedDate", selectedSqlDate);
 
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
 
         // Keep a defensive date-only guard in case DB mapping includes time-of-day.
-        List<ProjectActionNext> filtered = new ArrayList<>();
-        for (ProjectActionNext action : results) {
+        List<ActionNext> filtered = new ArrayList<>();
+        for (ActionNext action : results) {
             String actionDateKey = toDatabaseDateKey(action.getNextActionDate());
             if (actionDateKey != null && actionDateKey.compareTo(selectedDateKey) <= 0) {
                 // Load lazy associations
@@ -296,7 +296,7 @@ public class TodoServlet extends MobileBaseServlet {
         }
     }
 
-    private void printActionList(PrintWriter out, List<ProjectActionNext> actions,
+    private void printActionList(PrintWriter out, List<ActionNext> actions,
             boolean isOverdue, Date selectedDate, WebUser webUser) {
         if (actions.isEmpty()) {
             out.println("<table class=\"boxed-mobile\">");
@@ -309,7 +309,7 @@ public class TodoServlet extends MobileBaseServlet {
         printActionTableContent(out, actions, isOverdue, selectedDate, webUser);
     }
 
-    private void printActionTable(PrintWriter out, String title, List<ProjectActionNext> actions,
+    private void printActionTable(PrintWriter out, String title, List<ActionNext> actions,
             Date selectedDate, WebUser webUser) {
         if (actions.isEmpty()) {
             return; // Don't show header or table if no items
@@ -318,7 +318,7 @@ public class TodoServlet extends MobileBaseServlet {
         printActionTableContent(out, actions, false, selectedDate, webUser);
     }
 
-    private void printActionTableContent(PrintWriter out, List<ProjectActionNext> actions,
+    private void printActionTableContent(PrintWriter out, List<ActionNext> actions,
             boolean isOverdue, Date selectedDate, WebUser webUser) {
 
         String dateParam = selectedDate != null
@@ -330,7 +330,7 @@ public class TodoServlet extends MobileBaseServlet {
         out.println("    <th class=\"boxed\">To Do</th>");
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
             String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
             boolean hasProjectIcon = projectIcon != null && projectIcon.trim().length() > 0;

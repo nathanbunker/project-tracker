@@ -33,6 +33,6 @@
         <property name="workspaceId" type="java.lang.Integer">
             <column name="workspace_id" />
         </property>
-        <many-to-one name="action" column="action_next_id" class="ProjectActionNext"/>
+        <many-to-one name="action" column="action_next_id" class="ActionNext"/>
     </class>
 </hibernate-mapping>

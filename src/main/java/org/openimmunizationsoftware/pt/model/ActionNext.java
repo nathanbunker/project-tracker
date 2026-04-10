@@ -6,7 +6,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-public class ProjectActionNext implements java.io.Serializable {
+public class ActionNext implements java.io.Serializable {
 
     private static final long serialVersionUID = -6591604788851392516L;
 
@@ -16,7 +16,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private Integer workspaceId;
     private ProjectContact contact;
     private Project project;
-    private ProjectActionNext blockedBy;
+    private ActionNext blockedBy;
     private ProjectContact nextProjectContact;
     private String nextActionType;
     private Integer nextTimeEstimate;
@@ -42,7 +42,7 @@ public class ProjectActionNext implements java.io.Serializable {
     private TimeSlot timeSlot;
     private Integer gamePoints;
     private Set<GamePointLedger> gamePointEntries = new HashSet<>();
-    private ProjectActionSet actionSet;
+    private ActionSet actionSet;
 
     public int getActionNextId() {
         return actionNextId;
@@ -98,11 +98,11 @@ public class ProjectActionNext implements java.io.Serializable {
         }
     }
 
-    public ProjectActionNext getBlockedBy() {
+    public ActionNext getBlockedBy() {
         return blockedBy;
     }
 
-    public void setBlockedBy(ProjectActionNext blockedBy) {
+    public void setBlockedBy(ActionNext blockedBy) {
         this.blockedBy = blockedBy;
     }
 
@@ -528,11 +528,11 @@ public class ProjectActionNext implements java.io.Serializable {
         this.gamePointEntries = gamePointEntries;
     }
 
-    public ProjectActionSet getActionSet() {
+    public ActionSet getActionSet() {
         return actionSet;
     }
 
-    public void setActionSet(ProjectActionSet actionSet) {
+    public void setActionSet(ActionSet actionSet) {
         this.actionSet = actionSet;
     }
 

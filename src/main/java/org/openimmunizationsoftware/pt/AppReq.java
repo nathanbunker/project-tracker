@@ -17,7 +17,7 @@ import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.PageMessageSeverity;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
@@ -87,9 +87,9 @@ public class AppReq {
   private AppType appType = AppType.TRACKER;
   private TimeTracker timeTracker = null;
   private Project projectTrackTime = null;
-  private ProjectActionNext actionTrackTime = null;
+  private ActionNext actionTrackTime = null;
   private Project projectSelected = null;
-  private ProjectActionNext projectActionSelected = null;
+  private ActionNext projectActionSelected = null;
   private WebUser webUser = null;
   private Integer activeWorkspaceId = null;
   private String currentRememberMeTokenHash = null;
@@ -98,17 +98,17 @@ public class AppReq {
   private String displaySize = "small";
   private String displayColor = "";
   private Project project = null;
-  private ProjectActionNext completingAction = null;
+  private ActionNext completingAction = null;
   private String action = null;
   private List<Integer> projectIdList = null;
   private List<Project> projectSelectedList = null;
   private List<ProjectContactAssigned> projectContactAssignedList = null;
 
-  public ProjectActionNext getProjectActionSelected() {
+  public ActionNext getProjectActionSelected() {
     return projectActionSelected;
   }
 
-  public ProjectActionNext getCompletingAction() {
+  public ActionNext getCompletingAction() {
     return completingAction;
   }
 
@@ -368,7 +368,7 @@ public class AppReq {
     }
   }
 
-  public void setCompletingAction(ProjectActionNext projectAction) {
+  public void setCompletingAction(ActionNext projectAction) {
     this.completingAction = projectAction;
     if (projectAction == null) {
       webSession.removeAttribute(SESSION_VAR_ACTION);
@@ -521,7 +521,7 @@ public class AppReq {
     this.projectSelected = projectSelected;
   }
 
-  public void setProjectActionSelected(ProjectActionNext projectActionSelected) {
+  public void setProjectActionSelected(ActionNext projectActionSelected) {
     this.projectActionSelected = projectActionSelected;
   }
 
@@ -549,15 +549,15 @@ public class AppReq {
     return null;
   }
 
-  private ProjectActionNext loadProjectActionFromSession(String key) {
-    Integer actionNextId = readProjectActionNextIdFromSession(key);
+  private ActionNext loadProjectActionFromSession(String key) {
+    Integer actionNextId = readActionNextIdFromSession(key);
     if (actionNextId == null) {
       return null;
     }
-    return (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionNextId);
+    return (ActionNext) dataSession.get(ActionNext.class, actionNextId);
   }
 
-  private Integer readProjectActionNextIdFromSession(String key) {
+  private Integer readActionNextIdFromSession(String key) {
     Object value = webSession.getAttribute(key);
     if (value == null) {
       return null;
@@ -565,8 +565,8 @@ public class AppReq {
     if (value instanceof Integer) {
       return (Integer) value;
     }
-    if (value instanceof ProjectActionNext) {
-      ProjectActionNext action = (ProjectActionNext) value;
+    if (value instanceof ActionNext) {
+      ActionNext action = (ActionNext) value;
       webSession.setAttribute(key, action.getActionNextId());
       return action.getActionNextId();
     }

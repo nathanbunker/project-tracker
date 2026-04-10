@@ -17,7 +17,7 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
@@ -37,7 +37,7 @@ public class DashboardNowColumnService {
 
         // Real data wiring starts here: use the same AppReq session-backed selection
         // used by downstream UI handlers without direct servlet coupling.
-        ProjectActionNext currentAction = appReq.getCompletingAction();
+        ActionNext currentAction = appReq.getCompletingAction();
         Project currentProject = appReq.getProject();
         if (currentAction != null && currentAction.getProject() != null) {
             currentProject = currentAction.getProject();
@@ -50,7 +50,7 @@ public class DashboardNowColumnService {
         model.setCurrentProject(createCurrentProjectModel(currentProject));
 
         if (currentProject != null) {
-            List<ProjectActionNext> openActions = loadOpenProjectActions(dataSession, currentProject);
+            List<ActionNext> openActions = loadOpenProjectActions(dataSession, currentProject);
             sortBacklogActions(openActions);
             model.setScheduledActions(buildScheduledItems(webUser, openActions, currentAction));
             model.setIdeaActions(buildIdeaItems(webUser, openActions, currentAction));
@@ -64,7 +64,7 @@ public class DashboardNowColumnService {
     }
 
     private DashboardNowColumnModel.CurrentAction createCurrentActionModel(WebUser webUser, Session dataSession,
-            ProjectActionNext currentAction) {
+            ActionNext currentAction) {
         DashboardNowColumnModel.CurrentAction model = new DashboardNowColumnModel.CurrentAction();
         if (currentAction == null) {
             return model;
@@ -103,9 +103,9 @@ public class DashboardNowColumnService {
     }
 
     private List<DashboardNowColumnModel.ScheduledActionItem> buildScheduledItems(WebUser webUser,
-            List<ProjectActionNext> openActions, ProjectActionNext currentAction) {
+            List<ActionNext> openActions, ActionNext currentAction) {
         List<DashboardNowColumnModel.ScheduledActionItem> items = new ArrayList<>();
-        for (ProjectActionNext action : openActions) {
+        for (ActionNext action : openActions) {
             if (action.getNextActionDate() == null || action.isTemplate()) {
                 continue;
             }
@@ -121,9 +121,9 @@ public class DashboardNowColumnService {
     }
 
     private List<DashboardNowColumnModel.UnscheduledActionItem> buildUnscheduledItems(WebUser webUser,
-            List<ProjectActionNext> openActions, ProjectActionNext currentAction) {
+            List<ActionNext> openActions, ActionNext currentAction) {
         List<DashboardNowColumnModel.UnscheduledActionItem> items = new ArrayList<>();
-        for (ProjectActionNext action : openActions) {
+        for (ActionNext action : openActions) {
             if (action.getNextActionDate() != null || action.isTemplate()
                     || ProjectNextActionType.WOULD_LIKE_TO.equals(action.getNextActionType())) {
                 continue;
@@ -139,9 +139,9 @@ public class DashboardNowColumnService {
     }
 
     private List<DashboardNowColumnModel.UnscheduledActionItem> buildIdeaItems(WebUser webUser,
-            List<ProjectActionNext> openActions, ProjectActionNext currentAction) {
+            List<ActionNext> openActions, ActionNext currentAction) {
         List<DashboardNowColumnModel.UnscheduledActionItem> items = new ArrayList<>();
-        for (ProjectActionNext action : openActions) {
+        for (ActionNext action : openActions) {
             if (action.getNextActionDate() != null || action.isTemplate()
                     || !ProjectNextActionType.WOULD_LIKE_TO.equals(action.getNextActionType())) {
                 continue;
@@ -157,9 +157,9 @@ public class DashboardNowColumnService {
     }
 
     private List<DashboardNowColumnModel.TemplatedActionItem> buildTemplatedItems(WebUser webUser,
-            List<ProjectActionNext> openActions) {
+            List<ActionNext> openActions) {
         List<DashboardNowColumnModel.TemplatedActionItem> items = new ArrayList<>();
-        for (ProjectActionNext action : openActions) {
+        for (ActionNext action : openActions) {
             if (!action.isTemplate()) {
                 continue;
             }
@@ -195,21 +195,21 @@ public class DashboardNowColumnService {
         cutoff.add(Calendar.DAY_OF_MONTH, -COMPLETED_DAYS);
 
         Query query = dataSession.createQuery(
-                "from ProjectActionNext pan "
-                        + "where pan.projectId = :projectId "
-                        + "and pan.nextActionStatusString = :completedStatus "
-                        + "and pan.nextChangeDate >= :cutoff "
-                        + "order by pan.nextChangeDate desc");
+                "from ActionNext an "
+                        + "where an.projectId = :projectId "
+                        + "and an.nextActionStatusString = :completedStatus "
+                        + "and an.nextChangeDate >= :cutoff "
+                        + "order by an.nextChangeDate desc");
         query.setParameter("projectId", currentProject.getProjectId());
         query.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
         query.setParameter("cutoff", cutoff.getTime());
         query.setMaxResults(COMPLETED_LIMIT);
 
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> completedActions = query.list();
+        List<ActionNext> completedActions = query.list();
 
         List<DashboardNowColumnModel.RecentCompletedItem> items = new ArrayList<>();
-        for (ProjectActionNext action : completedActions) {
+        for (ActionNext action : completedActions) {
             DashboardNowColumnModel.RecentCompletedItem item = new DashboardNowColumnModel.RecentCompletedItem();
             item.setActionNextId(action.getActionNextId());
             item.setDateLabel(webUser.getDateFormatService().formatPattern(action.getNextChangeDate(),
@@ -220,26 +220,26 @@ public class DashboardNowColumnService {
         return items;
     }
 
-    private List<ProjectActionNext> loadOpenProjectActions(Session dataSession, Project currentProject) {
+    private List<ActionNext> loadOpenProjectActions(Session dataSession, Project currentProject) {
         Query query = dataSession.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.projectId = :projectId and pan.nextDescription <> '' "
-                        + "and (pan.nextActionStatusString = :readyStatus or pan.nextActionStatusString = :proposedStatus)");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.projectId = :projectId and an.nextDescription <> '' "
+                        + "and (an.nextActionStatusString = :readyStatus or an.nextActionStatusString = :proposedStatus)");
         query.setParameter("projectId", currentProject.getProjectId());
         query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
         query.setParameter("proposedStatus", ProjectNextActionStatus.PROPOSED.getId());
         query.setMaxResults(OPEN_ACTION_LIMIT);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> openProjectActions = query.list();
+        List<ActionNext> openProjectActions = query.list();
         return openProjectActions;
     }
 
-    private void sortBacklogActions(List<ProjectActionNext> openProjectActions) {
-        Collections.sort(openProjectActions, new Comparator<ProjectActionNext>() {
-            public int compare(ProjectActionNext left, ProjectActionNext right) {
+    private void sortBacklogActions(List<ActionNext> openProjectActions) {
+        Collections.sort(openProjectActions, new Comparator<ActionNext>() {
+            public int compare(ActionNext left, ActionNext right) {
                 Date leftDate = left.getNextActionDate();
                 Date rightDate = right.getNextActionDate();
                 if (leftDate == null && rightDate != null) {
@@ -271,7 +271,7 @@ public class DashboardNowColumnService {
         });
     }
 
-    private String loadTodayTimeSpentDisplay(WebUser webUser, Session dataSession, ProjectActionNext currentAction) {
+    private String loadTodayTimeSpentDisplay(WebUser webUser, Session dataSession, ActionNext currentAction) {
         Query query = dataSession.createQuery(
                 "select sum(billMins) from BillEntry where action.actionNextId = :actionNextId "
                         + "and startTime >= :today and startTime < :tomorrow");
@@ -289,10 +289,10 @@ public class DashboardNowColumnService {
         if (billMinsList.size() > 0 && billMinsList.get(0) != null) {
             billMins = billMinsList.get(0).intValue();
         }
-        return ProjectActionNext.getTimeForDisplay(billMins);
+        return ActionNext.getTimeForDisplay(billMins);
     }
 
-    private String resolveStatusLabel(ProjectActionNext projectAction) {
+    private String resolveStatusLabel(ActionNext projectAction) {
         if (projectAction.getNextActionStatus() != null) {
             return projectAction.getNextActionStatus().getLabel();
         }

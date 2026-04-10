@@ -13,8 +13,8 @@ import java.util.Set;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
@@ -145,16 +145,16 @@ public class ProjectNarrativeDao {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
         Query query = session.createQuery(
-                "from ProjectActionTaken where projectId = :projectId and actionDate >= :start and actionDate < :end "
+                "from ActionTaken where projectId = :projectId and actionDate >= :start and actionDate < :end "
                         + "and actionDescription is not null and actionDescription <> '' "
                         + "order by actionDate asc");
         query.setLong("projectId", projectId);
         query.setTimestamp("start", start);
         query.setTimestamp("end", end);
         @SuppressWarnings("unchecked")
-        List<ProjectActionTaken> actions = query.list();
+        List<ActionTaken> actions = query.list();
         List<Action> results = new ArrayList<Action>();
-        for (ProjectActionTaken action : actions) {
+        for (ActionTaken action : actions) {
             results.add(new Action(
                     action.getActionTakenId(),
                     action.getActionDescription(),
@@ -168,7 +168,7 @@ public class ProjectNarrativeDao {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
         Query query = session.createQuery(
-                "from ProjectActionNext where projectId = :projectId and nextActionStatusString = :status "
+                "from ActionNext where projectId = :projectId and nextActionStatusString = :status "
                         + "and nextChangeDate >= :start and nextChangeDate < :end "
                         + "and nextTimeActual > 0 "
                         + "order by nextChangeDate asc");
@@ -177,9 +177,9 @@ public class ProjectNarrativeDao {
         query.setTimestamp("start", start);
         query.setTimestamp("end", end);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> rows = query.list();
+        List<ActionNext> rows = query.list();
         List<ActionWithMinutes> results = new ArrayList<ActionWithMinutes>();
-        for (ProjectActionNext action : rows) {
+        for (ActionNext action : rows) {
             if (action == null || action.getNextTimeActual() == null || action.getNextTimeActual() <= 0) {
                 continue;
             }
@@ -196,7 +196,7 @@ public class ProjectNarrativeDao {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
         Query actionsQuery = session.createQuery(
-                "from ProjectActionNext where projectId = :projectId and nextActionStatusString = :status "
+                "from ActionNext where projectId = :projectId and nextActionStatusString = :status "
                         + "and nextChangeDate >= :start and nextChangeDate < :end "
                         + "and (nextTimeActual is null or nextTimeActual = 0) "
                         + "order by nextChangeDate asc");
@@ -205,10 +205,10 @@ public class ProjectNarrativeDao {
         actionsQuery.setTimestamp("start", start);
         actionsQuery.setTimestamp("end", end);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> actions = actionsQuery.list();
+        List<ActionNext> actions = actionsQuery.list();
 
         List<Action> results = new ArrayList<Action>();
-        for (ProjectActionNext action : actions) {
+        for (ActionNext action : actions) {
             results.add(new Action(
                     action.getActionNextId(),
                     action.getNextDescription(),

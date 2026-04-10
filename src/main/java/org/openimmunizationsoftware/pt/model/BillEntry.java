@@ -20,13 +20,13 @@ public class BillEntry implements java.io.Serializable {
   private String billable;
   private String billCode;
   private Integer workspaceId;
-  private ProjectActionNext action = null;
+  private ActionNext action = null;
 
-  public ProjectActionNext getAction() {
+  public ActionNext getAction() {
     return action;
   }
 
-  public void setAction(ProjectActionNext action) {
+  public void setAction(ActionNext action) {
     this.action = action;
   }
 

@@ -8,7 +8,7 @@ public class GamePointLedger implements java.io.Serializable {
 
     private Integer gamePointLedgerId;
     private ProjectContact contact;
-    private ProjectActionNext projectActionNext;
+    private ActionNext projectActionNext;
     private StudentOffer studentOffer;
     private Integer pointChange;
     private String entryType;
@@ -32,11 +32,11 @@ public class GamePointLedger implements java.io.Serializable {
         this.contact = contact;
     }
 
-    public ProjectActionNext getProjectActionNext() {
+    public ActionNext getActionNext() {
         return projectActionNext;
     }
 
-    public void setProjectActionNext(ProjectActionNext projectActionNext) {
+    public void setActionNext(ActionNext projectActionNext) {
         this.projectActionNext = projectActionNext;
     }
 

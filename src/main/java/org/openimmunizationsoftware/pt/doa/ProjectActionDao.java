@@ -8,13 +8,13 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
-import org.openimmunizationsoftware.pt.model.ProjectActionTaken;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 /**
- * Data Access Object for ProjectActionNext and ProjectActionTaken.
+ * Data Access Object for ActionNext and ActionTaken.
  *
  * This centralizes common queries and persistence operations so servlets
  * and resources do not scatter raw HQL/Session usage.
@@ -31,94 +31,94 @@ public class ProjectActionDao {
         this.session = session;
     }
 
-    public List<ProjectActionNext> listNextActionsForProject(int workspaceId, int projectId) {
+    public List<ActionNext> listNextActionsForProject(int workspaceId, int projectId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.workspaceId = :workspaceId order by pan.priorityLevel desc, pan.nextActionDate");
+                "from ActionNext an where an.projectId = :projectId and an.workspaceId = :workspaceId order by an.priorityLevel desc, an.nextActionDate");
         query.setInteger("projectId", projectId);
         query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> listReadyNextActionsForContact(int workspaceId, int contactId) {
+    public List<ActionNext> listReadyNextActionsForContact(int workspaceId, int contactId) {
         Query query = session.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "left join fetch pan.contact "
-                        + "left join fetch pan.nextProjectContact "
-                        + "where pan.workspaceId = :workspaceId "
-                        + "and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.nextDescription <> '' "
-                        + "and pan.nextActionStatusString = :nextActionStatus "
-                        + "order by pan.nextActionDate, pan.priorityLevel DESC, pan.nextTimeEstimate, pan.nextChangeDate");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.workspaceId = :workspaceId "
+                        + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionStatusString = :nextActionStatus "
+                        + "order by an.nextActionDate, an.priorityLevel DESC, an.nextTimeEstimate, an.nextChangeDate");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", contactId);
         query.setParameter("nextContactId", contactId);
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> listNextActionsForProjectAndContact(int workspaceId, int projectId,
+    public List<ActionNext> listNextActionsForProjectAndContact(int workspaceId, int projectId,
             int contactId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.contactId = :contactId and pan.workspaceId = :workspaceId order by pan.nextActionDate");
+                "from ActionNext an where an.projectId = :projectId and an.contactId = :contactId and an.workspaceId = :workspaceId order by an.nextActionDate");
         query.setInteger("projectId", projectId);
         query.setInteger("contactId", contactId);
         query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> listTemplateActions(int workspaceId, int projectId) {
+    public List<ActionNext> listTemplateActions(int workspaceId, int projectId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.workspaceId = :workspaceId and pan.nextDescription <> '' order by pan.priorityLevel desc");
+                "from ActionNext an where an.projectId = :projectId and an.workspaceId = :workspaceId and an.nextDescription <> '' order by an.priorityLevel desc");
         query.setInteger("projectId", projectId);
         query.setInteger("workspaceId", workspaceId);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
-    public ProjectActionNext getNextActionById(int workspaceId, int projectId, int actionNextId) {
+    public ActionNext getNextActionById(int workspaceId, int projectId, int actionNextId) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.actionNextId = :actionNextId and pan.projectId = :projectId and pan.workspaceId = :workspaceId");
+                "from ActionNext an where an.actionNextId = :actionNextId and an.projectId = :projectId and an.workspaceId = :workspaceId");
         query.setInteger("actionNextId", actionNextId);
         query.setInteger("projectId", projectId);
         query.setInteger("workspaceId", workspaceId);
-        return (ProjectActionNext) query.uniqueResult();
+        return (ActionNext) query.uniqueResult();
     }
 
-    public ProjectActionNext getNextActionById(int actionNextId) {
-        return (ProjectActionNext) session.get(ProjectActionNext.class, actionNextId);
+    public ActionNext getNextActionById(int actionNextId) {
+        return (ActionNext) session.get(ActionNext.class, actionNextId);
     }
 
-    public ProjectActionTaken getTakenActionById(int actionTakenId) {
-        return (ProjectActionTaken) session.get(ProjectActionTaken.class, actionTakenId);
+    public ActionTaken getTakenActionById(int actionTakenId) {
+        return (ActionTaken) session.get(ActionTaken.class, actionTakenId);
     }
 
-    public ProjectActionNext saveNextAction(ProjectActionNext action) {
+    public ActionNext saveNextAction(ActionNext action) {
         validateNextActionStatus(action);
         action.setBillable(resolveBillable(action));
         session.save(action);
         return action;
     }
 
-    public ProjectActionTaken saveTakenAction(ProjectActionTaken action) {
+    public ActionTaken saveTakenAction(ActionTaken action) {
         session.save(action);
         return action;
     }
 
-    public void updateNextAction(ProjectActionNext action) {
+    public void updateNextAction(ActionNext action) {
         validateNextActionStatus(action);
         action.setBillable(resolveBillable(action));
         session.update(action);
     }
 
-    private boolean resolveBillable(ProjectActionNext action) {
+    private boolean resolveBillable(ActionNext action) {
         if (action == null) {
             return false;
         }
@@ -133,86 +133,86 @@ public class ProjectActionDao {
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
     }
 
-    private void validateNextActionStatus(ProjectActionNext action) {
+    private void validateNextActionStatus(ActionNext action) {
         if (action == null) {
-            throw new IllegalStateException("ProjectActionNext is required.");
+            throw new IllegalStateException("ActionNext is required.");
         }
         if (action.getNextActionStatus() == null) {
-            throw new IllegalStateException("ProjectActionNext status must be set.");
+            throw new IllegalStateException("ActionNext status must be set.");
         }
     }
 
-    public void updateTakenAction(ProjectActionTaken action) {
+    public void updateTakenAction(ActionTaken action) {
         session.update(action);
     }
 
-    public void deleteNextAction(ProjectActionNext action) {
+    public void deleteNextAction(ActionNext action) {
         session.delete(action);
     }
 
-    public void deleteTakenAction(ProjectActionTaken action) {
+    public void deleteTakenAction(ActionTaken action) {
         session.delete(action);
     }
 
-    public List<ProjectActionTaken> listTakenActionsForProject(int projectId) {
+    public List<ActionTaken> listTakenActionsForProject(int projectId) {
         Query query = session.createQuery(
-                "from ProjectActionTaken pat where pat.projectId = :projectId order by pat.actionDate desc");
+                "from ActionTaken atk where atk.projectId = :projectId order by atk.actionDate desc");
         query.setInteger("projectId", projectId);
         @SuppressWarnings("unchecked")
-        List<ProjectActionTaken> results = query.list();
+        List<ActionTaken> results = query.list();
         return results;
     }
 
-    public List<ProjectActionTaken> listTakenActionsForProjectAndContact(int projectId, int contactId) {
+    public List<ActionTaken> listTakenActionsForProjectAndContact(int projectId, int contactId) {
         Query query = session.createQuery(
-                "from ProjectActionTaken pat where pat.projectId = :projectId and pat.contactId = :contactId "
-                        + "order by pat.actionDate desc");
+                "from ActionTaken atk where atk.projectId = :projectId and atk.contactId = :contactId "
+                        + "order by atk.actionDate desc");
         query.setInteger("projectId", projectId);
         query.setInteger("contactId", contactId);
         @SuppressWarnings("unchecked")
-        List<ProjectActionTaken> results = query.list();
+        List<ActionTaken> results = query.list();
         return results;
     }
 
     public boolean hasTakenActionsForProjectSince(int projectId, Date sinceDate) {
         Query query = session.createQuery(
-                "select count(pat.actionTakenId) from ProjectActionTaken pat where pat.projectId = :projectId and pat.actionDate >= :sinceDate");
+                "select count(atk.actionTakenId) from ActionTaken atk where atk.projectId = :projectId and atk.actionDate >= :sinceDate");
         query.setInteger("projectId", projectId);
         query.setTimestamp("sinceDate", sinceDate);
         Long count = (Long) query.uniqueResult();
         return count != null && count.longValue() > 0;
     }
 
-    public List<ProjectActionNext> listGoalActions() {
+    public List<ActionNext> listGoalActions() {
         Query query = session.createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "where pan.nextDescription <> '' "
-                        + "and pan.nextActionType = :nextActionType "
-                        + "order by pan.priorityLevel desc, pan.projectId, pan.nextActionDate asc");
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "where an.nextDescription <> '' "
+                        + "and an.nextActionType = :nextActionType "
+                        + "order by an.priorityLevel desc, an.projectId, an.nextActionDate asc");
         query.setString("nextActionType", org.openimmunizationsoftware.pt.model.ProjectNextActionType.GOAL);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> findNextActionsByTemplate(int templateActionNextId) {
+    public List<ActionNext> findNextActionsByTemplate(int templateActionNextId) {
         Query query = session
-                .createQuery("from ProjectActionNext pan where pan.templateActionNextId = :templateActionNextId");
+                .createQuery("from ActionNext an where an.templateActionNextId = :templateActionNextId");
         query.setInteger("templateActionNextId", templateActionNextId);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 
-    public List<ProjectActionNext> findNextActionsDueBetween(int projectId, Date start, Date end) {
+    public List<ActionNext> findNextActionsDueBetween(int projectId, Date start, Date end) {
         Query query = session.createQuery(
-                "from ProjectActionNext pan where pan.projectId = :projectId and pan.nextActionDate between :start and :end order by pan.nextActionDate");
+                "from ActionNext an where an.projectId = :projectId and an.nextActionDate between :start and :end order by an.nextActionDate");
         query.setInteger("projectId", projectId);
         query.setDate("start", start);
         query.setDate("end", end);
         @SuppressWarnings("unchecked")
-        List<ProjectActionNext> results = query.list();
+        List<ActionNext> results = query.list();
         return results;
     }
 

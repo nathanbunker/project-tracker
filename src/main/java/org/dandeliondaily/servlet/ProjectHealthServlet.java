@@ -17,7 +17,7 @@ import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.render.ProjectHealthPageRenderer;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
-import org.openimmunizationsoftware.pt.model.ProjectActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.projecthealth.service.ProjectPatchLinkService;
@@ -280,9 +280,9 @@ public class ProjectHealthServlet extends ClientServlet {
 
     private void handleLoadUnscheduledReviewData(AppReq appReq) throws Exception {
         try {
-            List<ProjectActionNext> actions = pageService.loadUnscheduledReviewActions(appReq);
+            List<ActionNext> actions = pageService.loadUnscheduledReviewActions(appReq);
             Map<Integer, Map<String, Object>> grouped = new LinkedHashMap<Integer, Map<String, Object>>();
-            for (ProjectActionNext action : actions) {
+            for (ActionNext action : actions) {
                 if (action.getProject() == null) {
                     continue;
                 }
