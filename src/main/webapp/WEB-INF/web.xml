@@ -21,6 +21,10 @@
     <servlet-class>org.dandeliondaily.servlet.DandelionDashboardServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ProjectDashboardServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.ProjectDashboardServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>FocusedActionServlet</servlet-name>
     <servlet-class>org.dandeliondaily.servlet.FocusedActionServlet</servlet-class>
   </servlet>
@@ -250,7 +254,7 @@
     <url-pattern>/DandelionDashboardServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>DandelionDashboardServlet</servlet-name>
+    <servlet-name>ProjectDashboardServlet</servlet-name>
     <url-pattern>/ProjectDashboardServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>

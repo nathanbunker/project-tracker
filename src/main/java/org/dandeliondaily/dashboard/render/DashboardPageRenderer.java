@@ -10,6 +10,8 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
+import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
+import org.dandeliondaily.dashboard.model.ProjectDashboardChatState;
 import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeState;
@@ -51,7 +53,7 @@ public class DashboardPageRenderer {
                         TimeGaugeModel nowGaugeModel,
                         TimeGaugeModel todayGaugeModel) {
                 render(appReq, nowColumnModel, todayColumnModel, nextColumnModel, nowGaugeModel, todayGaugeModel,
-                                DashboardLayoutMode.DEFAULT, "DandelionDashboardServlet");
+                                DashboardLayoutMode.DEFAULT, "DandelionDashboardServlet", null, "");
         }
 
         public void render(AppReq appReq, DashboardNowColumnModel nowColumnModel,
@@ -60,7 +62,9 @@ public class DashboardPageRenderer {
                         TimeGaugeModel nowGaugeModel,
                         TimeGaugeModel todayGaugeModel,
                         DashboardLayoutMode layoutMode,
-                        String dashboardPath) {
+                        String dashboardPath,
+                        ProjectDashboardChatState chatState,
+                        String chatWarningMessage) {
                 PrintWriter out = appReq.getOut();
                 this.layoutMode = layoutMode == null ? DashboardLayoutMode.DEFAULT : layoutMode;
                 this.dashboardPath = (dashboardPath == null || dashboardPath.trim().length() == 0)
@@ -173,7 +177,7 @@ public class DashboardPageRenderer {
                 out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-next\">");
                 out.println("        <!-- Real data wiring starts here for the dashboard next column. -->");
                 if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
-                        printProjectExpandedRightColumn(out);
+                        printProjectExpandedRightColumn(out, chatState, chatWarningMessage);
                 } else {
                         printNextColumn(out, nextColumnModel);
                 }
@@ -1050,6 +1054,25 @@ public class DashboardPageRenderer {
                 out.println("  .dd-task-detail-label { font-weight: bold; color: #2d3a2d; }");
                 out.println("  .dd-task-detail-value { color: #3e3a33; white-space: pre-wrap; word-break: break-word; }");
                 out.println("  .dd-task-detail-empty { color: #8a8174; }");
+                out.println("  .dd-chat-warning { margin: 8px 0 10px 0; padding: 8px 10px; background: #fff2e2; border: 1px solid #e5c18f; border-radius: 4px; color: #6f4b1d; }");
+                out.println("  .dd-chat-quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }");
+                out.println("  .dd-chat-chip { border: 1px solid #cfbea6; background: #f4ede0; border-radius: 14px; padding: 4px 10px; cursor: pointer; color: #2d3a2d; font-size: 12px; }");
+                out.println("  .dd-chat-chip:hover { background: #ebe1d0; }");
+                out.println("  .dd-chat-history { max-height: 320px; overflow-y: auto; border: 1px solid #ddd0bd; background: #fffdf9; border-radius: 4px; padding: 8px; }");
+                out.println("  .dd-chat-message { margin-bottom: 8px; padding: 7px 8px; border-radius: 4px; }");
+                out.println("  .dd-chat-user { background: #e8efe6; border: 1px solid #c5d5c2; }");
+                out.println("  .dd-chat-assistant { background: #f7f1e6; border: 1px solid #d8ccb8; }");
+                out.println("  .dd-chat-role { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #576555; margin-bottom: 3px; }");
+                out.println("  .dd-chat-text { color: #2d3a2d; line-height: 1.35; }");
+                out.println("  .dd-chat-send { margin-top: 10px; }");
+                out.println("  .dd-chat-send-row { margin-top: 8px; }");
+                out.println("  .dd-chat-suggestions { margin-top: 12px; border-top: 1px solid #ddd0bd; padding-top: 10px; }");
+                out.println("  .dd-chat-suggestion-card { margin-bottom: 10px; background: #faf6ef; border: 1px solid #d8ccb8; border-radius: 4px; padding: 8px; }");
+                out.println("  .dd-chat-suggestion-title { font-weight: bold; margin-bottom: 4px; color: #2d3a2d; }");
+                out.println("  .dd-chat-suggestion-text { white-space: normal; color: #3b3a36; margin-bottom: 8px; }");
+                out.println("  .dd-chat-follow-up { margin: 8px 0 10px 0; color: #3b3a36; }");
+                out.println("  .dd-chat-follow-up ul { margin: 6px 0 0 18px; padding: 0; }");
+                out.println("  .dd-chat-apply-row { margin-top: 10px; }");
                 // Future: inline variant can be reused in planning rows/future-day summaries.
                 // Future: stacked or inline gauges can be reused for selected future day
                 // column.
@@ -1098,11 +1121,93 @@ public class DashboardPageRenderer {
                 }
         }
 
-        private void printProjectExpandedRightColumn(PrintWriter out) {
+        private void printProjectExpandedRightColumn(PrintWriter out, ProjectDashboardChatState chatState,
+                        String chatWarningMessage) {
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
-                printDevLabel(out, "PROJECT EXPANDED PLACEHOLDER");
-                out.println("  <p class=\"dd-subtle\">&nbsp;</p>");
+                printDevLabel(out, "PROJECT CHAT");
+                out.println("  <h3 class=\"dd-backlog-section-title\">Project Review Assistant</h3>");
+                if (chatWarningMessage != null && chatWarningMessage.trim().length() > 0) {
+                        out.println("  <p class=\"dd-chat-warning\">" + escapeHtml(chatWarningMessage) + "</p>");
+                }
+
+                out.println("  <form method=\"POST\" action=\"" + dashboardPath
+                                + "\" class=\"dd-chat-quick-prompts\">");
+                out.println("    <input type=\"hidden\" name=\"action\" value=\"projectChatQuickPrompt\" />");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Summarize this project from current context and recent work.\" class=\"dd-chat-chip\">Summarize Project</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite the project description to be clearer and more outcome oriented.\" class=\"dd-chat-chip\">Improve Description</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Propose a sharper outcome statement with measurable completion criteria.\" class=\"dd-chat-chip\">Clarify Outcome</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite success criteria as concise checklist bullets.\" class=\"dd-chat-chip\">Clarify Success Criteria</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Identify what is missing or ambiguous in this project definition.\" class=\"dd-chat-chip\">What Is Missing?</button>");
+                out.println("  </form>");
+
+                out.println("  <div class=\"dd-chat-history\">");
+                if (chatState == null || chatState.getMessages().isEmpty()) {
+                        out.println("    <p class=\"dd-subtle\">Ask the assistant to review this project and suggest clearer direction.</p>");
+                } else {
+                        for (ProjectDashboardChatMessage message : chatState.getMessages()) {
+                                String messageClass = message.isUser() ? "dd-chat-user" : "dd-chat-assistant";
+                                out.println("    <div class=\"dd-chat-message " + messageClass + "\">");
+                                out.println("      <div class=\"dd-chat-role\">"
+                                                + escapeHtml(message.isUser() ? "You" : "Assistant") + "</div>");
+                                out.println("      <div class=\"dd-chat-text\">"
+                                                + escapeHtml(message.getText()).replace("\n", "<br/>") + "</div>");
+                                out.println("    </div>");
+                        }
+                }
+                out.println("  </div>");
+
+                out.println("  <form method=\"POST\" action=\"" + dashboardPath + "\" class=\"dd-chat-send\">");
+                out.println("    <input type=\"hidden\" name=\"action\" value=\"projectChatSend\" />");
+                out.println("    <textarea name=\"chatPrompt\" rows=\"4\" class=\"dd-form-textarea\" placeholder=\"Ask about scope, clarity, outcomes, or success criteria...\"></textarea>");
+                out.println("    <div class=\"dd-chat-send-row\"><button type=\"submit\" class=\"dd-btn dd-btn-primary\">Send</button></div>");
+                out.println("  </form>");
+
+                out.println("  <div class=\"dd-chat-suggestions\">");
+                out.println("    <h4 class=\"dd-backlog-section-title\">Suggested Updates</h4>");
+                if (chatState == null || !chatState.hasSuggestions()) {
+                        out.println("    <p class=\"dd-subtle\">No field suggestions yet. Ask the assistant to improve project text.</p>");
+                } else {
+                        printSuggestionCard(out, "Description", chatState.getProposedDescription(),
+                                        "projectChatApplyDescription");
+                        printSuggestionCard(out, "Outcome", chatState.getProposedOutcome(),
+                                        "projectChatApplyOutcome");
+                        printSuggestionCard(out, "Success Criteria", chatState.getProposedSuccessCriteria(),
+                                        "projectChatApplySuccessCriteria");
+
+                        if (chatState.getFollowUpQuestions() != null && !chatState.getFollowUpQuestions().isEmpty()) {
+                                out.println("    <div class=\"dd-chat-follow-up\">\n      <strong>Follow-up questions:</strong><ul>");
+                                for (String question : chatState.getFollowUpQuestions()) {
+                                        out.println("      <li>" + escapeHtml(question) + "</li>");
+                                }
+                                out.println("      </ul>\n    </div>");
+                        }
+
+                        out.println("    <div class=\"dd-chat-apply-row\">");
+                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                        + "\" style=\"display:inline-block;\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatApplyAll\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-primary\">Apply All</button>\n      </form>");
+                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                        + "\" style=\"display:inline-block; margin-left:8px;\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatDismissSuggestions\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Dismiss Suggestions</button>\n      </form>");
+                        out.println("    </div>");
+                }
+                out.println("  </div>");
                 out.println("</div>");
+        }
+
+        private void printSuggestionCard(PrintWriter out, String title, String text, String applyAction) {
+                if (text == null || text.trim().length() == 0) {
+                        return;
+                }
+                out.println("    <div class=\"dd-chat-suggestion-card\">");
+                out.println("      <div class=\"dd-chat-suggestion-title\">" + escapeHtml(title) + "</div>");
+                out.println("      <div class=\"dd-chat-suggestion-text\">" + escapeHtml(text).replace("\n", "<br/>")
+                                + "</div>");
+                out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                + "\">\n        <input type=\"hidden\" name=\"action\" value=\""
+                                + applyAction
+                                + "\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Apply "
+                                + escapeHtml(title)
+                                + "</button>\n      </form>");
+                out.println("    </div>");
         }
 
         private void printNowCurrentActionPanel(PrintWriter out, DashboardNowColumnModel nowColumnModel) {

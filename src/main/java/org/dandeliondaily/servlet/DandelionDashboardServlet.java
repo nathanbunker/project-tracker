@@ -22,6 +22,8 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
+import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
+import org.dandeliondaily.dashboard.model.ProjectDashboardChatState;
 import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.render.DashboardPageRenderer.DashboardLayoutMode;
@@ -32,6 +34,7 @@ import org.dandeliondaily.dashboard.service.DashboardNowColumnService;
 import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.dandeliondaily.dashboard.service.ProjectDashboardAiContextService;
 import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
@@ -50,6 +53,8 @@ import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
+import org.openimmunizationsoftware.pt.manager.ProjectReviewChatResponse;
+import org.openimmunizationsoftware.pt.manager.ProjectReviewChatService;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
@@ -67,6 +72,17 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
     private final ProjectHealthPageService projectHealthPageService = new ProjectHealthPageService();
+    private final ProjectDashboardAiContextService projectDashboardAiContextService = new ProjectDashboardAiContextService();
+    private ProjectReviewChatService projectReviewChatService;
+
+    private static final String ACTION_PROJECT_CHAT_SEND = "projectChatSend";
+    private static final String ACTION_PROJECT_CHAT_QUICK_PROMPT = "projectChatQuickPrompt";
+    private static final String ACTION_PROJECT_CHAT_APPLY_DESCRIPTION = "projectChatApplyDescription";
+    private static final String ACTION_PROJECT_CHAT_APPLY_OUTCOME = "projectChatApplyOutcome";
+    private static final String ACTION_PROJECT_CHAT_APPLY_SUCCESS_CRITERIA = "projectChatApplySuccessCriteria";
+    private static final String ACTION_PROJECT_CHAT_APPLY_ALL = "projectChatApplyAll";
+    private static final String ACTION_PROJECT_CHAT_DISMISS = "projectChatDismissSuggestions";
+    private static final int MAX_PROJECT_CHAT_MESSAGES = 24;
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -78,6 +94,11 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             String action = request.getParameter("action");
+            String dashboardPath = resolveDashboardPath(request);
+            boolean projectExpandedLayout = "ProjectDashboardServlet".equals(dashboardPath);
+            if (projectExpandedLayout) {
+                applyProjectOverride(appReq);
+            }
 
             // Handle AJAX requests for today column modals
             if ("loadActionData".equals(action)) {
@@ -141,21 +162,32 @@ public class DandelionDashboardServlet extends ClientServlet {
                 handleStartTimer(appReq);
             }
 
+            if (projectExpandedLayout) {
+                if (ACTION_PROJECT_CHAT_SEND.equals(action) || ACTION_PROJECT_CHAT_QUICK_PROMPT.equals(action)) {
+                    handleProjectChatSend(appReq, action);
+                } else if (ACTION_PROJECT_CHAT_APPLY_DESCRIPTION.equals(action)) {
+                    handleProjectChatApplyDescription(appReq);
+                } else if (ACTION_PROJECT_CHAT_APPLY_OUTCOME.equals(action)) {
+                    handleProjectChatApplyOutcome(appReq);
+                } else if (ACTION_PROJECT_CHAT_APPLY_SUCCESS_CRITERIA.equals(action)) {
+                    handleProjectChatApplySuccessCriteria(appReq);
+                } else if (ACTION_PROJECT_CHAT_APPLY_ALL.equals(action)) {
+                    handleProjectChatApplyAll(appReq);
+                } else if (ACTION_PROJECT_CHAT_DISMISS.equals(action)) {
+                    handleProjectChatDismiss(appReq);
+                }
+            }
+
             dashboardCurrentActionService.handleSelectAction(appReq);
             dashboardCurrentActionService.handleCurrentActionWork(appReq);
             dashboardTodayColumnService.handleQuickCapture(appReq);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
-            String dashboardPath = resolveDashboardPath(request);
-            boolean projectExpandedLayout = "ProjectDashboardServlet".equals(dashboardPath);
-            if (projectExpandedLayout) {
-                applyProjectOverride(appReq);
-            }
-
             appReq.setTitle(projectExpandedLayout ? "Project Dashboard" : "Dandelion Dashboard");
             DashboardNowColumnModel nowColumnModel = dashboardNowColumnService.buildModel(appReq);
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
             todayColumnModel.getQuickCapture().setFormAction(dashboardPath);
+            ProjectDashboardChatState chatState = projectExpandedLayout ? getProjectDashboardChatState(appReq) : null;
             TimeGaugeModel nowGaugeModel = dashboardTimeGaugeService.buildNowGauge(appReq);
             int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
                     appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
@@ -168,7 +200,11 @@ public class DandelionDashboardServlet extends ClientServlet {
             dashboardPageRenderer.render(appReq, nowColumnModel, todayColumnModel, nextColumnModel,
                     nowGaugeModel, todayGaugeModel,
                     projectExpandedLayout ? DashboardLayoutMode.PROJECT_EXPANDED : DashboardLayoutMode.DEFAULT,
-                    dashboardPath);
+                    dashboardPath,
+                    chatState,
+                    projectExpandedLayout && !ProjectReviewChatService.isConfigured()
+                            ? ProjectReviewChatService.getMissingConfigurationMessage()
+                            : "");
             printHtmlFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();
@@ -255,6 +291,184 @@ public class DandelionDashboardServlet extends ClientServlet {
         }
         appReq.setProject(project);
         appReq.setProjectSelected(project);
+    }
+
+    private void handleProjectChatSend(AppReq appReq, String action) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project to use chat.");
+            return;
+        }
+        if (!ProjectReviewChatService.isConfigured()) {
+            appReq.addWarningMessage(ProjectReviewChatService.getMissingConfigurationMessage());
+            return;
+        }
+
+        String prompt = ACTION_PROJECT_CHAT_QUICK_PROMPT.equals(action)
+                ? n(appReq.getRequest().getParameter("quickPrompt")).trim()
+                : n(appReq.getRequest().getParameter("chatPrompt")).trim();
+        if (prompt.length() == 0) {
+            appReq.addWarningMessage("Enter a prompt before sending.");
+            return;
+        }
+
+        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
+        chatState.getMessages().add(new ProjectDashboardChatMessage("user", prompt));
+
+        try {
+            String contextText = projectDashboardAiContextService.buildContextText(appReq, project);
+            ProjectReviewChatResponse aiResponse = getProjectReviewChatService().chat(chatState.getMessages(), prompt,
+                    contextText);
+            String assistantText = n(aiResponse.getAssistantMessage()).trim();
+            if (assistantText.length() == 0) {
+                assistantText = "I don't have a response yet. Please try again.";
+            }
+            chatState.getMessages().add(new ProjectDashboardChatMessage("assistant", assistantText));
+            trimProjectChatMessages(chatState);
+
+            chatState.setProposedDescription(n(aiResponse.getProposedDescription()).trim());
+            chatState.setProposedOutcome(n(aiResponse.getProposedOutcome()).trim());
+            chatState.setProposedSuccessCriteria(n(aiResponse.getProposedSuccessCriteria()).trim());
+            chatState.setFollowUpQuestions(aiResponse.getFollowUpQuestions() == null
+                    ? new ArrayList<String>()
+                    : aiResponse.getFollowUpQuestions());
+        } catch (Exception e) {
+            chatState.getMessages().add(new ProjectDashboardChatMessage("assistant",
+                    "I ran into an error while generating a response. Please try again."));
+            trimProjectChatMessages(chatState);
+            appReq.addErrorMessage("Project chat request failed.");
+        }
+    }
+
+    private void handleProjectChatApplyDescription(AppReq appReq) {
+        applyProjectChatSuggestions(appReq, true, false, false);
+    }
+
+    private void handleProjectChatApplyOutcome(AppReq appReq) {
+        applyProjectChatSuggestions(appReq, false, true, false);
+    }
+
+    private void handleProjectChatApplySuccessCriteria(AppReq appReq) {
+        applyProjectChatSuggestions(appReq, false, false, true);
+    }
+
+    private void handleProjectChatApplyAll(AppReq appReq) {
+        applyProjectChatSuggestions(appReq, true, true, true);
+    }
+
+    private void handleProjectChatDismiss(AppReq appReq) {
+        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
+        chatState.clearSuggestions();
+        appReq.addSuccessMessage("AI suggestions dismissed.");
+    }
+
+    private void applyProjectChatSuggestions(AppReq appReq, boolean applyDescription, boolean applyOutcome,
+            boolean applySuccessCriteria) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project before applying AI suggestions.");
+            return;
+        }
+
+        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
+        boolean hasDescription = ProjectDashboardChatState.isNonEmpty(chatState.getProposedDescription());
+        boolean hasOutcome = ProjectDashboardChatState.isNonEmpty(chatState.getProposedOutcome());
+        boolean hasSuccessCriteria = ProjectDashboardChatState.isNonEmpty(chatState.getProposedSuccessCriteria());
+
+        if ((applyDescription && !hasDescription)
+                && (applyOutcome && !hasOutcome)
+                && (applySuccessCriteria && !hasSuccessCriteria)) {
+            appReq.addWarningMessage("No AI suggestions are available to apply.");
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        if (webUser == null || project.getWorkspaceId() == null
+                || !WorkspaceRegistry.canAdministerWorkspace(dataSession, project.getWorkspaceId(),
+                        webUser.getWebUserId())) {
+            appReq.addErrorMessage("Project is not available for this user.");
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            Project managedProject = (Project) dataSession.get(Project.class, project.getProjectId());
+            if (managedProject == null) {
+                transaction.rollback();
+                appReq.addErrorMessage("Project was not found.");
+                return;
+            }
+
+            int changedCount = 0;
+            if (applyDescription && hasDescription) {
+                managedProject.setDescription(clip(chatState.getProposedDescription(), 1200));
+                chatState.setProposedDescription("");
+                changedCount++;
+            }
+            if (applyOutcome && hasOutcome) {
+                String outcome = clip(chatState.getProposedOutcome(), 12000);
+                managedProject.setOutcomeText(outcome.length() == 0 ? null : outcome);
+                chatState.setProposedOutcome("");
+                changedCount++;
+            }
+            if (applySuccessCriteria && hasSuccessCriteria) {
+                String successCriteria = clip(chatState.getProposedSuccessCriteria(), 12000);
+                managedProject.setSuccessCriteriaText(successCriteria.length() == 0 ? null : successCriteria);
+                chatState.setProposedSuccessCriteria("");
+                changedCount++;
+            }
+
+            if (changedCount == 0) {
+                transaction.rollback();
+                appReq.addWarningMessage("No AI suggestions were applied.");
+                return;
+            }
+
+            managedProject.setLastModifiedByWebUserId(webUser.getWebUserId());
+            dataSession.saveOrUpdate(managedProject);
+            transaction.commit();
+
+            appReq.setProject(managedProject);
+            appReq.setProjectSelected(managedProject);
+            appReq.addSuccessMessage(changedCount == 1 ? "Applied 1 AI suggestion." : "Applied AI suggestions.");
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            appReq.addErrorMessage("Unable to apply AI suggestions.");
+        }
+    }
+
+    private ProjectReviewChatService getProjectReviewChatService() {
+        if (projectReviewChatService == null) {
+            projectReviewChatService = new ProjectReviewChatService();
+        }
+        return projectReviewChatService;
+    }
+
+    private ProjectDashboardChatState getProjectDashboardChatState(AppReq appReq) {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        Project project = appReq.getProject();
+        String key = "PROJECT_DASHBOARD_CHAT_STATE_" + (workspaceId == null ? "0" : workspaceId.intValue()) + "_"
+                + (project == null ? "0" : project.getProjectId());
+        Object stateObject = appReq.getWebSession().getAttribute(key);
+        if (stateObject instanceof ProjectDashboardChatState) {
+            return (ProjectDashboardChatState) stateObject;
+        }
+        ProjectDashboardChatState state = new ProjectDashboardChatState();
+        appReq.getWebSession().setAttribute(key, state);
+        return state;
+    }
+
+    private void trimProjectChatMessages(ProjectDashboardChatState chatState) {
+        if (chatState == null || chatState.getMessages() == null) {
+            return;
+        }
+        List<ProjectDashboardChatMessage> messages = chatState.getMessages();
+        while (messages.size() > MAX_PROJECT_CHAT_MESSAGES) {
+            messages.remove(0);
+        }
     }
 
     private void handleSaveWorkdayProjectReview(AppReq appReq) throws Exception {
