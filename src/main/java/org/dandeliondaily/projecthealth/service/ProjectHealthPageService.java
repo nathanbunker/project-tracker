@@ -93,6 +93,45 @@ public class ProjectHealthPageService {
         }
     }
 
+    public static class ProjectHealthSnapshot {
+        private Project project;
+        private ProjectReportModel report;
+        private List<ProjectHealthIssueModel> issues = new ArrayList<ProjectHealthIssueModel>();
+        private int actionableIssueCount;
+
+        public Project getProject() {
+            return project;
+        }
+
+        public void setProject(Project project) {
+            this.project = project;
+        }
+
+        public ProjectReportModel getReport() {
+            return report;
+        }
+
+        public void setReport(ProjectReportModel report) {
+            this.report = report;
+        }
+
+        public List<ProjectHealthIssueModel> getIssues() {
+            return issues;
+        }
+
+        public void setIssues(List<ProjectHealthIssueModel> issues) {
+            this.issues = issues;
+        }
+
+        public int getActionableIssueCount() {
+            return actionableIssueCount;
+        }
+
+        public void setActionableIssueCount(int actionableIssueCount) {
+            this.actionableIssueCount = actionableIssueCount;
+        }
+    }
+
     public ProjectHealthPageModel buildModel(AppReq appReq, Integer contextWorkspaceId,
             List<Workspace> accessiblePatchWorkspaces) {
         ProjectHealthPageModel model = new ProjectHealthPageModel();
@@ -227,6 +266,50 @@ public class ProjectHealthPageService {
         }
 
         return model;
+    }
+
+    public ProjectHealthSnapshot buildProjectHealthSnapshot(AppReq appReq, Project project) {
+        ProjectHealthSnapshot snapshot = new ProjectHealthSnapshot();
+        if (project == null || appReq == null || appReq.getWebUser() == null || appReq.getDataSession() == null) {
+            return snapshot;
+        }
+
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+        List<Project> projects = new ArrayList<Project>();
+        projects.add(project);
+
+        Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, projects);
+        Map<Integer, ProjectStats> statsMap = buildStatsByProject(projects, webUser, dataSession, updateDueByProject);
+        ProjectStats stats = statsMap.get(project.getProjectId());
+
+        snapshot.setProject(project);
+        if (stats == null) {
+            return snapshot;
+        }
+
+        ProjectReportModel report = buildReport(appReq, project, stats);
+        snapshot.setReport(report);
+
+        String selectedProjectStatus = normalizeProjectStatus(project.getProjectStatus());
+        boolean healthCheckApplicable = STATUS_ACTIVE.equals(selectedProjectStatus);
+        if (!healthCheckApplicable) {
+            snapshot.setIssues(new ArrayList<ProjectHealthIssueModel>());
+            snapshot.setActionableIssueCount(0);
+            return snapshot;
+        }
+
+        List<ProjectHealthIssueModel> issues = buildIssues(report, stats);
+        snapshot.setIssues(issues);
+        int actionableIssueCount = 0;
+        for (ProjectHealthIssueModel issue : issues) {
+            if (issue.getSeverity() == ProjectHealthIssueModel.Severity.CRITICAL
+                    || issue.getSeverity() == ProjectHealthIssueModel.Severity.WARNING) {
+                actionableIssueCount++;
+            }
+        }
+        snapshot.setActionableIssueCount(actionableIssueCount);
+        return snapshot;
     }
 
     public List<ProjectListItemModel> loadReprioritizeCandidates(AppReq appReq, int projectId) {

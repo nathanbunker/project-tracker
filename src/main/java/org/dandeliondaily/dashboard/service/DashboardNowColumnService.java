@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
+import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
+import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -19,6 +21,7 @@ import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
+import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -29,6 +32,9 @@ public class DashboardNowColumnService {
     private static final int OPEN_ACTION_LIMIT = 50;
     private static final int COMPLETED_LIMIT = 20;
     private static final int COMPLETED_DAYS = 90;
+    private static final int NARRATIVE_DISPLAY_LIMIT = 90;
+
+    private final ProjectHealthPageService projectHealthPageService = new ProjectHealthPageService();
 
     public DashboardNowColumnModel buildModel(AppReq appReq) {
         DashboardNowColumnModel model = new DashboardNowColumnModel();
@@ -61,6 +67,10 @@ public class DashboardNowColumnService {
             model.setOpenIssues(buildOpenIssueItems(webUser, dataSession, currentProject));
             model.setTakenToday(buildTakenToday(webUser, dataSession, currentProject));
             model.setTakenActions(buildTakenActions(webUser, dataSession, currentProject));
+            model.setProjectHealth(buildProjectHealthSection(appReq, currentProject));
+            model.setProposalActions(buildProposalItems(webUser, dataSession, currentProject));
+            model.setNarrativeItems(buildNarrativeItems(webUser, dataSession, currentProject));
+            model.setNarrativeTotalCount(countNarratives(dataSession, currentProject));
         }
 
         return model;
@@ -421,5 +431,135 @@ public class DashboardNowColumnService {
             items.add(item);
         }
         return items;
+    }
+
+    private DashboardNowColumnModel.ProjectHealthSection buildProjectHealthSection(AppReq appReq, Project project) {
+        DashboardNowColumnModel.ProjectHealthSection section = new DashboardNowColumnModel.ProjectHealthSection();
+        if (project == null) {
+            return section;
+        }
+
+        section.setProjectName(n(project.getProjectName(), ""));
+        section.setProjectHandle(n(project.getProjectHandle(), ""));
+        section.setProjectStatus(project.getProjectStatusEnum().getDatabaseValue());
+        section.setDescription(n(project.getDescription(), ""));
+        section.setOutcome(n(project.getOutcomeText(), ""));
+        section.setSuccessCriteriaItems(parseSuccessCriteriaItems(project.getSuccessCriteriaText()));
+
+        ProjectHealthPageService.ProjectHealthSnapshot snapshot = projectHealthPageService
+                .buildProjectHealthSnapshot(appReq, project);
+        section.setActionableIssueCount(snapshot.getActionableIssueCount());
+
+        List<DashboardNowColumnModel.ProjectHealthIssueItem> issueItems = new ArrayList<DashboardNowColumnModel.ProjectHealthIssueItem>();
+        for (ProjectHealthIssueModel issue : snapshot.getIssues()) {
+            DashboardNowColumnModel.ProjectHealthIssueItem item = new DashboardNowColumnModel.ProjectHealthIssueItem();
+            item.setSeverity(issue.getSeverity() == null ? "" : issue.getSeverity().name());
+            item.setTitle(n(issue.getTitle(), ""));
+            item.setDetail(n(issue.getDetail(), ""));
+            issueItems.add(item);
+        }
+        section.setIssues(issueItems);
+
+        return section;
+    }
+
+    private List<String> parseSuccessCriteriaItems(String successCriteriaText) {
+        List<String> items = new ArrayList<String>();
+        if (successCriteriaText == null || successCriteriaText.trim().length() == 0) {
+            return items;
+        }
+        String[] lines = successCriteriaText.split("\\r?\\n");
+        for (String line : lines) {
+            if (line == null) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (trimmed.length() == 0) {
+                continue;
+            }
+            if (trimmed.startsWith("- ")) {
+                trimmed = trimmed.substring(2).trim();
+            }
+            if (trimmed.length() > 0) {
+                items.add(trimmed);
+            }
+        }
+        return items;
+    }
+
+    private List<DashboardNowColumnModel.ProposalActionItem> buildProposalItems(WebUser webUser,
+            Session dataSession, Project currentProject) {
+        Query query = dataSession.createQuery(
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "left join fetch an.contact "
+                        + "left join fetch an.nextProjectContact "
+                        + "where an.projectId = :projectId "
+                        + "and an.nextActionStatusString = :proposedStatus "
+                        + "order by case when an.nextActionDate is null then 1 else 0 end, "
+                        + "an.nextActionDate desc, an.priorityLevel desc, an.nextChangeDate desc, an.actionNextId desc");
+        query.setParameter("projectId", currentProject.getProjectId());
+        query.setParameter("proposedStatus", ProjectNextActionStatus.PROPOSED.getId());
+
+        @SuppressWarnings("unchecked")
+        List<ActionNext> proposals = query.list();
+
+        List<DashboardNowColumnModel.ProposalActionItem> items = new ArrayList<DashboardNowColumnModel.ProposalActionItem>();
+        for (ActionNext action : proposals) {
+            DashboardNowColumnModel.ProposalActionItem item = new DashboardNowColumnModel.ProposalActionItem();
+            item.setActionNextId(action.getActionNextId());
+            if (action.getNextActionDate() == null) {
+                item.setDateLabel("Undated");
+            } else {
+                item.setDateLabel(webUser.getDateFormatService().formatPattern(action.getNextActionDate(),
+                        webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            }
+            item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
+            item.setActionTypeLabel(n(action.getNextActionType(), "-"));
+            item.setEstimateDisplay(displayTime(action.getNextTimeEstimateForDisplay()));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private List<DashboardNowColumnModel.NarrativeItem> buildNarrativeItems(WebUser webUser,
+            Session dataSession, Project currentProject) {
+        Query query = dataSession.createQuery(
+                "from ProjectNarrative pn left join fetch pn.contact "
+                        + "where pn.projectId = :projectId "
+                        + "order by pn.narrativeDate desc, pn.narrativeId desc");
+        query.setParameter("projectId", currentProject.getProjectId());
+        query.setMaxResults(NARRATIVE_DISPLAY_LIMIT);
+
+        @SuppressWarnings("unchecked")
+        List<ProjectNarrative> rows = query.list();
+
+        List<DashboardNowColumnModel.NarrativeItem> items = new ArrayList<DashboardNowColumnModel.NarrativeItem>();
+        for (ProjectNarrative narrative : rows) {
+            DashboardNowColumnModel.NarrativeItem item = new DashboardNowColumnModel.NarrativeItem();
+            if (narrative.getNarrativeDate() == null) {
+                item.setDateLabel("-");
+            } else {
+                item.setDateLabel(webUser.getDateFormatService().formatPattern(narrative.getNarrativeDate(),
+                        webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            }
+            String who = "Unknown";
+            if (narrative.getContact() != null) {
+                who = n(narrative.getContact().getName(), "Unknown");
+            }
+            item.setAuthorLabel(who);
+            item.setVerbLabel(n(narrative.getNarrativeVerb() == null ? "NOTE" : narrative.getNarrativeVerb().getLabel(),
+                    "NOTE"));
+            item.setText(n(narrative.getNarrativeText(), ""));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private int countNarratives(Session dataSession, Project currentProject) {
+        Query query = dataSession.createQuery("select count(*) from ProjectNarrative where projectId = :projectId");
+        query.setParameter("projectId", currentProject.getProjectId());
+        Number value = (Number) query.uniqueResult();
+        return value == null ? 0 : value.intValue();
     }
 }

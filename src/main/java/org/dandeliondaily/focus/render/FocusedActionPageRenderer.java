@@ -754,7 +754,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-previous-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
                 out.println("  .fa-previous-item { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #d6dfd4; background: #f6faf5; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");
                 out.println("  .fa-previous-item:hover { background: #edf5ea; }");
-                out.println("  .fa-capture-input-container { position: relative; display: inline-block; }");
+                out.println("  .fa-capture-input-container { position: relative; flex: 1; }");
                 out.println("  .fa-capture-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; display: none; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }");
                 out.println("  .fa-capture-suggestions div { padding: 6px 8px; cursor: pointer; }");
                 out.println("  .fa-capture-suggestions div:hover { background: #efe7db; }");

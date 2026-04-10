@@ -42,6 +42,7 @@ public class FocusedActionServlet extends ClientServlet {
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_WORK_STATUS = "workStatus";
     private static final String ACTION_SCHEDULE = "Schedule";
+    private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
     private static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
     private static final String SESSION_PRE_MEETING_ACTION_ID = "FOCUS_PRE_MEETING_ACTION_ID";
     private static final String SESSION_MEETING_ACTIVE = "FOCUS_MEETING_ACTIVE";
@@ -123,6 +124,10 @@ public class FocusedActionServlet extends ClientServlet {
                     : Integer.valueOf(nextActionHintAction.getActionNextId());
             List<String> quickCaptureProjectNames = dashboardTodayColumnService.listQuickCaptureProjectNames(appReq);
             boolean quickCaptureFocusRequested = ACTION_SCHEDULE.equals(action);
+            String quickCaptureSentenceValue = (ACTION_SCHEDULE.equals(action)
+                    || ACTION_SCHEDULE_AND_START.equals(action))
+                            ? ""
+                            : n(appReq.getRequest().getParameter("sentenceInput"));
 
             appReq.setTitle("Focused Action");
             printFocusedHead(appReq);
@@ -131,7 +136,7 @@ public class FocusedActionServlet extends ClientServlet {
                     estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, todayBillableMinutes,
                     todayTargetMinutes, weekTargetMinutes,
                     nextActionHint, nextActionHintId,
-                    n(appReq.getRequest().getParameter("sentenceInput")), quickCaptureProjectNames,
+                    quickCaptureSentenceValue, quickCaptureProjectNames,
                     quickCaptureFocusRequested);
             printFocusedFoot(appReq);
         } catch (Exception e) {

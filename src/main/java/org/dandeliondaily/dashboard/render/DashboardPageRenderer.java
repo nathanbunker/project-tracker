@@ -139,32 +139,28 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
                 out.println("      <div class=\"dd-header-cell dd-header-next dd-panel dd-panel-open\">");
                 printDevLabel(out, "NEXT HEADER");
-                String nextHeaderLabel = this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
-                                ? ""
-                                : (nextColumnModel.getSelectedDay().getDayKey().length() > 0
-                                                ? nextColumnModel.getSelectedDay().getFullDateLabel()
-                                                : "Next");
                 out.println("        <div class=\"dd-header-main\">");
-                out.println("          <div class=\"dd-header-text\">");
-                out.println("            <div class=\"dd-header-label\">"
-                                + escapeHtml(nextHeaderLabel) + "</div>");
-                String nextHeaderSubtitle = this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED
-                                ? ""
-                                : (nextColumnModel.getSelectedDay().getDayKey().length() > 0
-                                                ? nextColumnModel.getSelectedDay().getPlannedDisplay() + " planned"
-                                                : "No planned day selected");
-                out.println("            <div class=\"dd-header-subtitle\">" + escapeHtml(nextHeaderSubtitle)
-                                + "</div>");
-                out.println("          </div>");
-                out.println("          <div class=\"dd-header-gauge-wrap\">");
-                out.println("            <div id=\"ddNextHeaderGauge\">");
                 if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
-                        timeGaugeRenderer.render(out, new TimeGaugeModel());
+                        printProjectExpandedRightHeader(out);
                 } else {
+                        String nextHeaderLabel = nextColumnModel.getSelectedDay().getDayKey().length() > 0
+                                        ? nextColumnModel.getSelectedDay().getFullDateLabel()
+                                        : "Next";
+                        out.println("          <div class=\"dd-header-text\">");
+                        out.println("            <div class=\"dd-header-label\">"
+                                        + escapeHtml(nextHeaderLabel) + "</div>");
+                        String nextHeaderSubtitle = nextColumnModel.getSelectedDay().getDayKey().length() > 0
+                                        ? nextColumnModel.getSelectedDay().getPlannedDisplay() + " planned"
+                                        : "No planned day selected";
+                        out.println("            <div class=\"dd-header-subtitle\">" + escapeHtml(nextHeaderSubtitle)
+                                        + "</div>");
+                        out.println("          </div>");
+                        out.println("          <div class=\"dd-header-gauge-wrap\">");
+                        out.println("            <div id=\"ddNextHeaderGauge\">");
                         timeGaugeRenderer.render(out, nextColumnModel.getSelectedDay().getHeaderGauge());
+                        out.println("            </div>");
+                        out.println("          </div>");
                 }
-                out.println("            </div>");
-                out.println("          </div>");
                 out.println("        </div>");
                 out.println("      </div>");
                 out.println("    </div>");
@@ -685,12 +681,28 @@ public class DashboardPageRenderer {
                 out.println("  .dd-today-chip-alert:hover {");
                 out.println("    background: #9f3d35;");
                 out.println("  }");
+                out.println("  .dd-today-chip-positive {");
+                out.println("    color: #f8fff8;");
+                out.println("    background: #3f8650;");
+                out.println("    border-color: #2e6640;");
+                out.println("  }");
+                out.println("  .dd-today-chip-positive:hover {");
+                out.println("    background: #327043;");
+                out.println("  }");
                 out.println("  .dd-today-chip-count {");
                 out.println("    font-weight: bold;");
                 out.println("    font-size: 11px;");
                 out.println("    min-width: 18px;");
                 out.println("    text-align: right;");
                 out.println("  }");
+                out.println("  .dd-health-meta { margin-bottom: 10px; }");
+                out.println("  .dd-health-meta-row { margin: 2px 0; }");
+                out.println("  .dd-health-success-list { margin: 4px 0 8px 18px; padding: 0; }");
+                out.println("  .dd-health-success-list li { margin: 2px 0; }");
+                out.println("  .dd-health-issue-critical { color: #8f2f2f; font-weight: bold; }");
+                out.println("  .dd-health-issue-warning { color: #925d1a; font-weight: bold; }");
+                out.println("  .dd-health-issue-info { color: #47624a; }");
+                out.println("  .dd-narrative-col-text { white-space: pre-wrap; }");
                 out.println("  .dd-today-show-all-wrap {");
                 out.println("    margin: 8px 0 2px 0;");
                 out.println("  }");
@@ -1092,6 +1104,10 @@ public class DashboardPageRenderer {
                 out.println("  .dd-chat-quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0; }");
                 out.println("  .dd-chat-chip { border: 1px solid #cfbea6; background: #f4ede0; border-radius: 14px; padding: 4px 10px; cursor: pointer; color: #2d3a2d; font-size: 12px; }");
                 out.println("  .dd-chat-chip:hover { background: #ebe1d0; }");
+                out.println("  .dd-header-next .dd-chat-header-title { margin: 0 0 8px 0; font-size: 16px; color: #fffdf8; }");
+                out.println("  .dd-header-next .dd-chat-quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; }");
+                out.println("  .dd-header-next .dd-chat-chip { border-color: rgba(255, 253, 248, 0.6); background: rgba(255, 253, 248, 0.16); color: #fffdf8; }");
+                out.println("  .dd-header-next .dd-chat-chip:hover { background: rgba(255, 253, 248, 0.28); }");
                 out.println("  .dd-chat-history { max-height: 320px; overflow-y: auto; border: 1px solid #ddd0bd; background: #fffdf9; border-radius: 4px; padding: 8px; }");
                 out.println("  .dd-chat-message { margin-bottom: 8px; padding: 7px 8px; border-radius: 4px; }");
                 out.println("  .dd-chat-user { background: #e8efe6; border: 1px solid #c5d5c2; }");
@@ -1168,8 +1184,13 @@ public class DashboardPageRenderer {
                 for (ProjectChipModel chip : chips) {
                         String chipClass = "dd-today-chip"
                                         + (chip.getCount() == 0 ? " dd-today-chip-empty" : "");
-                        if (chip.isAlert() && chip.getCount() > 0) {
+                        if (chip.getColorPolicy() == ChipColorPolicy.RED_WHEN_POSITIVE && chip.getCount() > 0) {
                                 chipClass += " dd-today-chip-alert";
+                        } else if (chip.getColorPolicy() == ChipColorPolicy.RED_WHEN_ZERO && chip.getCount() == 0) {
+                                chipClass += " dd-today-chip-alert";
+                        } else if (chip.getColorPolicy() == ChipColorPolicy.GREEN_WHEN_POSITIVE
+                                        && chip.getCount() > 0) {
+                                chipClass += " dd-today-chip-positive";
                         }
                         if (chip.getCount() == 0) {
                                 out.println("    <span class=\"" + chipClass + "\">");
@@ -1192,29 +1213,43 @@ public class DashboardPageRenderer {
 
         private void printProjectSectionTables(PrintWriter out, DashboardNowColumnModel nowColumnModel,
                         AppReq appReq, String selectedSectionId, boolean filteredView) {
+                printProjectSectionTable(out, "projectHealth", "Project Health",
+                                selectedSectionId, filteredView,
+                                nowColumnModel.getProjectHealth().getIssues().size(), () -> {
+                                        printProjectHealthSection(out, nowColumnModel.getProjectHealth());
+                                });
+                printProjectSectionTable(out, "blockers", "Blockers",
+                                selectedSectionId, filteredView, nowColumnModel.getOpenIssues().size(), () -> {
+                                        printOpenIssuesSection(out, appReq, nowColumnModel);
+                                });
+                printProjectSectionTable(out, "proposals", "Proposals",
+                                selectedSectionId, filteredView, nowColumnModel.getProposalActions().size(), () -> {
+                                        printBacklogProposals(out, nowColumnModel.getProposalActions());
+                                });
                 printProjectSectionTable(out, "scheduled", "Scheduled Actions",
                                 selectedSectionId, filteredView, nowColumnModel.getScheduledActions().size(), () -> {
                                         printBacklogScheduled(out, nowColumnModel.getScheduledActions());
+                                });
+                printProjectSectionTable(out, "templated", "Templated Actions",
+                                selectedSectionId, filteredView, nowColumnModel.getTemplatedActions().size(), () -> {
+                                        printBacklogTemplated(out, nowColumnModel.getTemplatedActions());
                                 });
                 printProjectSectionTable(out, "unscheduled", "Not Scheduled",
                                 selectedSectionId, filteredView, nowColumnModel.getUnscheduledActions().size(), () -> {
                                         printBacklogUnscheduled(out, nowColumnModel.getUnscheduledActions());
                                 });
-                printProjectSectionTable(out, "issues", "Issues",
-                                selectedSectionId, filteredView, nowColumnModel.getOpenIssues().size(), () -> {
-                                        printOpenIssuesSection(out, appReq, nowColumnModel);
-                                });
-                printProjectSectionTable(out, "taken", "Taken Actions",
-                                selectedSectionId, filteredView, nowColumnModel.getTakenActions().size(), () -> {
-                                        printBacklogTakenActions(out, nowColumnModel.getTakenActions());
-                                });
-                printProjectSectionTable(out, "completed", "Completed Actions",
+                printProjectSectionTable(out, "completed", "Completed",
                                 selectedSectionId, filteredView, nowColumnModel.getRecentCompleted().size(), () -> {
                                         printBacklogRecentCompleted(out, nowColumnModel.getRecentCompleted());
                                 });
-                printProjectSectionTable(out, "templated", "Templated Actions",
-                                selectedSectionId, filteredView, nowColumnModel.getTemplatedActions().size(), () -> {
-                                        printBacklogTemplated(out, nowColumnModel.getTemplatedActions());
+                printProjectSectionTable(out, "narrative", "Narrative",
+                                selectedSectionId, filteredView, nowColumnModel.getNarrativeTotalCount(), () -> {
+                                        printBacklogNarrative(out, nowColumnModel.getNarrativeItems(),
+                                                        nowColumnModel.getNarrativeTotalCount());
+                                });
+                printProjectSectionTable(out, "taken", "Actions Taken",
+                                selectedSectionId, filteredView, nowColumnModel.getTakenActions().size(), () -> {
+                                        printBacklogTakenActions(out, nowColumnModel.getTakenActions());
                                 });
         }
 
@@ -1243,18 +1278,25 @@ public class DashboardPageRenderer {
 
         private List<ProjectChipModel> buildProjectChips(DashboardNowColumnModel nowColumnModel) {
                 List<ProjectChipModel> chips = new ArrayList<ProjectChipModel>();
+                chips.add(new ProjectChipModel("projectHealth", "Project Health",
+                                nowColumnModel.getProjectHealth().getActionableIssueCount(),
+                                ChipColorPolicy.RED_WHEN_POSITIVE));
+                chips.add(new ProjectChipModel("blockers", "Blockers",
+                                nowColumnModel.getOpenIssues().size(), ChipColorPolicy.NEUTRAL));
+                chips.add(new ProjectChipModel("proposals", "Proposals",
+                                nowColumnModel.getProposalActions().size(), ChipColorPolicy.GREEN_WHEN_POSITIVE));
                 chips.add(new ProjectChipModel("scheduled", "Scheduled",
-                                nowColumnModel.getScheduledActions().size(), false));
+                                nowColumnModel.getScheduledActions().size(), ChipColorPolicy.RED_WHEN_ZERO));
+                chips.add(new ProjectChipModel("templated", "Templated",
+                                nowColumnModel.getTemplatedActions().size(), ChipColorPolicy.NEUTRAL));
                 chips.add(new ProjectChipModel("unscheduled", "Not Scheduled",
-                                nowColumnModel.getUnscheduledActions().size(), true));
-                chips.add(new ProjectChipModel("issues", "Issues",
-                                nowColumnModel.getOpenIssues().size(), false));
-                chips.add(new ProjectChipModel("taken", "Taken Actions",
-                                nowColumnModel.getTakenActions().size(), false));
-                chips.add(new ProjectChipModel("completed", "Completed Actions",
-                                nowColumnModel.getRecentCompleted().size(), false));
-                chips.add(new ProjectChipModel("templated", "Templated Actions",
-                                nowColumnModel.getTemplatedActions().size(), false));
+                                nowColumnModel.getUnscheduledActions().size(), ChipColorPolicy.RED_WHEN_POSITIVE));
+                chips.add(new ProjectChipModel("completed", "Completed",
+                                nowColumnModel.getRecentCompleted().size(), ChipColorPolicy.NEUTRAL));
+                chips.add(new ProjectChipModel("narrative", "Narrative",
+                                nowColumnModel.getNarrativeTotalCount(), ChipColorPolicy.NEUTRAL));
+                chips.add(new ProjectChipModel("taken", "Actions Taken",
+                                nowColumnModel.getTakenActions().size(), ChipColorPolicy.NEUTRAL));
                 return chips;
         }
 
@@ -1292,22 +1334,6 @@ public class DashboardPageRenderer {
 
         private void printProjectExpandedRightColumn(PrintWriter out, ProjectDashboardChatState chatState,
                         String chatWarningMessage) {
-                out.println("<div class=\"dd-chat-header\">");
-                out.println("  <h3 class=\"dd-chat-header-title\">Project Review Assistant</h3>");
-                out.println("  <form method=\"POST\" action=\"" + dashboardPath
-                                + "\" class=\"dd-chat-quick-prompts\">");
-                out.println("    <input type=\"hidden\" name=\"action\" value=\"projectChatQuickPrompt\" />");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Summarize this project from current context and recent work.\" class=\"dd-chat-chip\">Summarize Project</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite the project description to be clearer and more outcome oriented.\" class=\"dd-chat-chip\">Improve Description</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Propose a sharper outcome statement with measurable completion criteria.\" class=\"dd-chat-chip\">Clarify Outcome</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite success criteria as concise checklist bullets.\" class=\"dd-chat-chip\">Clarify Success Criteria</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Suggest concrete next actions for this project. Include type, estimate, and rationale.\" class=\"dd-chat-chip\">Suggest Next Actions</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Identify blockers, assumptions, and risks. Propose issues with issue type and rationale.\" class=\"dd-chat-chip\">Identify Issues</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Propose project narrative entries from this context using NOTE, DECISION, INSIGHT, RISK, or OPPORTUNITY.\" class=\"dd-chat-chip\">Save Narrative</button>");
-                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Identify what is missing or ambiguous in this project definition.\" class=\"dd-chat-chip\">What Is Missing?</button>");
-                out.println("  </form>");
-                out.println("</div>");
-
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
                 printDevLabel(out, "PROJECT CHAT");
                 if (chatWarningMessage != null && chatWarningMessage.trim().length() > 0) {
@@ -1480,6 +1506,24 @@ public class DashboardPageRenderer {
                 }
                 out.println("  </div>");
                 out.println("</div>");
+        }
+
+        private void printProjectExpandedRightHeader(PrintWriter out) {
+                out.println("          <div class=\"dd-header-text\">");
+                out.println("            <h3 class=\"dd-chat-header-title\">Project Review Assistant</h3>");
+                out.println("            <form method=\"POST\" action=\"" + dashboardPath
+                                + "\" class=\"dd-chat-quick-prompts\">");
+                out.println("              <input type=\"hidden\" name=\"action\" value=\"projectChatQuickPrompt\" />");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Summarize this project from current context and recent work.\" class=\"dd-chat-chip\">Summarize Project</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite the project description to be clearer and more outcome oriented.\" class=\"dd-chat-chip\">Improve Description</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Propose a sharper outcome statement with measurable completion criteria.\" class=\"dd-chat-chip\">Clarify Outcome</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite success criteria as concise checklist bullets.\" class=\"dd-chat-chip\">Clarify Success Criteria</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Suggest concrete next actions for this project. Include type, estimate, and rationale.\" class=\"dd-chat-chip\">Suggest Next Actions</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Identify blockers, assumptions, and risks. Propose issues with issue type and rationale.\" class=\"dd-chat-chip\">Identify Issues</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Propose project narrative entries from this context using NOTE, DECISION, INSIGHT, RISK, or OPPORTUNITY.\" class=\"dd-chat-chip\">Save Narrative</button>");
+                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Identify what is missing or ambiguous in this project definition.\" class=\"dd-chat-chip\">What Is Missing?</button>");
+                out.println("            </form>");
+                out.println("          </div>");
         }
 
         private void printSuggestionCard(PrintWriter out, String title, String text, String applyAction) {
@@ -1995,7 +2039,7 @@ public class DashboardPageRenderer {
                 int projectId = nowColumnModel.getCurrentProject().getProjectId();
                 List<DashboardNowColumnModel.OpenIssueItem> issues = nowColumnModel.getOpenIssues();
 
-                out.println("  <h3 class=\"dd-backlog-section-title\">ISSUES</h3>");
+                out.println("  <h3 class=\"dd-backlog-section-title\">BLOCKERS</h3>");
                 out.println("  <table class=\"dd-today-table dd-backlog-table dd-issues-table\">");
                 out.println("    <tr>");
                 out.println("      <th class=\"dd-issues-col-type\">Type</th>");
@@ -2161,6 +2205,126 @@ public class DashboardPageRenderer {
                 out.println("      .catch(() => alert('Unable to update issue.'));");
                 out.println("  }");
                 out.println("</script>");
+        }
+
+        private void printProjectHealthSection(PrintWriter out,
+                        DashboardNowColumnModel.ProjectHealthSection healthSection) {
+                out.println("  <h3 class=\"dd-backlog-section-title\">Project Health</h3>");
+                out.println("  <div class=\"dd-health-meta\">");
+                out.println("    <div class=\"dd-health-meta-row\"><strong>Project Name:</strong> "
+                                + escapeHtml(healthSection.getProjectName()) + "</div>");
+                out.println("    <div class=\"dd-health-meta-row\"><strong>Project Handle:</strong> "
+                                + escapeHtml(healthSection.getProjectHandle()) + "</div>");
+                out.println("    <div class=\"dd-health-meta-row\"><strong>Project Status:</strong> "
+                                + escapeHtml(healthSection.getProjectStatus()) + "</div>");
+                out.println("    <div class=\"dd-health-meta-row\"><strong>Description:</strong> "
+                                + escapeHtml(healthSection.getDescription()) + "</div>");
+                out.println("    <div class=\"dd-health-meta-row\"><strong>Outcome:</strong> "
+                                + escapeHtml(healthSection.getOutcome()) + "</div>");
+                out.println("    <div class=\"dd-health-meta-row\"><strong>Success Criteria:</strong></div>");
+                if (healthSection.getSuccessCriteriaItems().isEmpty()) {
+                        out.println("    <p class=\"dd-subtle dd-backlog-empty\">No success criteria recorded.</p>");
+                } else {
+                        out.println("    <ul class=\"dd-health-success-list\">");
+                        for (String item : healthSection.getSuccessCriteriaItems()) {
+                                out.println("      <li>" + escapeHtml(item) + "</li>");
+                        }
+                        out.println("    </ul>");
+                }
+                out.println("  </div>");
+
+                out.println("  <h3 class=\"dd-backlog-section-title\">Project Health Issues</h3>");
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-date\">Severity</th>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Issue</th>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Detail</th>");
+                out.println("    </tr>");
+                if (healthSection.getIssues().isEmpty()) {
+                        out.println("    <tr><td colspan=\"3\" class=\"dd-subtle\">No health issues available.</td></tr>");
+                } else {
+                        for (DashboardNowColumnModel.ProjectHealthIssueItem issue : healthSection.getIssues()) {
+                                String severityClass = "dd-health-issue-info";
+                                if ("CRITICAL".equals(issue.getSeverity())) {
+                                        severityClass = "dd-health-issue-critical";
+                                } else if ("WARNING".equals(issue.getSeverity())) {
+                                        severityClass = "dd-health-issue-warning";
+                                }
+                                out.println("    <tr>");
+                                out.println("      <td class=\"dd-backlog-col-date " + severityClass + "\">"
+                                                + escapeHtml(issue.getSeverity()) + "</td>");
+                                out.println("      <td class=\"dd-backlog-col-desc\">" + escapeHtml(issue.getTitle())
+                                                + "</td>");
+                                out.println("      <td class=\"dd-backlog-col-desc\">" + escapeHtml(issue.getDetail())
+                                                + "</td>");
+                                out.println("    </tr>");
+                        }
+                }
+                out.println("  </table>");
+        }
+
+        private void printBacklogProposals(PrintWriter out,
+                        List<DashboardNowColumnModel.ProposalActionItem> items) {
+                out.println("  <h3 class=\"dd-backlog-section-title\">Proposals</h3>");
+                if (items.isEmpty()) {
+                        out.println("  <p class=\"dd-subtle dd-backlog-empty\">No proposals available.</p>");
+                        return;
+                }
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-date\">Date</th>");
+                out.println("      <th class=\"dd-backlog-col-desc\">Description</th>");
+                out.println("      <th class=\"dd-backlog-col-date\">Type</th>");
+                out.println("      <th class=\"dd-backlog-col-date\">Estimate</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.ProposalActionItem item : items) {
+                        out.println("    <tr>");
+                        out.println("      <td class=\"dd-backlog-col-date\">" + escapeHtml(item.getDateLabel())
+                                        + "</td>");
+                        out.println(
+                                        "      <td class=\"dd-backlog-col-desc\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\" onclick=\"ddOpenNextTaskDetails("
+                                                        + item.getActionNextId() + ", event)\">"
+                                                        + item.getDescriptionHtml() + "</a></td>");
+                        out.println("      <td class=\"dd-backlog-col-date\">"
+                                        + escapeHtml(item.getActionTypeLabel()) + "</td>");
+                        out.println("      <td class=\"dd-backlog-col-date\">"
+                                        + escapeHtml(item.getEstimateDisplay()) + "</td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+        }
+
+        private void printBacklogNarrative(PrintWriter out,
+                        List<DashboardNowColumnModel.NarrativeItem> items, int totalCount) {
+                out.println("  <h3 class=\"dd-backlog-section-title\">Narrative</h3>");
+                if (items.isEmpty()) {
+                        out.println("  <p class=\"dd-subtle dd-backlog-empty\">No narratives available.</p>");
+                        return;
+                }
+                out.println("  <table class=\"dd-today-table dd-backlog-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-backlog-col-date\">Date</th>");
+                out.println("      <th class=\"dd-backlog-col-date\">Author</th>");
+                out.println("      <th class=\"dd-backlog-col-date\">Verb</th>");
+                out.println("      <th class=\"dd-narrative-col-text\">Text</th>");
+                out.println("    </tr>");
+                for (DashboardNowColumnModel.NarrativeItem item : items) {
+                        out.println("    <tr>");
+                        out.println("      <td class=\"dd-backlog-col-date\">" + escapeHtml(item.getDateLabel())
+                                        + "</td>");
+                        out.println("      <td class=\"dd-backlog-col-date\">" + escapeHtml(item.getAuthorLabel())
+                                        + "</td>");
+                        out.println("      <td class=\"dd-backlog-col-date\">" + escapeHtml(item.getVerbLabel())
+                                        + "</td>");
+                        out.println("      <td class=\"dd-narrative-col-text\">" + escapeHtml(item.getText())
+                                        + "</td>");
+                        out.println("    </tr>");
+                }
+                out.println("  </table>");
+                if (totalCount > items.size()) {
+                        out.println("  <p class=\"dd-subtle\">Showing " + items.size() + " of " + totalCount
+                                        + " narratives.</p>");
+                }
         }
 
         private void printBacklogScheduled(PrintWriter out,
@@ -3574,17 +3738,24 @@ public class DashboardPageRenderer {
                 return new ArrayList<TodaySectionRenderModel>(sections.values());
         }
 
+        private enum ChipColorPolicy {
+                NEUTRAL,
+                RED_WHEN_POSITIVE,
+                RED_WHEN_ZERO,
+                GREEN_WHEN_POSITIVE
+        }
+
         private static class ProjectChipModel {
                 private final String id;
                 private final String title;
                 private final int count;
-                private final boolean alert;
+                private final ChipColorPolicy colorPolicy;
 
-                private ProjectChipModel(String id, String title, int count, boolean alert) {
+                private ProjectChipModel(String id, String title, int count, ChipColorPolicy colorPolicy) {
                         this.id = id;
                         this.title = title;
                         this.count = count;
-                        this.alert = alert;
+                        this.colorPolicy = colorPolicy;
                 }
 
                 public String getId() {
@@ -3599,8 +3770,8 @@ public class DashboardPageRenderer {
                         return count;
                 }
 
-                public boolean isAlert() {
-                        return alert;
+                public ChipColorPolicy getColorPolicy() {
+                        return colorPolicy;
                 }
         }
 

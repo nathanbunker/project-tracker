@@ -16,6 +16,10 @@ public class DashboardNowColumnModel {
     private List<OpenIssueItem> openIssues = new ArrayList<>();
     private List<TakenActionItem> takenToday = new ArrayList<>();
     private List<TakenActionItem> takenActions = new ArrayList<>();
+    private ProjectHealthSection projectHealth = new ProjectHealthSection();
+    private List<ProposalActionItem> proposalActions = new ArrayList<ProposalActionItem>();
+    private List<NarrativeItem> narrativeItems = new ArrayList<NarrativeItem>();
+    private int narrativeTotalCount;
 
     public CurrentAction getCurrentAction() {
         return currentAction;
@@ -95,6 +99,38 @@ public class DashboardNowColumnModel {
 
     public void setTakenActions(List<TakenActionItem> takenActions) {
         this.takenActions = takenActions;
+    }
+
+    public ProjectHealthSection getProjectHealth() {
+        return projectHealth;
+    }
+
+    public void setProjectHealth(ProjectHealthSection projectHealth) {
+        this.projectHealth = projectHealth;
+    }
+
+    public List<ProposalActionItem> getProposalActions() {
+        return proposalActions;
+    }
+
+    public void setProposalActions(List<ProposalActionItem> proposalActions) {
+        this.proposalActions = proposalActions;
+    }
+
+    public List<NarrativeItem> getNarrativeItems() {
+        return narrativeItems;
+    }
+
+    public void setNarrativeItems(List<NarrativeItem> narrativeItems) {
+        this.narrativeItems = narrativeItems;
+    }
+
+    public int getNarrativeTotalCount() {
+        return narrativeTotalCount;
+    }
+
+    public void setNarrativeTotalCount(int narrativeTotalCount) {
+        this.narrativeTotalCount = narrativeTotalCount;
     }
 
     public static class CurrentAction {
@@ -505,6 +541,198 @@ public class DashboardNowColumnModel {
 
         public void setWhoLabel(String whoLabel) {
             this.whoLabel = whoLabel;
+        }
+    }
+
+    public static class ProjectHealthSection {
+        private String projectName = "";
+        private String projectHandle = "";
+        private String projectStatus = "";
+        private String description = "";
+        private String outcome = "";
+        private List<String> successCriteriaItems = new ArrayList<String>();
+        private List<ProjectHealthIssueItem> issues = new ArrayList<ProjectHealthIssueItem>();
+        private int actionableIssueCount;
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public void setProjectName(String projectName) {
+            this.projectName = projectName;
+        }
+
+        public String getProjectHandle() {
+            return projectHandle;
+        }
+
+        public void setProjectHandle(String projectHandle) {
+            this.projectHandle = projectHandle;
+        }
+
+        public String getProjectStatus() {
+            return projectStatus;
+        }
+
+        public void setProjectStatus(String projectStatus) {
+            this.projectStatus = projectStatus;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public String getOutcome() {
+            return outcome;
+        }
+
+        public void setOutcome(String outcome) {
+            this.outcome = outcome;
+        }
+
+        public List<String> getSuccessCriteriaItems() {
+            return successCriteriaItems;
+        }
+
+        public void setSuccessCriteriaItems(List<String> successCriteriaItems) {
+            this.successCriteriaItems = successCriteriaItems;
+        }
+
+        public List<ProjectHealthIssueItem> getIssues() {
+            return issues;
+        }
+
+        public void setIssues(List<ProjectHealthIssueItem> issues) {
+            this.issues = issues;
+        }
+
+        public int getActionableIssueCount() {
+            return actionableIssueCount;
+        }
+
+        public void setActionableIssueCount(int actionableIssueCount) {
+            this.actionableIssueCount = actionableIssueCount;
+        }
+    }
+
+    public static class ProjectHealthIssueItem {
+        private String severity = "";
+        private String title = "";
+        private String detail = "";
+
+        public String getSeverity() {
+            return severity;
+        }
+
+        public void setSeverity(String severity) {
+            this.severity = severity;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getDetail() {
+            return detail;
+        }
+
+        public void setDetail(String detail) {
+            this.detail = detail;
+        }
+    }
+
+    public static class ProposalActionItem {
+        private int actionNextId;
+        private String dateLabel = "";
+        private String descriptionHtml = "";
+        private String actionTypeLabel = "";
+        private String estimateDisplay = "";
+
+        public int getActionNextId() {
+            return actionNextId;
+        }
+
+        public void setActionNextId(int actionNextId) {
+            this.actionNextId = actionNextId;
+        }
+
+        public String getDateLabel() {
+            return dateLabel;
+        }
+
+        public void setDateLabel(String dateLabel) {
+            this.dateLabel = dateLabel;
+        }
+
+        public String getDescriptionHtml() {
+            return descriptionHtml;
+        }
+
+        public void setDescriptionHtml(String descriptionHtml) {
+            this.descriptionHtml = descriptionHtml;
+        }
+
+        public String getActionTypeLabel() {
+            return actionTypeLabel;
+        }
+
+        public void setActionTypeLabel(String actionTypeLabel) {
+            this.actionTypeLabel = actionTypeLabel;
+        }
+
+        public String getEstimateDisplay() {
+            return estimateDisplay;
+        }
+
+        public void setEstimateDisplay(String estimateDisplay) {
+            this.estimateDisplay = estimateDisplay;
+        }
+    }
+
+    public static class NarrativeItem {
+        private String dateLabel = "";
+        private String authorLabel = "";
+        private String verbLabel = "";
+        private String text = "";
+
+        public String getDateLabel() {
+            return dateLabel;
+        }
+
+        public void setDateLabel(String dateLabel) {
+            this.dateLabel = dateLabel;
+        }
+
+        public String getAuthorLabel() {
+            return authorLabel;
+        }
+
+        public void setAuthorLabel(String authorLabel) {
+            this.authorLabel = authorLabel;
+        }
+
+        public String getVerbLabel() {
+            return verbLabel;
+        }
+
+        public void setVerbLabel(String verbLabel) {
+            this.verbLabel = verbLabel;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
         }
     }
 }
