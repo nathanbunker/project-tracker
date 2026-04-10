@@ -758,7 +758,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-capture-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; display: none; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }");
                 out.println("  .fa-capture-suggestions div { padding: 6px 8px; cursor: pointer; }");
                 out.println("  .fa-capture-suggestions div:hover { background: #efe7db; }");
-                out.println("  .fa-quick-capture-box { position: absolute; right: 58px; top: 10px; z-index: 50; min-width: 360px; max-width: 520px; padding: 10px 12px; background: #f8f1e6; border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); }");
+                out.println("  .fa-quick-capture-box { position: absolute; right: 58px; top: 10px; z-index: 50; width: 520px; padding: 10px 12px; background: #f8f1e6; border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); }");
                 out.println("  .fa-quick-capture-title { font-size: 12px; font-weight: bold; letter-spacing: .04em; text-transform: uppercase; color: #52614d; margin-bottom: 8px; }");
                 out.println("  .fa-capture-form { margin: 0; }");
                 out.println("  .fa-capture-row { display: flex; align-items: center; gap: 8px; }");
