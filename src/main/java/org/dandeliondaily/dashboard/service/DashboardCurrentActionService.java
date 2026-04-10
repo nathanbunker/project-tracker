@@ -105,12 +105,11 @@ public class DashboardCurrentActionService {
             appReq.addErrorMessage("Current action was not found.");
             return;
         }
-
-        updateSummaryFromRequest(appReq, dataSession, actionToWork);
+        String actionTakenText = readActionTakenText(appReq);
 
         String workStatus = normalizeWorkStatus(appReq.getRequest().getParameter(PARAM_WORK_STATUS));
         if (workStatus.length() == 0) {
-            workStatus = WORK_STATUS_COMPLETE;
+            workStatus = WORK_STATUS_IN_PROGRESS;
         }
 
         String followUpText = appReq.getRequest().getParameter(PARAM_WORK_FOLLOW_UP);
@@ -128,11 +127,13 @@ public class DashboardCurrentActionService {
         }
 
         if (WORK_STATUS_COMPLETE.equals(workStatus)) {
-            closeAction(appReq, actionToWork, actionToWork.getProject(), actionToWork.getNextSummary(),
+            closeAction(appReq, actionToWork, actionToWork.getProject(), actionTakenText,
                     ProjectNextActionStatus.COMPLETED);
         } else if (WORK_STATUS_DELETE.equals(workStatus)) {
-            closeAction(appReq, actionToWork, actionToWork.getProject(), "", ProjectNextActionStatus.CANCELLED);
+            closeAction(appReq, actionToWork, actionToWork.getProject(), actionTakenText,
+                    ProjectNextActionStatus.CANCELLED);
         } else if (WORK_STATUS_BLOCKED.equals(workStatus) && followUpAction != null) {
+            saveStandaloneActionTaken(appReq, actionToWork.getProject(), actionTakenText);
             Transaction blockTrans = dataSession.beginTransaction();
             actionToWork.setBlockedBy(followUpAction);
             actionToWork.setNextActionDate(null);
@@ -140,6 +141,7 @@ public class DashboardCurrentActionService {
             dataSession.update(actionToWork);
             blockTrans.commit();
         } else if (WORK_STATUS_IN_PROGRESS.equals(workStatus)) {
+            saveStandaloneActionTaken(appReq, actionToWork.getProject(), actionTakenText);
             appReq.addInfoMessage("Progress saved.");
         }
 
@@ -147,10 +149,11 @@ public class DashboardCurrentActionService {
 
         int actionToWorkId = actionToWork.getActionNextId();
         ProjectActionNext nextCompletingAction;
-        if (WORK_STATUS_BLOCKED.equals(workStatus)
+        if ((WORK_STATUS_BLOCKED.equals(workStatus) || WORK_STATUS_IN_PROGRESS.equals(workStatus))
                 && followUpAction != null
                 && followUpAction.getNextActionDate() != null
-                && webUser.isToday(followUpAction.getNextActionDate())) {
+                && (WORK_STATUS_IN_PROGRESS.equals(workStatus)
+                        || webUser.isToday(followUpAction.getNextActionDate()))) {
             nextCompletingAction = followUpAction;
         } else {
             nextCompletingAction = selectNextActionForWorkFlow(webUser, dataSession, actionToWorkId);
@@ -167,6 +170,8 @@ public class DashboardCurrentActionService {
             appReq.addInfoMessage("Action cancelled.");
         } else if (WORK_STATUS_BLOCKED.equals(workStatus)) {
             appReq.addInfoMessage("Action blocked and follow-up saved.");
+        } else if (WORK_STATUS_IN_PROGRESS.equals(workStatus) && followUpAction != null) {
+            appReq.addInfoMessage("Progress saved and next action created.");
         }
     }
 
@@ -198,19 +203,33 @@ public class DashboardCurrentActionService {
         return actionToWork;
     }
 
-    private void updateSummaryFromRequest(AppReq appReq, Session dataSession, ProjectActionNext actionToWork) {
+    private String readActionTakenText(AppReq appReq) {
         String nextSummary = appReq.getRequest().getParameter(PARAM_NEXT_SUMMARY);
-        if (nextSummary == null) {
+        return nextSummary == null ? "" : nextSummary.trim();
+    }
+
+    private void saveStandaloneActionTaken(AppReq appReq, Project project, String actionTakenText) {
+        if (actionTakenText == null || actionTakenText.isEmpty() || project == null) {
             return;
         }
-        if (nextSummary.equals(n(actionToWork.getNextSummary()))) {
-            return;
-        }
-        actionToWork.setNextSummary(nextSummary);
-        actionToWork.setNextChangeDate(new Date());
-        Transaction tx = dataSession.beginTransaction();
-        dataSession.update(actionToWork);
-        tx.commit();
+
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+
+        Transaction trans = dataSession.beginTransaction();
+        ProjectActionSet actionSet = new ProjectActionSetDao(dataSession).createStandardActionSet(webUser);
+
+        ProjectActionTaken actionTaken = new ProjectActionTaken();
+        actionTaken.setProject(project);
+        actionTaken.setProjectId(project.getProjectId());
+        actionTaken.setActionDate(new Date());
+        actionTaken.setActionDescription(actionTakenText);
+        actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        actionTaken.setContact(webUser.getProjectContact());
+        actionTaken.setContactId(webUser.getContactId());
+        actionTaken.setActionSet(actionSet);
+        dataSession.saveOrUpdate(actionTaken);
+        trans.commit();
     }
 
     private ProjectActionNext createFollowUpActionFromSentence(WebUser webUser, Session dataSession,

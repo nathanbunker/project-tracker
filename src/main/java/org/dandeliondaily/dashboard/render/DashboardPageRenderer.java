@@ -870,6 +870,48 @@ public class DashboardPageRenderer {
                 out.println("  .dd-current-action-form-main {");
                 out.println("    clear: both;");
                 out.println("  }");
+                out.println("  .dd-work-progress-label {");
+                out.println("    margin: 0 0 6px 0;");
+                out.println("    font-size: 16px;");
+                out.println("    font-weight: bold;");
+                out.println("    color: #2d3a2d;");
+                out.println("  }");
+                out.println("  .dd-work-progress-input {");
+                out.println("    width: 100%;");
+                out.println("    box-sizing: border-box;");
+                out.println("    font-size: 18px;");
+                out.println("    padding: 8px 10px;");
+                out.println("    border: 1px solid #cfbea6;");
+                out.println("    background: #fffdf8;");
+                out.println("  }");
+                out.println("  .dd-work-status-toggle {");
+                out.println("    margin-top: 10px;");
+                out.println("    display: flex;");
+                out.println("    flex-wrap: wrap;");
+                out.println("    gap: 8px;");
+                out.println("  }");
+                out.println("  .dd-work-status-toggle input[type='radio'] {");
+                out.println("    position: absolute;");
+                out.println("    opacity: 0;");
+                out.println("    pointer-events: none;");
+                out.println("  }");
+                out.println("  .dd-work-status-toggle label {");
+                out.println("    display: inline-block;");
+                out.println("    padding: 6px 10px;");
+                out.println("    border: 1px solid #d5d5d5;");
+                out.println("    background: #efefef;");
+                out.println("    color: #5e5e5e;");
+                out.println("    border-radius: 4px;");
+                out.println("    cursor: pointer;");
+                out.println("    font-weight: bold;");
+                out.println("    user-select: none;");
+                out.println("  }");
+                out.println("  .dd-work-status-toggle input[type='radio']:checked + label {");
+                out.println("    border: 2px solid #58734f;");
+                out.println("    background: #e6f1df;");
+                out.println("    color: #23361e;");
+                out.println("    padding: 5px 9px;");
+                out.println("  }");
                 out.println("  .dd-modal-overlay {");
                 out.println("    position: fixed;");
                 out.println("    inset: 0;");
@@ -1030,19 +1072,18 @@ public class DashboardPageRenderer {
                                                 + "</p>");
                         }
                         out.println("    <div class=\"dd-current-action-form-main\">");
-                        out.println("    <p>What action was taken:</p>");
-                        out.println("    <input type=\"text\" id=\"workProgressInput\" name=\"nextSummary\" value=\""
-                                        + escapeHtml(nowColumnModel.getCurrentAction().getSummary())
-                                        + "\" style=\"width: 100%;\" autofocus/>");
-                        out.println("    <div style=\"margin-top: 8px;\">");
+                        out.println("    <p class=\"dd-work-progress-label\">What action was taken:</p>");
                         out.println(
-                                        "      <label><input type=\"radio\" name=\"workStatus\" value=\"IN_PROGRESS\"/> In Progress</label>");
+                                        "    <input type=\"text\" class=\"dd-work-progress-input\" id=\"workProgressInput\" name=\"nextSummary\" value=\"\" autofocus/>");
+                        out.println("    <div class=\"dd-work-status-toggle\">");
                         out.println(
-                                        "      <label style=\"margin-left: 12px;\"><input type=\"radio\" name=\"workStatus\" value=\"COMPLETE\" checked/> Complete</label>");
+                                        "      <input type=\"radio\" id=\"workStatusInProgress\" name=\"workStatus\" value=\"IN_PROGRESS\" checked/><label for=\"workStatusInProgress\">In Progress</label>");
                         out.println(
-                                        "      <label style=\"margin-left: 12px;\"><input type=\"radio\" name=\"workStatus\" value=\"DELETE\"/> Delete</label>");
+                                        "      <input type=\"radio\" id=\"workStatusComplete\" name=\"workStatus\" value=\"COMPLETE\"/><label for=\"workStatusComplete\">Complete</label>");
                         out.println(
-                                        "      <label style=\"margin-left: 12px;\"><input type=\"radio\" name=\"workStatus\" value=\"BLOCKED\"/> Blocked</label>");
+                                        "      <input type=\"radio\" id=\"workStatusDelete\" name=\"workStatus\" value=\"DELETE\"/><label for=\"workStatusDelete\">Delete</label>");
+                        out.println(
+                                        "      <input type=\"radio\" id=\"workStatusBlocked\" name=\"workStatus\" value=\"BLOCKED\"/><label for=\"workStatusBlocked\">Blocked</label>");
                         out.println("    </div>");
                         out.println("    <div style=\"margin-top: 8px;\">");
                         out.println("      <span id=\"workFollowUpPrefix\">Next</span>");

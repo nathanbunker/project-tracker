@@ -197,18 +197,16 @@ public class FocusedActionPageRenderer {
 
                 out.println("        <div class=\"fa-card\">");
                 out.println("          <form method=\"POST\" action=\"FocusedActionServlet\" class=\"fa-work-form\">");
-                out.println("            <div class=\"fa-field-label\">What action was taken:</div>");
-                out.println("            <input type=\"text\" name=\"nextSummary\" value=\""
-                                + escapeHtml(n(action.getNextSummary()))
-                                + "\" style=\"width:100%;\" autofocus />");
-                out.println("            <div class=\"fa-status-row\">");
+                out.println("            <div class=\"fa-work-progress-label\">What action was taken:</div>");
+                out.println("            <input type=\"text\" class=\"fa-work-progress-input\" name=\"nextSummary\" value=\"\" autofocus />");
+                out.println("            <div class=\"fa-status-row fa-work-status-toggle\">");
                 out.println(
-                                "              <label><input type=\"radio\" name=\"workStatus\" value=\"IN_PROGRESS\"/> In Progress</label>");
+                                "              <input type=\"radio\" id=\"faWorkStatusInProgress\" name=\"workStatus\" value=\"IN_PROGRESS\" checked/><label for=\"faWorkStatusInProgress\">In Progress</label>");
                 out.println(
-                                "              <label><input type=\"radio\" name=\"workStatus\" value=\"COMPLETE\" checked/> Complete</label>");
-                out.println("              <label><input type=\"radio\" name=\"workStatus\" value=\"DELETE\"/> Delete</label>");
+                                "              <input type=\"radio\" id=\"faWorkStatusComplete\" name=\"workStatus\" value=\"COMPLETE\"/><label for=\"faWorkStatusComplete\">Complete</label>");
+                out.println("              <input type=\"radio\" id=\"faWorkStatusDelete\" name=\"workStatus\" value=\"DELETE\"/><label for=\"faWorkStatusDelete\">Delete</label>");
                 out.println(
-                                "              <label><input type=\"radio\" name=\"workStatus\" value=\"BLOCKED\"/> Blocked</label>");
+                                "              <input type=\"radio\" id=\"faWorkStatusBlocked\" name=\"workStatus\" value=\"BLOCKED\"/><label for=\"faWorkStatusBlocked\">Blocked</label>");
                 out.println("            </div>");
                 out.println("            <div class=\"fa-next-row\">");
                 out.println("              <span>Next</span>");
@@ -740,8 +738,12 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-inline-note textarea { width: 100%; box-sizing: border-box; margin-bottom: 8px; padding: 8px; border: 1px solid #bbb; border-radius: 4px; font-family: inherit; }");
                 out.println("  .fa-note-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }");
                 out.println("  .fa-note-submit-btn { width: auto; }");
-                out.println("  .fa-work-form .fa-field-label { margin-bottom: 6px; color: #324532; }");
+                out.println("  .fa-work-progress-label { margin-bottom: 6px; color: #324532; font-size: 16px; font-weight: 700; }");
+                out.println("  .fa-work-progress-input { width: 100%; box-sizing: border-box; font-size: 18px; padding: 8px 10px; border: 1px solid #cfbea6; background: #fffdf8; }");
                 out.println("  .fa-status-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }");
+                out.println("  .fa-work-status-toggle input[type='radio'] { position: absolute; opacity: 0; pointer-events: none; }");
+                out.println("  .fa-work-status-toggle label { display: inline-block; padding: 6px 10px; border: 1px solid #d5d5d5; background: #efefef; color: #5e5e5e; border-radius: 4px; cursor: pointer; font-weight: bold; user-select: none; }");
+                out.println("  .fa-work-status-toggle input[type='radio']:checked + label { border: 2px solid #58734f; background: #e6f1df; color: #23361e; padding: 5px 9px; }");
                 out.println("  .fa-next-row { display: flex; align-items: center; gap: 8px; }");
                 out.println("  .fa-next-action-text { font-size: 15px; color: #233423; min-height: 24px; }");
                 out.println("  .fa-next-action-link { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");

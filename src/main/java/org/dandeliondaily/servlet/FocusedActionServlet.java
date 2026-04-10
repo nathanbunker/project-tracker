@@ -45,6 +45,7 @@ public class FocusedActionServlet extends ClientServlet {
     private static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
     private static final String SESSION_PRE_MEETING_ACTION_ID = "FOCUS_PRE_MEETING_ACTION_ID";
     private static final String SESSION_MEETING_ACTIVE = "FOCUS_MEETING_ACTIVE";
+    private static final String SESSION_RECENT_FOCUSED_ACTION_IDS = "FOCUS_RECENT_ACTION_IDS";
 
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
     private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
@@ -90,6 +91,7 @@ public class FocusedActionServlet extends ClientServlet {
             // After completing an action, if no current action is selected, redirect to
             // dashboard
             ProjectActionNext currentAction = reloadCurrentAction(appReq);
+            trackFocusedActionSelection(appReq, currentAction);
             if (currentAction == null && ACTION_WORK_NEXT.equals(action)
                     && ACTION_COMPLETE.equalsIgnoreCase(n(appReq.getRequest().getParameter(PARAM_WORK_STATUS)))) {
                 appReq.getResponse().sendRedirect("FocusedActionServlet");
@@ -107,7 +109,8 @@ public class FocusedActionServlet extends ClientServlet {
 
             List<String> notes = extractNoteLines(currentAction);
             List<FocusedActionPageRenderer.MeetingOption> meetingOptions = loadTodayMeetingOptions(appReq);
-            List<FocusedActionPageRenderer.PreviousActionOption> previousActions = loadPreviousActionOptions(appReq,
+            List<FocusedActionPageRenderer.PreviousActionOption> previousActions = loadRecentFocusedActionOptions(
+                    appReq,
                     currentAction == null ? 0 : currentAction.getActionNextId());
             boolean runningClock = appReq.getTimeTracker() != null && appReq.getTimeTracker().isRunningClock();
             int nowMinute = appReq.getWebUser().getLocalDateTimeNow().getMinute();
@@ -324,10 +327,9 @@ public class FocusedActionServlet extends ClientServlet {
 
     private String buildActionLabel(ProjectActionNext action) {
         String projectName = action.getProject() == null ? "" : n(action.getProject().getProjectName());
-        String summary = n(action.getNextSummary());
         String description = n(action.getNextDescription());
         String estimate = action.getNextTimeEstimate() == null ? "" : " (" + action.getNextTimeEstimate() + "m)";
-        String text = summary.length() > 0 ? summary : description;
+        String text = description;
         if (text.length() == 0) {
             text = "[No description]";
         }
@@ -475,46 +477,37 @@ public class FocusedActionServlet extends ClientServlet {
         List<FocusedActionPageRenderer.MeetingOption> options = new ArrayList<FocusedActionPageRenderer.MeetingOption>();
         for (ProjectActionNext action : meetingActions) {
             String projectName = action.getProject() == null ? "" : n(action.getProject().getProjectName());
-            String summary = n(action.getNextSummary());
             String description = n(action.getNextDescription());
             String estimate = action.getNextTimeEstimate() == null ? "" : " (" + action.getNextTimeEstimate() + "m)";
             String title = (projectName.length() > 0 ? projectName + " - " : "")
-                    + (summary.length() > 0 ? summary : description)
+                    + description
                     + estimate;
             options.add(new FocusedActionPageRenderer.MeetingOption(action.getActionNextId(), title));
         }
         return options;
     }
 
-    private List<FocusedActionPageRenderer.PreviousActionOption> loadPreviousActionOptions(AppReq appReq,
+    private List<FocusedActionPageRenderer.PreviousActionOption> loadRecentFocusedActionOptions(AppReq appReq,
             int excludeActionId) {
-        WebUser webUser = appReq.getWebUser();
-        Integer workspaceId = appReq.getActiveWorkspaceId();
-        LocalDate today = webUser.getLocalDateToday();
-        Query query = appReq.getDataSession().createQuery(
-                "select distinct pan from ProjectActionNext pan "
-                        + "left join fetch pan.project "
-                        + "where pan.workspaceId = :workspaceId and (pan.contactId = :contactId or pan.nextContactId = :nextContactId) "
-                        + "and pan.actionNextId <> :excludeActionId "
-                        + "and pan.nextActionDate is not null and pan.nextActionDate <= :today "
-                        + "and pan.nextActionStatusString <> :cancelledStatus "
-                        + "order by pan.nextChangeDate desc, pan.nextActionDate desc, pan.completionOrder desc");
-        query.setParameter("workspaceId", workspaceId);
-        query.setParameter("contactId", webUser.getContactId());
-        query.setParameter("nextContactId", webUser.getContactId());
-        query.setParameter("excludeActionId", Integer.valueOf(excludeActionId));
-        query.setParameter("today", java.sql.Date.valueOf(today));
-        query.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
-        query.setMaxResults(2);
-        @SuppressWarnings("unchecked")
-        List<ProjectActionNext> actions = query.list();
-
         List<FocusedActionPageRenderer.PreviousActionOption> options = new ArrayList<FocusedActionPageRenderer.PreviousActionOption>();
-        for (ProjectActionNext item : actions) {
+        HttpSession session = appReq.getRequest().getSession(false);
+        if (session == null) {
+            return options;
+        }
+        List<Integer> recentActionIds = getRecentFocusedActionIds(session);
+        Session dataSession = appReq.getDataSession();
+
+        for (Integer actionId : recentActionIds) {
+            if (actionId == null || actionId.intValue() == excludeActionId) {
+                continue;
+            }
+            ProjectActionNext item = (ProjectActionNext) dataSession.get(ProjectActionNext.class, actionId);
+            if (item == null) {
+                continue;
+            }
             String projectName = item.getProject() == null ? "" : n(item.getProject().getProjectName());
-            String summary = n(item.getNextSummary());
             String description = n(item.getNextDescription());
-            String text = summary.length() > 0 ? summary : description;
+            String text = description;
             if (text.length() == 0) {
                 text = "[No description]";
             }
@@ -528,8 +521,41 @@ public class FocusedActionServlet extends ClientServlet {
             }
             String label = (projectName.length() > 0 ? projectName + " - " : "") + text + suffix;
             options.add(new FocusedActionPageRenderer.PreviousActionOption(item.getActionNextId(), label));
+            if (options.size() >= 2) {
+                break;
+            }
         }
         return options;
+    }
+
+    private void trackFocusedActionSelection(AppReq appReq, ProjectActionNext action) {
+        if (action == null) {
+            return;
+        }
+        HttpSession session = appReq.getRequest().getSession(true);
+        List<Integer> recentActionIds = getRecentFocusedActionIds(session);
+        Integer actionId = Integer.valueOf(action.getActionNextId());
+        recentActionIds.remove(actionId);
+        recentActionIds.add(0, actionId);
+        while (recentActionIds.size() > 10) {
+            recentActionIds.remove(recentActionIds.size() - 1);
+        }
+        session.setAttribute(SESSION_RECENT_FOCUSED_ACTION_IDS, recentActionIds);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Integer> getRecentFocusedActionIds(HttpSession session) {
+        Object value = session.getAttribute(SESSION_RECENT_FOCUSED_ACTION_IDS);
+        List<Integer> ids = new ArrayList<Integer>();
+        if (!(value instanceof List<?>)) {
+            return ids;
+        }
+        for (Object entry : (List<Object>) value) {
+            if (entry instanceof Integer) {
+                ids.add((Integer) entry);
+            }
+        }
+        return ids;
     }
 
     private int loadBillableMinutesToday(AppReq appReq) {
