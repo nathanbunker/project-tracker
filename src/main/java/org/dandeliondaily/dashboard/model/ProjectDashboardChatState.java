@@ -13,6 +13,9 @@ public class ProjectDashboardChatState implements Serializable {
     private String proposedOutcome = "";
     private String proposedSuccessCriteria = "";
     private List<String> followUpQuestions = new ArrayList<String>();
+    private List<ProjectDashboardSuggestedAction> proposedActions = new ArrayList<ProjectDashboardSuggestedAction>();
+    private List<ProjectDashboardSuggestedIssue> proposedIssues = new ArrayList<ProjectDashboardSuggestedIssue>();
+    private List<ProjectDashboardSuggestedNarrative> proposedNarratives = new ArrayList<ProjectDashboardSuggestedNarrative>();
 
     public List<ProjectDashboardChatMessage> getMessages() {
         return messages;
@@ -54,8 +57,37 @@ public class ProjectDashboardChatState implements Serializable {
         this.followUpQuestions = followUpQuestions;
     }
 
+    public List<ProjectDashboardSuggestedAction> getProposedActions() {
+        return proposedActions;
+    }
+
+    public void setProposedActions(List<ProjectDashboardSuggestedAction> proposedActions) {
+        this.proposedActions = proposedActions;
+    }
+
+    public List<ProjectDashboardSuggestedIssue> getProposedIssues() {
+        return proposedIssues;
+    }
+
+    public void setProposedIssues(List<ProjectDashboardSuggestedIssue> proposedIssues) {
+        this.proposedIssues = proposedIssues;
+    }
+
+    public List<ProjectDashboardSuggestedNarrative> getProposedNarratives() {
+        return proposedNarratives;
+    }
+
+    public void setProposedNarratives(List<ProjectDashboardSuggestedNarrative> proposedNarratives) {
+        this.proposedNarratives = proposedNarratives;
+    }
+
     public boolean hasSuggestions() {
-        return isNonEmpty(proposedDescription) || isNonEmpty(proposedOutcome) || isNonEmpty(proposedSuccessCriteria);
+        return isNonEmpty(proposedDescription)
+                || isNonEmpty(proposedOutcome)
+                || isNonEmpty(proposedSuccessCriteria)
+                || (proposedActions != null && !proposedActions.isEmpty())
+                || (proposedIssues != null && !proposedIssues.isEmpty())
+                || (proposedNarratives != null && !proposedNarratives.isEmpty());
     }
 
     public void clearSuggestions() {
@@ -63,6 +95,9 @@ public class ProjectDashboardChatState implements Serializable {
         proposedOutcome = "";
         proposedSuccessCriteria = "";
         followUpQuestions.clear();
+        proposedActions.clear();
+        proposedIssues.clear();
+        proposedNarratives.clear();
     }
 
     public static boolean isNonEmpty(String value) {

@@ -12,6 +12,9 @@ import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatState;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedAction;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedIssue;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedNarrative;
 import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeState;
@@ -81,7 +84,9 @@ public class DashboardPageRenderer {
                 out.println("    <div class=\"dd-dashboard-intro\">");
                 if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
                         out.println("      <h1>Project Dashboard</h1>");
-                        out.println("      <p class=\"dd-dashboard-parent-label\">Dandelion Dashboard</p>");
+                        out.println("      <div class=\"dd-back-nav-wrap\">");
+                        out.println("        <a class=\"dd-back-nav\" href=\"DandelionDashboardServlet\">&#9664; Dandelion Dashboard</a>");
+                        out.println("      </div>");
                 } else {
                         String overClass = todayColumnModel.getTotals().isOverCommitted() ? " dd-over-under-over" : "";
                         out.println("      <h1>Dandelion Dashboard</h1>");
@@ -89,11 +94,6 @@ public class DashboardPageRenderer {
                                         + escapeHtml(todayColumnModel.getTotals().getGuidanceMessage()) + "</p>");
                 }
                 out.println("    </div>");
-                if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
-                        out.println("    <div class=\"dd-back-nav-wrap\">");
-                        out.println("      <a class=\"dd-back-nav\" href=\"DandelionDashboardServlet\">&#9664; Dandelion Dashboard</a>");
-                        out.println("    </div>");
-                }
                 printDashboardQuickCapture(out, todayColumnModel);
                 out.println("  </div>");
 
@@ -300,26 +300,21 @@ public class DashboardPageRenderer {
                 out.println("  .dd-dashboard-intro p {");
                 out.println("    margin: 4px 0;");
                 out.println("  }");
-                out.println("  .dd-dashboard-parent-label {");
-                out.println("    font-size: 12px;");
-                out.println("    color: rgba(255, 253, 248, 0.7);");
-                out.println("    margin: 0 0 4px 0;");
-                out.println("    letter-spacing: 0.05em;");
-                out.println("  }");
                 out.println("  .dd-back-nav-wrap {");
-                out.println("    margin-top: 6px;");
+                out.println("    margin-top: 2px;");
                 out.println("  }");
                 out.println("  .dd-back-nav {");
                 out.println("    display: inline-block;");
-                out.println("    color: #fffdf8;");
+                out.println("    color: #2d3a2d;");
                 out.println("    text-decoration: none;");
                 out.println("    font-size: 13px;");
-                out.println("    border: 1px solid rgba(255, 253, 248, 0.4);");
-                out.println("    padding: 3px 8px;");
+                out.println("    border: 1px solid #b8c8b4;");
+                out.println("    background: #f2f7ef;");
+                out.println("    padding: 4px 9px;");
                 out.println("    border-radius: 3px;");
                 out.println("  }");
                 out.println("  .dd-back-nav:hover {");
-                out.println("    background: rgba(255, 253, 248, 0.15);");
+                out.println("    background: #e3efdf;");
                 out.println("  }");
                 out.println("  .dd-dashboard-shell {");
                 out.println("    border: 1px solid #cbbda7;");
@@ -1092,7 +1087,9 @@ public class DashboardPageRenderer {
                 out.println("  .dd-task-detail-value { color: #3e3a33; white-space: pre-wrap; word-break: break-word; }");
                 out.println("  .dd-task-detail-empty { color: #8a8174; }");
                 out.println("  .dd-chat-warning { margin: 8px 0 10px 0; padding: 8px 10px; background: #fff2e2; border: 1px solid #e5c18f; border-radius: 4px; color: #6f4b1d; }");
-                out.println("  .dd-chat-quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }");
+                out.println("  .dd-chat-header { background: #f7f1e6; border: 1px solid #d8ccb8; border-bottom: 2px solid #c9bda4; border-radius: 4px 4px 0 0; padding: 10px 12px; margin-bottom: 0; }");
+                out.println("  .dd-chat-header-title { margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #2d3a2d; }");
+                out.println("  .dd-chat-quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0; }");
                 out.println("  .dd-chat-chip { border: 1px solid #cfbea6; background: #f4ede0; border-radius: 14px; padding: 4px 10px; cursor: pointer; color: #2d3a2d; font-size: 12px; }");
                 out.println("  .dd-chat-chip:hover { background: #ebe1d0; }");
                 out.println("  .dd-chat-history { max-height: 320px; overflow-y: auto; border: 1px solid #ddd0bd; background: #fffdf9; border-radius: 4px; padding: 8px; }");
@@ -1107,6 +1104,7 @@ public class DashboardPageRenderer {
                 out.println("  .dd-chat-suggestion-card { margin-bottom: 10px; background: #faf6ef; border: 1px solid #d8ccb8; border-radius: 4px; padding: 8px; }");
                 out.println("  .dd-chat-suggestion-title { font-weight: bold; margin-bottom: 4px; color: #2d3a2d; }");
                 out.println("  .dd-chat-suggestion-text { white-space: normal; color: #3b3a36; margin-bottom: 8px; }");
+                out.println("  .dd-chat-suggestion-meta { font-size: 11px; color: #6b6459; margin: 0 0 6px 0; }");
                 out.println("  .dd-chat-follow-up { margin: 8px 0 10px 0; color: #3b3a36; }");
                 out.println("  .dd-chat-follow-up ul { margin: 6px 0 0 18px; padding: 0; }");
                 out.println("  .dd-chat-apply-row { margin-top: 10px; }");
@@ -1294,13 +1292,8 @@ public class DashboardPageRenderer {
 
         private void printProjectExpandedRightColumn(PrintWriter out, ProjectDashboardChatState chatState,
                         String chatWarningMessage) {
-                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
-                printDevLabel(out, "PROJECT CHAT");
-                out.println("  <h3 class=\"dd-backlog-section-title\">Project Review Assistant</h3>");
-                if (chatWarningMessage != null && chatWarningMessage.trim().length() > 0) {
-                        out.println("  <p class=\"dd-chat-warning\">" + escapeHtml(chatWarningMessage) + "</p>");
-                }
-
+                out.println("<div class=\"dd-chat-header\">");
+                out.println("  <h3 class=\"dd-chat-header-title\">Project Review Assistant</h3>");
                 out.println("  <form method=\"POST\" action=\"" + dashboardPath
                                 + "\" class=\"dd-chat-quick-prompts\">");
                 out.println("    <input type=\"hidden\" name=\"action\" value=\"projectChatQuickPrompt\" />");
@@ -1308,8 +1301,18 @@ public class DashboardPageRenderer {
                 out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite the project description to be clearer and more outcome oriented.\" class=\"dd-chat-chip\">Improve Description</button>");
                 out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Propose a sharper outcome statement with measurable completion criteria.\" class=\"dd-chat-chip\">Clarify Outcome</button>");
                 out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite success criteria as concise checklist bullets.\" class=\"dd-chat-chip\">Clarify Success Criteria</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Suggest concrete next actions for this project. Include type, estimate, and rationale.\" class=\"dd-chat-chip\">Suggest Next Actions</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Identify blockers, assumptions, and risks. Propose issues with issue type and rationale.\" class=\"dd-chat-chip\">Identify Issues</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Propose project narrative entries from this context using NOTE, DECISION, INSIGHT, RISK, or OPPORTUNITY.\" class=\"dd-chat-chip\">Save Narrative</button>");
                 out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Identify what is missing or ambiguous in this project definition.\" class=\"dd-chat-chip\">What Is Missing?</button>");
                 out.println("  </form>");
+                out.println("</div>");
+
+                out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
+                printDevLabel(out, "PROJECT CHAT");
+                if (chatWarningMessage != null && chatWarningMessage.trim().length() > 0) {
+                        out.println("  <p class=\"dd-chat-warning\">" + escapeHtml(chatWarningMessage) + "</p>");
+                }
 
                 out.println("  <div class=\"dd-chat-history\">");
                 if (chatState == null || chatState.getMessages().isEmpty()) {
@@ -1334,10 +1337,11 @@ public class DashboardPageRenderer {
                 out.println("  </form>");
 
                 out.println("  <div class=\"dd-chat-suggestions\">");
-                out.println("    <h4 class=\"dd-backlog-section-title\">Suggested Updates</h4>");
+                out.println("    <h4 class=\"dd-backlog-section-title\">AI Suggestions</h4>");
                 if (chatState == null || !chatState.hasSuggestions()) {
-                        out.println("    <p class=\"dd-subtle\">No field suggestions yet. Ask the assistant to improve project text.</p>");
+                        out.println("    <p class=\"dd-subtle\">No suggestions yet. Ask the assistant to refine text, suggest actions, identify issues, or create narratives.</p>");
                 } else {
+                        out.println("    <h4 class=\"dd-backlog-section-title\">Project Definition</h4>");
                         printSuggestionCard(out, "Description", chatState.getProposedDescription(),
                                         "projectChatApplyDescription");
                         printSuggestionCard(out, "Outcome", chatState.getProposedOutcome(),
@@ -1351,6 +1355,120 @@ public class DashboardPageRenderer {
                                         out.println("      <li>" + escapeHtml(question) + "</li>");
                                 }
                                 out.println("      </ul>\n    </div>");
+                        }
+
+                        out.println("    <h4 class=\"dd-backlog-section-title\">Proposed Next Actions</h4>");
+                        if (chatState.getProposedActions() == null || chatState.getProposedActions().isEmpty()) {
+                                out.println("    <p class=\"dd-subtle\">No action proposals yet.</p>");
+                        } else {
+                                for (ProjectDashboardSuggestedAction suggestedAction : chatState.getProposedActions()) {
+                                        out.println("    <div class=\"dd-chat-suggestion-card\">");
+                                        out.println("      <div class=\"dd-chat-suggestion-title\">"
+                                                        + escapeHtml(safe(suggestedAction.getTitle()).length() == 0
+                                                                        ? "Suggested Action"
+                                                                        : suggestedAction.getTitle())
+                                                        + "</div>");
+                                        if (safe(suggestedAction.getSuggestedType()).length() > 0
+                                                        || suggestedAction.getEstimateMinutes() != null
+                                                        || safe(suggestedAction.getSuggestedScheduleHint())
+                                                                        .length() > 0) {
+                                                out.println("      <div class=\"dd-chat-suggestion-meta\">"
+                                                                + "Type: "
+                                                                + escapeHtml(safe(suggestedAction.getSuggestedType())
+                                                                                .length() == 0
+                                                                                                ? "WILL"
+                                                                                                : suggestedAction
+                                                                                                                .getSuggestedType())
+                                                                + " | Estimate: "
+                                                                + escapeHtml(suggestedAction
+                                                                                .getEstimateMinutes() == null
+                                                                                                ? "15"
+                                                                                                : String.valueOf(
+                                                                                                                suggestedAction.getEstimateMinutes()))
+                                                                + " mins"
+                                                                + (safe(suggestedAction.getSuggestedScheduleHint())
+                                                                                .length() > 0
+                                                                                                ? " | Hint: " + escapeHtml(
+                                                                                                                suggestedAction.getSuggestedScheduleHint())
+                                                                                                : "")
+                                                                + "</div>");
+                                        }
+                                        if (safe(suggestedAction.getDescription()).length() > 0) {
+                                                out.println("      <div class=\"dd-chat-suggestion-text\">"
+                                                                + escapeHtml(suggestedAction.getDescription())
+                                                                                .replace("\n", "<br/>")
+                                                                + "</div>");
+                                        }
+                                        if (safe(suggestedAction.getRationale()).length() > 0) {
+                                                out.println("      <div class=\"dd-chat-suggestion-meta\">Rationale: "
+                                                                + escapeHtml(suggestedAction.getRationale())
+                                                                + "</div>");
+                                        }
+                                        out.println("    </div>");
+                                }
+                                out.println("    <div class=\"dd-chat-apply-row\">");
+                                out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                                + "\" style=\"display:inline-block;\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatApplyActionProposals\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-primary\">Generate/Replace Proposals</button>\n      </form>");
+                                out.println("    </div>");
+                        }
+
+                        out.println("    <h4 class=\"dd-backlog-section-title\">Proposed Issues</h4>");
+                        if (chatState.getProposedIssues() == null || chatState.getProposedIssues().isEmpty()) {
+                                out.println("    <p class=\"dd-subtle\">No issue suggestions yet.</p>");
+                        } else {
+                                for (int i = 0; i < chatState.getProposedIssues().size(); i++) {
+                                        ProjectDashboardSuggestedIssue suggestedIssue = chatState.getProposedIssues()
+                                                        .get(i);
+                                        out.println("    <div class=\"dd-chat-suggestion-card\">");
+                                        out.println("      <div class=\"dd-chat-suggestion-title\">"
+                                                        + escapeHtml(safe(suggestedIssue.getIssueType()).length() == 0
+                                                                        ? "UNKNOWN"
+                                                                        : suggestedIssue.getIssueType())
+                                                        + "</div>");
+                                        out.println("      <div class=\"dd-chat-suggestion-text\">"
+                                                        + escapeHtml(suggestedIssue.getIssueText()).replace("\n",
+                                                                        "<br/>")
+                                                        + "</div>");
+                                        if (safe(suggestedIssue.getRationale()).length() > 0) {
+                                                out.println("      <div class=\"dd-chat-suggestion-meta\">Rationale: "
+                                                                + escapeHtml(suggestedIssue.getRationale()) + "</div>");
+                                        }
+                                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                                        + "\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatApplyIssue\"/>\n        <input type=\"hidden\" name=\"suggestionIndex\" value=\""
+                                                        + i
+                                                        + "\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Create Issue</button>\n      </form>");
+                                        out.println("    </div>");
+                                }
+                        }
+
+                        out.println("    <h4 class=\"dd-backlog-section-title\">Proposed Narratives</h4>");
+                        if (chatState.getProposedNarratives() == null || chatState.getProposedNarratives().isEmpty()) {
+                                out.println("    <p class=\"dd-subtle\">No narrative suggestions yet.</p>");
+                        } else {
+                                for (int i = 0; i < chatState.getProposedNarratives().size(); i++) {
+                                        ProjectDashboardSuggestedNarrative suggestedNarrative = chatState
+                                                        .getProposedNarratives().get(i);
+                                        out.println("    <div class=\"dd-chat-suggestion-card\">");
+                                        out.println("      <div class=\"dd-chat-suggestion-title\">"
+                                                        + escapeHtml(safe(suggestedNarrative.getVerb()).length() == 0
+                                                                        ? "NOTE"
+                                                                        : suggestedNarrative.getVerb())
+                                                        + "</div>");
+                                        out.println("      <div class=\"dd-chat-suggestion-text\">"
+                                                        + escapeHtml(suggestedNarrative.getText()).replace("\n",
+                                                                        "<br/>")
+                                                        + "</div>");
+                                        if (safe(suggestedNarrative.getRationale()).length() > 0) {
+                                                out.println("      <div class=\"dd-chat-suggestion-meta\">Rationale: "
+                                                                + escapeHtml(suggestedNarrative.getRationale())
+                                                                + "</div>");
+                                        }
+                                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                                        + "\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatApplyNarrative\"/>\n        <input type=\"hidden\" name=\"suggestionIndex\" value=\""
+                                                        + i
+                                                        + "\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Save Narrative</button>\n      </form>");
+                                        out.println("    </div>");
+                                }
                         }
 
                         out.println("    <div class=\"dd-chat-apply-row\">");

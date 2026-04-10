@@ -24,6 +24,9 @@ import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatState;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedAction;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedIssue;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedNarrative;
 import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.render.DashboardPageRenderer.DashboardLayoutMode;
@@ -50,6 +53,8 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ProjectTagMap;
+import org.openimmunizationsoftware.pt.model.ProjectIssueType;
+import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
@@ -81,6 +86,9 @@ public class DandelionDashboardServlet extends ClientServlet {
     private static final String ACTION_PROJECT_CHAT_APPLY_OUTCOME = "projectChatApplyOutcome";
     private static final String ACTION_PROJECT_CHAT_APPLY_SUCCESS_CRITERIA = "projectChatApplySuccessCriteria";
     private static final String ACTION_PROJECT_CHAT_APPLY_ALL = "projectChatApplyAll";
+    private static final String ACTION_PROJECT_CHAT_APPLY_ISSUE = "projectChatApplyIssue";
+    private static final String ACTION_PROJECT_CHAT_APPLY_NARRATIVE = "projectChatApplyNarrative";
+    private static final String ACTION_PROJECT_CHAT_APPLY_ACTION_PROPOSALS = "projectChatApplyActionProposals";
     private static final String ACTION_PROJECT_CHAT_DISMISS = "projectChatDismissSuggestions";
     private static final int MAX_PROJECT_CHAT_MESSAGES = 24;
 
@@ -173,6 +181,12 @@ public class DandelionDashboardServlet extends ClientServlet {
                     handleProjectChatApplySuccessCriteria(appReq);
                 } else if (ACTION_PROJECT_CHAT_APPLY_ALL.equals(action)) {
                     handleProjectChatApplyAll(appReq);
+                } else if (ACTION_PROJECT_CHAT_APPLY_ISSUE.equals(action)) {
+                    handleProjectChatApplyIssue(appReq);
+                } else if (ACTION_PROJECT_CHAT_APPLY_NARRATIVE.equals(action)) {
+                    handleProjectChatApplyNarrative(appReq);
+                } else if (ACTION_PROJECT_CHAT_APPLY_ACTION_PROPOSALS.equals(action)) {
+                    handleProjectChatApplyActionProposals(appReq);
                 } else if (ACTION_PROJECT_CHAT_DISMISS.equals(action)) {
                     handleProjectChatDismiss(appReq);
                 }
@@ -332,6 +346,15 @@ public class DandelionDashboardServlet extends ClientServlet {
             chatState.setFollowUpQuestions(aiResponse.getFollowUpQuestions() == null
                     ? new ArrayList<String>()
                     : aiResponse.getFollowUpQuestions());
+            chatState.setProposedActions(aiResponse.getProposedActions() == null
+                    ? new ArrayList<ProjectDashboardSuggestedAction>()
+                    : aiResponse.getProposedActions());
+            chatState.setProposedIssues(aiResponse.getProposedIssues() == null
+                    ? new ArrayList<ProjectDashboardSuggestedIssue>()
+                    : aiResponse.getProposedIssues());
+            chatState.setProposedNarratives(aiResponse.getProposedNarratives() == null
+                    ? new ArrayList<ProjectDashboardSuggestedNarrative>()
+                    : aiResponse.getProposedNarratives());
         } catch (Exception e) {
             chatState.getMessages().add(new ProjectDashboardChatMessage("assistant",
                     "I ran into an error while generating a response. Please try again."));
@@ -356,10 +379,244 @@ public class DandelionDashboardServlet extends ClientServlet {
         applyProjectChatSuggestions(appReq, true, true, true);
     }
 
+    private void handleProjectChatApplyIssue(AppReq appReq) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project before applying issue suggestions.");
+            return;
+        }
+
+        int suggestionIndex;
+        try {
+            suggestionIndex = Integer.parseInt(n(appReq.getRequest().getParameter("suggestionIndex")).trim());
+        } catch (Exception e) {
+            appReq.addWarningMessage("Issue suggestion is not valid.");
+            return;
+        }
+
+        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
+        if (chatState.getProposedIssues() == null
+                || suggestionIndex < 0
+                || suggestionIndex >= chatState.getProposedIssues().size()) {
+            appReq.addWarningMessage("Issue suggestion is no longer available.");
+            return;
+        }
+
+        ProjectDashboardSuggestedIssue suggestedIssue = chatState.getProposedIssues().get(suggestionIndex);
+        String issueText = clip(n(suggestedIssue.getIssueText()), 1200);
+        if (issueText.length() == 0) {
+            appReq.addWarningMessage("Issue suggestion is empty.");
+            return;
+        }
+        ProjectIssueType issueType = ProjectIssueType.fromString(n(suggestedIssue.getIssueType()));
+
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            Project managedProject = (Project) dataSession.get(Project.class, project.getProjectId());
+            if (managedProject == null) {
+                transaction.rollback();
+                appReq.addErrorMessage("Project was not found.");
+                return;
+            }
+
+            org.openimmunizationsoftware.pt.doa.ProjectIssueDao projectIssueDao = new org.openimmunizationsoftware.pt.doa.ProjectIssueDao(
+                    dataSession);
+            projectIssueDao.createIssue(managedProject, issueText, issueType);
+            transaction.commit();
+
+            chatState.getProposedIssues().remove(suggestionIndex);
+            appReq.addSuccessMessage("AI issue suggestion created.");
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            appReq.addErrorMessage("Unable to create AI issue suggestion.");
+        }
+    }
+
+    private void handleProjectChatApplyNarrative(AppReq appReq) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project before applying narrative suggestions.");
+            return;
+        }
+
+        int suggestionIndex;
+        try {
+            suggestionIndex = Integer.parseInt(n(appReq.getRequest().getParameter("suggestionIndex")).trim());
+        } catch (Exception e) {
+            appReq.addWarningMessage("Narrative suggestion is not valid.");
+            return;
+        }
+
+        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
+        if (chatState.getProposedNarratives() == null
+                || suggestionIndex < 0
+                || suggestionIndex >= chatState.getProposedNarratives().size()) {
+            appReq.addWarningMessage("Narrative suggestion is no longer available.");
+            return;
+        }
+
+        ProjectDashboardSuggestedNarrative suggestedNarrative = chatState.getProposedNarratives().get(suggestionIndex);
+        String narrativeText = clip(n(suggestedNarrative.getText()), 4000);
+        if (narrativeText.length() == 0) {
+            appReq.addWarningMessage("Narrative suggestion is empty.");
+            return;
+        }
+
+        ProjectNarrativeVerb narrativeVerb = ProjectNarrativeVerb.fromId(n(suggestedNarrative.getVerb()).toUpperCase());
+        if (narrativeVerb == null) {
+            narrativeVerb = ProjectNarrativeVerb.NOTE;
+        }
+
+        try {
+            projectNarrativeService.saveSingleNarrativeForProjectDate(appReq,
+                    project.getProjectId(),
+                    appReq.getWebUser().getLocalDateToday(),
+                    narrativeVerb,
+                    narrativeText);
+            chatState.getProposedNarratives().remove(suggestionIndex);
+            appReq.addSuccessMessage("AI narrative suggestion saved.");
+        } catch (Exception e) {
+            appReq.addErrorMessage("Unable to save AI narrative suggestion.");
+        }
+    }
+
+    private void handleProjectChatApplyActionProposals(AppReq appReq) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project before generating AI action proposals.");
+            return;
+        }
+
+        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
+        List<ProjectDashboardSuggestedAction> suggestions = chatState.getProposedActions();
+        if (suggestions == null || suggestions.isEmpty()) {
+            appReq.addWarningMessage("No AI action proposals are available.");
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            Project managedProject = (Project) dataSession.get(Project.class, project.getProjectId());
+            if (managedProject == null) {
+                transaction.rollback();
+                appReq.addErrorMessage("Project was not found.");
+                return;
+            }
+
+            int replacedCount = supersedeAiProposedActions(dataSession, managedProject.getProjectId());
+            int createdCount = 0;
+            for (ProjectDashboardSuggestedAction suggestion : suggestions) {
+                String title = clip(n(suggestion.getTitle()), 240);
+                String description = clip(n(suggestion.getDescription()), 1200);
+                String rationale = clip(n(suggestion.getRationale()), 1200);
+                String actionText = title.length() > 0 ? title : description;
+                if (actionText.length() == 0) {
+                    continue;
+                }
+
+                ActionNext action = new ActionNext();
+                action.setProject(managedProject);
+                action.setProjectId(managedProject.getProjectId());
+                action.setWorkspaceId(managedProject.getWorkspaceId());
+                action.setContact(webUser.getProjectContact());
+                action.setContactId(webUser.getContactId());
+                action.setNextActionType(resolveAiSuggestedActionType(suggestion.getSuggestedType()));
+                action.setNextDescription(actionText);
+                action.setNextSummary(description.length() > 0 ? description : actionText);
+                action.setNextTimeEstimate(normalizeEstimateMinutes(suggestion.getEstimateMinutes()));
+                action.setNextActionStatus(ProjectNextActionStatus.PROPOSED);
+                action.setNextChangeDate(new Date());
+                action.setPriorityLevel(ProjectNextActionType.defaultPriority(action.getNextActionType()));
+                action.setBillable(
+                        managedProject.getBillCode() != null && managedProject.getBillCode().trim().length() > 0);
+                action.setNextNotes(buildAiProposalNotes(rationale, suggestion.getSuggestedScheduleHint()));
+                dataSession.save(action);
+                createdCount++;
+            }
+
+            transaction.commit();
+            appReq.addSuccessMessage("AI action proposals refreshed. Replaced " + replacedCount
+                    + " and created " + createdCount + ".");
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            appReq.addErrorMessage("Unable to apply AI action proposals.");
+        }
+    }
+
     private void handleProjectChatDismiss(AppReq appReq) {
         ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
         chatState.clearSuggestions();
         appReq.addSuccessMessage("AI suggestions dismissed.");
+    }
+
+    private int supersedeAiProposedActions(Session dataSession, int projectId) {
+        Query query = dataSession.createQuery(
+                "from ActionNext where projectId = :projectId and nextActionStatusString = :status and nextNotes like :tag");
+        query.setParameter("projectId", projectId);
+        query.setParameter("status", ProjectNextActionStatus.PROPOSED.getId());
+        query.setParameter("tag", "%AI_PROPOSAL%");
+        @SuppressWarnings("unchecked")
+        List<ActionNext> aiActions = query.list();
+        int count = 0;
+        for (ActionNext aiAction : aiActions) {
+            aiAction.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+            aiAction.setNextChangeDate(new Date());
+            dataSession.update(aiAction);
+            count++;
+        }
+        return count;
+    }
+
+    private String resolveAiSuggestedActionType(String suggestedType) {
+        String normalized = n(suggestedType).toUpperCase();
+        if (normalized.equals(ProjectNextActionType.WILL)
+                || normalized.equals(ProjectNextActionType.WILL_CONTACT)
+                || normalized.equals(ProjectNextActionType.WILL_MEET)
+                || normalized.equals(ProjectNextActionType.WILL_REVIEW)
+                || normalized.equals(ProjectNextActionType.WILL_DOCUMENT)
+                || normalized.equals(ProjectNextActionType.WILL_FOLLOW_UP)
+                || normalized.equals(ProjectNextActionType.MIGHT)
+                || normalized.equals(ProjectNextActionType.WOULD_LIKE_TO)
+                || normalized.equals(ProjectNextActionType.COMMITTED_TO)
+                || normalized.equals(ProjectNextActionType.GOAL)
+                || normalized.equals(ProjectNextActionType.WAITING)
+                || normalized.equals(ProjectNextActionType.OVERDUE_TO)) {
+            return normalized;
+        }
+        return ProjectNextActionType.WILL;
+    }
+
+    private Integer normalizeEstimateMinutes(Integer estimateMinutes) {
+        if (estimateMinutes == null) {
+            return Integer.valueOf(15);
+        }
+        int value = estimateMinutes.intValue();
+        if (value < 0) {
+            value = 0;
+        }
+        if (value > 480) {
+            value = 480;
+        }
+        return Integer.valueOf(value);
+    }
+
+    private String buildAiProposalNotes(String rationale, String scheduleHint) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("AI_PROPOSAL");
+        if (n(scheduleHint).length() > 0) {
+            sb.append("\nSchedule Hint: ").append(clip(scheduleHint, 200));
+        }
+        if (n(rationale).length() > 0) {
+            sb.append("\nRationale: ").append(clip(rationale, 1000));
+        }
+        return sb.toString();
     }
 
     private void applyProjectChatSuggestions(AppReq appReq, boolean applyDescription, boolean applyOutcome,

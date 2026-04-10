@@ -127,6 +127,40 @@ public class ProjectNarrativeService {
         }
     }
 
+    public void saveSingleNarrativeForProjectDate(AppReq appReq, long projectId, LocalDate reviewDate,
+            ProjectNarrativeVerb verb, String text) {
+        Session dataSession = appReq.getDataSession();
+        Project project = (Project) dataSession.get(Project.class, (int) projectId);
+        if (project == null) {
+            throw new IllegalArgumentException("Project is not available");
+        }
+        Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+        if (activeWorkspaceId == null || project.getWorkspaceId() == null
+                || !activeWorkspaceId.equals(project.getWorkspaceId())) {
+            throw new IllegalArgumentException("Project is not available");
+        }
+        if (verb == null) {
+            throw new IllegalArgumentException("Narrative verb is required");
+        }
+        String normalizedText = s(text).trim();
+        if (normalizedText.length() == 0) {
+            throw new IllegalArgumentException("Narrative text is required");
+        }
+
+        ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
+        Transaction transaction = null;
+        try {
+            transaction = dataSession.beginTransaction();
+            upsertNarrative(narrativeDao, appReq, project, reviewDate, verb, normalizedText, 0);
+            transaction.commit();
+        } catch (RuntimeException e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            throw e;
+        }
+    }
+
     private int upsertIfPresent(ProjectNarrativeDao narrativeDao, AppReq appReq, Project project,
             LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
         if (text == null || text.length() == 0) {

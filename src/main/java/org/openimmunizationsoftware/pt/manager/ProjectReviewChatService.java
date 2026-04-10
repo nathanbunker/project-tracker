@@ -3,6 +3,9 @@ package org.openimmunizationsoftware.pt.manager;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedAction;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedIssue;
+import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedNarrative;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,8 +22,9 @@ public class ProjectReviewChatService {
     private static final int MAX_HISTORY_MESSAGES = 24;
 
     private static final String SYSTEM_PROMPT = "You are a project review assistant for Dandelion Daily. "
-            + "You help improve project definition only. Do not suggest direct autonomous edits. "
-            + "Return JSON only with keys: assistantMessage, proposedDescription, proposedOutcome, proposedSuccessCriteria, followUpQuestions. "
+            + "You help improve project definition and suggest practical next actions, issues, and project narratives. "
+            + "Do not perform direct autonomous edits. "
+            + "Return JSON only with keys: assistantMessage, proposedDescription, proposedOutcome, proposedSuccessCriteria, followUpQuestions, proposedActions, proposedIssues, proposedNarrativeEntries. "
             + "assistantMessage should be concise and practical. followUpQuestions should be an array of strings when useful.";
 
     private final OpenAIClient client;
@@ -118,6 +122,68 @@ public class ProjectReviewChatService {
                 }
                 parsed.setFollowUpQuestions(followUps);
             }
+
+            JsonNode proposedActionsNode = root.get("proposedActions");
+            if (proposedActionsNode != null && proposedActionsNode.isArray()) {
+                List<ProjectDashboardSuggestedAction> proposedActions = new ArrayList<ProjectDashboardSuggestedAction>();
+                for (JsonNode item : proposedActionsNode) {
+                    if (item == null || !item.isObject()) {
+                        continue;
+                    }
+                    ProjectDashboardSuggestedAction suggestedAction = new ProjectDashboardSuggestedAction();
+                    suggestedAction.setTitle(readText(item, "title"));
+                    suggestedAction.setDescription(readText(item, "description"));
+                    suggestedAction.setRationale(readText(item, "rationale"));
+                    suggestedAction.setSuggestedType(readText(item, "suggestedType"));
+                    suggestedAction.setSuggestedScheduleHint(readText(item, "suggestedScheduleHint"));
+                    JsonNode estimateMinutesNode = item.get("estimateMinutes");
+                    if (estimateMinutesNode != null && estimateMinutesNode.isInt()) {
+                        suggestedAction.setEstimateMinutes(estimateMinutesNode.asInt());
+                    }
+                    if (n(suggestedAction.getTitle()).length() > 0
+                            || n(suggestedAction.getDescription()).length() > 0) {
+                        proposedActions.add(suggestedAction);
+                    }
+                }
+                parsed.setProposedActions(proposedActions);
+            }
+
+            JsonNode proposedIssuesNode = root.get("proposedIssues");
+            if (proposedIssuesNode != null && proposedIssuesNode.isArray()) {
+                List<ProjectDashboardSuggestedIssue> proposedIssues = new ArrayList<ProjectDashboardSuggestedIssue>();
+                for (JsonNode item : proposedIssuesNode) {
+                    if (item == null || !item.isObject()) {
+                        continue;
+                    }
+                    ProjectDashboardSuggestedIssue suggestedIssue = new ProjectDashboardSuggestedIssue();
+                    suggestedIssue.setIssueText(readText(item, "issueText"));
+                    suggestedIssue.setIssueType(readText(item, "issueType"));
+                    suggestedIssue.setRationale(readText(item, "rationale"));
+                    if (n(suggestedIssue.getIssueText()).length() > 0) {
+                        proposedIssues.add(suggestedIssue);
+                    }
+                }
+                parsed.setProposedIssues(proposedIssues);
+            }
+
+            JsonNode proposedNarrativesNode = root.get("proposedNarrativeEntries");
+            if (proposedNarrativesNode != null && proposedNarrativesNode.isArray()) {
+                List<ProjectDashboardSuggestedNarrative> proposedNarratives = new ArrayList<ProjectDashboardSuggestedNarrative>();
+                for (JsonNode item : proposedNarrativesNode) {
+                    if (item == null || !item.isObject()) {
+                        continue;
+                    }
+                    ProjectDashboardSuggestedNarrative suggestedNarrative = new ProjectDashboardSuggestedNarrative();
+                    suggestedNarrative.setVerb(readText(item, "verb"));
+                    suggestedNarrative.setText(readText(item, "text"));
+                    suggestedNarrative.setRationale(readText(item, "rationale"));
+                    if (n(suggestedNarrative.getText()).length() > 0) {
+                        proposedNarratives.add(suggestedNarrative);
+                    }
+                }
+                parsed.setProposedNarratives(proposedNarratives);
+            }
+
             if (parsed.getAssistantMessage() == null || parsed.getAssistantMessage().trim().length() == 0) {
                 parsed.setAssistantMessage(cleaned);
             }

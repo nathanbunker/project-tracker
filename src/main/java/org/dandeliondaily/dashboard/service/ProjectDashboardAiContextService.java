@@ -2,12 +2,15 @@ package org.dandeliondaily.dashboard.service;
 
 import java.util.List;
 
+import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectIssue;
+import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -15,6 +18,8 @@ public class ProjectDashboardAiContextService {
 
     private static final int MAX_RECENT_ACTION_TAKEN = 15;
     private static final int MAX_CURRENT_PLANNED_ACTION_NEXT = 20;
+    private static final int MAX_OPEN_ISSUES = 20;
+    private static final int MAX_RECENT_NARRATIVES = 20;
 
     public String buildContextText(AppReq appReq, Project project) {
         StringBuilder sb = new StringBuilder();
@@ -72,6 +77,35 @@ public class ProjectDashboardAiContextService {
             }
         }
 
+        sb.append("\nOpen Issues\n");
+        List<ProjectIssue> openIssues = loadOpenIssues(dataSession, project);
+        if (openIssues.isEmpty()) {
+            sb.append("- (none)\n");
+        } else {
+            for (ProjectIssue issue : openIssues) {
+                sb.append("- [").append(issue.getIssueType() == null ? "UNKNOWN" : issue.getIssueType().name())
+                        .append("] ")
+                        .append(n(issue.getIssueText()))
+                        .append("\n");
+            }
+        }
+
+        sb.append("\nRecent Project Narratives\n");
+        List<ProjectNarrative> narratives = loadRecentNarratives(dataSession, project.getProjectId());
+        if (narratives.isEmpty()) {
+            sb.append("- (none)\n");
+        } else {
+            for (ProjectNarrative narrative : narratives) {
+                String dateLabel = narrative.getNarrativeDate() == null ? ""
+                        : webUser.getDateFormatService().formatPattern(narrative.getNarrativeDate(),
+                                webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone());
+                sb.append("- [").append(dateLabel).append("] [")
+                        .append(narrative.getNarrativeVerb() == null ? "NOTE" : narrative.getNarrativeVerb().name())
+                        .append("] ").append(n(narrative.getNarrativeText()))
+                        .append("\n");
+            }
+        }
+
         return sb.toString();
     }
 
@@ -104,6 +138,24 @@ public class ProjectDashboardAiContextService {
         query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
         query.setParameter("proposedStatus", ProjectNextActionStatus.PROPOSED.getId());
         query.setMaxResults(MAX_CURRENT_PLANNED_ACTION_NEXT);
+        return query.list();
+    }
+
+    private List<ProjectIssue> loadOpenIssues(Session dataSession, Project project) {
+        ProjectIssueDao projectIssueDao = new ProjectIssueDao(dataSession);
+        List<ProjectIssue> all = projectIssueDao.listOpenIssuesForProject(project);
+        if (all.size() <= MAX_OPEN_ISSUES) {
+            return all;
+        }
+        return all.subList(0, MAX_OPEN_ISSUES);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ProjectNarrative> loadRecentNarratives(Session dataSession, int projectId) {
+        Query query = dataSession.createQuery(
+                "from ProjectNarrative where projectId = :projectId order by narrativeDate desc");
+        query.setParameter("projectId", projectId);
+        query.setMaxResults(MAX_RECENT_NARRATIVES);
         return query.list();
     }
 
