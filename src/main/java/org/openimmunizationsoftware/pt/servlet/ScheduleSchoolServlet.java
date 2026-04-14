@@ -22,6 +22,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.doa.WeUserDependencyDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.GamePointLedger;
@@ -93,7 +94,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             WebUser dependentUser = dependency.getDependentWebUser();
-            Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+            Integer activeWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession,
+                    dependentUser.getWebUserId());
             if (activeWorkspaceId == null) {
                 forwardToHome(request, response);
                 return;
@@ -291,11 +293,15 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         for (Project project : projectList) {
             Query templateQuery = dataSession.createQuery(
-                    "from ActionNext where projectId = :projectId and nextDescription <> '' "
+                    "from ActionNext where projectId = :projectId "
+                            + "and (contactId = :contactId or nextContactId = :nextContactId) "
+                            + "and nextDescription <> '' "
                             + "and templateTypeString is NOT NULL and templateTypeString <> '' "
                             + "and nextActionStatusString = :nextActionStatus "
                             + "order by nextActionDate asc, nextDescription");
             templateQuery.setParameter("projectId", project.getProjectId());
+            templateQuery.setParameter("contactId", dependentUser.getContactId());
+            templateQuery.setParameter("nextContactId", dependentUser.getContactId());
             templateQuery.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
             @SuppressWarnings("unchecked")
             List<ActionNext> templateList = templateQuery.list();
@@ -309,7 +315,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                         "from ActionNext where templateActionNextId = :templateActionNextId "
                                 + "and nextActionDate >= :nextActionDate "
                                 + "and nextActionDate < :nextActionDateEnd "
-                                + "and contactId = :contactId "
+                                + "and (contactId = :contactId or nextContactId = :nextContactId) "
                                 + "and workspaceId = :workspaceId "
                                 + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) "
                                 + "order by nextChangeDate desc");
@@ -317,6 +323,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 dayQuery.setParameter("nextActionDate", java.sql.Date.valueOf(toDayKey(dayList.get(0))));
                 dayQuery.setParameter("nextActionDateEnd", java.sql.Date.valueOf(toDayKey(dayRangeEnd)));
                 dayQuery.setParameter("contactId", dependentUser.getContactId());
+                dayQuery.setParameter("nextContactId", dependentUser.getContactId());
                 dayQuery.setParameter("workspaceId", workspaceId);
                 dayQuery.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
                 dayQuery.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
@@ -531,17 +538,19 @@ public class ScheduleSchoolServlet extends ClientServlet {
         if (pivot.getWorkspaceId() == null || !pivot.getWorkspaceId().equals(workspaceId)) {
             return;
         }
-        if (pivot.getContactId() != dependentUser.getContactId()) {
+        if (!isDependentRelatedAction(pivot, dependentUser)) {
             return;
         }
 
         Query query = dataSession.createQuery(
-                "from ActionNext where workspaceId = :workspaceId and contactId = :contactId "
+                "from ActionNext where workspaceId = :workspaceId "
+                        + "and (contactId = :contactId or nextContactId = :nextContactId) "
                         + "and nextActionDate = :nextActionDate "
                         + "and nextDescription <> '' "
                         + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus)");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", dependentUser.getContactId());
+        query.setParameter("nextContactId", dependentUser.getContactId());
         query.setParameter("nextActionDate", pivot.getNextActionDate());
         query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
         query.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
@@ -830,12 +839,14 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Date rangeEnd = dependentUser.endOfDay(dependentUser.addDays(dependentUser.getToday(), ASSIGNMENT_FUTURE_DAYS));
 
         Query query = dataSession.createQuery(
-                "from ActionNext where workspaceId = :workspaceId and contactId = :contactId "
+                "from ActionNext where workspaceId = :workspaceId "
+                        + "and (contactId = :contactId or nextContactId = :nextContactId) "
                         + "and nextDescription <> '' "
                         + "and nextActionDate >= :rangeStart and nextActionDate <= :rangeEnd "
                         + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus)");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", dependentUser.getContactId());
+        query.setParameter("nextContactId", dependentUser.getContactId());
         query.setParameter("rangeStart", rangeStart);
         query.setParameter("rangeEnd", rangeEnd);
         query.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
@@ -1201,7 +1212,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         ActionNext action = (ActionNext) dataSession.get(ActionNext.class,
                 actionNextId.intValue());
         if (action == null || action.getWorkspaceId() == null || !action.getWorkspaceId().equals(workspaceId)
-                || action.getContactId() != dependentUser.getContactId()) {
+                || !isDependentRelatedAction(action, dependentUser)) {
             return;
         }
 
@@ -1263,7 +1274,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         ActionNext action = (ActionNext) dataSession.get(ActionNext.class,
                 actionNextId.intValue());
         if (action == null || action.getWorkspaceId() == null || !action.getWorkspaceId().equals(workspaceId)
-                || action.getContactId() != dependentUser.getContactId()) {
+                || !isDependentRelatedAction(action, dependentUser)) {
             return;
         }
 
@@ -1321,9 +1332,12 @@ public class ScheduleSchoolServlet extends ClientServlet {
         Integer completionOrder = Integer.valueOf(1);
         Query orderQuery = dataSession.createQuery(
                 "select max(an.completionOrder) from ActionNext an "
-                        + "where an.workspaceId = :workspaceId and an.contactId = :contactId and an.nextActionDate = :nextActionDate");
+                        + "where an.workspaceId = :workspaceId "
+                        + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.nextActionDate = :nextActionDate");
         orderQuery.setParameter("workspaceId", workspaceId);
         orderQuery.setParameter("contactId", dependentUser.getContactId());
+        orderQuery.setParameter("nextContactId", dependentUser.getContactId());
         orderQuery.setParameter("nextActionDate", nextActionDate);
         Number maxOrder = (Number) orderQuery.uniqueResult();
         if (maxOrder != null) {
@@ -1370,6 +1384,15 @@ public class ScheduleSchoolServlet extends ClientServlet {
         billCodeQuery.setParameter("billCode", project.getBillCode());
         BillCode billCode = (BillCode) billCodeQuery.uniqueResult();
         return billCode != null && "Y".equalsIgnoreCase(billCode.getBillable());
+    }
+
+    private boolean isDependentRelatedAction(ActionNext action, WebUser dependentUser) {
+        if (action == null || dependentUser == null) {
+            return false;
+        }
+        int dependentContactId = dependentUser.getContactId();
+        return action.getContactId() == dependentContactId
+                || (action.getNextContactId() != null && action.getNextContactId().intValue() == dependentContactId);
     }
 
     private void sortAssignments(List<ActionNext> actionList) {
