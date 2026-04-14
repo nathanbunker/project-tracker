@@ -204,6 +204,10 @@ public class ActionSentenceImportService {
         } else {
             nextAction.setNextActionType(ProjectNextActionType.WILL);
         }
+        if (ProjectNextActionType.WOULD_LIKE_TO.equals(nextAction.getNextActionType())
+                && (whenToTakeAction == null || whenToTakeAction.isEmpty())) {
+            actionDate = null;
+        }
         nextAction.setNextActionDate(actionDate);
         nextAction.setNextDescription(actionToTake);
         nextAction.setNextTimeEstimate(nextTimeEstimate);
