@@ -67,6 +67,24 @@ public class PlanAheadPageRenderer {
                         }
                 }
 
+                if (boardModel.getOverdueRow().isHasItems()) {
+                        int overdueTotalMins = 0;
+                        for (PlanAheadBoardModel.CardModel c : boardModel.getOverdueRow().getCards()) {
+                                overdueTotalMins += c.getEstimateMins();
+                        }
+                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-row-overdue-label\""
+                                        + " id=\"pa-row-label-overdue\" data-row-key=\"overdue\">"
+                                        + "<span class=\"pa-row-label-name\">Overdue</span>"
+                                        + "<span class=\"pa-row-total pa-card-est-box\">"
+                                        + escapeHtml(TimeTracker.formatTime(overdueTotalMins))
+                                        + "</span>"
+                                        + "</div>");
+                        out.println(renderOverdueTodayCell(boardModel.getOverdueRow(), boardModel.isWorkMode()));
+                        for (int i = 1; i < boardModel.getDayHeaders().size(); i++) {
+                                out.println("    <div class=\"pa-cell pa-overdue-disabled\"></div>");
+                        }
+                }
+
                 for (PlanAheadBoardModel.RowModel row : boardModel.getRows()) {
                         int rowTotalMins = 0;
                         for (PlanAheadBoardModel.CellModel rowCell : row.getCells()) {
@@ -1300,6 +1318,54 @@ public class PlanAheadPageRenderer {
                 return renderKanbanCell(cell, showEstimate);
         }
 
+        public String renderOverdueCellHtml(PlanAheadBoardModel.OverdueRowModel overdueRow, boolean showEstimate) {
+                return renderOverdueTodayCell(overdueRow, showEstimate);
+        }
+
+        private String renderOverdueTodayCell(PlanAheadBoardModel.OverdueRowModel overdueRow,
+                        boolean showEstimate) {
+                StringBuilder s = new StringBuilder();
+                s.append("    <div class=\"pa-cell pa-overdue-today\" id=\"")
+                                .append(kanbanCellDomId(overdueRow.getTodayKey(),
+                                                org.dandeliondaily.planahead.service.PlanAheadBoardService.ROW_OVERDUE))
+                                .append("\">");
+                for (PlanAheadBoardModel.CardModel card : overdueRow.getCards()) {
+                        s.append("<div class=\"pa-card pa-card-overdue\" draggable=\"true\" data-action-id=\"")
+                                        .append(card.getActionNextId()).append("\">");
+                        s.append("<div class=\"pa-card-main\">");
+                        s.append("<div class=\"pa-card-body\">");
+                        s.append("<div class=\"pa-card-title pa-card-desc-editable\" data-action-id=\"")
+                                        .append(card.getActionNextId())
+                                        .append("\" data-raw-description=\"")
+                                        .append(escapeHtml(card.getRawDescription()))
+                                        .append("\" title=\"Click to edit description\">")
+                                        .append(card.getDescription())
+                                        .append("</div>");
+                        s.append("<div class=\"pa-card-subline\">");
+                        s.append("<span class=\"pa-card-project\">")
+                                        .append(escapeHtml(card.getProjectName()))
+                                        .append("</span>");
+                        s.append("<button type=\"button\" class=\"pa-card-edit-link\" onclick=\"paOpenEditModal(")
+                                        .append(card.getActionNextId())
+                                        .append(", event, true)\">edit</button>");
+                        s.append("</div>");
+                        s.append("</div>");
+                        if (showEstimate) {
+                                s.append("<button type=\"button\" class=\"pa-card-est-box pa-card-est-editable\" data-action-id=\"")
+                                                .append(card.getActionNextId())
+                                                .append("\" data-est-mins=\"")
+                                                .append(card.getEstimateMins())
+                                                .append("\" title=\"Click to edit estimate\">")
+                                                .append(escapeHtml(card.getEstimateDisplay()))
+                                                .append("</button>");
+                        }
+                        s.append("</div>");
+                        s.append("</div>");
+                }
+                s.append("</div>");
+                return s.toString();
+        }
+
         public static String dayHeaderDomId(String dayKey) {
                 return "pa-day-header-" + dayKey;
         }
@@ -1456,6 +1522,12 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-status-time-btn:hover{border-color:#9fb1c2;background:#f7fbff;}");
                 out.println(".pa-status-time-input{flex:0 0 auto;width:62px;padding:4px 6px;border:1px solid #6f98bf;border-radius:4px;text-align:center;font-size:14px;font-weight:bold;line-height:1.1;color:#1f2f3a;background:#ffffff;}");
                 out.println(".pa-kanban{background:#fff;}");
+                out.println(".pa-row-overdue-label{background:#fff0ee;color:#8b2020;}");
+                out.println(".pa-row-overdue-label .pa-row-label-name{color:#8b2020;}");
+                out.println(".pa-row-overdue-label .pa-card-est-box{background:#fdecea;border-color:#e0a0a0;color:#8b2020;}");
+                out.println(".pa-overdue-today{background:#fff0ee;padding:6px 8px;min-height:40px;}");
+                out.println(".pa-card-overdue{background:#fdecea;border-color:#e0a0a0;}");
+                out.println(".pa-overdue-disabled{background:#f5f5f5;background-image:repeating-linear-gradient(45deg,#e2e2e2 0,#e2e2e2 1px,transparent 0,transparent 50%);background-size:6px 6px;min-height:40px;}");
                 out.println(
                                 ".pa-card{background:#f6f8fb;border:1px solid #d9e1ea;border-radius:6px;padding:6px 8px;margin-bottom:6px;cursor:grab;}");
                 out.println(".pa-card-main{display:flex;align-items:flex-start;gap:8px;}");

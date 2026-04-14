@@ -47,6 +47,7 @@ public class PlanAheadBoardService {
     public static final String ROW_MORNING = "morning";
     public static final String ROW_AFTERNOON = "afternoon";
     public static final String ROW_EVENING = "evening";
+    public static final String ROW_OVERDUE = "overdue";
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
@@ -143,6 +144,7 @@ public class PlanAheadBoardService {
                         generatedTemplateActions);
 
         List<ActionNext> movableActions = loadMovableActions(appReq, mode, startDate, endDateExclusive);
+        List<ActionNext> overdueActions = loadOverdueActions(appReq, mode);
         List<ActionNext> plannedActions = loadPlannedActions(appReq, mode, startDate, endDateExclusive);
         if (createdDefaults) {
             generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate, endDateExclusive);
@@ -191,6 +193,7 @@ public class PlanAheadBoardService {
         model.setDayHeaders(dayHeaders);
 
         model.setRows(createRows(appReq, mode, dayHeaders, movableByDayRow));
+        model.setOverdueRow(createOverdueRow(appReq, mode, todayKey, overdueActions));
         model.setTemplateRow(
                 createTemplateRow(appReq, mode, templateActions, dayHeaders, dayCapacityMap, generatedTemplateActions,
                         shouldMaterializeDefaults));
@@ -520,6 +523,61 @@ public class PlanAheadBoardService {
         @SuppressWarnings("unchecked")
         List<ActionNext> list = query.list();
         return list;
+    }
+
+    List<ActionNext> loadOverdueActions(AppReq appReq, String mode) {
+        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
+        Session dataSession = appReq.getDataSession();
+        Date today = stripToDate(appReq.getWebUser(), appReq.getWebUser().getToday());
+        Query query = dataSession.createQuery(
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and an.nextDescription <> '' "
+                        + "and an.nextActionDate < :today "
+                        + "and an.nextActionStatusString = :ready "
+                        + "and an.templateActionNextId is null "
+                        + "and (an.templateTypeString is null or an.templateTypeString = '') "
+                        + "order by an.nextActionDate, an.priorityLevel desc, an.nextTimeEstimate desc");
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+        query.setParameter("contactId", appReq.getWebUser().getContactId());
+        query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
+        query.setParameter("today", today);
+        query.setParameter("ready", ProjectNextActionStatus.READY.getId());
+        @SuppressWarnings("unchecked")
+        List<ActionNext> list = query.list();
+        List<ActionNext> filtered = new ArrayList<ActionNext>();
+        for (ActionNext action : list) {
+            if (toRowKey(action, mode).length() > 0) {
+                filtered.add(action);
+            }
+        }
+        return filtered;
+    }
+
+    private PlanAheadBoardModel.OverdueRowModel createOverdueRow(AppReq appReq, String mode,
+            String todayKey, List<ActionNext> overdueActions) {
+        PlanAheadBoardModel.OverdueRowModel row = new PlanAheadBoardModel.OverdueRowModel();
+        row.setTodayKey(todayKey);
+        List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
+        for (ActionNext action : overdueActions) {
+            PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
+            card.setActionNextId(action.getActionNextId());
+            card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
+            card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
+            card.setRawDescription(n(action.getNextDescription()));
+            card.setEstimateMins(n(action.getNextTimeEstimate()));
+            card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
+            card.setNextActionType(n(action.getNextActionType()));
+            cards.add(card);
+        }
+        cards.sort(Comparator
+                .comparing((PlanAheadBoardModel.CardModel c) -> c.getEstimateMins()).reversed()
+                .thenComparing(PlanAheadBoardModel.CardModel::getActionNextId));
+        row.setCards(cards);
+        return row;
     }
 
     private List<ActionNext> loadTemplateActions(AppReq appReq, String mode) {

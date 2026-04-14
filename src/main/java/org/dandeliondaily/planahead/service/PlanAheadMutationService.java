@@ -109,8 +109,14 @@ public class PlanAheadMutationService {
                 return result;
             }
 
-            sourceDayKey = toDayKey(action.getNextActionDate());
-            sourceRowKey = resolveRowKeyForAction(action, appReq);
+            Date actionDate = action.getNextActionDate();
+            if (actionDate != null && toDayKey(actionDate).compareTo(todayKey) < 0) {
+                sourceDayKey = todayKey;
+                sourceRowKey = PlanAheadBoardService.ROW_OVERDUE;
+            } else {
+                sourceDayKey = toDayKey(actionDate);
+                sourceRowKey = resolveRowKeyForAction(action, appReq);
+            }
 
             if (personalMode) {
                 action.setTimeSlot(targetTimeSlot);
@@ -139,6 +145,13 @@ public class PlanAheadMutationService {
         String targetDayKey = toDayKey(targetDate);
         cellIds.add(PlanAheadPageRenderer.kanbanCellDomId(targetDayKey, targetRow));
 
+        String overdueCellId = PlanAheadPageRenderer.kanbanCellDomId(todayKey,
+                PlanAheadBoardService.ROW_OVERDUE);
+        if (cellIds.contains(overdueCellId)) {
+            result.getAffectedCellsHtml().put(overdueCellId,
+                    renderer.renderOverdueCellHtml(boardModel.getOverdueRow(), boardModel.isWorkMode()));
+            cellIds.remove(overdueCellId);
+        }
         for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
             for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
                 String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
@@ -440,7 +453,11 @@ public class PlanAheadMutationService {
 
             dayKey = toDayKey(action.getNextActionDate());
             rowKey = boardService.resolveRowKeyForActionType(action.getNextActionType());
-            if (rowKey.length() == 0) {
+            String estTodayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
+            if (dayKey.compareTo(estTodayKey) < 0) {
+                dayKey = estTodayKey;
+                rowKey = PlanAheadBoardService.ROW_OVERDUE;
+            } else if (rowKey.length() == 0) {
                 transaction.rollback();
                 result.setSuccess(false);
                 result.setMessage("Action type is not editable in Plan Ahead");
@@ -460,12 +477,18 @@ public class PlanAheadMutationService {
         PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
 
         String cellId = PlanAheadPageRenderer.kanbanCellDomId(dayKey, rowKey);
-        for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
-            for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
-                String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
-                if (cellId.equals(domId)) {
-                    result.getAffectedCellsHtml().put(domId,
-                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
+        if (PlanAheadBoardService.ROW_OVERDUE.equals(rowKey)) {
+            result.getAffectedCellsHtml().put(cellId,
+                    renderer.renderOverdueCellHtml(boardModel.getOverdueRow(), boardModel.isWorkMode()));
+        } else {
+            for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
+                for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
+                    String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(),
+                            cellModel.getRowKey());
+                    if (cellId.equals(domId)) {
+                        result.getAffectedCellsHtml().put(domId,
+                                renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
+                    }
                 }
             }
         }
@@ -533,7 +556,11 @@ public class PlanAheadMutationService {
 
             dayKey = toDayKey(action.getNextActionDate());
             rowKey = resolveRowKeyForAction(action, appReq);
-            if (rowKey.length() == 0) {
+            String descTodayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
+            if (dayKey.compareTo(descTodayKey) < 0) {
+                dayKey = descTodayKey;
+                rowKey = PlanAheadBoardService.ROW_OVERDUE;
+            } else if (rowKey.length() == 0) {
                 transaction.rollback();
                 result.setSuccess(false);
                 result.setMessage("Action type is not editable in Plan Ahead");
@@ -553,12 +580,18 @@ public class PlanAheadMutationService {
         PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
 
         String cellId = PlanAheadPageRenderer.kanbanCellDomId(dayKey, rowKey);
-        for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
-            for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
-                String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
-                if (cellId.equals(domId)) {
-                    result.getAffectedCellsHtml().put(domId,
-                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
+        if (PlanAheadBoardService.ROW_OVERDUE.equals(rowKey)) {
+            result.getAffectedCellsHtml().put(cellId,
+                    renderer.renderOverdueCellHtml(boardModel.getOverdueRow(), boardModel.isWorkMode()));
+        } else {
+            for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
+                for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
+                    String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(),
+                            cellModel.getRowKey());
+                    if (cellId.equals(domId)) {
+                        result.getAffectedCellsHtml().put(domId,
+                                renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
+                    }
                 }
             }
         }

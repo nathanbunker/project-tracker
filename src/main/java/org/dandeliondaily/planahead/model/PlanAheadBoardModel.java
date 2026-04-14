@@ -16,6 +16,7 @@ public class PlanAheadBoardModel {
     private List<DayHeaderModel> dayHeaders = new ArrayList<DayHeaderModel>();
     private List<RowModel> rows = new ArrayList<RowModel>();
     private TemplateRowModel templateRow = new TemplateRowModel();
+    private OverdueRowModel overdueRow = new OverdueRowModel();
 
     public String getWindowStartKey() {
         return windowStartKey;
@@ -95,6 +96,14 @@ public class PlanAheadBoardModel {
 
     public void setTemplateRow(TemplateRowModel templateRow) {
         this.templateRow = templateRow;
+    }
+
+    public OverdueRowModel getOverdueRow() {
+        return overdueRow;
+    }
+
+    public void setOverdueRow(OverdueRowModel overdueRow) {
+        this.overdueRow = overdueRow;
     }
 
     public static class DayHeaderModel {
@@ -430,6 +439,31 @@ public class PlanAheadBoardModel {
 
         public void setSelected(boolean selected) {
             this.selected = selected;
+        }
+    }
+
+    public static class OverdueRowModel {
+        private String todayKey = "";
+        private List<CardModel> cards = new ArrayList<CardModel>();
+
+        public String getTodayKey() {
+            return todayKey;
+        }
+
+        public void setTodayKey(String todayKey) {
+            this.todayKey = todayKey == null ? "" : todayKey;
+        }
+
+        public List<CardModel> getCards() {
+            return cards;
+        }
+
+        public void setCards(List<CardModel> cards) {
+            this.cards = cards;
+        }
+
+        public boolean isHasItems() {
+            return cards != null && !cards.isEmpty();
         }
     }
 }
