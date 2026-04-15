@@ -558,7 +558,8 @@ public class DandelionDashboardServlet extends ClientServlet {
 
     private int supersedeAiProposedActions(Session dataSession, int projectId) {
         Query query = dataSession.createQuery(
-                "from ActionNext where projectId = :projectId and nextActionStatusString = :status and nextNotes like :tag");
+                "select distinct an from ActionNext an join an.nextNoteEntries note "
+                        + "where an.projectId = :projectId and an.nextActionStatusString = :status and note.noteLine like :tag");
         query.setParameter("projectId", projectId);
         query.setParameter("status", ProjectNextActionStatus.PROPOSED.getId());
         query.setParameter("tag", "%AI_PROPOSAL%");

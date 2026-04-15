@@ -20,6 +20,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNextNote;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -93,7 +94,7 @@ public class DashboardNowColumnService {
         model.setTimeSpentTodayDisplay(loadTodayTimeSpentDisplay(webUser, dataSession, currentAction));
         model.setStatusLabel(resolveStatusLabel(currentAction));
         model.setActionTypeLabel(n(currentAction.getNextActionType(), "-"));
-        model.setNotes(parseNotes(currentAction.getNextNotes()));
+        model.setNotes(parseNotes(currentAction.getNextNoteEntries()));
         model.setLinkUrl(n(currentAction.getLinkUrl(), ""));
         if (currentAction.getNextDeadlineDate() != null) {
             model.setDeadlineDisplay(webUser.getDateFormatService().formatPattern(currentAction.getNextDeadlineDate(),
@@ -331,23 +332,35 @@ public class DashboardNowColumnService {
         return value;
     }
 
-    private List<String> parseNotes(String nextNotes) {
+    private List<String> parseNotes(java.util.Set<ActionNextNote> noteEntries) {
         List<String> noteList = new ArrayList<String>();
-        if (nextNotes == null || nextNotes.trim().length() == 0) {
+        if (noteEntries == null || noteEntries.isEmpty()) {
             return noteList;
         }
-        String[] lines = nextNotes.split("\\r?\\n");
-        for (String line : lines) {
-            if (line == null) {
-                continue;
+
+        List<ActionNextNote> orderedNotes = new ArrayList<ActionNextNote>(noteEntries);
+        Collections.sort(orderedNotes, new Comparator<ActionNextNote>() {
+            public int compare(ActionNextNote left, ActionNextNote right) {
+                Date leftDate = left.getNoteDate();
+                Date rightDate = right.getNoteDate();
+                if (leftDate == null && rightDate != null) {
+                    return -1;
+                }
+                if (leftDate != null && rightDate == null) {
+                    return 1;
+                }
+                if (leftDate != null && rightDate != null) {
+                    int compareDate = leftDate.compareTo(rightDate);
+                    if (compareDate != 0) {
+                        return compareDate;
+                    }
+                }
+                return Integer.compare(left.getActionNextNoteId(), right.getActionNextNoteId());
             }
-            String trimmed = line.trim();
-            if (trimmed.length() == 0) {
-                continue;
-            }
-            if (trimmed.startsWith("- ")) {
-                trimmed = trimmed.substring(2).trim();
-            }
+        });
+
+        for (ActionNextNote noteEntry : orderedNotes) {
+            String trimmed = n(noteEntry.getNoteLine(), "").trim();
             if (trimmed.length() > 0) {
                 noteList.add(trimmed);
             }

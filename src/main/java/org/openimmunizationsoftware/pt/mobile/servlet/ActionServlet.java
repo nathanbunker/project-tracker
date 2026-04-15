@@ -6,8 +6,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -21,6 +23,7 @@ import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNextNote;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -62,7 +65,6 @@ public class ActionServlet extends MobileBaseServlet {
     private static final String ACTION_COMPLETE = "complete";
     private static final String ACTION_TOMORROW = "tomorrow";
     private static final String ACTION_SCHEDULE_AND_BLOCK = "scheduleAndBlock";
-    private static final String LIST_START = " - ";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -171,15 +173,21 @@ public class ActionServlet extends MobileBaseServlet {
         if (nextNote != null && nextNote.trim().length() > 0) {
             Transaction trans = dataSession.beginTransaction();
             try {
-                String updatedNotes = nextNote;
-                if (projectAction.getNextNotes() != null && projectAction.getNextNotes().trim().length() > 0) {
-                    updatedNotes = projectAction.getNextNotes() + "\n - " + nextNote;
-                } else {
-                    updatedNotes = LIST_START + nextNote;
+                List<String> noteLines = splitNoteLines(nextNote);
+                if (!noteLines.isEmpty()) {
+                    Date noteDate = new Date();
+                    for (String line : noteLines) {
+                        ActionNextNote actionNote = new ActionNextNote();
+                        actionNote.setActionNextId(projectAction.getActionNextId());
+                        actionNote.setContactId(webUser.getContactId());
+                        actionNote.setNoteLine(line);
+                        actionNote.setNoteDate(noteDate);
+                        dataSession.save(actionNote);
+                        projectAction.getNextNoteEntries().add(actionNote);
+                    }
+                    projectAction.setNextChangeDate(noteDate);
+                    dataSession.saveOrUpdate(projectAction);
                 }
-                projectAction.setNextNotes(updatedNotes);
-                projectAction.setNextChangeDate(new Date());
-                dataSession.saveOrUpdate(projectAction);
                 trans.commit();
             } catch (Exception e) {
                 trans.rollback();
@@ -252,9 +260,10 @@ public class ActionServlet extends MobileBaseServlet {
             out.println("<p><a href=\"" + escapeHtml(action.getLinkUrl()) + "\" target=\"_blank\">Open Link</a></p>");
         }
 
-        if (action.getNextNotes() != null && !action.getNextNotes().trim().isEmpty()) {
+        List<String> noteLines = extractNoteLines(action);
+        if (!noteLines.isEmpty()) {
             out.println("<div class=\"mv-section\">Notes</div>");
-            out.println("<div class=\"mv-notes\">" + convertToHtmlList(action.getNextNotes()) + "</div>");
+            out.println("<div class=\"mv-notes\">" + convertToHtmlList(noteLines) + "</div>");
         }
 
         String dateParam = action.getNextActionDate() != null
@@ -434,13 +443,12 @@ public class ActionServlet extends MobileBaseServlet {
         }
     }
 
-    private static String convertToHtmlList(String input) {
+    private static String convertToHtmlList(List<String> lines) {
         StringBuilder html = new StringBuilder("<ul>\n");
-        String[] lines = input.split("\\r?\\n");
-
         for (String line : lines) {
-            if (line.startsWith(" - ")) {
-                html.append("  <li>").append(escapeHtmlStatic(line.substring(3).trim())).append("</li>\n");
+            String normalized = line == null ? "" : line.trim();
+            if (normalized.length() > 0) {
+                html.append("  <li>").append(escapeHtmlStatic(normalized)).append("</li>\n");
             }
         }
 
@@ -534,16 +542,9 @@ public class ActionServlet extends MobileBaseServlet {
         editProjectAction.setContactId(webUser.getContactId());
         editProjectAction.setContact(webUser.getProjectContact());
         editProjectAction.setNextDescription(trim(request.getParameter(PARAM_NEXT_DESCRIPTION), 1200));
-        editProjectAction.setNextChangeDate(new Date());
-        String nextNote = request.getParameter(PARAM_NEXT_NOTE);
-        if (nextNote != null && nextNote.length() > 0) {
-            if (editProjectAction.getNextNotes() != null && editProjectAction.getNextNotes().trim().length() > 0) {
-                nextNote = editProjectAction.getNextNotes() + "\n - " + nextNote;
-            } else {
-                nextNote = " - " + nextNote;
-            }
-            editProjectAction.setNextNotes(nextNote);
-        }
+        Date changeDate = new Date();
+        editProjectAction.setNextChangeDate(changeDate);
+        List<String> nextNoteLines = splitNoteLines(request.getParameter(PARAM_NEXT_NOTE));
 
         editProjectAction
                 .setNextActionDate(appReq.getWebUser().parseDate(request.getParameter(PARAM_NEXT_ACTION_DATE)));
@@ -578,8 +579,75 @@ public class ActionServlet extends MobileBaseServlet {
 
         Transaction trans = dataSession.beginTransaction();
         dataSession.saveOrUpdate(editProjectAction);
+        dataSession.flush();
+        if (!nextNoteLines.isEmpty()) {
+            for (String noteLine : nextNoteLines) {
+                ActionNextNote actionNote = new ActionNextNote();
+                actionNote.setActionNextId(editProjectAction.getActionNextId());
+                actionNote.setContactId(webUser.getContactId());
+                actionNote.setNoteLine(noteLine);
+                actionNote.setNoteDate(changeDate);
+                dataSession.save(actionNote);
+                editProjectAction.getNextNoteEntries().add(actionNote);
+            }
+        }
         trans.commit();
         return editProjectAction;
+    }
+
+    private List<String> extractNoteLines(ActionNext action) {
+        List<String> lines = new ArrayList<String>();
+        if (action == null) {
+            return lines;
+        }
+        Set<ActionNextNote> noteEntries = action.getNextNoteEntries();
+        if (noteEntries == null || noteEntries.isEmpty()) {
+            return lines;
+        }
+
+        List<ActionNextNote> orderedNotes = new ArrayList<ActionNextNote>(noteEntries);
+        Collections.sort(orderedNotes, new Comparator<ActionNextNote>() {
+            public int compare(ActionNextNote left, ActionNextNote right) {
+                Date leftDate = left.getNoteDate();
+                Date rightDate = right.getNoteDate();
+                if (leftDate == null && rightDate != null) {
+                    return -1;
+                }
+                if (leftDate != null && rightDate == null) {
+                    return 1;
+                }
+                if (leftDate != null && rightDate != null) {
+                    int compareDate = leftDate.compareTo(rightDate);
+                    if (compareDate != 0) {
+                        return compareDate;
+                    }
+                }
+                return Integer.compare(left.getActionNextNoteId(), right.getActionNextNoteId());
+            }
+        });
+
+        for (ActionNextNote noteEntry : orderedNotes) {
+            String normalized = noteEntry.getNoteLine() == null ? "" : noteEntry.getNoteLine().trim();
+            if (normalized.length() > 0) {
+                lines.add(normalized);
+            }
+        }
+        return lines;
+    }
+
+    private List<String> splitNoteLines(String rawNote) {
+        List<String> lines = new ArrayList<String>();
+        if (rawNote == null || rawNote.trim().length() == 0) {
+            return lines;
+        }
+        String[] split = rawNote.split("\\r?\\n");
+        for (String line : split) {
+            String normalized = line == null ? "" : line.trim();
+            if (normalized.length() > 0) {
+                lines.add(normalized);
+            }
+        }
+        return lines;
     }
 
     private boolean resolveBillable(Session dataSession, Project project) {

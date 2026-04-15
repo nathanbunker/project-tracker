@@ -5,10 +5,13 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -28,6 +31,7 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNextNote;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -424,16 +428,24 @@ public class FocusedActionServlet extends ClientServlet {
                 return;
             }
 
-            String noteToAdd = nextNote.trim();
-            String existing = action.getNextNotes();
-            String updatedNotes;
-            if (existing != null && existing.trim().length() > 0) {
-                updatedNotes = existing + "\n - " + noteToAdd;
-            } else {
-                updatedNotes = " - " + noteToAdd;
+            List<String> noteLines = splitNoteLines(nextNote);
+            if (noteLines.isEmpty()) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Note is required", null);
+                return;
             }
-            action.setNextNotes(updatedNotes);
-            action.setNextChangeDate(new Date());
+
+            Date noteDate = new Date();
+            for (String noteLine : noteLines) {
+                ActionNextNote actionNote = new ActionNextNote();
+                actionNote.setActionNextId(action.getActionNextId());
+                actionNote.setContactId(appReq.getWebUser().getContactId());
+                actionNote.setNoteLine(noteLine);
+                actionNote.setNoteDate(noteDate);
+                dataSession.save(actionNote);
+                action.getNextNoteEntries().add(actionNote);
+            }
+            action.setNextChangeDate(noteDate);
 
             dataSession.update(action);
             transaction.commit();
@@ -632,15 +644,51 @@ public class FocusedActionServlet extends ClientServlet {
 
     private List<String> extractNoteLines(ActionNext action) {
         List<String> lines = new ArrayList<String>();
-        if (action == null || action.getNextNotes() == null || action.getNextNotes().trim().length() == 0) {
+        if (action == null) {
             return lines;
         }
-        String[] noteLines = action.getNextNotes().split("\\r?\\n");
-        for (String line : noteLines) {
-            String normalized = n(line).trim();
-            if (normalized.startsWith("-")) {
-                normalized = normalized.substring(1).trim();
+        Set<ActionNextNote> noteEntries = action.getNextNoteEntries();
+        if (noteEntries == null || noteEntries.isEmpty()) {
+            return lines;
+        }
+        List<ActionNextNote> orderedNotes = new ArrayList<ActionNextNote>(noteEntries);
+        Collections.sort(orderedNotes, new Comparator<ActionNextNote>() {
+            public int compare(ActionNextNote left, ActionNextNote right) {
+                Date leftDate = left.getNoteDate();
+                Date rightDate = right.getNoteDate();
+                if (leftDate == null && rightDate != null) {
+                    return -1;
+                }
+                if (leftDate != null && rightDate == null) {
+                    return 1;
+                }
+                if (leftDate != null && rightDate != null) {
+                    int compareDate = leftDate.compareTo(rightDate);
+                    if (compareDate != 0) {
+                        return compareDate;
+                    }
+                }
+                return Integer.compare(left.getActionNextNoteId(), right.getActionNextNoteId());
             }
+        });
+
+        for (ActionNextNote noteEntry : orderedNotes) {
+            String normalized = n(noteEntry.getNoteLine()).trim();
+            if (normalized.length() > 0) {
+                lines.add(normalized);
+            }
+        }
+        return lines;
+    }
+
+    private List<String> splitNoteLines(String rawNote) {
+        List<String> lines = new ArrayList<String>();
+        if (rawNote == null || rawNote.trim().length() == 0) {
+            return lines;
+        }
+        String[] split = rawNote.split("\\r?\\n");
+        for (String line : split) {
+            String normalized = n(line).trim();
             if (normalized.length() > 0) {
                 lines.add(normalized);
             }

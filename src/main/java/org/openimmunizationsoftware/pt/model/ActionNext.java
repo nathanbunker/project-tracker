@@ -2,8 +2,13 @@ package org.openimmunizationsoftware.pt.model;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 public class ActionNext implements java.io.Serializable {
@@ -28,7 +33,6 @@ public class ActionNext implements java.io.Serializable {
     private String goalStatus;
     private Integer templateActionNextId;
     private String linkUrl = "";
-    private String nextNotes = "";
     private String nextSummary = "";
     private String nextFeedback = "";
     private TemplateType templateType;
@@ -42,6 +46,7 @@ public class ActionNext implements java.io.Serializable {
     private TimeSlot timeSlot;
     private Integer gamePoints;
     private Set<GamePointLedger> gamePointEntries = new HashSet<>();
+    private Set<ActionNextNote> nextNoteEntries = new LinkedHashSet<>();
     private ActionSet actionSet;
 
     public int getActionNextId() {
@@ -277,16 +282,76 @@ public class ActionNext implements java.io.Serializable {
         this.linkUrl = linkUrl;
     }
 
+    public String getNextSummary() {
+        return nextSummary;
+    }
+
     public String getNextNotes() {
-        return nextNotes;
+        if (nextNoteEntries == null || nextNoteEntries.isEmpty()) {
+            return "";
+        }
+        List<ActionNextNote> orderedNotes = new ArrayList<ActionNextNote>(nextNoteEntries);
+        Collections.sort(orderedNotes, new Comparator<ActionNextNote>() {
+            public int compare(ActionNextNote left, ActionNextNote right) {
+                Date leftDate = left.getNoteDate();
+                Date rightDate = right.getNoteDate();
+                if (leftDate == null && rightDate != null) {
+                    return -1;
+                }
+                if (leftDate != null && rightDate == null) {
+                    return 1;
+                }
+                if (leftDate != null && rightDate != null) {
+                    int compareDate = leftDate.compareTo(rightDate);
+                    if (compareDate != 0) {
+                        return compareDate;
+                    }
+                }
+                return Integer.compare(left.getActionNextNoteId(), right.getActionNextNoteId());
+            }
+        });
+
+        StringBuilder sb = new StringBuilder();
+        for (ActionNextNote noteEntry : orderedNotes) {
+            String line = noteEntry.getNoteLine() == null ? "" : noteEntry.getNoteLine().trim();
+            if (line.length() == 0) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("\n");
+            }
+            sb.append(" - ").append(line);
+        }
+        return sb.toString();
     }
 
     public void setNextNotes(String nextNotes) {
-        this.nextNotes = nextNotes;
-    }
-
-    public String getNextSummary() {
-        return nextSummary;
+        if (nextNoteEntries == null) {
+            nextNoteEntries = new LinkedHashSet<ActionNextNote>();
+        } else {
+            nextNoteEntries.clear();
+        }
+        if (nextNotes == null || nextNotes.trim().length() == 0) {
+            return;
+        }
+        Date now = new Date();
+        String[] lines = nextNotes.split("\\r?\\n");
+        for (String line : lines) {
+            String normalized = line == null ? "" : line.trim();
+            if (normalized.startsWith("-")) {
+                normalized = normalized.substring(1).trim();
+            }
+            if (normalized.length() == 0) {
+                continue;
+            }
+            ActionNextNote note = new ActionNextNote();
+            note.setActionNext(this);
+            note.setActionNextId(this.actionNextId);
+            note.setContactId(this.contactId);
+            note.setNoteLine(normalized);
+            note.setNoteDate(now);
+            nextNoteEntries.add(note);
+        }
     }
 
     public void setNextSummary(String nextSummary) {
@@ -526,6 +591,14 @@ public class ActionNext implements java.io.Serializable {
 
     public void setGamePointEntries(Set<GamePointLedger> gamePointEntries) {
         this.gamePointEntries = gamePointEntries;
+    }
+
+    public Set<ActionNextNote> getNextNoteEntries() {
+        return nextNoteEntries;
+    }
+
+    public void setNextNoteEntries(Set<ActionNextNote> nextNoteEntries) {
+        this.nextNoteEntries = nextNoteEntries;
     }
 
     public ActionSet getActionSet() {
