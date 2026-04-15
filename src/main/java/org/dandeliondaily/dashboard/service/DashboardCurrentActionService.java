@@ -155,6 +155,9 @@ public class DashboardCurrentActionService {
                 && (WORK_STATUS_IN_PROGRESS.equals(workStatus)
                         || webUser.isToday(followUpAction.getNextActionDate()))) {
             nextCompletingAction = followUpAction;
+        } else if (WORK_STATUS_IN_PROGRESS.equals(workStatus)) {
+            ActionNext nextInOrder = selectNextAfterCurrentInList(webUser, dataSession, actionToWorkId);
+            nextCompletingAction = nextInOrder == null ? actionToWork : nextInOrder;
         } else {
             nextCompletingAction = selectNextActionForWorkFlow(webUser, dataSession, actionToWorkId);
         }
@@ -278,23 +281,45 @@ public class DashboardCurrentActionService {
 
     private ActionNext selectNextActionForWorkFlow(WebUser webUser, Session dataSession,
             int excludeActionNextId) {
+        List<ActionNext> orderedList = buildOrderedCycleList(webUser, dataSession);
+        if (excludeActionNextId > 0) {
+            orderedList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
+        }
+        if (orderedList.isEmpty()) {
+            return null;
+        }
+        return orderedList.get(0);
+    }
+
+    public List<ActionNext> buildOrderedCycleList(WebUser webUser, Session dataSession) {
         List<ActionNext> dueTodayList = getProjectActionListForToday(webUser, dataSession, 0);
         List<ActionNext> overdueList = getProjectActionListForToday(webUser, dataSession, -1);
         dueTodayList = filterActionsForDashboardVisibility(dueTodayList, false);
         overdueList = filterActionsForDashboardVisibility(overdueList, true);
-        if (excludeActionNextId > 0) {
-            dueTodayList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
-            overdueList.removeIf(pa -> pa.getActionNextId() == excludeActionNextId);
-        }
 
         List<ActionNext> orderedList = new ArrayList<ActionNext>();
         orderedList.addAll(overdueList);
         orderedList.addAll(dueTodayList);
-        if (orderedList.isEmpty()) {
-            return null;
+        orderedList.removeIf(this::isMeetingAction);
+        if (!orderedList.isEmpty()) {
+            sortProjectActionListByCompletionOrder(orderedList, webUser);
         }
-        sortProjectActionListByCompletionOrder(orderedList, webUser);
-        return orderedList.get(0);
+        return orderedList;
+    }
+
+    public ActionNext selectNextAfterCurrentInList(WebUser webUser, Session dataSession,
+            int currentActionId) {
+        List<ActionNext> orderedList = buildOrderedCycleList(webUser, dataSession);
+        for (int i = 0; i < orderedList.size(); i++) {
+            if (orderedList.get(i).getActionNextId() != currentActionId) {
+                continue;
+            }
+            if (i + 1 >= orderedList.size()) {
+                return null;
+            }
+            return orderedList.get(i + 1);
+        }
+        return null;
     }
 
     private List<ActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
@@ -438,6 +463,10 @@ public class DashboardCurrentActionService {
             }
         }
         return filtered;
+    }
+
+    private boolean isMeetingAction(ActionNext action) {
+        return action != null && ProjectNextActionType.WILL_MEET.equals(action.getNextActionType());
     }
 
     private static void sortProjectActionList(List<ActionNext> projectActionList, WebUser webUser) {

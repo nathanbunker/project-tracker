@@ -30,7 +30,6 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
@@ -44,6 +43,7 @@ public class FocusedActionServlet extends ClientServlet {
     private static final String ACTION_SCHEDULE = "Schedule";
     private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
     private static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
+    private static final String PARAM_HINT_ACTION_ID = "hintActionId";
     private static final String SESSION_PRE_MEETING_ACTION_ID = "FOCUS_PRE_MEETING_ACTION_ID";
     private static final String SESSION_MEETING_ACTIVE = "FOCUS_MEETING_ACTIVE";
     private static final String SESSION_RECENT_FOCUSED_ACTION_IDS = "FOCUS_RECENT_ACTION_IDS";
@@ -115,13 +115,7 @@ public class FocusedActionServlet extends ClientServlet {
                     currentAction == null ? 0 : currentAction.getActionNextId());
             boolean runningClock = appReq.getTimeTracker() != null && appReq.getTimeTracker().isRunningClock();
             int nowMinute = appReq.getWebUser().getLocalDateTimeNow().getMinute();
-            ActionNext nextActionHintAction = resolveNextActionHintAction(appReq, currentAction);
-            String nextActionHint = nextActionHintAction == null
-                    ? "No next action available."
-                    : buildActionLabel(nextActionHintAction);
-            Integer nextActionHintId = nextActionHintAction == null
-                    ? null
-                    : Integer.valueOf(nextActionHintAction.getActionNextId());
+            FocusedActionPageRenderer.CycleBarData cycleBarData = buildCycleBarData(appReq, currentAction);
             List<String> quickCaptureProjectNames = dashboardTodayColumnService.listQuickCaptureProjectNames(appReq);
             boolean quickCaptureFocusRequested = ACTION_SCHEDULE.equals(action);
             String quickCaptureSentenceValue = (ACTION_SCHEDULE.equals(action)
@@ -135,7 +129,7 @@ public class FocusedActionServlet extends ClientServlet {
                     spentMinutes,
                     estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, todayBillableMinutes,
                     todayTargetMinutes, weekTargetMinutes,
-                    nextActionHint, nextActionHintId,
+                    cycleBarData,
                     quickCaptureSentenceValue, quickCaptureProjectNames,
                     quickCaptureFocusRequested);
             printFocusedFoot(appReq);
@@ -279,55 +273,67 @@ public class FocusedActionServlet extends ClientServlet {
         session.removeAttribute(SESSION_PRE_MEETING_ACTION_ID);
     }
 
-    private ActionNext resolveNextActionHintAction(AppReq appReq, ActionNext currentAction) {
-        ActionNext hinted = null;
-        HttpSession session = appReq.getRequest().getSession(false);
-        if (session != null
-                && currentAction != null
-                && ProjectNextActionType.WILL_MEET.equals(currentAction.getNextActionType())) {
-            Object preObj = session.getAttribute(SESSION_PRE_MEETING_ACTION_ID);
-            if (preObj instanceof Integer) {
-                hinted = (ActionNext) appReq.getDataSession().get(ActionNext.class, (Integer) preObj);
-                if (hinted != null && hinted.getNextActionStatus() != ProjectNextActionStatus.READY) {
-                    hinted = null;
-                }
+    private FocusedActionPageRenderer.CycleBarData buildCycleBarData(AppReq appReq,
+            ActionNext currentAction) {
+        List<ActionNext> orderedList = dashboardCurrentActionService.buildOrderedCycleList(appReq.getWebUser(),
+                appReq.getDataSession());
+        if (orderedList.isEmpty()) {
+            return null;
+        }
+
+        int shownIndex = findActionIndex(orderedList, readIntegerParameter(appReq, PARAM_HINT_ACTION_ID));
+        if (shownIndex < 0) {
+            int currentIndex = currentAction == null ? -1
+                    : findActionIndex(orderedList, Integer.valueOf(currentAction.getActionNextId()));
+            if (currentIndex < 0) {
+                shownIndex = 0;
+            } else if (currentIndex + 1 < orderedList.size()) {
+                shownIndex = currentIndex + 1;
+            } else {
+                shownIndex = currentIndex;
             }
         }
 
-        if (hinted == null) {
-            hinted = loadNextReadyAction(appReq, currentAction == null ? 0 : currentAction.getActionNextId());
-        }
-        return hinted;
-    }
-
-    private ActionNext loadNextReadyAction(AppReq appReq, int excludeActionId) {
-        WebUser webUser = appReq.getWebUser();
-        Integer workspaceId = appReq.getActiveWorkspaceId();
-        LocalDate tomorrow = webUser.getLocalDateToday().plusDays(1);
-        Query query = appReq.getDataSession().createQuery(
-                "select distinct an from ActionNext an "
-                        + "left join fetch an.project "
-                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                        + "and an.nextDescription <> '' "
-                        + "and an.nextActionStatusString = :nextActionStatus "
-                        + "and an.nextActionDate is not null and an.nextActionDate < :tomorrow "
-                        + "order by an.nextActionDate, an.completionOrder, an.priorityLevel desc, an.nextChangeDate");
-        query.setParameter("workspaceId", workspaceId);
-        query.setParameter("contactId", webUser.getContactId());
-        query.setParameter("nextContactId", webUser.getContactId());
-        query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
-        query.setParameter("tomorrow", java.sql.Date.valueOf(tomorrow));
-        @SuppressWarnings("unchecked")
-        List<ActionNext> list = query.list();
-        for (ActionNext candidate : list) {
-            if (candidate == null || candidate.getActionNextId() == excludeActionId) {
+        List<FocusedActionPageRenderer.CycleBarItem> cycleItems = new ArrayList<FocusedActionPageRenderer.CycleBarItem>();
+        for (ActionNext orderedAction : orderedList) {
+            if (orderedAction == null) {
                 continue;
             }
-            if (candidate.isBillable() || candidate.getTimeSlot() == TimeSlot.MORNING) {
-                return candidate;
+            cycleItems.add(new FocusedActionPageRenderer.CycleBarItem(
+                    orderedAction.getActionNextId(),
+                    buildActionLabel(orderedAction)));
+        }
+        if (cycleItems.isEmpty()) {
+            return null;
+        }
+        if (shownIndex >= cycleItems.size()) {
+            shownIndex = cycleItems.size() - 1;
+        }
+        return new FocusedActionPageRenderer.CycleBarData(cycleItems, shownIndex);
+    }
+
+    private Integer readIntegerParameter(AppReq appReq, String parameterName) {
+        String value = appReq.getRequest().getParameter(parameterName);
+        if (value == null || value.trim().length() == 0) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(Integer.parseInt(value.trim()));
+        } catch (NumberFormatException nfe) {
+            return null;
+        }
+    }
+
+    private int findActionIndex(List<ActionNext> orderedList, Integer actionId) {
+        if (actionId == null) {
+            return -1;
+        }
+        for (int i = 0; i < orderedList.size(); i++) {
+            if (orderedList.get(i) != null && orderedList.get(i).getActionNextId() == actionId.intValue()) {
+                return i;
             }
         }
-        return null;
+        return -1;
     }
 
     private String buildActionLabel(ActionNext action) {

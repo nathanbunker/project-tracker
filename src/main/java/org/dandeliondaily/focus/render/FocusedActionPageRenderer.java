@@ -1,12 +1,60 @@
 package org.dandeliondaily.focus.render;
 
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.List;
 
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 
 public class FocusedActionPageRenderer {
+
+        public static class CycleBarItem {
+                private final int actionNextId;
+                private final String label;
+
+                public CycleBarItem(int actionNextId, String label) {
+                        this.actionNextId = actionNextId;
+                        this.label = label;
+                }
+
+                public int getActionNextId() {
+                        return actionNextId;
+                }
+
+                public String getLabel() {
+                        return label;
+                }
+        }
+
+        public static class CycleBarData {
+                private final List<CycleBarItem> items;
+                private final int shownIndex;
+
+                public CycleBarData(List<CycleBarItem> items, int shownIndex) {
+                        this.items = items == null ? Collections.<CycleBarItem>emptyList() : items;
+                        this.shownIndex = shownIndex;
+                }
+
+                public List<CycleBarItem> getItems() {
+                        return items;
+                }
+
+                public int getShownIndex() {
+                        return shownIndex;
+                }
+
+                public CycleBarItem getShownItem() {
+                        if (items.isEmpty() || shownIndex < 0 || shownIndex >= items.size()) {
+                                return null;
+                        }
+                        return items.get(shownIndex);
+                }
+
+                public int getTotal() {
+                        return items.size();
+                }
+        }
 
         public static class MeetingOption {
                 private final int actionNextId;
@@ -50,7 +98,7 @@ public class FocusedActionPageRenderer {
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,
                         int spentMinutesThisWeek, int todayBillableMinutes,
                         int todayTargetMinutes, int weekTargetMinutes,
-                        String nextActionHint, Integer nextActionHintId,
+                        CycleBarData cycleData,
                         String quickCaptureSentenceValue, List<String> quickCaptureProjectNames,
                         boolean quickCaptureFocusRequested) {
                 PrintWriter out = appReq.getOut();
@@ -236,6 +284,33 @@ public class FocusedActionPageRenderer {
                         out.println("          </div>");
                 }
 
+                out.println("          <h2 class=\"fa-section-title\">Next Action</h2>");
+                CycleBarItem shownItem = cycleData == null ? null : cycleData.getShownItem();
+                if (shownItem != null) {
+                        out.println("          <div class=\"fa-cycle-bar\">");
+                        out.println("            <button type=\"button\" id=\"fa-cycle-prev\" class=\"fa-cycle-arrow"
+                                        + (cycleData.getShownIndex() <= 0
+                                                        ? " fa-cycle-arrow-hidden\" disabled=\"disabled\" aria-disabled=\"true\""
+                                                        : "\"")
+                                        + " onclick=\"faCyclePrev()\">&larr;</button>");
+                        out.println("            <div class=\"fa-cycle-main\">");
+                        out.println("              <a id=\"fa-cycle-link\" class=\"fa-cycle-item\" href=\"FocusedActionServlet?completingActionNextId="
+                                        + shownItem.getActionNextId() + "\">"
+                                        + escapeHtml(n(shownItem.getLabel())) + "</a>");
+                        out.println("              <div id=\"fa-cycle-position\" class=\"fa-cycle-position\">"
+                                        + (cycleData.getShownIndex() + 1) + " / "
+                                        + cycleData.getTotal() + "</div>");
+                        out.println("            </div>");
+                        out.println("            <button type=\"button\" id=\"fa-cycle-next\" class=\"fa-cycle-arrow"
+                                        + (cycleData.getShownIndex() >= cycleData.getTotal() - 1
+                                                        ? " fa-cycle-arrow-hidden\" disabled=\"disabled\" aria-disabled=\"true\""
+                                                        : "\"")
+                                        + " onclick=\"faCycleNext()\">&rarr;</button>");
+                        out.println("          </div>");
+                } else {
+                        out.println("          <div class=\"fa-next-action-text\">No next action available.</div>");
+                }
+
                 out.println("          <h2 class=\"fa-section-title\">Previous Actions</h2>");
                 if (previousActions.isEmpty()) {
                         out.println("          <div class=\"fa-next-action-text\">No previous actions.</div>");
@@ -247,15 +322,6 @@ public class FocusedActionPageRenderer {
                                                 + "</a>");
                         }
                         out.println("          </div>");
-                }
-
-                out.println("          <h2 class=\"fa-section-title\">Next Action</h2>");
-                if (nextActionHintId != null) {
-                        out.println("          <a class=\"fa-next-action-link\" href=\"FocusedActionServlet?completingActionNextId="
-                                        + nextActionHintId.intValue() + "\">" + escapeHtml(n(nextActionHint)) + "</a>");
-                } else {
-                        out.println("          <div class=\"fa-next-action-text\">" + escapeHtml(n(nextActionHint))
-                                        + "</div>");
                 }
                 out.println("        </div>");
 
@@ -302,8 +368,22 @@ public class FocusedActionPageRenderer {
                 out.println("    weekTargetMinutes: " + Math.max(1, weekTargetMinutes) + ",");
                 out.println("    estimateMinutes: " + Math.max(0, estimateMinutes) + ",");
                 out.println("    runningClock: " + (runningClock ? "true" : "false") + ",");
-                out.println("    nowMinute: " + Math.max(0, Math.min(59, nowMinute)));
+                out.println("    nowMinute: " + Math.max(0, Math.min(59, nowMinute)) + ",");
+                out.println("    cycleIndex: " + (cycleData == null ? -1 : Math.max(-1, cycleData.getShownIndex())));
                 out.println("  };");
+                out.print("  faState.cycleItems = [");
+                if (cycleData != null) {
+                        List<CycleBarItem> cycleItems = cycleData.getItems();
+                        for (int i = 0; i < cycleItems.size(); i++) {
+                                CycleBarItem cycleItem = cycleItems.get(i);
+                                out.print("{ actionNextId: " + cycleItem.getActionNextId() + ", label: \""
+                                                + escapeJs(cycleItem.getLabel()) + "\" }");
+                                if (i < cycleItems.size() - 1) {
+                                        out.print(", ");
+                                }
+                        }
+                }
+                out.println("]; ");
                 out.println("  var faEditOriginalDate = ''; ");
                 out.println("  function faOpenModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.add('fa-modal-open'); } }");
                 out.println("  function faCloseModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.remove('fa-modal-open'); } }");
@@ -321,6 +401,40 @@ public class FocusedActionPageRenderer {
                 out.println("  function faGetTodayISO() { var d = new Date(); var y = d.getFullYear(); var m = String(d.getMonth() + 1).padStart(2, '0'); var day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; }");
                 out.println("  function faIsoToUserDate(isoDate) { var parts = (isoDate || '').split('-'); if (parts.length !== 3) { return ''; } return parts[1] + '/' + parts[2] + '/' + parts[0]; }");
                 out.println("  function faUserDateToIso(userDate) { var parts = (userDate || '').split('/'); if (parts.length !== 3) { return ''; } var m = parts[0].trim().padStart(2, '0'); var d = parts[1].trim().padStart(2, '0'); var y = parts[2].trim(); if (y.length !== 4) { return ''; } return y + '-' + m + '-' + d; }");
+                out.println("  function faSetCycleArrowState(button, hidden) {");
+                out.println("    if (!button) { return; }");
+                out.println("    button.disabled = !!hidden;");
+                out.println("    if (hidden) { button.classList.add('fa-cycle-arrow-hidden'); button.setAttribute('aria-disabled', 'true'); } else { button.classList.remove('fa-cycle-arrow-hidden'); button.removeAttribute('aria-disabled'); }");
+                out.println("  }");
+                out.println("  function faRenderCycleBar() {");
+                out.println("    var items = faState.cycleItems || [];");
+                out.println("    var link = document.getElementById('fa-cycle-link');");
+                out.println("    var position = document.getElementById('fa-cycle-position');");
+                out.println("    var prev = document.getElementById('fa-cycle-prev');");
+                out.println("    var next = document.getElementById('fa-cycle-next');");
+                out.println("    if (!items.length || !link || !position) { return; }");
+                out.println("    var index = parseInt(faState.cycleIndex, 10);");
+                out.println("    if (isNaN(index)) { index = 0; }");
+                out.println("    if (index < 0) { index = 0; }");
+                out.println("    if (index >= items.length) { index = items.length - 1; }");
+                out.println("    faState.cycleIndex = index;");
+                out.println("    var item = items[index] || { actionNextId: 0, label: '' };");
+                out.println("    link.textContent = item.label || '';");
+                out.println("    link.href = 'FocusedActionServlet?completingActionNextId=' + encodeURIComponent(String(item.actionNextId || 0));");
+                out.println("    position.textContent = String(index + 1) + ' / ' + String(items.length);");
+                out.println("    faSetCycleArrowState(prev, index <= 0);");
+                out.println("    faSetCycleArrowState(next, index >= items.length - 1);");
+                out.println("  }");
+                out.println("  function faCyclePrev() {");
+                out.println("    if (!faState.cycleItems || faState.cycleIndex <= 0) { return; }");
+                out.println("    faState.cycleIndex = faState.cycleIndex - 1;");
+                out.println("    faRenderCycleBar();");
+                out.println("  }");
+                out.println("  function faCycleNext() {");
+                out.println("    if (!faState.cycleItems || faState.cycleIndex >= faState.cycleItems.length - 1) { return; }");
+                out.println("    faState.cycleIndex = faState.cycleIndex + 1;");
+                out.println("    faRenderCycleBar();");
+                out.println("  }");
                 out.println("  function faHandleActionMutationSuccess(data) {");
                 out.println("    if (data && data.requiresActionRefresh) { window.location.href = 'FocusedActionServlet'; return; }");
                 out.println("    window.location.href = 'FocusedActionServlet?completingActionNextId=' + encodeURIComponent(String(faState.actionNextId));");
@@ -688,6 +802,7 @@ public class FocusedActionPageRenderer {
                 out.println("    return h + 'h ' + m + 'm';");
                 out.println("  }");
                 out.println("  faUpdateStatusAndGauge();");
+                out.println("  faRenderCycleBar();");
                 out.println("  faDrawClock();");
                 out.println("  faInitWorkFollowUpSuggestions();");
                 out.println("  faInitQuickCaptureSuggestions();");
@@ -748,6 +863,15 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-next-action-text { font-size: 15px; color: #233423; min-height: 24px; }");
                 out.println("  .fa-next-action-link { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");
                 out.println("  .fa-next-action-link:hover { background: #dde9db; }");
+                out.println("  .fa-cycle-bar { display: flex; align-items: center; gap: 8px; }");
+                out.println("  .fa-cycle-arrow { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; border-radius: 7px; text-decoration: none; font-size: 18px; font-weight: 700; flex: 0 0 36px; cursor: pointer; }");
+                out.println("  .fa-cycle-arrow:hover { background: #dde9db; }");
+                out.println("  .fa-cycle-arrow:disabled { cursor: default; }");
+                out.println("  .fa-cycle-arrow-hidden { visibility: hidden; }");
+                out.println("  .fa-cycle-main { flex: 1; min-width: 0; }");
+                out.println("  .fa-cycle-item { display: block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; text-align: center; }");
+                out.println("  .fa-cycle-item:hover { background: #dde9db; }");
+                out.println("  .fa-cycle-position { margin-top: 4px; text-align: center; font-size: 12px; color: #5b6b58; }");
                 out.println("  .fa-meetings-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
                 out.println("  .fa-meeting-item { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; cursor: pointer; text-align: left; }");
                 out.println("  .fa-meeting-item:hover { background: #dde9db; }");
@@ -825,7 +949,8 @@ public class FocusedActionPageRenderer {
                 if (value == null || value.length() == 0) {
                         return "";
                 }
-                return value.replace("\\", "\\\\").replace("\"", "\\\"");
+                return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r")
+                                .replace("\n", "\\n");
         }
 
         private String n(String value) {
