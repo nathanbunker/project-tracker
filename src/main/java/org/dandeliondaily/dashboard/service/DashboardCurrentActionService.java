@@ -493,27 +493,19 @@ public class DashboardCurrentActionService {
         Collections.sort(projectActionList, (pa1, pa2) -> {
             int c1 = pa1.getCompletionOrder();
             int c2 = pa2.getCompletionOrder();
+            int bucket1 = getCompletionBucket(pa1, webUser);
+            int bucket2 = getCompletionBucket(pa2, webUser);
+            if (bucket1 != bucket2) {
+                return bucket1 - bucket2;
+            }
             if (c1 > 0 && c2 <= 0) {
                 return -1;
             }
             if (c2 > 0 && c1 <= 0) {
                 return 1;
             }
-            int bucket1 = getCompletionBucket(pa1, webUser);
-            int bucket2 = getCompletionBucket(pa2, webUser);
-            if (bucket1 != bucket2) {
-                return bucket1 - bucket2;
-            }
-            if (c1 > 0 || c2 > 0) {
-                if (c1 <= 0) {
-                    return 1;
-                }
-                if (c2 <= 0) {
-                    return -1;
-                }
-                if (c1 != c2) {
-                    return c1 - c2;
-                }
+            if (c1 > 0 && c2 > 0 && c1 != c2) {
+                return c1 - c2;
             }
             return compareInsideBucket(pa1, pa2);
         });
