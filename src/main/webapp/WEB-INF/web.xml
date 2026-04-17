@@ -170,6 +170,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.student.servlet.StudentStoreServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>StudentBankServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.student.servlet.StudentBankServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ParentStudentStoreServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentStoreServlet</servlet-class>
   </servlet>
@@ -236,6 +240,10 @@
   <servlet-mapping>
     <servlet-name>StudentStoreServlet</servlet-name>
     <url-pattern>/student/store</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>StudentBankServlet</servlet-name>
+    <url-pattern>/student/bank</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>ParentStudentStoreServlet</servlet-name>

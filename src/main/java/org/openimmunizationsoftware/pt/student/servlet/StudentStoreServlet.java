@@ -89,7 +89,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
 
             out.println("<h1>Store</h1>");
             out.println("<table class=\"boxed-mobile\" style=\"width:100%; margin-bottom:10px;\">");
-            out.println("  <tr class=\"boxed\"><th class=\"boxed\">Available Points</th>");
+            out.println("  <tr class=\"boxed\"><th class=\"boxed\">Spendable Points</th>");
             out.println("    <td class=\"boxed\" style=\"text-align:right; font-size:18px; font-weight:bold;\">"
                     + availablePoints + "</td></tr>");
             out.println("</table>");
@@ -209,6 +209,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
             ledger.setContact(contact);
             ledger.setStudentOffer(offer);
             ledger.setPointChange(Integer.valueOf(-price));
+            ledger.setAccountBucket(GamePointLedger.ACCOUNT_SPENDABLE);
             ledger.setEntryType("PURCHASE");
             ledger.setEntryNote("Bought offer: " + n(offer.getTitle()));
             ledger.setCreatedDate(new Date());
@@ -327,6 +328,7 @@ public class StudentStoreServlet extends StudentBaseServlet {
             ledger.setContact(contact);
             ledger.setStudentOffer(offer);
             ledger.setPointChange(Integer.valueOf(price));
+            ledger.setAccountBucket(GamePointLedger.ACCOUNT_SPENDABLE);
             ledger.setEntryType("REFUND");
             ledger.setEntryNote("Returned offer: " + n(offer.getTitle()));
             ledger.setCreatedDate(new Date());
@@ -380,9 +382,15 @@ public class StudentStoreServlet extends StudentBaseServlet {
     }
 
     private int getAvailablePoints(WebUser webUser, Session dataSession) {
+        return getAccountPoints(webUser, dataSession, GamePointLedger.ACCOUNT_SPENDABLE);
+    }
+
+    private int getAccountPoints(WebUser webUser, Session dataSession, String accountBucket) {
         Query query = dataSession.createQuery(
-                "select sum(gpl.pointChange) from GamePointLedger gpl where gpl.contact.contactId = :contactId");
+                "select sum(gpl.pointChange) from GamePointLedger gpl where gpl.contact.contactId = :contactId and (gpl.accountBucket = :accountBucket or (:includeLegacy = true and gpl.accountBucket is null))");
         query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("accountBucket", accountBucket);
+        query.setParameter("includeLegacy", Boolean.valueOf(GamePointLedger.ACCOUNT_SPENDABLE.equals(accountBucket)));
         return intValue((Number) query.uniqueResult());
     }
 }

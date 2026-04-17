@@ -158,6 +158,7 @@ public class StudentSchoolServlet extends StudentBaseServlet {
                 ledger.setContact(contact);
                 ledger.setActionNext(action);
                 ledger.setPointChange(points);
+                ledger.setAccountBucket(GamePointLedger.ACCOUNT_SPENDABLE);
                 ledger.setEntryType("COMPLETE");
                 ledger.setEntryNote(action.getNextDescription());
                 ledger.setCreatedDate(new Date());
@@ -218,8 +219,10 @@ public class StudentSchoolServlet extends StudentBaseServlet {
                 "select sum(gpl.pointChange) from GamePointLedger gpl " +
                         "where gpl.contact.contactId = :contactId " +
                         "and gpl.pointChange > 0 " +
+                        "and gpl.entryType = :entryType " +
                         "and gpl.createdDate >= :dayStart and gpl.createdDate <= :dayEnd");
         query.setParameter("contactId", webUser.getContactId());
+        query.setParameter("entryType", "COMPLETE");
         query.setParameter("dayStart", dayStart);
         query.setParameter("dayEnd", dayEnd);
         return intValue((Number) query.uniqueResult());

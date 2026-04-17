@@ -6,11 +6,15 @@ public class GamePointLedger implements java.io.Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    public static final String ACCOUNT_SPENDABLE = "SPENDABLE";
+    public static final String ACCOUNT_SAVINGS = "SAVINGS";
+
     private Integer gamePointLedgerId;
     private ProjectContact contact;
     private ActionNext projectActionNext;
     private StudentOffer studentOffer;
     private Integer pointChange;
+    private String accountBucket;
     private String entryType;
     private String entryNote;
     private Date createdDate;
@@ -54,6 +58,14 @@ public class GamePointLedger implements java.io.Serializable {
 
     public void setPointChange(Integer pointChange) {
         this.pointChange = pointChange;
+    }
+
+    public String getAccountBucket() {
+        return accountBucket;
+    }
+
+    public void setAccountBucket(String accountBucket) {
+        this.accountBucket = accountBucket;
     }
 
     public String getEntryType() {

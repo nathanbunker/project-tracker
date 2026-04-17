@@ -13,6 +13,9 @@
     <property name="pointChange" type="java.lang.Integer">
       <column name="point_change" not-null="true" />
     </property>
+    <property name="accountBucket" type="string">
+      <column name="account_bucket" length="20" not-null="true" />
+    </property>
     <property name="entryType" type="string">
       <column name="entry_type" length="20" not-null="true" />
     </property>

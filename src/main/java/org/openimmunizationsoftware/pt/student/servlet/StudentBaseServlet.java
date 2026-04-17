@@ -55,6 +55,7 @@ public abstract class StudentBaseServlet extends ClientServlet {
         List<String[]> menuList = new ArrayList<String[]>();
         menuList.add(new String[] { "school", "School" });
         menuList.add(new String[] { "store", "Store" });
+        menuList.add(new String[] { "bank", "Bank" });
 
         StringBuilder result = new StringBuilder();
         result.append("    <table class=\"menu\"><tr><td>");

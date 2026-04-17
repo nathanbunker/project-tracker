@@ -80,14 +80,18 @@ public class StudentStoreServlet extends ClientServlet {
             }
 
             List<StudentOffer> offerList = loadStoreOffers(dataSession, dependentUser);
-            int availablePoints = loadAvailablePoints(dataSession, dependentUser.getContactId());
+            int availablePoints = loadAccountPoints(dataSession, dependentUser.getContactId(),
+                    GamePointLedger.ACCOUNT_SPENDABLE);
+            int savingsPoints = loadAccountPoints(dataSession, dependentUser.getContactId(),
+                    GamePointLedger.ACCOUNT_SAVINGS);
             Map<String, Integer> counts = buildStatusCounts(offerList);
 
             appReq.setTitle("Student Store");
             printHtmlHead(appReq);
             printDandelionLocation(out, "Setup / Dependent Accounts / Student Store");
 
-            printDependentContext(out, dependency, dependentUser, dependentContact, availablePoints, counts);
+            printDependentContext(out, dependency, dependentUser, dependentContact, availablePoints, savingsPoints,
+                    counts);
 
             out.println("<p><a class=\"button\" href=\"StudentStoreAddServlet?" + PARAM_DEPENDENCY_ID + "="
                     + dependency.getDependencyId() + "\">Add Offers</a> "
@@ -172,6 +176,7 @@ public class StudentStoreServlet extends ClientServlet {
                 refund.setContact(dependentContact != null ? dependentContact : offer.getContact());
                 refund.setStudentOffer(offer);
                 refund.setPointChange(Integer.valueOf(Math.max(0, intValue(offer.getPricePoints()))));
+                refund.setAccountBucket(GamePointLedger.ACCOUNT_SPENDABLE);
                 refund.setEntryType("OFFER_REFUND");
                 refund.setEntryNote("Refunded offer: " + n(offer.getTitle()));
                 refund.setCreatedDate(now);
@@ -215,10 +220,12 @@ public class StudentStoreServlet extends ClientServlet {
         return list;
     }
 
-    private int loadAvailablePoints(Session dataSession, int contactId) {
+    private int loadAccountPoints(Session dataSession, int contactId, String accountBucket) {
         Query query = dataSession.createQuery(
-                "select sum(gpl.pointChange) from GamePointLedger gpl where gpl.contact.contactId = :contactId");
+                "select sum(gpl.pointChange) from GamePointLedger gpl where gpl.contact.contactId = :contactId and (gpl.accountBucket = :accountBucket or (:includeLegacy = true and gpl.accountBucket is null))");
         query.setParameter("contactId", contactId);
+        query.setParameter("accountBucket", accountBucket);
+        query.setParameter("includeLegacy", Boolean.valueOf(GamePointLedger.ACCOUNT_SPENDABLE.equals(accountBucket)));
         Number total = (Number) query.uniqueResult();
         return intValue(total);
     }
@@ -239,7 +246,7 @@ public class StudentStoreServlet extends ClientServlet {
     }
 
     private void printDependentContext(PrintWriter out, WeUserDependency dependency, WebUser dependentUser,
-            ProjectContact dependentContact, int availablePoints, Map<String, Integer> counts) {
+            ProjectContact dependentContact, int availablePoints, int savingsPoints, Map<String, Integer> counts) {
         String dependentName = "";
         if (dependentContact != null) {
             dependentName = (safe(dependentContact.getNameFirst()) + " " + safe(dependentContact.getNameLast())).trim();
@@ -256,6 +263,8 @@ public class StudentStoreServlet extends ClientServlet {
                 + h(safe(dependentUser.getUsername())) + "</td></tr>");
         out.println("  <tr class=\"boxed\"><th class=\"boxed\">Available Points</th><td class=\"boxed\"><strong>"
                 + availablePoints + "</strong></td></tr>");
+        out.println("  <tr class=\"boxed\"><th class=\"boxed\">Savings Points</th><td class=\"boxed\"><strong>"
+                + savingsPoints + "</strong></td></tr>");
         out.println("  <tr class=\"boxed\"><th class=\"boxed\">Offer Counts</th><td class=\"boxed\">"
                 + "Available: " + intValue(counts.get(STATUS_AVAILABLE))
                 + " | Bought: " + intValue(counts.get(STATUS_BOUGHT))

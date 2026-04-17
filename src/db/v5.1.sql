@@ -18,3 +18,14 @@ FROM action_next
 WHERE next_notes IS NOT NULL AND TRIM(next_notes) <> '';
 
 ALTER TABLE action_next DROP COLUMN next_notes;
+
+
+ALTER TABLE game_point_ledger
+  ADD COLUMN account_bucket varchar(20) NULL AFTER point_change;
+
+UPDATE game_point_ledger
+SET account_bucket = 'SPENDABLE'
+WHERE account_bucket IS NULL;
+
+ALTER TABLE game_point_ledger
+  MODIFY COLUMN account_bucket varchar(20) NOT NULL DEFAULT 'SPENDABLE';
