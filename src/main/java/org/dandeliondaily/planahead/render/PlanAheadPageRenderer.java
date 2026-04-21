@@ -2,11 +2,16 @@ package org.dandeliondaily.planahead.render;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.List;
 
 import org.dandeliondaily.dashboard.render.TimeGaugeRenderer;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
+import org.hibernate.Query;
+import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class PlanAheadPageRenderer {
 
@@ -127,7 +132,7 @@ public class PlanAheadPageRenderer {
                 }
 
                 out.println("  </div>");
-                printEditModal(out);
+                printEditModal(out, appReq);
                 printStatusModal(out);
                 printTemplateModal(out);
                 printQuickCaptureScript(out, boardModel);
@@ -327,7 +332,7 @@ public class PlanAheadPageRenderer {
                 out.println("</div>");
         }
 
-        private void printEditModal(PrintWriter out) {
+        private void printEditModal(PrintWriter out, AppReq appReq) {
                 out.println("<div id=\"paEditModal\" class=\"pa-modal-overlay\" style=\"display:none;\">");
                 out.println("  <div class=\"pa-modal\">");
                 out.println("    <div class=\"pa-modal-head\">");
@@ -338,17 +343,22 @@ public class PlanAheadPageRenderer {
                 out.println("    <div class=\"pa-modal-body\">");
                 out.println("      <input type=\"hidden\" id=\"paEditActionNextId\" />");
                 out.println("      <label>Date <input type=\"date\" id=\"paEditNextActionDate\" /></label>");
-                out.println("      <label id=\"paEditTypeWrap\">Type <select id=\"paEditNextActionType\">"
-                                + "<option value=\"WILL_MEET\">Meeting</option>"
-                                + "<option value=\"COMMITTED_TO\">Committed</option>"
-                                + "<option value=\"WILL\">Will</option>"
-                                + "<option value=\"WILL_CONTACT\">Will Contact</option>"
-                                + "<option value=\"REVIEW\">Will Review</option>"
-                                + "<option value=\"DOCUMENT\">Will Document</option>"
-                                + "<option value=\"WILL_FOLLOW_UP\">Follow Up</option>"
-                                + "<option value=\"MIGHT\">Might</option>"
-                                + "<option value=\"WOULD_LIKE_TO\">Would Like To</option>"
-                                + "</select></label>");
+                out.println("      <label id=\"paEditTypeWrap\">Action Type");
+                out.println("        <div class=\"pa-action-type-chips\">");
+                out.println("          <button type=\"button\" data-action-type=\"WILL\" onclick=\"paSetActionTypeChip('WILL')\" class=\"pa-chip pa-action-type-btn\">will</button>");
+                out.println("          <button type=\"button\" data-action-type=\"MIGHT\" onclick=\"paSetActionTypeChip('MIGHT')\" class=\"pa-chip pa-action-type-btn\">might</button>");
+                out.println("          <button type=\"button\" data-action-type=\"WOULD_LIKE_TO\" onclick=\"paSetActionTypeChip('WOULD_LIKE_TO')\" class=\"pa-chip pa-action-type-btn\">would like to</button>");
+                out.println("          <button type=\"button\" data-action-type=\"WILL_CONTACT\" onclick=\"paSetActionTypeChip('WILL_CONTACT')\" class=\"pa-chip pa-action-type-btn\">will contact</button>");
+                out.println("          <button type=\"button\" data-action-type=\"WILL_MEET\" onclick=\"paSetActionTypeChip('WILL_MEET')\" class=\"pa-chip pa-action-type-btn\">will meet</button>");
+                out.println("          <button type=\"button\" data-action-type=\"REVIEW\" onclick=\"paSetActionTypeChip('REVIEW')\" class=\"pa-chip pa-action-type-btn\">will review</button>");
+                out.println("          <button type=\"button\" data-action-type=\"DOCUMENT\" onclick=\"paSetActionTypeChip('DOCUMENT')\" class=\"pa-chip pa-action-type-btn\">will document</button>");
+                out.println("          <button type=\"button\" data-action-type=\"WILL_FOLLOW_UP\" onclick=\"paSetActionTypeChip('WILL_FOLLOW_UP')\" class=\"pa-chip pa-action-type-btn\">will follow up</button>");
+                out.println("          <button type=\"button\" data-action-type=\"COMMITTED_TO\" onclick=\"paSetActionTypeChip('COMMITTED_TO')\" class=\"pa-chip pa-action-type-btn\">committed</button>");
+                out.println("          <button type=\"button\" data-action-type=\"GOAL\" onclick=\"paSetActionTypeChip('GOAL')\" class=\"pa-chip pa-action-type-btn\">set goal</button>");
+                out.println("          <button type=\"button\" data-action-type=\"WAITING\" onclick=\"paSetActionTypeChip('WAITING')\" class=\"pa-chip pa-action-type-btn\">waiting</button>");
+                out.println("          <input type=\"hidden\" id=\"paEditNextActionType\" value=\"\" />");
+                out.println("        </div>");
+                out.println("      </label>");
                 out.println("      <label id=\"paEditSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paEditTimeSlot\">"
                                 + "<option value=\"WAKE\">Wake</option>"
                                 + "<option value=\"MORNING\">Morning</option>"
@@ -356,13 +366,39 @@ public class PlanAheadPageRenderer {
                                 + "<option value=\"EVENING\">Evening</option>"
                                 + "</select></label>");
                 out.println("      <label>Description <textarea id=\"paEditNextDescription\" rows=\"4\"></textarea></label>");
+                out.println("      <div id=\"paEditContactWrap\" class=\"pa-edit-field\">");
+                out.println("        <label class=\"pa-edit-label\">Who</label>");
+                out.println("        <select id=\"paEditNextContactId\" class=\"pa-edit-select\">");
+                out.println("          <option value=\"\">none</option>");
+                {
+                        Session paDataSession = appReq.getDataSession();
+                        WebUser paWebUser = appReq.getWebUser();
+                        int paCurrentContactId = paWebUser.getProjectContact().getContactId();
+                        Query paContactQuery = paDataSession.createQuery(
+                                        "from ProjectContact where workspaceId = :workspaceId order by nameLast, nameFirst");
+                        paContactQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+                        @SuppressWarnings("unchecked")
+                        List<ProjectContact> paContacts = (List<ProjectContact>) paContactQuery.list();
+                        for (ProjectContact paContact : paContacts) {
+                                if (paContact.getContactId() != paCurrentContactId) {
+                                        out.println("          <option value=\"" + paContact.getContactId() + "\">"
+                                                        + escapeHtml(paContact.getName()) + "</option>");
+                                }
+                        }
+                }
+                out.println("        </select>");
+                out.println("      </div>");
                 out.println(
                                 "      <label id=\"paEditEstimateWrap\">Estimate (mins) <input type=\"number\" id=\"paEditNextTimeEstimate\" min=\"0\" /></label>");
-                out.println("      <label>Target Date <input type=\"date\" id=\"paEditNextTargetDate\" /></label>");
-                out.println("      <label>Deadline Date <input type=\"date\" id=\"paEditNextDeadlineDate\" /></label>");
                 out.println("      <label>Link URL <input type=\"text\" id=\"paEditLinkUrl\" /></label>");
-                out.println("      <label>Next Contact ID <input type=\"number\" id=\"paEditNextContactId\" /></label>");
-                out.println("      <label>Notes <textarea id=\"paEditNextNote\" rows=\"3\"></textarea></label>");
+                out.println("      <details id=\"paEditAdvancedSection\" class=\"pa-advanced-section\">");
+                out.println("        <summary class=\"pa-advanced-toggle\">More options</summary>");
+                out.println("        <div class=\"pa-advanced-body\">");
+                out.println("          <label>Target Date <input type=\"date\" id=\"paEditNextTargetDate\" /></label>");
+                out.println("          <label>Deadline Date <input type=\"date\" id=\"paEditNextDeadlineDate\" /></label>");
+                out.println("          <label>Notes <textarea id=\"paEditNextNote\" rows=\"3\"></textarea></label>");
+                out.println("        </div>");
+                out.println("      </details>");
                 out.println("      <div class=\"pa-modal-actions\">");
                 out.println("        <button type=\"button\" id=\"paEditDeleteBtn\" onclick=\"paDeleteCard()\" style=\"margin-right:auto;\">Delete</button>");
                 out.println("        <button type=\"button\" onclick=\"paSaveEditModal()\">Save</button>");
@@ -373,6 +409,65 @@ public class PlanAheadPageRenderer {
                 out.println("</div>");
         }
 
+        /** Returns the static (non-DB) portion of the edit modal HTML for testing. */
+        String buildEditModalBodyHtml() {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                pw.println("<div id=\"paEditModal\" class=\"pa-modal-overlay\" style=\"display:none;\">");
+                pw.println("  <div class=\"pa-modal\">");
+                pw.println("    <div class=\"pa-modal-head\">");
+                pw.println("      <h3>Edit Action</h3>");
+                pw.println("      <button type=\"button\" class=\"pa-modal-close\" onclick=\"paCloseEditModal()\">&times;</button>");
+                pw.println("    </div>");
+                pw.println("    <div class=\"pa-modal-body\">");
+                pw.println("      <input type=\"hidden\" id=\"paEditActionNextId\" />");
+                pw.println("      <label>Date <input type=\"date\" id=\"paEditNextActionDate\" /></label>");
+                pw.println("      <label id=\"paEditTypeWrap\">Action Type");
+                pw.println("        <div class=\"pa-action-type-chips\">");
+                pw.println("          <button type=\"button\" data-action-type=\"WILL\" onclick=\"paSetActionTypeChip('WILL')\" class=\"pa-chip pa-action-type-btn\">will</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"MIGHT\" onclick=\"paSetActionTypeChip('MIGHT')\" class=\"pa-chip pa-action-type-btn\">might</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"WOULD_LIKE_TO\" onclick=\"paSetActionTypeChip('WOULD_LIKE_TO')\" class=\"pa-chip pa-action-type-btn\">would like to</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"WILL_CONTACT\" onclick=\"paSetActionTypeChip('WILL_CONTACT')\" class=\"pa-chip pa-action-type-btn\">will contact</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"WILL_MEET\" onclick=\"paSetActionTypeChip('WILL_MEET')\" class=\"pa-chip pa-action-type-btn\">will meet</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"REVIEW\" onclick=\"paSetActionTypeChip('REVIEW')\" class=\"pa-chip pa-action-type-btn\">will review</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"DOCUMENT\" onclick=\"paSetActionTypeChip('DOCUMENT')\" class=\"pa-chip pa-action-type-btn\">will document</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"WILL_FOLLOW_UP\" onclick=\"paSetActionTypeChip('WILL_FOLLOW_UP')\" class=\"pa-chip pa-action-type-btn\">will follow up</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"COMMITTED_TO\" onclick=\"paSetActionTypeChip('COMMITTED_TO')\" class=\"pa-chip pa-action-type-btn\">committed</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"GOAL\" onclick=\"paSetActionTypeChip('GOAL')\" class=\"pa-chip pa-action-type-btn\">set goal</button>");
+                pw.println("          <button type=\"button\" data-action-type=\"WAITING\" onclick=\"paSetActionTypeChip('WAITING')\" class=\"pa-chip pa-action-type-btn\">waiting</button>");
+                pw.println("          <input type=\"hidden\" id=\"paEditNextActionType\" value=\"\" />");
+                pw.println("        </div>");
+                pw.println("      </label>");
+                pw.println("      <label id=\"paEditSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paEditTimeSlot\">"
+                                + "<option value=\"WAKE\">Wake</option>"
+                                + "<option value=\"MORNING\">Morning</option>"
+                                + "<option value=\"AFTERNOON\">Afternoon</option>"
+                                + "<option value=\"EVENING\">Evening</option>"
+                                + "</select></label>");
+                pw.println("      <label>Description <textarea id=\"paEditNextDescription\" rows=\"4\"></textarea></label>");
+                pw.println("      <div id=\"paEditContactWrap\" class=\"pa-edit-field\">");
+                pw.println("        <label class=\"pa-edit-label\">Who</label>");
+                pw.println("        <select id=\"paEditNextContactId\" class=\"pa-edit-select\">");
+                pw.println("          <option value=\"\">none</option>");
+                pw.println("        </select>");
+                pw.println("      </div>");
+                pw.println("      <label id=\"paEditEstimateWrap\">Estimate (mins) <input type=\"number\" id=\"paEditNextTimeEstimate\" min=\"0\" /></label>");
+                pw.println("      <label>Link URL <input type=\"text\" id=\"paEditLinkUrl\" /></label>");
+                pw.println("      <details id=\"paEditAdvancedSection\" class=\"pa-advanced-section\">");
+                pw.println("        <summary class=\"pa-advanced-toggle\">More options</summary>");
+                pw.println("        <div class=\"pa-advanced-body\">");
+                pw.println("          <label>Target Date <input type=\"date\" id=\"paEditNextTargetDate\" /></label>");
+                pw.println("          <label>Deadline Date <input type=\"date\" id=\"paEditNextDeadlineDate\" /></label>");
+                pw.println("          <label>Notes <textarea id=\"paEditNextNote\" rows=\"3\"></textarea></label>");
+                pw.println("        </div>");
+                pw.println("      </details>");
+                pw.println("    </div>");
+                pw.println("  </div>");
+                pw.println("</div>");
+                pw.flush();
+                return sw.toString();
+        }
+
         private void printDragDropScript(PrintWriter out, String windowStartKey, String mode) {
                 out.println("<script>");
                 out.println("(function(){");
@@ -381,6 +476,33 @@ public class PlanAheadPageRenderer {
                 out.println("  var paMode = '" + escapeHtml(mode) + "';");
                 out.println("  var paIsPersonal = paMode === 'PERSONAL';");
                 out.println("  var paReloadAfterEdit = false;");
+                out.println("  function paSetEditModeControls(){");
+                out.println("    var typeWrap = document.getElementById('paEditTypeWrap');");
+                out.println("    var slotWrap = document.getElementById('paEditSlotWrap');");
+                out.println("    var estimateWrap = document.getElementById('paEditEstimateWrap');");
+                out.println("    var typeField = document.getElementById('paEditNextActionType');");
+                out.println("    var slotField = document.getElementById('paEditTimeSlot');");
+                out.println("    var estimateField = document.getElementById('paEditNextTimeEstimate');");
+                out.println("    if (typeWrap) { typeWrap.style.display = paIsPersonal ? 'none' : ''; }");
+                out.println("    if (slotWrap) { slotWrap.style.display = paIsPersonal ? '' : 'none'; }");
+                out.println("    if (estimateWrap) { estimateWrap.style.display = paIsPersonal ? 'none' : ''; }");
+                out.println("    if (typeField) { typeField.disabled = paIsPersonal; }");
+                out.println("    if (slotField) { slotField.disabled = !paIsPersonal; }");
+                out.println("    if (estimateField) { estimateField.disabled = paIsPersonal; }");
+                out.println("  }");
+                out.println("  function paUpdateActionTypeChips(selectedType) {");
+                out.println("    var buttons = document.querySelectorAll('.pa-action-type-btn');");
+                out.println("    for (var i = 0; i < buttons.length; i++) {");
+                out.println("      var btn = buttons[i];");
+                out.println("      if (btn.getAttribute('data-action-type') === selectedType) { btn.classList.add('pa-chip-active'); }");
+                out.println("      else { btn.classList.remove('pa-chip-active'); }");
+                out.println("    }");
+                out.println("  }");
+                out.println("  function paSetActionTypeChip(type) {");
+                out.println("    var hidden = document.getElementById('paEditNextActionType');");
+                out.println("    if (hidden) { hidden.value = type; }");
+                out.println("    paUpdateActionTypeChips(type);");
+                out.println("  }");
                 out.println("  document.addEventListener('dragstart', function(e){");
                 out.println("    var card = e.target && e.target.closest ? e.target.closest('.pa-card') : null;");
                 out.println("    if (!card) { return; }");
@@ -439,7 +561,7 @@ public class PlanAheadPageRenderer {
                 out.println("      var data = resp.data || {};");
                 out.println("      document.getElementById('paEditActionNextId').value = data.actionNextId || ''; ");
                 out.println("      document.getElementById('paEditNextActionDate').value = data.nextActionDate || ''; ");
-                out.println("      document.getElementById('paEditNextActionType').value = data.nextActionType || 'WILL'; ");
+                out.println("      paSetActionTypeChip(data.nextActionType || 'WILL'); ");
                 out.println("      document.getElementById('paEditTimeSlot').value = data.timeSlot || 'AFTERNOON'; ");
                 out.println("      document.getElementById('paEditNextDescription').value = data.nextDescription || ''; ");
                 out.println("      document.getElementById('paEditNextTimeEstimate').value = data.nextTimeEstimate || 0; ");
@@ -448,12 +570,7 @@ public class PlanAheadPageRenderer {
                 out.println("      document.getElementById('paEditLinkUrl').value = data.linkUrl || ''; ");
                 out.println("      document.getElementById('paEditNextContactId').value = data.nextContactId || ''; ");
                 out.println("      document.getElementById('paEditNextNote').value = data.nextNote || ''; ");
-                out.println("      var typeWrap = document.getElementById('paEditTypeWrap');");
-                out.println("      var slotWrap = document.getElementById('paEditSlotWrap');");
-                out.println("      var estimateWrap = document.getElementById('paEditEstimateWrap');");
-                out.println("      if (typeWrap) { typeWrap.style.display = paIsPersonal ? 'none' : ''; }");
-                out.println("      if (slotWrap) { slotWrap.style.display = paIsPersonal ? '' : 'none'; }");
-                out.println("      if (estimateWrap) { estimateWrap.style.display = paIsPersonal ? 'none' : ''; }");
+                out.println("      paSetEditModeControls();");
                 out.println("      document.getElementById('paEditModal').style.display = 'flex';");
                 out.println("    })");
                 out.println("    .catch(function(err){ console.log('Load edit request failed', err); });");
@@ -510,19 +627,19 @@ public class PlanAheadPageRenderer {
                 out.println("  };");
 
                 out.println("  window.paSaveEditModal = function(){");
+                out.println("    var actionTypeValue = paIsPersonal ? '' : (document.getElementById('paEditNextActionType').value || '');");
+                out.println("    var timeSlotValue = paIsPersonal ? (document.getElementById('paEditTimeSlot').value || 'AFTERNOON') : ''; ");
+                out.println("    var estimateValue = paIsPersonal ? '0' : (document.getElementById('paEditNextTimeEstimate').value || '0');");
                 out.println("    var body = 'action=saveCardEdit' +");
                 out.println(
                                 "      '&actionNextId=' + encodeURIComponent(document.getElementById('paEditActionNextId').value || '') +");
                 out.println(
                                 "      '&nextActionDate=' + encodeURIComponent(document.getElementById('paEditNextActionDate').value || '') +");
-                out.println(
-                                "      '&nextActionType=' + encodeURIComponent(document.getElementById('paEditNextActionType').value || '') +");
-                out.println(
-                                "      '&timeSlot=' + encodeURIComponent(document.getElementById('paEditTimeSlot').value || 'AFTERNOON') +");
+                out.println("      '&nextActionType=' + encodeURIComponent(actionTypeValue) +");
+                out.println("      '&timeSlot=' + encodeURIComponent(timeSlotValue) +");
                 out.println(
                                 "      '&nextDescription=' + encodeURIComponent(document.getElementById('paEditNextDescription').value || '') +");
-                out.println(
-                                "      '&nextTimeEstimate=' + encodeURIComponent(document.getElementById('paEditNextTimeEstimate').value || '0') +");
+                out.println("      '&nextTimeEstimate=' + encodeURIComponent(estimateValue) +");
                 out.println(
                                 "      '&nextTargetDate=' + encodeURIComponent(document.getElementById('paEditNextTargetDate').value || '') +");
                 out.println(
@@ -1584,6 +1701,15 @@ public class PlanAheadPageRenderer {
                 out.println(
                                 ".pa-modal-actions button{padding:6px 12px;border:1px solid #9fb1a0;background:#eef5ee;cursor:pointer;}");
                 out.println("@media (max-width: 900px){.pa-quick-capture{min-width:0;max-width:none;width:100%;}.pa-quick-capture-row{flex-direction:column;}.pa-quick-capture-actions{width:100%;}.pa-quick-capture-actions input{width:100%;}}");
+                out.println(".pa-edit-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}");
+                out.println(".pa-edit-label{font-size:13px;font-weight:bold;color:#2d3a2d;}");
+                out.println(".pa-edit-select{padding:6px;border:1px solid #cbbda7;font-size:13px;}");
+                out.println(".pa-advanced-section{margin-bottom:10px;border:1px solid #cbbda7;border-radius:3px;}");
+                out.println(".pa-advanced-toggle{padding:5px 8px;cursor:pointer;font-size:13px;font-weight:bold;color:#5b735c;list-style:none;user-select:none;}");
+                out.println(".pa-advanced-toggle::-webkit-details-marker{display:none;}");
+                out.println(".pa-advanced-toggle::before{content:'\\25B6 ';font-size:10px;}");
+                out.println("details.pa-advanced-section[open] .pa-advanced-toggle::before{content:'\\25BC ';}");
+                out.println(".pa-advanced-body{padding:6px 8px 2px;}");
                 timeGaugeRenderer.printStyles(out);
                 out.println("</style>");
         }

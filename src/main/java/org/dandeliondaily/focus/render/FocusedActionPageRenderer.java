@@ -3,9 +3,11 @@ package org.dandeliondaily.focus.render;
 import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.List;
-
+import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 public class FocusedActionPageRenderer {
 
@@ -202,42 +204,90 @@ public class FocusedActionPageRenderer {
                 out.println("                <label for=\"faEditActionDate\">When</label>");
                 out.println("                <input type=\"text\" id=\"faEditActionDate\" />");
                 out.println("              </div>");
+                out.println("              <div id=\"faEditActionTypeSection\" class=\"fa-modal-field\">");
+                out.println("                <label>Action Type</label>");
+                out.println("                <div class=\"fa-action-type-chips\">");
+                out.println("                  <button type=\"button\" data-action-type=\"WILL\" onclick=\"faSetActionType('WILL')\" class=\"fa-chip fa-action-type-btn\">will</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"MIGHT\" onclick=\"faSetActionType('MIGHT')\" class=\"fa-chip fa-action-type-btn\">might</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"WOULD_LIKE_TO\" onclick=\"faSetActionType('WOULD_LIKE_TO')\" class=\"fa-chip fa-action-type-btn\">would like to</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"WILL_CONTACT\" onclick=\"faSetActionType('WILL_CONTACT')\" class=\"fa-chip fa-action-type-btn\">will contact</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"WILL_MEET\" onclick=\"faSetActionType('WILL_MEET')\" class=\"fa-chip fa-action-type-btn\">will meet</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"REVIEW\" onclick=\"faSetActionType('REVIEW')\" class=\"fa-chip fa-action-type-btn\">will review</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"DOCUMENT\" onclick=\"faSetActionType('DOCUMENT')\" class=\"fa-chip fa-action-type-btn\">will document</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"WILL_FOLLOW_UP\" onclick=\"faSetActionType('WILL_FOLLOW_UP')\" class=\"fa-chip fa-action-type-btn\">will follow up</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"COMMITTED_TO\" onclick=\"faSetActionType('COMMITTED_TO')\" class=\"fa-chip fa-action-type-btn\">committed</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"GOAL\" onclick=\"faSetActionType('GOAL')\" class=\"fa-chip fa-action-type-btn\">set goal</button>");
+                out.println("                  <button type=\"button\" data-action-type=\"WAITING\" onclick=\"faSetActionType('WAITING')\" class=\"fa-chip fa-action-type-btn\">waiting</button>");
+                out.println("                  <input type=\"hidden\" id=\"faEditActionType\" value=\"\" />");
+                out.println("                </div>");
+                out.println("              </div>");
+                out.println("              <div id=\"faEditActionSlotSection\" class=\"fa-modal-field\" style=\"display:none\">");
+                out.println("                <label for=\"faEditActionTimeSlot\">Time of Day</label>");
+                out.println("                <select id=\"faEditActionTimeSlot\">");
+                out.println("                  <option value=\"WAKE\">Wake</option>");
+                out.println("                  <option value=\"MORNING\">Morning</option>");
+                out.println("                  <option value=\"AFTERNOON\">Afternoon</option>");
+                out.println("                  <option value=\"EVENING\">Evening</option>");
+                out.println("                </select>");
+                out.println("              </div>");
                 out.println("              <div class=\"fa-modal-field\">");
                 out.println("                <label for=\"faEditActionDescription\">Description</label>");
                 out.println("                <textarea id=\"faEditActionDescription\" rows=\"2\"></textarea>");
                 out.println("              </div>");
-                out.println("              <div class=\"fa-modal-row\">");
-                out.println("                <div class=\"fa-modal-field\">");
-                out.println("                  <label for=\"faEditActionTime\">Time Estimate (mins)</label>");
-                out.println("                  <input type=\"number\" id=\"faEditActionTime\" min=\"0\" step=\"1\" />");
-                out.println("                </div>");
-                out.println("                <div class=\"fa-modal-field\">");
-                out.println("                  <label for=\"faEditActionType\">Action Type</label>");
-                out.println("                  <input type=\"text\" id=\"faEditActionType\" />");
-                out.println("                </div>");
+                out.println("              <div id=\"faEditActionContactSection\" class=\"fa-modal-field\">");
+                out.println("                <label for=\"faEditActionContact\" class=\"fa-contact-label\">Who</label>");
+                out.println("                <select id=\"faEditActionContact\">");
+                out.println("                  <option value=\"\">none</option>");
+                // Render contact options using the same query pattern as DashboardPageRenderer
+                {
+                        Session dataSession = appReq.getDataSession();
+                        WebUser webUser = appReq.getWebUser();
+                        int currentContactId = webUser.getProjectContact().getContactId();
+                        org.hibernate.Query contactQuery = dataSession.createQuery(
+                                        "from ProjectContact where workspaceId = :workspaceId order by nameLast, nameFirst");
+                        contactQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+                        @SuppressWarnings("unchecked")
+                        List<ProjectContact> contacts = (List<ProjectContact>) contactQuery.list();
+                        for (ProjectContact contact : contacts) {
+                                if (contact.getContactId() != currentContactId) {
+                                        out.println("                  <option value=\"" + contact.getContactId()
+                                                        + "\">"
+                                                        + escapeHtml(contact.getName()) + "</option>");
+                                }
+                        }
+                }
+                out.println("                </select>");
                 out.println("              </div>");
-                out.println("              <div class=\"fa-modal-row\">");
-                out.println("                <div class=\"fa-modal-field\">");
-                out.println("                  <label for=\"faEditActionTarget\">Target Date</label>");
-                out.println("                  <input type=\"text\" id=\"faEditActionTarget\" />");
-                out.println("                </div>");
-                out.println("                <div class=\"fa-modal-field\">");
-                out.println("                  <label for=\"faEditActionDeadline\">Deadline</label>");
-                out.println("                  <input type=\"text\" id=\"faEditActionDeadline\" />");
-                out.println("                </div>");
+                out.println("              <div id=\"faEditActionTimeSection\" class=\"fa-modal-field\">");
+                out.println("                <label for=\"faEditActionTime\">Time Estimate (mins)</label>");
+                out.println("                <input type=\"number\" id=\"faEditActionTime\" min=\"0\" step=\"1\" />");
                 out.println("              </div>");
                 out.println("              <div class=\"fa-modal-field\">");
                 out.println("                <label for=\"faEditActionLink\">Link URL</label>");
                 out.println("                <input type=\"text\" id=\"faEditActionLink\" />");
                 out.println("              </div>");
-                out.println("              <div class=\"fa-modal-field\">");
-                out.println("                <label for=\"faEditActionNote\">Note</label>");
-                out.println("                <textarea id=\"faEditActionNote\" rows=\"2\"></textarea>");
-                out.println("              </div>");
+                out.println("              <details id=\"faEditAdvancedSection\" class=\"fa-advanced-section\">");
+                out.println("                <summary class=\"fa-advanced-toggle\">More options</summary>");
+                out.println("                <div class=\"fa-advanced-body\">");
+                out.println("                  <div class=\"fa-modal-field\">");
+                out.println("                    <label for=\"faEditActionTarget\">Target Date</label>");
+                out.println("                    <input type=\"date\" id=\"faEditActionTarget\" />");
+                out.println("                  </div>");
+                out.println("                  <div class=\"fa-modal-field\">");
+                out.println("                    <label for=\"faEditActionDeadline\">Deadline</label>");
+                out.println("                    <input type=\"date\" id=\"faEditActionDeadline\" />");
+                out.println("                  </div>");
+                out.println("                  <div class=\"fa-modal-field\">");
+                out.println("                    <label for=\"faEditActionNote\">Note</label>");
+                out.println("                    <textarea id=\"faEditActionNote\" rows=\"2\"></textarea>");
+                out.println("                  </div>");
+                out.println("                </div>");
+                out.println("              </details>");
                 out.println("              <div class=\"fa-modal-actions\">");
                 out.println("                <button type=\"button\" class=\"fa-primary-btn\" onclick=\"faSubmitEdit('save')\">Save Action</button>");
                 out.println("                <button type=\"button\" class=\"fa-primary-btn\" onclick=\"faSubmitEdit('saveAndStart')\">Save and Start</button>");
                 out.println("                <button type=\"button\" class=\"fa-secondary-btn\" onclick=\"faCloseModal('faEditModal')\">Cancel</button>");
+                out.println("                <button type=\"button\" class=\"fa-danger-btn\" onclick=\"faDeleteAction()\">Delete</button>");
                 out.println("              </div>");
                 out.println("            </div>");
                 out.println("          </div>");
@@ -467,6 +517,56 @@ public class FocusedActionPageRenderer {
                 out.println("      faHandleActionMutationSuccess(data);");
                 out.println("    }).catch(function() { alert('Error rescheduling action. Please try again.'); });");
                 out.println("  }");
+                out.println("  function faUpdateActionTypeButtons(selectedType) {");
+                out.println("    var buttons = document.querySelectorAll('.fa-action-type-btn');");
+                out.println("    for (var i = 0; i < buttons.length; i++) {");
+                out.println("      var btn = buttons[i];");
+                out.println("      if (btn.getAttribute('data-action-type') === selectedType) { btn.classList.add('fa-chip-active'); } else { btn.classList.remove('fa-chip-active'); }");
+                out.println("    }");
+                out.println("  }");
+                out.println("  function faSetActionType(type) {");
+                out.println("    document.getElementById('faEditActionType').value = type;");
+                out.println("    faUpdateActionTypeButtons(type);");
+                out.println("    var contactSection = document.getElementById('faEditActionContactSection');");
+                out.println("    if (contactSection) {");
+                out.println("      if (type === 'WILL_CONTACT' || type === 'WILL_MEET') {");
+                out.println("        contactSection.classList.add('fa-contact-emphasized');");
+                out.println("      } else {");
+                out.println("        contactSection.classList.remove('fa-contact-emphasized');");
+                out.println("      }");
+                out.println("    }");
+                out.println("  }");
+                out.println("  function faApplyModeToEditForm(isPersonal, timeSlot) {");
+                out.println("    var typeSection = document.getElementById('faEditActionTypeSection');");
+                out.println("    var timeSection = document.getElementById('faEditActionTimeSection');");
+                out.println("    var slotSection = document.getElementById('faEditActionSlotSection');");
+                out.println("    var typeInput = document.getElementById('faEditActionType');");
+                out.println("    var timeInput = document.getElementById('faEditActionTime');");
+                out.println("    var slotSelect = document.getElementById('faEditActionTimeSlot');");
+                out.println("    if (isPersonal) {");
+                out.println("      if (typeSection) { typeSection.style.display = 'none'; }");
+                out.println("      if (timeSection) { timeSection.style.display = 'none'; }");
+                out.println("      if (slotSection) { slotSection.style.display = ''; }");
+                out.println("      if (typeInput) { typeInput.value = ''; }");
+                out.println("      if (timeInput) { timeInput.value = '0'; }");
+                out.println("      if (slotSelect) { slotSelect.value = timeSlot || 'AFTERNOON'; }");
+                out.println("    } else {");
+                out.println("      if (typeSection) { typeSection.style.display = ''; }");
+                out.println("      if (timeSection) { timeSection.style.display = ''; }");
+                out.println("      if (slotSection) { slotSection.style.display = 'none'; }");
+                out.println("    }");
+                out.println("  }");
+                out.println("  function faDeleteAction() {");
+                out.println("    if (!confirm('Delete this action? This cannot be undone.')) { return; }");
+                out.println("    var formData = faCreateDashboardParams();");
+                out.println("    formData.append('action', 'deleteAction');");
+                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
+                out.println("    faFetchDashboardJson(formData, 'Delete action').then(function(data) {");
+                out.println("      if (!data || !data.success) { alert('Error: ' + (data && data.message ? data.message : 'Could not delete action')); return; }");
+                out.println("      faCloseModal('faEditModal');");
+                out.println("      window.location.href = 'FocusedActionServlet';");
+                out.println("    }).catch(function() { alert('Error deleting action. Please try again.'); });");
+                out.println("  }");
                 out.println("  function faOpenEditModal(evt) {");
                 out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
                 out.println("    var formData = faCreateDashboardParams();");
@@ -479,10 +579,14 @@ public class FocusedActionPageRenderer {
                 out.println("      document.getElementById('faEditActionDescription').value = data.nextDescription || ''; ");
                 out.println("      document.getElementById('faEditActionTime').value = data.nextTimeEstimate || '0'; ");
                 out.println("      document.getElementById('faEditActionType').value = data.nextActionType || ''; ");
+                out.println("      faUpdateActionTypeButtons(data.nextActionType || ''); ");
+                out.println("      var contactEl = document.getElementById('faEditActionContact');");
+                out.println("      if (contactEl) { contactEl.value = data.nextContactId || ''; }");
                 out.println("      document.getElementById('faEditActionTarget').value = data.nextTargetDate || ''; ");
                 out.println("      document.getElementById('faEditActionDeadline').value = data.nextDeadlineDate || ''; ");
                 out.println("      document.getElementById('faEditActionLink').value = data.linkUrl || ''; ");
                 out.println("      document.getElementById('faEditActionNote').value = data.nextNote || ''; ");
+                out.println("      faApplyModeToEditForm(!!data.isPersonal, data.timeSlot || '');");
                 out.println("      faOpenModal('faEditModal');");
                 out.println("    }).catch(function() { alert('Unable to load edit form.'); });");
                 out.println("  }");
@@ -496,6 +600,14 @@ public class FocusedActionPageRenderer {
                 out.println("    formData.append('nextActionType', (document.getElementById('faEditActionType').value || '').trim());");
                 out.println("    formData.append('nextDescription', document.getElementById('faEditActionDescription').value || '');");
                 out.println("    formData.append('nextTimeEstimate', (document.getElementById('faEditActionTime').value || '0').trim());");
+                out.println("    var contactEl = document.getElementById('faEditActionContact');");
+                out.println("    if (contactEl) { formData.append('nextContactId', contactEl.value || ''); }");
+                out.println("    var slotSection = document.getElementById('faEditActionSlotSection');");
+                out.println("    var slotVisible = slotSection && slotSection.style.display !== 'none';");
+                out.println("    if (slotVisible) {");
+                out.println("      var slotEl = document.getElementById('faEditActionTimeSlot');");
+                out.println("      formData.append('timeSlot', slotEl ? slotEl.value : '');");
+                out.println("    }");
                 out.println("    formData.append('nextTargetDate', (document.getElementById('faEditActionTarget').value || '').trim());");
                 out.println("    formData.append('nextDeadlineDate', (document.getElementById('faEditActionDeadline').value || '').trim());");
                 out.println("    formData.append('linkUrl', (document.getElementById('faEditActionLink').value || '').trim());");
@@ -845,7 +957,19 @@ public class FocusedActionPageRenderer {
                 out.println(
                                 "  .fa-secondary-btn { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 8px 12px; border-radius: 7px; cursor: pointer; }");
                 out.println(
+                                "  .fa-danger-btn { border: 1px solid #c49090; background: #f0ebe0; color: #8b2020; padding: 8px 12px; border-radius: 7px; cursor: pointer; }");
+                out.println(
+                                "  .fa-danger-btn:hover { background: #f5e8e8; border-color: #a06060; }");
+                out.println(
                                 "  .fa-primary-btn { border: 1px solid #2a6f2a; background: #2f8c2f; color: #fff; padding: 8px 14px; border-radius: 7px; cursor: pointer; font-size: 14px; font-weight: 500; }");
+                out.println(
+                                "  .fa-action-type-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }");
+                out.println(
+                                "  .fa-chip { display: inline-block; padding: 4px 10px; background: #eef6ec; border: 1px solid #7f9b7f; border-radius: 3px; color: #274127; font-size: 12px; cursor: pointer; }");
+                out.println(
+                                "  .fa-chip:hover { background: #dff0db; }");
+                out.println(
+                                "  .fa-chip-active { background: #2f8c2f; color: #fff; border-color: #2a6f2a; }");
                 out.println("  .fa-timer-btn { padding: 16px 32px; border-radius: 10px; font-size: 18px; font-weight: 700; min-width: 140px; }");
                 out.println("  .fa-section-title { margin: 0 0 10px 0; font-size: 18px; color: #293829; }");
                 out.println("  .fa-notes { margin: 8px 0 10px 18px; padding: 0; }");
@@ -918,6 +1042,14 @@ public class FocusedActionPageRenderer {
                 out.println("    .fa-quick-capture-box { position: static; min-width: 0; max-width: none; width: 100%; margin: 0 0 8px 0; }");
                 out.println("    .fa-modal-row { grid-template-columns: 1fr; }");
                 out.println("  }");
+                out.println("  .fa-contact-emphasized .fa-contact-label { color: #5b3a00; font-weight: bold; }");
+                out.println("  .fa-contact-emphasized select { border-color: #8b6020; box-shadow: 0 0 0 2px #f5e0a0; }");
+                out.println("  .fa-advanced-section { margin-bottom: 12px; border: 1px solid #d4c9b8; border-radius: 4px; }");
+                out.println("  .fa-advanced-toggle { padding: 6px 10px; cursor: pointer; font-size: 13px; font-weight: bold; color: #5b735c; list-style: none; user-select: none; }");
+                out.println("  .fa-advanced-toggle::-webkit-details-marker { display: none; }");
+                out.println("  .fa-advanced-toggle::before { content: '\\u25b6 '; font-size: 10px; }");
+                out.println("  details.fa-advanced-section[open] .fa-advanced-toggle::before { content: '\\u25bc '; }");
+                out.println("  .fa-advanced-body { padding: 6px 10px 2px; }");
                 out.println("</style>");
         }
 

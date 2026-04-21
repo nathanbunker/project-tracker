@@ -120,9 +120,7 @@ public class PlanAheadMutationService {
 
             if (personalMode) {
                 action.setTimeSlot(targetTimeSlot);
-                if (n(action.getNextActionType()).trim().length() == 0) {
-                    action.setNextActionType(ProjectNextActionType.WILL);
-                }
+                action.setNextActionType(ProjectNextActionType.WILL);
             } else {
                 action.setNextActionType(targetActionType);
             }
@@ -331,9 +329,7 @@ public class PlanAheadMutationService {
             action.setNextActionDate(nextActionDate);
             if (personalMode) {
                 action.setTimeSlot(nextTimeSlot);
-                if (n(action.getNextActionType()).trim().length() == 0) {
-                    action.setNextActionType(ProjectNextActionType.WILL);
-                }
+                action.setNextActionType(ProjectNextActionType.WILL);
             } else {
                 action.setNextActionType(nextActionType);
             }
@@ -1398,7 +1394,7 @@ public class PlanAheadMutationService {
         return null;
     }
 
-    private Date parseDay(String value) {
+    Date parseDay(String value) {
         if (value == null || value.trim().length() == 0) {
             return null;
         }
@@ -1412,7 +1408,7 @@ public class PlanAheadMutationService {
         }
     }
 
-    private Date parseOptionalDay(String value) {
+    Date parseOptionalDay(String value) {
         if (value == null || value.trim().length() == 0) {
             return null;
         }
@@ -1429,7 +1425,7 @@ public class PlanAheadMutationService {
         return calendar.getTime();
     }
 
-    private String toDayKey(Date day) {
+    String toDayKey(Date day) {
         if (day == null) {
             return "";
         }
@@ -1438,7 +1434,7 @@ public class PlanAheadMutationService {
         return sdf.format(day);
     }
 
-    private boolean isBeforeDay(Date day, String referenceDayKey) {
+    boolean isBeforeDay(Date day, String referenceDayKey) {
         if (day == null || referenceDayKey == null) {
             return false;
         }
@@ -1456,11 +1452,11 @@ public class PlanAheadMutationService {
         return actionWorkspaceId.equals(appReq.getActiveWorkspaceId());
     }
 
-    private String n(String value) {
+    String n(String value) {
         return value == null ? "" : value;
     }
 
-    private Integer parseIntegerOrNull(String value) {
+    Integer parseIntegerOrNull(String value) {
         if (value == null || value.trim().length() == 0) {
             return null;
         }
@@ -1471,7 +1467,7 @@ public class PlanAheadMutationService {
         }
     }
 
-    private String clip(String value, int max) {
+    String clip(String value, int max) {
         if (value == null) {
             return "";
         }

@@ -55,6 +55,8 @@ import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.ProjectIssueType;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
+import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
@@ -115,6 +117,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             if ("editAction".equals(action)) {
                 handleEditAction(appReq);
+                return;
+            }
+            if ("deleteAction".equals(action)) {
+                handleDeleteAction(appReq);
                 return;
             }
             if ("loadReprioritizeData".equals(action)) {
@@ -263,10 +269,18 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("nextContactId", nextContactId != null && nextContactId.intValue() > 0 ? nextContactId : "");
         data.put("nextDescription", action.getNextDescription() != null ? action.getNextDescription() : "");
         data.put("nextTimeEstimate", action.getNextTimeEstimate() != null ? action.getNextTimeEstimate() : 0);
-        data.put("nextTargetDate", formatUserDate(webUser, action.getNextTargetDate()));
-        data.put("nextDeadlineDate", formatUserDate(webUser, action.getNextDeadlineDate()));
+        // Return target/deadline in ISO format for native date picker inputs
+        data.put("nextTargetDate", toIsoDate(action.getNextTargetDate(), webUser));
+        data.put("nextDeadlineDate", toIsoDate(action.getNextDeadlineDate(), webUser));
         data.put("linkUrl", action.getLinkUrl() != null ? action.getLinkUrl() : "");
         data.put("nextNote", action.getNextNotes() != null ? action.getNextNotes() : "");
+        // Mode and time slot for mode-aware UI
+        Project actionProject = action.getProject();
+        BillCode billCode = actionProject != null ? resolveBillCode(appReq.getDataSession(), actionProject) : null;
+        boolean isPersonal = billCode == null || !"Y".equalsIgnoreCase(billCode.getBillable());
+        data.put("isPersonal", isPersonal);
+        TimeSlot timeSlot = action.getTimeSlot();
+        data.put("timeSlot", timeSlot != null ? timeSlot.getId() : "");
 
         sendJsonResponse(appReq, true, "OK", data);
     }
@@ -837,16 +851,28 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             if (nextTargetDate != null && nextTargetDate.length() > 0) {
-                Date parsedDate = appReq.getWebUser().parseDate(nextTargetDate);
+                Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextTargetDate);
                 if (parsedDate != null) {
                     action.setNextTargetDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
                 }
+            } else if (nextTargetDate != null && nextTargetDate.length() == 0) {
+                action.setNextTargetDate(null);
             }
 
             if (nextDeadlineDate != null && nextDeadlineDate.length() > 0) {
-                Date parsedDate = appReq.getWebUser().parseDate(nextDeadlineDate);
+                Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextDeadlineDate);
                 if (parsedDate != null) {
                     action.setNextDeadlineDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
+                }
+            } else if (nextDeadlineDate != null && nextDeadlineDate.length() == 0) {
+                action.setNextDeadlineDate(null);
+            }
+
+            String timeSlotParam = appReq.getRequest().getParameter("timeSlot");
+            if (timeSlotParam != null && timeSlotParam.trim().length() > 0) {
+                TimeSlot ts = TimeSlot.getTimeSlot(timeSlotParam.trim());
+                if (ts != null) {
+                    action.setTimeSlot(ts);
                 }
             }
 
@@ -892,6 +918,46 @@ public class DandelionDashboardServlet extends ClientServlet {
             transaction.rollback();
             e.printStackTrace();
             sendJsonResponse(appReq, false, "Error saving action: " + e.getMessage(), null);
+        }
+    }
+
+    private void handleDeleteAction(AppReq appReq) throws Exception {
+        String actionNextIdStr = appReq.getRequest().getParameter("actionNextId");
+        if (actionNextIdStr == null || actionNextIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "actionNextId is required", null);
+            return;
+        }
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(actionNextIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "actionNextId must be a whole number", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Action not found", null);
+                return;
+            }
+            Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
+            if (activeWorkspaceId != null && action.getWorkspaceId() != null
+                    && activeWorkspaceId.intValue() != action.getWorkspaceId().intValue()) {
+                transaction.rollback();
+                sendJsonResponse(appReq, false, "Action is not available for this workspace", null);
+                return;
+            }
+            action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+            action.setNextChangeDate(new Date());
+            dataSession.update(action);
+            transaction.commit();
+            sendJsonResponse(appReq, true, "Action deleted", null);
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
         }
     }
 
@@ -1844,6 +1910,35 @@ public class DandelionDashboardServlet extends ClientServlet {
             return null;
         }
         return java.sql.Date.valueOf(localDate);
+    }
+
+    /**
+     * Returns ISO YYYY-MM-DD string for a date, for use with native date picker
+     * inputs.
+     */
+    private String toIsoDate(Date date, WebUser webUser) {
+        LocalDate localDate = toStoredLocalDate(date, webUser);
+        return localDate != null ? localDate.toString() : "";
+    }
+
+    /**
+     * Parses a date string that may be in ISO (YYYY-MM-DD) format or the user's
+     * entry format.
+     * Returns null if the string cannot be parsed.
+     */
+    private Date parseIsoOrUserDate(WebUser webUser, String dateString) {
+        if (dateString == null || dateString.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = dateString.trim();
+        if (trimmed.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            try {
+                return java.sql.Date.valueOf(trimmed);
+            } catch (IllegalArgumentException e) {
+                // fall through to user format
+            }
+        }
+        return webUser.parseDate(trimmed);
     }
 
     private boolean sameDate(Date left, Date right) {
