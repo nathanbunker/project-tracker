@@ -2563,7 +2563,7 @@ public class DashboardPageRenderer {
                 for (TodaySectionRenderModel section : sections) {
                         String chipClass = "dd-today-chip"
                                         + (section.getItems().isEmpty() ? " dd-today-chip-empty" : "");
-                        if ("overdue".equals(section.getId()) && section.getItems().size() > 1) {
+                        if (shouldApplyTodayChipAlert(section.getId(), section.getItems().size())) {
                                 chipClass += " dd-today-chip-alert";
                         }
                         if (section.getItems().isEmpty()) {
@@ -3800,6 +3800,10 @@ public class DashboardPageRenderer {
                 sections.get("completed").getItems().addAll(todayColumnModel.getCompletedToday());
 
                 return new ArrayList<TodaySectionRenderModel>(sections.values());
+        }
+
+        boolean shouldApplyTodayChipAlert(String sectionId, int itemCount) {
+                return "overdue".equals(sectionId) && itemCount > 0;
         }
 
         private enum ChipColorPolicy {
