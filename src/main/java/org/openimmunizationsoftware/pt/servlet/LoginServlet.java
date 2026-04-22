@@ -17,6 +17,7 @@ import java.util.UUID;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -40,10 +41,14 @@ public class LoginServlet extends ClientServlet {
   private static final String ACTION_LOGOUT = "Logout";
   private static final String ACTION_SEND_MAGIC_LINK = "Send Magic Link";
   private static final String ACTION_MAGIC_LOGIN = "MagicLogin";
+  private static final String ACTION_MAGIC_LOGIN_CONFIRM = "MagicLoginConfirm";
 
   private static final String PARAM_MAGIC_EMAIL = "magicEmail";
   private static final String PARAM_MAGIC_USER_ID = "magicUserId";
   private static final String PARAM_MAGIC_TOKEN = "magicToken";
+  private static final String PARAM_MAGIC_CONFIRM_NONCE = "magicConfirmNonce";
+
+  private static final String SESSION_MAGIC_CONFIRM_NONCE = "LOGIN_MAGIC_CONFIRM_NONCE";
 
   private static final int MAGIC_LINK_MINUTES_VALID = 20;
 
@@ -74,7 +79,13 @@ public class LoginServlet extends ClientServlet {
         } else if (action.equals(ACTION_SEND_MAGIC_LINK)) {
           sendMagicLink(request, appReq, dataSession);
         } else if (action.equals(ACTION_MAGIC_LOGIN)) {
-          loginSuccess = loginWithMagicLink(request, appReq, dataSession);
+          if ("GET".equalsIgnoreCase(request.getMethod())) {
+            renderMagicLinkConfirmationPage(request, appReq, dataSession);
+            return;
+          }
+          loginSuccess = loginWithMagicLink(request, appReq, dataSession, false);
+        } else if (action.equals(ACTION_MAGIC_LOGIN_CONFIRM)) {
+          loginSuccess = loginWithMagicLink(request, appReq, dataSession, true);
         } else if (action.equals(ACTION_LOGOUT)) {
           appReq.logout();
           response.sendRedirect("LoginServlet");
@@ -177,34 +188,23 @@ public class LoginServlet extends ClientServlet {
     return loginSuccess;
   }
 
-  private boolean loginWithMagicLink(HttpServletRequest request, AppReq appReq, Session dataSession) {
-    String magicUserId = request.getParameter(PARAM_MAGIC_USER_ID);
-    String magicToken = request.getParameter(PARAM_MAGIC_TOKEN);
-    if (magicUserId == null || magicToken == null || magicUserId.equals("") || magicToken.equals("")) {
-      appReq.setMessageProblem("Magic link is invalid or missing");
+  private boolean loginWithMagicLink(HttpServletRequest request, AppReq appReq, Session dataSession,
+      boolean requireConfirmNonce) {
+    MagicLinkValidationResult validationResult = validateMagicLinkRequest(request, dataSession);
+    if (!validationResult.isValid()) {
+      appReq.setMessageProblem(validationResult.getMessage());
+      clearMagicConfirmNonce(request);
       return false;
     }
 
-    int webUserId = 0;
-    try {
-      webUserId = Integer.parseInt(magicUserId);
-    } catch (NumberFormatException nfe) {
-      appReq.setMessageProblem("Magic link is invalid or missing");
+    if (requireConfirmNonce && !isMagicConfirmNonceValid(request)) {
+      appReq.setMessageProblem("Magic link confirmation is invalid. Open the link again and confirm sign in.");
+      clearMagicConfirmNonce(request);
       return false;
     }
 
-    WebUser webUser = hydrateWebUserForSession(dataSession, webUserId);
-    if (webUser == null || webUser.getMagicLinkTokenHash() == null || webUser.getMagicLinkExpiry() == null) {
-      appReq.setMessageProblem("Magic link is invalid or expired");
-      return false;
-    }
-
-    String tokenHash = hashToken(magicToken);
+    WebUser webUser = validationResult.getWebUser();
     Date now = new Date();
-    if (!webUser.getMagicLinkTokenHash().equals(tokenHash) || webUser.getMagicLinkExpiry().before(now)) {
-      appReq.setMessageProblem("Magic link is invalid or expired");
-      return false;
-    }
 
     webUser.setMagicLinkTokenHash(null);
     webUser.setMagicLinkExpiry(null);
@@ -218,10 +218,135 @@ public class LoginServlet extends ClientServlet {
     dataSession.update(webUser);
     trans.commit();
 
+    clearMagicConfirmNonce(request);
     initializeUserSession(appReq, dataSession, webUser);
     RememberMeManager.issueRememberMeCookie(appReq.getResponse(), webUser, dataSession);
     appReq.setMessageConfirmation("Signed in using magic link");
     return true;
+  }
+
+  private void renderMagicLinkConfirmationPage(HttpServletRequest request, AppReq appReq, Session dataSession)
+      throws IOException {
+    MagicLinkValidationResult validationResult = validateMagicLinkRequest(request, dataSession);
+    PrintWriter out = appReq.getOut();
+
+    setNoCacheHeaders(appReq.getResponse());
+    appReq.setTitle("Magic Link Confirmation");
+    printHtmlHead(appReq);
+
+    out.println("<h2>Magic Link Sign-In</h2>");
+    if (validationResult.isValid()) {
+      String nonce = issueMagicConfirmNonce(request);
+      out.println("<p>Your sign-in link is valid. Continue to sign in.</p>");
+      out.println("<form action=\"LoginServlet\" method=\"POST\"> ");
+      out.println("<input type=\"hidden\" name=\"action\" value=\"" + ACTION_MAGIC_LOGIN_CONFIRM + "\">");
+      out.println("<input type=\"hidden\" name=\"" + PARAM_MAGIC_USER_ID + "\" value=\""
+          + escapeHtml(request.getParameter(PARAM_MAGIC_USER_ID)) + "\">");
+      out.println("<input type=\"hidden\" name=\"" + PARAM_MAGIC_TOKEN + "\" value=\""
+          + escapeHtml(request.getParameter(PARAM_MAGIC_TOKEN)) + "\">");
+      out.println("<input type=\"hidden\" name=\"" + PARAM_MAGIC_CONFIRM_NONCE + "\" value=\""
+          + escapeHtml(nonce) + "\">");
+      out.println("<p><input type=\"submit\" value=\"Sign In\"></p>");
+      out.println("</form>");
+    } else {
+      clearMagicConfirmNonce(request);
+      out.println("<p>" + escapeHtml(validationResult.getMessage()) + "</p>");
+      out.println("<p><a href=\"LoginServlet\">Back to Login</a></p>");
+    }
+
+    printHtmlFoot(appReq);
+  }
+
+  private MagicLinkValidationResult validateMagicLinkRequest(HttpServletRequest request, Session dataSession) {
+    String magicUserId = request.getParameter(PARAM_MAGIC_USER_ID);
+    String magicToken = request.getParameter(PARAM_MAGIC_TOKEN);
+    if (magicUserId == null || magicToken == null || magicUserId.equals("") || magicToken.equals("")) {
+      return MagicLinkValidationResult.invalid("Magic link is invalid or missing");
+    }
+
+    int webUserId = 0;
+    try {
+      webUserId = Integer.parseInt(magicUserId);
+    } catch (NumberFormatException nfe) {
+      return MagicLinkValidationResult.invalid("Magic link is invalid or missing");
+    }
+
+    WebUser webUser = hydrateWebUserForSession(dataSession, webUserId);
+    if (webUser == null || webUser.getMagicLinkTokenHash() == null || webUser.getMagicLinkExpiry() == null) {
+      return MagicLinkValidationResult.invalid("Magic link is invalid or expired");
+    }
+
+    String tokenHash = hashToken(magicToken);
+    Date now = new Date();
+    if (!webUser.getMagicLinkTokenHash().equals(tokenHash) || webUser.getMagicLinkExpiry().before(now)) {
+      return MagicLinkValidationResult.invalid("Magic link is invalid or expired");
+    }
+
+    return MagicLinkValidationResult.valid(webUser);
+  }
+
+  private String issueMagicConfirmNonce(HttpServletRequest request) {
+    String nonce = UUID.randomUUID().toString().replace("-", "")
+        + UUID.randomUUID().toString().replace("-", "");
+    HttpSession session = request.getSession(true);
+    session.setAttribute(SESSION_MAGIC_CONFIRM_NONCE, nonce);
+    return nonce;
+  }
+
+  private boolean isMagicConfirmNonceValid(HttpServletRequest request) {
+    HttpSession session = request.getSession(false);
+    if (session == null) {
+      return false;
+    }
+    Object expectedObj = session.getAttribute(SESSION_MAGIC_CONFIRM_NONCE);
+    String expected = expectedObj == null ? "" : expectedObj.toString();
+    String supplied = request.getParameter(PARAM_MAGIC_CONFIRM_NONCE);
+    return supplied != null && !supplied.equals("") && supplied.equals(expected);
+  }
+
+  private void clearMagicConfirmNonce(HttpServletRequest request) {
+    HttpSession session = request.getSession(false);
+    if (session != null) {
+      session.removeAttribute(SESSION_MAGIC_CONFIRM_NONCE);
+    }
+  }
+
+  private void setNoCacheHeaders(HttpServletResponse response) {
+    response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+  }
+
+  private static class MagicLinkValidationResult {
+    private final boolean valid;
+    private final String message;
+    private final WebUser webUser;
+
+    private MagicLinkValidationResult(boolean valid, String message, WebUser webUser) {
+      this.valid = valid;
+      this.message = message;
+      this.webUser = webUser;
+    }
+
+    private static MagicLinkValidationResult valid(WebUser webUser) {
+      return new MagicLinkValidationResult(true, null, webUser);
+    }
+
+    private static MagicLinkValidationResult invalid(String message) {
+      return new MagicLinkValidationResult(false, message, null);
+    }
+
+    private boolean isValid() {
+      return valid;
+    }
+
+    private String getMessage() {
+      return message;
+    }
+
+    private WebUser getWebUser() {
+      return webUser;
+    }
   }
 
   private void sendMagicLink(HttpServletRequest request, AppReq appReq, Session dataSession) {
