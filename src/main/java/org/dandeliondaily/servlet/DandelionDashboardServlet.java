@@ -901,7 +901,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             dataSession.update(action);
             transaction.commit();
 
-            boolean requiresActionRefresh = clearCurrentActionIfMovedOffToday(appReq, action);
+            boolean requiresActionRefresh = dashboardCurrentActionService
+                    .handoffCurrentActionIfMovedOffToday(appReq, action);
 
             if (saveAndStart) {
                 appReq.setCompletingAction(action);
@@ -1372,7 +1373,8 @@ public class DandelionDashboardServlet extends ClientServlet {
             dataSession.update(action);
             transaction.commit();
 
-            boolean requiresActionRefresh = clearCurrentActionIfMovedOffToday(appReq, action);
+            boolean requiresActionRefresh = dashboardCurrentActionService
+                    .handoffCurrentActionIfMovedOffToday(appReq, action);
 
             Map<String, Object> data = new LinkedHashMap<String, Object>();
             data.put("requiresActionRefresh", Boolean.valueOf(requiresActionRefresh));
@@ -1962,27 +1964,6 @@ public class DandelionDashboardServlet extends ClientServlet {
 
     private String formatCurrentUserTime(WebUser webUser) {
         return webUser.getDateFormatService().formatPattern(new Date(), "hh:mm:ss aaa z", webUser.getTimeZone());
-    }
-
-    private boolean clearCurrentActionIfMovedOffToday(AppReq appReq, ActionNext action) {
-        if (action == null) {
-            return false;
-        }
-        ActionNext current = appReq.getCompletingAction();
-        if (current == null || current.getActionNextId() != action.getActionNextId()) {
-            return false;
-        }
-        LocalDate actionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
-        LocalDate today = appReq.getWebUser().getLocalDateToday();
-        if (actionDate == null || !actionDate.isAfter(today)) {
-            return false;
-        }
-        TimeTracker timeTracker = appReq.getTimeTracker();
-        if (timeTracker != null && timeTracker.isRunningClock()) {
-            timeTracker.stopClock(appReq.getDataSession());
-        }
-        appReq.setCompletingAction(null);
-        return true;
     }
 
     private String renderGaugeHtml(TimeGaugeModel model) {

@@ -14,6 +14,7 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
+import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
@@ -89,6 +90,63 @@ public class DashboardCurrentActionService {
         if (nextAction != null && nextAction.getProject() != null) {
             appReq.setProject(nextAction.getProject());
         }
+    }
+
+    public boolean handoffCurrentActionIfMovedOffToday(AppReq appReq, ActionNext movedAction) {
+        if (appReq == null || !shouldRefreshCurrentAction(appReq.getCompletingAction(), movedAction,
+                toStoredLocalDate(movedAction == null ? null : movedAction.getNextActionDate(), appReq.getWebUser()),
+                appReq.getWebUser() == null ? null : appReq.getWebUser().getLocalDateToday())) {
+            return false;
+        }
+
+        TimeTracker timeTracker = appReq.getTimeTracker();
+        boolean timerWasRunning = timeTracker != null && timeTracker.isRunningClock();
+
+        appReq.setCompletingAction(null);
+        ensureCurrentActionSelected(appReq);
+
+        ActionNext replacementAction = appReq.getCompletingAction();
+        syncTimerWithCurrentAction(timerWasRunning, replacementAction, new TimerHandoff() {
+            @Override
+            public void start(ActionNext action) {
+                timeTracker.startClock(action.getProject(), action, appReq.getDataSession());
+            }
+
+            @Override
+            public void stop() {
+                timeTracker.stopClock(appReq.getDataSession());
+            }
+        });
+
+        return true;
+    }
+
+    boolean shouldRefreshCurrentAction(ActionNext currentAction, ActionNext movedAction, LocalDate movedDate,
+            LocalDate today) {
+        if (currentAction == null || movedAction == null || movedDate == null || today == null) {
+            return false;
+        }
+        if (currentAction.getActionNextId() != movedAction.getActionNextId()) {
+            return false;
+        }
+        return movedDate.isAfter(today);
+    }
+
+    void syncTimerWithCurrentAction(boolean timerWasRunning, ActionNext replacementAction, TimerHandoff timerHandoff) {
+        if (!timerWasRunning || timerHandoff == null) {
+            return;
+        }
+        if (replacementAction != null && replacementAction.getProject() != null) {
+            timerHandoff.start(replacementAction);
+            return;
+        }
+        timerHandoff.stop();
+    }
+
+    interface TimerHandoff {
+        void start(ActionNext action);
+
+        void stop();
     }
 
     public void handleCurrentActionWork(AppReq appReq) {

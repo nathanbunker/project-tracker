@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 
+import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
@@ -39,6 +40,7 @@ public class PlanAheadMutationService {
 
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer renderer = new PlanAheadPageRenderer();
+    private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
 
     public PlanAheadMutationResult moveCard(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
@@ -132,6 +134,9 @@ public class PlanAheadMutationService {
             transaction.rollback();
             throw re;
         }
+
+        dashboardCurrentActionService.handoffCurrentActionIfMovedOffToday(appReq,
+                (ActionNext) dataSession.get(ActionNext.class, actionNextId));
 
         Date windowStart = boardService.resolveWindowStart(appReq);
         PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
@@ -352,6 +357,9 @@ public class PlanAheadMutationService {
             transaction.rollback();
             throw re;
         }
+
+        dashboardCurrentActionService.handoffCurrentActionIfMovedOffToday(appReq,
+                (ActionNext) dataSession.get(ActionNext.class, actionNextId));
 
         Date windowStart = boardService.resolveWindowStart(appReq);
         PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
