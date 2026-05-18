@@ -19,13 +19,13 @@ import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeState;
 import org.dandeliondaily.dashboard.model.TimeGaugeVariant;
+import org.dandeliondaily.shared.render.EditActionModalRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
@@ -49,6 +49,7 @@ public class DashboardPageRenderer {
         private static final String PROJECT_SECTION_SESSION_KEY = "PROJECT_SECTION_FILTER";
 
         private final TimeGaugeRenderer timeGaugeRenderer = new TimeGaugeRenderer();
+        private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
         private String dashboardPath = "DandelionDashboardServlet";
         private DashboardLayoutMode layoutMode = DashboardLayoutMode.DEFAULT;
 
@@ -3289,283 +3290,43 @@ public class DashboardPageRenderer {
         }
 
         private void printTodayEditActionModal(PrintWriter out, AppReq appReq) {
-                out.println("<div id=\"editActionModal\" class=\"dd-modal-overlay\" onclick=\"ddOverlayClose(event,this)\">");
-                out.println("  <div class=\"dd-modal dd-edit-action-modal\" onclick=\"event.stopPropagation()\">");
-                out.println("    <div class=\"dd-modal-head\">");
-                out.println("      <h3 class=\"dd-modal-title\">Edit Action</h3>");
-                out.println(
-                                "      <button class=\"dd-modal-close\" onclick=\"ddCloseActionModal('editActionModal',event)\">&times;</button>");
-                out.println("    </div>");
-                out.println(
-                                "    <form id=\"ddEditActionForm\" class=\"dd-edit-form\" method=\"POST\" action=\""
-                                                + dashboardPath
-                                                + "\" onsubmit=\"return ddSubmitEditActionForm(event)\">");
-                out.println("      <input type=\"hidden\" name=\"action\" value=\"editAction\">");
-                out.println("      <input type=\"hidden\" name=\"actionNextId\" id=\"ddEditActionId\" value=\"\">");
-                out.println("      <input type=\"hidden\" id=\"ddEditActionDateOriginal\" value=\"\">");
-                out.println("      <input type=\"hidden\" name=\"saveMode\" id=\"ddEditActionSaveMode\" value=\"save\">");
-
-                out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">When:</label>");
-                out.println("        <div class=\"dd-form-control\">");
-                out.println(
-                                "          <input type=\"text\" name=\"nextActionDate\" id=\"ddEditActionDate\" size=\"10\" class=\"dd-form-input\">");
-                out.println("          <div id=\"ddEditActionDateQuickButtons\" class=\"dd-quick-selectors\"></div>");
-                out.println("        </div>");
-                out.println("      </div>");
-
-                out.println("      <div id=\"ddEditActionTypeSection\" class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Action Type:</label>");
-                out.println("        <div class=\"dd-form-control\">");
-                out.println("          <div class=\"dd-quick-selectors dd-action-type-selectors\">");
-                out.println("            <button type=\"button\" data-action-type=\"" + ProjectNextActionType.WILL
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">will</button>");
-                out.println("            <button type=\"button\" data-action-type=\"" + ProjectNextActionType.MIGHT
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.MIGHT
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">might</button>");
-                out.println("            <button type=\"button\" data-action-type=\""
-                                + ProjectNextActionType.WOULD_LIKE_TO
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WOULD_LIKE_TO
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">would like to</button>");
-                out.println("            <button type=\"button\" data-action-type=\""
-                                + ProjectNextActionType.WILL_CONTACT
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL_CONTACT
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">will contact</button>");
-                out.println("            <button type=\"button\" data-action-type=\"" + ProjectNextActionType.WILL_MEET
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL_MEET
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">will meet</button>");
-                out.println("            <button type=\"button\" data-action-type=\""
-                                + ProjectNextActionType.WILL_REVIEW
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL_REVIEW
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">will review</button>");
-                out.println("            <button type=\"button\" data-action-type=\""
-                                + ProjectNextActionType.WILL_DOCUMENT
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL_DOCUMENT
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">will document</button>");
-                out.println("            <button type=\"button\" data-action-type=\""
-                                + ProjectNextActionType.WILL_FOLLOW_UP
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WILL_FOLLOW_UP
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">will follow up</button>");
-                out.println("            <button type=\"button\" data-action-type=\""
-                                + ProjectNextActionType.COMMITTED_TO
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.COMMITTED_TO
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">committed</button>");
-                out.println("            <button type=\"button\" data-action-type=\"" + ProjectNextActionType.GOAL
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.GOAL
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">set goal</button>");
-                out.println("            <button type=\"button\" data-action-type=\"" + ProjectNextActionType.WAITING
-                                + "\" onclick=\"ddSetActionType('" + ProjectNextActionType.WAITING
-                                + "')\" class=\"dd-quick-btn dd-action-type-btn\">waiting</button>");
-                out.println("          </div>");
-                out.println("          <input type=\"hidden\" name=\"nextActionType\" id=\"ddEditActionType\" value=\"\">");
-                out.println("        </div>");
-                out.println("      </div>");
-
-                out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Description:</label>");
-                out.println(
-                                "        <textarea name=\"nextDescription\" id=\"ddEditActionDescription\" class=\"dd-form-textarea\" rows=\"2\"></textarea>");
-                out.println("      </div>");
-
-                out.println("      <div id=\"ddEditActionContactSection\" class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label dd-contact-label\">Who:</label>");
-                out.println("        <select name=\"nextContactId\" id=\"ddEditActionContact\" class=\"dd-form-input\">");
-                out.println("          <option value=\"\">none</option>");
-
-                Session dataSession = appReq.getDataSession();
-                WebUser webUser = appReq.getWebUser();
-                int currentContactId = webUser.getProjectContact().getContactId();
-
-                Query query = dataSession.createQuery(
-                                "from ProjectContact where workspaceId = :workspaceId order by nameLast, nameFirst");
-                query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-                @SuppressWarnings("unchecked")
-                List<ProjectContact> contacts = query.list();
-                for (ProjectContact contact : contacts) {
-                        if (contact.getContactId() != currentContactId) {
-                                out.println("          <option value=\"" + contact.getContactId() + "\">"
-                                                + escapeHtml(contact.getName()) + "</option>");
-                        }
-                }
-                out.println("        </select>");
-                out.println("      </div>");
-
-                out.println("      <div id=\"ddEditActionTimeSection\" class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Time Estimate:</label>");
-                out.println("        <div class=\"dd-form-control\">");
-                out.println(
-                                "          <input type=\"text\" name=\"nextTimeEstimate\" id=\"ddEditActionTime\" size=\"3\" class=\"dd-form-input-small\" value=\"0\"> mins");
-                out.println("          <div class=\"dd-quick-selectors\">");
-                out.println("            <a href=\"javascript:ddSetTimeEstimate('5')\" class=\"dd-quick-btn\">5m</a>");
-                out.println("            <a href=\"javascript:ddSetTimeEstimate('10')\" class=\"dd-quick-btn\">10m</a>");
-                out.println("            <a href=\"javascript:ddSetTimeEstimate('20')\" class=\"dd-quick-btn\">20m</a>");
-                out.println("            <a href=\"javascript:ddSetTimeEstimate('30')\" class=\"dd-quick-btn\">30m</a>");
-                out.println("            <a href=\"javascript:ddSetTimeEstimate('60')\" class=\"dd-quick-btn\">1h</a>");
-                out.println("            <a href=\"javascript:ddSetTimeEstimate('120')\" class=\"dd-quick-btn\">2h</a>");
-                out.println("          </div>");
-                out.println("        </div>");
-                out.println("      </div>"); // ddEditActionTimeSection
-
-                out.println("      <div id=\"ddEditActionSlotSection\" class=\"dd-form-field\" style=\"display:none\">");
-                out.println("        <label class=\"dd-form-label\">Time of Day:</label>");
-                out.println("        <select name=\"timeSlot\" id=\"ddEditActionTimeSlot\" class=\"dd-form-input\">");
-                out.println("          <option value=\"WAKE\">Wake</option>");
-                out.println("          <option value=\"MORNING\">Morning</option>");
-                out.println("          <option value=\"AFTERNOON\">Afternoon</option>");
-                out.println("          <option value=\"EVENING\">Evening</option>");
-                out.println("        </select>");
-                out.println("      </div>");
-
-                out.println("      <div class=\"dd-form-field\">");
-                out.println("        <label class=\"dd-form-label\">Link URL:</label>");
-                out.println(
-                                "        <input type=\"text\" name=\"linkUrl\" id=\"ddEditActionLink\" size=\"40\" class=\"dd-form-input\">");
-                out.println("      </div>");
-
-                out.println("      <details id=\"ddEditAdvancedSection\" class=\"dd-advanced-section\">");
-                out.println("        <summary class=\"dd-advanced-toggle\">More options</summary>");
-                out.println("        <div class=\"dd-advanced-body\">");
-                out.println("          <div class=\"dd-form-field\">");
-                out.println("            <label class=\"dd-form-label\">Target Date:</label>");
-                out.println("            <input type=\"date\" name=\"nextTargetDate\" id=\"ddEditActionTarget\" class=\"dd-form-input\">");
-                out.println("          </div>");
-                out.println("          <div class=\"dd-form-field\">");
-                out.println("            <label class=\"dd-form-label\">Deadline:</label>");
-                out.println("            <input type=\"date\" name=\"nextDeadlineDate\" id=\"ddEditActionDeadline\" class=\"dd-form-input\">");
-                out.println("          </div>");
-                out.println("          <div class=\"dd-form-field\">");
-                out.println("            <label class=\"dd-form-label\">Note:</label>");
-                out.println(
-                                "            <textarea name=\"nextNote\" id=\"ddEditActionNote\" class=\"dd-form-textarea\" rows=\"2\"></textarea>");
-                out.println("          </div>");
-                out.println("        </div>");
-                out.println("      </details>");
-
-                out.println("      <div class=\"dd-form-actions\">");
-                out.println(
-                                "        <button type=\"submit\" class=\"dd-btn dd-btn-primary\" onclick=\"ddSetEditSubmitMode('save')\">Save Action</button>");
-                out.println(
-                                "        <button type=\"submit\" class=\"dd-btn dd-btn-primary\" onclick=\"ddSetEditSubmitMode('saveAndStart')\">Save and Start</button>");
-                out.println(
-                                "        <button type=\"button\" class=\"dd-btn dd-btn-secondary\" onclick=\"ddCloseActionModal('editActionModal')\">Cancel</button>");
-                out.println(
-                                "        <button type=\"button\" class=\"dd-btn dd-btn-danger\" onclick=\"ddDeleteAction(event)\">Delete</button>");
-                out.println("      </div>");
-                out.println("    </form>");
-                out.println("  </div>");
-                out.println("</div>");
+                EditActionModalRenderer.Config editConfig = new EditActionModalRenderer.Config();
+                editConfig.overlayId = "editActionModal";
+                editConfig.overlayClass = "dd-modal-overlay";
+                editConfig.overlayOnClick = "ddOverlayClose(event,this)";
+                editConfig.modalClass = "dd-modal dd-edit-action-modal";
+                editConfig.closeOnClick = "ddCloseActionModal('editActionModal')";
+                editConfig.saveOnClick = "ddSubmitEdit('save')";
+                editConfig.saveAndStartOnClick = "ddSubmitEdit('saveAndStart')";
+                editConfig.cancelOnClick = "ddCloseActionModal('editActionModal')";
+                editConfig.deleteOnClick = "ddDeleteAction(event)";
+                editActionModalRenderer.render(out, appReq, editConfig);
 
                 out.println("<style>");
                 out.println("  .dd-edit-action-modal { max-width: 600px; max-height: 85vh; overflow-y: auto; }");
-                out.println("  .dd-edit-form { padding: 16px; }");
-                out.println("  .dd-form-field { margin-bottom: 16px; }");
-                out.println(
-                                "  .dd-form-label { display: block; margin-bottom: 6px; font-weight: bold; color: #2d3a2d; font-size: 13px; }");
-                out.println(
-                                "  .dd-form-input, .dd-form-input-small, .dd-form-textarea { padding: 6px 8px; border: 1px solid #cfbea6; border-radius: 3px; font-family: inherit; font-size: 13px; }");
-                out.println("  .dd-form-input { width: 100%; box-sizing: border-box; }");
-                out.println("  .dd-form-input-small { width: 60px; }");
-                out.println("  .dd-form-textarea { width: 100%; box-sizing: border-box; }");
-                out.println("  .dd-quick-selectors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }");
-                out.println("  .dd-action-type-selectors { align-items: flex-start; }");
-                out.println(
-                                "  .dd-quick-btn { display: inline-block; padding: 4px 10px; background: #f0ebe0; border: 1px solid #cfbea6; border-radius: 3px; color: #2d3a2d; text-decoration: none; font-size: 12px; cursor: pointer; }");
-                out.println("  .dd-quick-btn:hover { background: #e8e1d3; border-color: #bfa982; }");
-                out.println(
-                                "  .dd-quick-btn.dd-action-type-btn-active { background: #5b735c; color: #fffdf8; border-color: #445a45; }");
-                out.println("  .dd-form-control { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }");
-                out.println(
-                                "  .dd-form-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #cfbea6; }");
-                out.println(
-                                "  .dd-btn { padding: 8px 16px; border: 1px solid #cfbea6; border-radius: 3px; background: #f0ebe0; color: #2d3a2d; cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.2s; }");
-                out.println("  .dd-btn:hover { background: #e8e1d3; border-color: #bfa982; }");
-                out.println("  .dd-btn-primary { background: #5b735c; color: #fffdf8; border-color: #445a45; }");
-                out.println("  .dd-btn-primary:hover { background: #485a46; }");
-                out.println("  .dd-btn-secondary { background: #f0ebe0; }");
-                out.println("  .dd-btn-danger { background: #f0ebe0; color: #8b2020; border-color: #c49090; }");
-                out.println("  .dd-btn-danger:hover { background: #f5e8e8; border-color: #a06060; }");
-                out.println("  .dd-contact-emphasized .dd-contact-label { color: #5b3a00; font-weight: bold; }");
-                out.println("  .dd-contact-emphasized select { border-color: #8b6020; box-shadow: 0 0 0 2px #f5e0a0; }");
-                out.println("  .dd-advanced-section { margin-bottom: 16px; border: 1px solid #cfbea6; border-radius: 3px; }");
-                out.println("  .dd-advanced-toggle { padding: 6px 10px; cursor: pointer; font-size: 13px; font-weight: bold; color: #5b735c; list-style: none; user-select: none; }");
-                out.println("  .dd-advanced-toggle::-webkit-details-marker { display: none; }");
-                out.println("  .dd-advanced-toggle::before { content: '\u25b6 '; font-size: 10px; }");
-                out.println("  details.dd-advanced-section[open] .dd-advanced-toggle::before { content: '\u25bc '; }");
-                out.println("  .dd-advanced-body { padding: 8px 10px 4px; }");
+                editActionModalRenderer.printSharedStyles(out);
                 out.println("</style>");
 
                 out.println("<script>");
-                out.println("  function ddFormatEditDate(date) {");
-                out.println("    var month = (date.getMonth() + 1).toString().padStart(2, '0');");
-                out.println("    var day = date.getDate().toString().padStart(2, '0');");
-                out.println("    return month + '/' + day + '/' + date.getFullYear();");
-                out.println("  }");
-                out.println("  function ddAppendDateQuickButton(container, label, fieldId, dateValue) {");
-                out.println("    if (!container) { return; }");
-                out.println("    var button = document.createElement('button');");
-                out.println("    button.type = 'button';");
-                out.println("    button.className = 'dd-quick-btn';");
-                out.println("    button.textContent = label;");
-                out.println("    button.addEventListener('click', function() { ddSetDateField(fieldId, dateValue); });");
-                out.println("    container.appendChild(button);");
-                out.println("  }");
-                out.println(
-                                "  function ddRenderLegacyDateButtons(containerId, fieldId, startOffset, count, includeToday, includeTomorrow, includeEoy) {");
-                out.println("    var container = document.getElementById(containerId);");
-                out.println("    if (!container) { return; }");
-                out.println("    container.innerHTML = '';");
-                out.println("    var today = new Date();");
-                out.println("    today = new Date(today.getFullYear(), today.getMonth(), today.getDate());");
-                out.println("    if (includeToday) {");
-                out.println("      ddAppendDateQuickButton(container, 'Today', fieldId, ddFormatEditDate(today));");
-                out.println("    }");
-                out.println("    var cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());");
-                out.println("    if (startOffset > 0) { cursor.setDate(cursor.getDate() + startOffset); }");
-                out.println("    if (includeTomorrow) {");
-                out.println("      var tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);");
-                out.println("      ddAppendDateQuickButton(container, 'Tomorrow', fieldId, ddFormatEditDate(tomorrow));");
-                out.println("      cursor = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate() + 1);");
-                out.println("    }");
-                out.println("    var nextWeek = false;");
-                out.println("    for (var i = 0; i < count; i++) {");
-                out.println("      var label = cursor.toLocaleDateString('en-US', { weekday: 'short' });");
-                out.println("      if (nextWeek) { label = 'Next-' + label; }");
-                out.println("      ddAppendDateQuickButton(container, label, fieldId, ddFormatEditDate(cursor));");
-                out.println("      if (cursor.getDay() === 0) { nextWeek = true; }");
-                out.println("      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);");
-                out.println("    }");
-                out.println("    if (includeEoy) {");
-                out.println("      var eoy = new Date(today.getFullYear(), 11, 31);");
-                out.println("      ddAppendDateQuickButton(container, 'EOY', fieldId, ddFormatEditDate(eoy));");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function ddRenderEditDateButtons() {");
-                out.println(
-                                "    ddRenderLegacyDateButtons('ddEditActionDateQuickButtons', 'ddEditActionDate', 0, 6, true, true, true);");
-                out.println("  }");
-                out.println("  function ddSetDateField(fieldId, dateValue) {");
-                out.println("    var field = document.getElementById(fieldId);");
-                out.println("    if (field) { field.value = dateValue; }");
-                out.println("  }");
                 out.println("  function ddUpdateActionTypeButtons(selectedType) {");
-                out.println("    var buttons = document.querySelectorAll('.dd-action-type-btn');");
+                out.println("    var buttons = document.querySelectorAll('.ea-action-type-btn');");
                 out.println("    for (var i = 0; i < buttons.length; i++) {");
                 out.println("      var button = buttons[i];");
                 out.println("      if (button.getAttribute('data-action-type') === selectedType) {");
-                out.println("        button.classList.add('dd-action-type-btn-active');");
+                out.println("        button.classList.add('ea-chip-active');");
                 out.println("      } else {");
-                out.println("        button.classList.remove('dd-action-type-btn-active');");
+                out.println("        button.classList.remove('ea-chip-active');");
                 out.println("      }");
                 out.println("    }");
                 out.println("  }");
+                out.println("  function eaSetActionType(type) { ddSetActionType(type); }");
                 out.println("  function ddApplyModeToEditForm(isPersonal, timeSlot) {");
-                out.println("    var typeSection = document.getElementById('ddEditActionTypeSection');");
-                out.println("    var timeSection = document.getElementById('ddEditActionTimeSection');");
-                out.println("    var slotSection = document.getElementById('ddEditActionSlotSection');");
-                out.println("    var typeInput = document.getElementById('ddEditActionType');");
-                out.println("    var timeInput = document.getElementById('ddEditActionTime');");
-                out.println("    var slotSelect = document.getElementById('ddEditActionTimeSlot');");
+                out.println("    var typeSection = document.getElementById('eaEditActionTypeSection');");
+                out.println("    var timeSection = document.getElementById('eaEditActionTimeSection');");
+                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
+                out.println("    var typeInput = document.getElementById('eaEditActionType');");
+                out.println("    var timeInput = document.getElementById('eaEditActionTime');");
+                out.println("    var slotSelect = document.getElementById('eaEditActionTimeSlot');");
                 out.println("    if (isPersonal) {");
                 out.println("      if (typeSection) { typeSection.style.display = 'none'; }");
                 out.println("      if (timeSection) { timeSection.style.display = 'none'; }");
@@ -3583,25 +3344,25 @@ public class DashboardPageRenderer {
                 out.println("    }");
                 out.println("  }");
                 out.println("  function ddLoadEditFormData(actionId) {");
-                out.println("    document.getElementById('ddEditActionId').value = actionId;");
+                out.println("    document.getElementById('eaEditActionId').value = actionId;");
                 out.println("    var formData = ddCreateDashboardParams();");
                 out.println("    formData.append('action', 'loadActionData');");
                 out.println("    formData.append('actionNextId', actionId);");
                 out.println("    ddFetchDashboardJson(formData, 'Edit preload')");
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
-                out.println("          var loadedDate = data.nextActionDate || '';");
-                out.println("          document.getElementById('ddEditActionDate').value = loadedDate;");
-                out.println("          document.getElementById('ddEditActionDateOriginal').value = loadedDate;");
-                out.println("          document.getElementById('ddEditActionType').value = data.nextActionType || '';");
+                out.println("          var loadedDate = data.nextActionDate || ''; ");
+                out.println("          document.getElementById('eaEditActionDate').value = loadedDate;");
+                out.println("          document.getElementById('eaEditActionDateOriginal').value = loadedDate;");
+                out.println("          document.getElementById('eaEditActionType').value = data.nextActionType || ''; ");
                 out.println("          ddUpdateActionTypeButtons(data.nextActionType || '');");
-                out.println("          document.getElementById('ddEditActionContact').value = data.nextContactId || '';");
-                out.println("          document.getElementById('ddEditActionDescription').value = data.nextDescription || '';");
-                out.println("          document.getElementById('ddEditActionTime').value = data.nextTimeEstimate || '0';");
-                out.println("          document.getElementById('ddEditActionTarget').value = data.nextTargetDate || '';");
-                out.println("          document.getElementById('ddEditActionDeadline').value = data.nextDeadlineDate || '';");
-                out.println("          document.getElementById('ddEditActionLink').value = data.linkUrl || '';");
-                out.println("          document.getElementById('ddEditActionNote').value = data.nextNote || '';");
+                out.println("          document.getElementById('eaEditActionContact').value = data.nextContactId || ''; ");
+                out.println("          document.getElementById('eaEditActionDescription').value = data.nextDescription || ''; ");
+                out.println("          document.getElementById('eaEditActionTime').value = data.nextTimeEstimate || '0'; ");
+                out.println("          document.getElementById('eaEditActionTarget').value = data.nextTargetDate || ''; ");
+                out.println("          document.getElementById('eaEditActionDeadline').value = data.nextDeadlineDate || ''; ");
+                out.println("          document.getElementById('eaEditActionLink').value = data.linkUrl || ''; ");
+                out.println("          document.getElementById('eaEditActionNote').value = data.nextNote || ''; ");
                 out.println("          ddApplyModeToEditForm(!!data.isPersonal, data.timeSlot || '');");
                 out.println("        } else {");
                 out.println("          console.log('Error loading action data:', data.message || 'Unknown error');");
@@ -3610,28 +3371,21 @@ public class DashboardPageRenderer {
                 out.println("      .catch(err => ddReportDashboardLoadError('Edit preload', err));");
                 out.println("  }");
                 out.println("  function ddSetActionType(type) {");
-                out.println("    document.getElementById('ddEditActionType').value = type;");
+                out.println("    document.getElementById('eaEditActionType').value = type;");
                 out.println("    ddUpdateActionTypeButtons(type);");
-                out.println("    var contactSection = document.getElementById('ddEditActionContactSection');");
+                out.println("    var contactSection = document.getElementById('eaEditActionContactSection');");
                 out.println("    if (contactSection) {");
                 out.println("      if (type === 'WILL_CONTACT' || type === 'WILL_MEET') {");
-                out.println("        contactSection.classList.add('dd-contact-emphasized');");
+                out.println("        contactSection.classList.add('ea-contact-emphasized');");
                 out.println("      } else {");
-                out.println("        contactSection.classList.remove('dd-contact-emphasized');");
+                out.println("        contactSection.classList.remove('ea-contact-emphasized');");
                 out.println("      }");
                 out.println("    }");
-                out.println("  }");
-                out.println("  function ddSetTimeEstimate(minutes) {");
-                out.println("    document.getElementById('ddEditActionTime').value = minutes;");
-                out.println("  }");
-                out.println("  function ddSetEditSubmitMode(mode) {");
-                out.println("    var field = document.getElementById('ddEditActionSaveMode');");
-                out.println("    if (field) { field.value = mode || 'save'; }");
                 out.println("  }");
                 out.println("  function ddDeleteAction(evt) {");
                 out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
                 out.println("    if (!confirm('Delete this action? This cannot be undone.')) { return; }");
-                out.println("    var actionId = document.getElementById('ddEditActionId').value;");
+                out.println("    var actionId = document.getElementById('eaEditActionId').value;");
                 out.println("    if (!actionId) { return; }");
                 out.println("    var formData = ddCreateDashboardParams();");
                 out.println("    formData.append('action', 'deleteAction');");
@@ -3642,44 +3396,45 @@ public class DashboardPageRenderer {
                 out.println("          ddCloseActionModal('editActionModal');");
                 out.println("          window.location.reload();");
                 out.println("        } else {");
-                out.println("          alert('Error deleting action: ' + (data.message || 'Unknown error'));");
+                out.println("          alert('Error deleting action: ' + (data.message || 'Unknown error')); ");
                 out.println("        }");
                 out.println("      })");
                 out.println("      .catch(err => ddReportDashboardLoadError('Delete action', err));");
                 out.println("  }");
-                out.println("  function ddSubmitEditActionForm(evt) {");
-                out.println("    evt.preventDefault();");
-                out.println("    var form = document.getElementById('ddEditActionForm');");
-                out.println("    var dateField = document.getElementById('ddEditActionDate');");
-                out.println("    var originalDateField = document.getElementById('ddEditActionDateOriginal');");
-                out.println(
-                                "    if (dateField && (!dateField.value || dateField.value.trim().length === 0) && originalDateField && originalDateField.value) {");
-                out.println("      dateField.value = originalDateField.value;");
-                out.println("    }");
-                out.println("    var saveModeField = document.getElementById('ddEditActionSaveMode');");
-                out.println("    if (saveModeField && (!saveModeField.value || saveModeField.value.length === 0)) {");
-                out.println("      saveModeField.value = 'save';");
-                out.println("    }");
-                out.println("    var formData = new URLSearchParams(new FormData(form));");
-                out.println(
-                                "    fetch('" + dashboardPath
-                                                + "', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: formData.toString() })");
-                out.println("      .then(response => response.json())");
+                out.println("  function ddSubmitEdit(saveMode) {");
+                out.println("    var actionId = document.getElementById('eaEditActionId').value || ''; ");
+                out.println("    if (!actionId) { return; }");
+                out.println("    var dateField = document.getElementById('eaEditActionDate');");
+                out.println("    var originalDateField = document.getElementById('eaEditActionDateOriginal');");
+                out.println("    var dateValue = (dateField && dateField.value ? dateField.value : '').trim();");
+                out.println("    if (!dateValue && originalDateField && originalDateField.value) { dateValue = originalDateField.value; }");
+                out.println("    var formData = ddCreateDashboardParams();");
+                out.println("    formData.append('action', 'editAction');");
+                out.println("    formData.append('actionNextId', actionId);");
+                out.println("    formData.append('nextActionDate', dateValue);");
+                out.println("    formData.append('nextActionType', (document.getElementById('eaEditActionType').value || '').trim());");
+                out.println("    formData.append('nextDescription', document.getElementById('eaEditActionDescription').value || '');");
+                out.println("    formData.append('nextTimeEstimate', (document.getElementById('eaEditActionTime').value || '0').trim());");
+                out.println("    formData.append('nextContactId', document.getElementById('eaEditActionContact').value || '');");
+                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
+                out.println("    var slotVisible = slotSection && slotSection.style.display !== 'none';");
+                out.println("    if (slotVisible) { formData.append('timeSlot', (document.getElementById('eaEditActionTimeSlot').value || '')); }");
+                out.println("    formData.append('nextTargetDate', (document.getElementById('eaEditActionTarget').value || '').trim());");
+                out.println("    formData.append('nextDeadlineDate', (document.getElementById('eaEditActionDeadline').value || '').trim());");
+                out.println("    formData.append('linkUrl', (document.getElementById('eaEditActionLink').value || '').trim());");
+                out.println("    formData.append('nextNote', document.getElementById('eaEditActionNote').value || '');");
+                out.println("    formData.append('saveMode', saveMode || 'save');");
+                out.println("    ddFetchDashboardJson(formData, 'Edit submit')");
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
                 out.println("          ddCloseActionModal('editActionModal');");
                 out.println("          window.location.reload();");
                 out.println("        } else {");
-                out.println("          alert('Error saving action: ' + (data.message || 'Unknown error'));");
+                out.println("          alert('Error saving action: ' + (data.message || 'Unknown error')); ");
                 out.println("        }");
                 out.println("      })");
-                out.println("      .catch(err => {");
-                out.println("        alert('Error submitting form. Please try refreshing the page.');");
-                out.println("        console.log('Form submission error:', err);");
-                out.println("      });");
-                out.println("    return false;");
+                out.println("      .catch(err => ddReportDashboardLoadError('Edit submit', err));");
                 out.println("  }");
-                out.println("  ddRenderEditDateButtons();");
                 out.println("</script>");
         }
 
