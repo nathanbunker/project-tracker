@@ -87,6 +87,9 @@
     <property name="gamePoints" type="java.lang.Integer">
       <column name="game_points" />
     </property>
+    <property name="rescheduleLocked" type="yes_no">
+      <column name="reschedule_locked" length="1" not-null="true" />
+    </property>
     <set name="gamePointEntries" inverse="true" lazy="true" fetch="select">
       <key column="action_next_id" />
       <one-to-many class="GamePointLedger" />

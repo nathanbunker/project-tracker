@@ -8,18 +8,15 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.PageMessage;
@@ -27,10 +24,8 @@ import org.openimmunizationsoftware.pt.model.PageMessageSeverity;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
-import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
-import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 
 public class PlanAheadBoardService {
 
@@ -131,24 +126,9 @@ public class PlanAheadBoardService {
         Date startDate = dayList.get(0);
         Date endDateExclusive = nextDay(dayList.get(dayList.size() - 1), webUser);
 
-        List<ActionNext> templateActions = loadTemplateActions(appReq, mode);
-        List<ActionNext> generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate,
-                endDateExclusive);
-        boolean shouldMaterializeDefaults = action.length() == 0
-                || "Schedule".equals(action)
-                || "Schedule and Start".equals(action)
-                || "saveTemplateEstimate".equals(action)
-                || "saveTemplateEdit".equals(action);
-        boolean createdDefaults = shouldMaterializeDefaults
-                && ensureDefaultTemplateGeneratedActions(appReq, mode, templateActions, dayList, dayCapacityMap,
-                        generatedTemplateActions);
-
         List<ActionNext> movableActions = loadMovableActions(appReq, mode, startDate, endDateExclusive);
         List<ActionNext> overdueActions = loadOverdueActions(appReq, mode);
         List<ActionNext> plannedActions = loadPlannedActions(appReq, mode, startDate, endDateExclusive);
-        if (createdDefaults) {
-            generatedTemplateActions = loadGeneratedTemplateActions(appReq, mode, startDate, endDateExclusive);
-        }
 
         Map<String, List<ActionNext>> plannedByDay = bucketByDay(plannedActions);
         Map<String, List<ActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions, mode);
@@ -194,9 +174,6 @@ public class PlanAheadBoardService {
 
         model.setRows(createRows(appReq, mode, dayHeaders, movableByDayRow));
         model.setOverdueRow(createOverdueRow(appReq, mode, todayKey, overdueActions));
-        model.setTemplateRow(
-                createTemplateRow(appReq, mode, templateActions, dayHeaders, dayCapacityMap, generatedTemplateActions,
-                        shouldMaterializeDefaults));
         return model;
     }
 
@@ -252,6 +229,7 @@ public class PlanAheadBoardService {
                 card.setEstimateMins(n(action.getNextTimeEstimate()));
                 card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
                 card.setNextActionType(n(action.getNextActionType()));
+                card.setRescheduleLocked(action.isRescheduleLocked());
                 cards.add(card);
             }
             cell.setCards(cards);
@@ -259,210 +237,6 @@ public class PlanAheadBoardService {
         }
         row.setCells(cells);
         return row;
-    }
-
-    private PlanAheadBoardModel.TemplateRowModel createTemplateRow(AppReq appReq,
-            String mode,
-            List<ActionNext> templateActions,
-            List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
-            Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
-            List<ActionNext> generatedTemplateActions,
-            boolean allowDefaultSelections) {
-        boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
-        PlanAheadBoardModel.TemplateRowModel row = new PlanAheadBoardModel.TemplateRowModel();
-        Map<String, ActionNext> generatedByTemplateDay = new HashMap<String, ActionNext>();
-        Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
-        for (ActionNext generatedAction : generatedTemplateActions) {
-            if (generatedAction.getTemplateActionNextId() == null || generatedAction.getNextActionDate() == null) {
-                continue;
-            }
-            templateIdsWithGenerated.add(generatedAction.getTemplateActionNextId());
-            generatedByTemplateDay.put(
-                    generatedAction.getTemplateActionNextId() + "|" + toDayKey(generatedAction.getNextActionDate()),
-                    generatedAction);
-        }
-
-        List<ActionNext> orderedTemplates = new ArrayList<ActionNext>(templateActions);
-        if (personalMode) {
-            orderedTemplates.sort(Comparator
-                    .comparingInt((ActionNext pa) -> toTimeSlotOrder(pa.getTimeSlot()))
-                    .thenComparing((ActionNext pa) -> n(pa.getNextDescription())));
-        }
-
-        List<PlanAheadBoardModel.TemplateCardModel> cards = new ArrayList<PlanAheadBoardModel.TemplateCardModel>();
-        for (ActionNext action : orderedTemplates) {
-            PlanAheadBoardModel.TemplateCardModel card = new PlanAheadBoardModel.TemplateCardModel();
-            card.setTemplateActionNextId(action.getActionNextId());
-            card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
-            card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
-            card.setEstimateMins(action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
-            card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
-            TemplateType templateType = action.getTemplateType();
-            card.setTemplateTypeLabel(templateType == null ? "" : templateType.getLabel());
-            card.setTemplateTypeId(templateType == null ? "" : templateType.getId());
-
-            List<PlanAheadBoardModel.TemplateDaySelectionModel> selections = new ArrayList<PlanAheadBoardModel.TemplateDaySelectionModel>();
-            for (PlanAheadBoardModel.DayHeaderModel dayHeader : dayHeaders) {
-                PlanAheadBoardModel.TemplateDaySelectionModel selection = new PlanAheadBoardModel.TemplateDaySelectionModel();
-                selection.setDayKey(dayHeader.getDayKey());
-                selection.setDayLabel(dayHeader.getDayLabel().length() > 3 ? dayHeader.getDayLabel().substring(0, 3)
-                        : dayHeader.getDayLabel());
-
-                String key = action.getActionNextId() + "|" + dayHeader.getDayKey();
-                ActionNext generatedAction = generatedByTemplateDay.get(key);
-                if (generatedAction != null) {
-                    boolean active = generatedAction.getNextActionStatus() != null
-                            && generatedAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED;
-                    selection.setSelected(active);
-                } else {
-                    boolean defaultSelected = allowDefaultSelections
-                            && !templateIdsWithGenerated.contains(action.getActionNextId())
-                            && TemplateType.DAILY.equals(templateType);
-                    PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayHeader.getDayKey());
-                    if (!personalMode && defaultSelected && dayCapacity != null) {
-                        defaultSelected = PlanAheadDayCapacityService.STATUS_WORKING
-                                .equals(dayCapacity.getWorkStatusCode());
-                    }
-                    selection.setSelected(defaultSelected);
-                }
-                selections.add(selection);
-            }
-            card.setDaySelections(selections);
-            cards.add(card);
-        }
-        row.setTemplateCards(cards);
-        return row;
-    }
-
-    private List<ActionNext> loadGeneratedTemplateActions(AppReq appReq, String mode, Date startDate,
-            Date endDateExclusive) {
-        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
-        Session dataSession = appReq.getDataSession();
-        Query query = dataSession.createQuery(
-                "select distinct an from ActionNext an "
-                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                        + "and an.billable = :billable "
-                        + "and an.templateActionNextId is not null "
-                        + "and an.nextActionDate >= :startDate and an.nextActionDate < :endDate "
-                        + "and an.nextActionStatusString <> :completed "
-                        + "order by an.nextActionDate");
-        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        query.setParameter("contactId", appReq.getWebUser().getContactId());
-        query.setParameter("nextContactId", appReq.getWebUser().getContactId());
-        query.setParameter("billable", billable);
-        query.setParameter("startDate", startDate);
-        query.setParameter("endDate", endDateExclusive);
-        query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
-        @SuppressWarnings("unchecked")
-        List<ActionNext> list = query.list();
-        return list;
-    }
-
-    private boolean ensureDefaultTemplateGeneratedActions(AppReq appReq,
-            String mode,
-            List<ActionNext> templateActions,
-            List<Date> dayList,
-            Map<String, PlanAheadDayCapacityService.DayCapacity> dayCapacityMap,
-            List<ActionNext> generatedTemplateActions) {
-        boolean personalMode = MODE_PERSONAL.equalsIgnoreCase(mode);
-        if (templateActions == null || templateActions.isEmpty() || dayList == null || dayList.isEmpty()) {
-            return false;
-        }
-
-        Map<String, ActionNext> generatedByTemplateDay = new HashMap<String, ActionNext>();
-        Set<Integer> templateIdsWithGenerated = new HashSet<Integer>();
-        for (ActionNext generatedAction : generatedTemplateActions) {
-            if (generatedAction == null || generatedAction.getTemplateActionNextId() == null
-                    || generatedAction.getNextActionDate() == null) {
-                continue;
-            }
-            templateIdsWithGenerated.add(generatedAction.getTemplateActionNextId());
-            generatedByTemplateDay.put(
-                    generatedAction.getTemplateActionNextId() + "|" + toDayKey(generatedAction.getNextActionDate()),
-                    generatedAction);
-        }
-
-        Date today = stripToDate(appReq.getWebUser(), appReq.getWebUser().getToday());
-        String windowEndDayKey = toDayKey(dayList.get(dayList.size() - 1));
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        boolean created = false;
-        try {
-            for (ActionNext templateAction : templateActions) {
-                if (templateAction == null || templateAction.getActionNextId() <= 0) {
-                    continue;
-                }
-                if (!TemplateType.DAILY.equals(templateAction.getTemplateType())) {
-                    continue;
-                }
-
-                boolean hasGeneratedInWindow = templateIdsWithGenerated.contains(templateAction.getActionNextId());
-
-                String nextActionType = n(templateAction.getNextActionType());
-                if (nextActionType.length() == 0) {
-                    nextActionType = ProjectNextActionType.WILL;
-                }
-
-                for (Date day : dayList) {
-                    if (day == null || day.before(today)) {
-                        continue;
-                    }
-                    String dayKey = toDayKey(day);
-                    if (hasGeneratedInWindow && !windowEndDayKey.equals(dayKey)) {
-                        continue;
-                    }
-                    PlanAheadDayCapacityService.DayCapacity dayCapacity = dayCapacityMap.get(dayKey);
-                    if (!personalMode && dayCapacity != null && !PlanAheadDayCapacityService.STATUS_WORKING
-                            .equals(dayCapacity.getWorkStatusCode())) {
-                        continue;
-                    }
-
-                    String key = templateAction.getActionNextId() + "|" + dayKey;
-                    if (generatedByTemplateDay.containsKey(key)) {
-                        continue;
-                    }
-
-                    ActionNext generatedAction = new ActionNext();
-                    generatedAction.setProjectId(templateAction.getProjectId());
-                    generatedAction.setProject(templateAction.getProject());
-                    generatedAction.setContactId(appReq.getWebUser().getContactId());
-                    generatedAction.setContact(appReq.getWebUser().getProjectContact());
-                    generatedAction.setWorkspaceId(appReq.getActiveWorkspaceId());
-                    generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(nextActionType);
-                    generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
-                    generatedAction.setTemplateActionNextId(templateAction.getActionNextId());
-                    generatedAction.setPriorityLevel(templateAction.getPriorityLevel());
-                    generatedAction.setCompletionOrder(0);
-                    generatedAction.setBillable(templateAction.isBillable());
-                    generatedAction.setNextContactId(templateAction.getNextContactId());
-                    generatedAction.setNextProjectContact(templateAction.getNextProjectContact());
-                    generatedAction.setProcessStage(templateAction.getProcessStage());
-                    generatedAction.setTimeSlot(templateAction.getTimeSlot());
-                    generatedAction.setLinkUrl(n(templateAction.getLinkUrl()));
-                    generatedAction.setNextNotes(n(templateAction.getNextNotes()));
-                    generatedAction.setNextDescription(n(templateAction.getNextDescription()));
-                    generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
-                            ? Integer.valueOf(0)
-                            : templateAction.getNextTimeEstimate());
-                    generatedAction.setNextChangeDate(new Date());
-                    generatedAction.setActionSet(
-                            new ActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
-                    dataSession.save(generatedAction);
-
-                    generatedByTemplateDay.put(key, generatedAction);
-                    templateIdsWithGenerated.add(templateAction.getActionNextId());
-                    created = true;
-                }
-            }
-
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        return created;
     }
 
     private List<ActionNext> loadMovableActions(AppReq appReq, String mode, Date startDate,
@@ -477,7 +251,6 @@ public class PlanAheadBoardService {
                         + "and an.nextDescription <> '' "
                         + "and an.nextActionDate >= :startDate and an.nextActionDate < :endDate "
                         + "and an.nextActionStatusString <> :completed and an.nextActionStatusString <> :cancelled "
-                        + "and an.templateActionNextId is null "
                         + "and (an.templateTypeString is null or an.templateTypeString = '') "
                         + "order by an.nextActionDate, an.priorityLevel desc, an.nextTimeEstimate desc");
         query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
@@ -571,6 +344,7 @@ public class PlanAheadBoardService {
             card.setEstimateMins(n(action.getNextTimeEstimate()));
             card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
             card.setNextActionType(n(action.getNextActionType()));
+            card.setRescheduleLocked(action.isRescheduleLocked());
             cards.add(card);
         }
         cards.sort(Comparator
@@ -578,28 +352,6 @@ public class PlanAheadBoardService {
                 .thenComparing(PlanAheadBoardModel.CardModel::getActionNextId));
         row.setCards(cards);
         return row;
-    }
-
-    private List<ActionNext> loadTemplateActions(AppReq appReq, String mode) {
-        boolean billable = MODE_WORK.equalsIgnoreCase(mode);
-        Session dataSession = appReq.getDataSession();
-        Query query = dataSession.createQuery(
-                "select distinct an from ActionNext an "
-                        + "left join fetch an.project "
-                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                        + "and an.billable = :billable "
-                        + "and (an.templateTypeString is not null and an.templateTypeString <> '') "
-                        + "and an.nextActionStatusString <> :completed and an.nextActionStatusString <> :cancelled "
-                        + "order by an.priorityLevel desc, an.nextTimeEstimate desc");
-        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        query.setParameter("contactId", appReq.getWebUser().getContactId());
-        query.setParameter("nextContactId", appReq.getWebUser().getContactId());
-        query.setParameter("billable", billable);
-        query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
-        query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
-        @SuppressWarnings("unchecked")
-        List<ActionNext> list = query.list();
-        return list;
     }
 
     private Map<String, List<ActionNext>> bucketMovableByDayRow(List<ActionNext> actions, String mode) {
@@ -728,19 +480,6 @@ public class PlanAheadBoardService {
             return ROW_EVENING;
         }
         return ROW_AFTERNOON;
-    }
-
-    private int toTimeSlotOrder(TimeSlot timeSlot) {
-        if (timeSlot == TimeSlot.WAKE) {
-            return 0;
-        }
-        if (timeSlot == TimeSlot.MORNING) {
-            return 1;
-        }
-        if (timeSlot == TimeSlot.AFTERNOON || timeSlot == null) {
-            return 2;
-        }
-        return 3;
     }
 
     private List<Date> createDayList(WebUser webUser, Date startDate, int count) {

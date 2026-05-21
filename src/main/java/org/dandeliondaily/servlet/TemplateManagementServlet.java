@@ -1,0 +1,967 @@
+package org.dandeliondaily.servlet;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
+import org.dandeliondaily.planahead.service.PlanAheadBoardService;
+import org.dandeliondaily.planahead.service.PlanAheadMutationService;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNextTemplateConfig;
+import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.TemplateType;
+import org.openimmunizationsoftware.pt.model.TimeSlot;
+import org.openimmunizationsoftware.pt.servlet.ClientServlet;
+
+/**
+ * Dedicated page for listing and managing recurring action templates.
+ * GET → renders full HTML template list + add form.
+ * POST → handles AJAX mutations: saveTemplate, deleteTemplate,
+ * reactivateTemplate.
+ */
+public class TemplateManagementServlet extends ClientServlet {
+
+    private static final long serialVersionUID = 1L;
+
+    private final PlanAheadMutationService mutationService = new PlanAheadMutationService();
+    private final PlanAheadBoardService boardService = new PlanAheadBoardService();
+    private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
+
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        AppReq appReq = new AppReq(request, response);
+        try {
+            if (appReq.isLoggedOut()) {
+                forwardToHome(request, response);
+                return;
+            }
+
+            String action = request.getParameter("action");
+            if ("saveTemplate".equals(action)) {
+                handleMutationResult(appReq, mutationService.saveTemplateEdit(appReq));
+                return;
+            }
+            if ("deleteTemplate".equals(action)) {
+                handleMutationResult(appReq, mutationService.deleteTemplateEdit(appReq));
+                return;
+            }
+            if ("reactivateTemplate".equals(action)) {
+                handleMutationResult(appReq, handleReactivate(appReq));
+                return;
+            }
+            if ("setMode".equals(action)) {
+                String mode = request.getParameter("mode");
+                boardService.setMode(appReq, mode);
+                response.sendRedirect("TemplateManagementServlet");
+                return;
+            }
+            // Default: render the page
+            appReq.setTitle("Plan Ahead");
+            printHtmlHead(appReq);
+            renderPage(appReq);
+            printHtmlFoot(appReq);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            appReq.close();
+        }
+    }
+
+    // =========================================================================
+    // Page rendering
+    // =========================================================================
+
+    private void renderPage(AppReq appReq) throws Exception {
+        PrintWriter out = appReq.getOut();
+        String mode = boardService.resolveMode(appReq);
+        boolean personalMode = PlanAheadBoardService.MODE_PERSONAL.equalsIgnoreCase(mode);
+
+        // Today key for nav links
+        java.text.SimpleDateFormat todaySdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        todaySdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String todayKey = todaySdf.format(appReq.getWebUser().getToday());
+
+        // Project names for Quick Capture autocomplete
+        List<String> qcProjectNames = dashboardTodayColumnService.listQuickCaptureProjectNames(appReq);
+
+        out.println("<style>");
+        // PA header styles
+        out.println(
+                ".pa-page{padding:12px 18px 24px 18px;background:linear-gradient(180deg,#f4f0e8 0%,#efe7db 40%,#f8f6f1 100%);min-height:100vh;}");
+        out.println(
+                ".pa-intro-bar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:8px;}");
+        out.println(".pa-intro h1{margin:0;color:#2d3a2d;}");
+        out.println(".pa-intro p{margin:6px 0 14px 0;color:#425541;}");
+        out.println(
+                ".pa-quick-capture{margin-left:auto;min-width:360px;max-width:520px;flex:1 1 420px;padding:10px 12px;background:#f8f1e6;border:1px solid #d7c8b1;border-radius:6px;}");
+        out.println(
+                ".pa-quick-capture-title{font-size:12px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#52614d;margin-bottom:8px;}");
+        out.println(".pa-quick-capture-form{margin:0;}");
+        out.println(".pa-quick-capture-row{display:flex;gap:8px;align-items:flex-start;}");
+        out.println(".pa-quick-capture-input-wrap{position:relative;flex:1 1 auto;}");
+        out.println(
+                ".pa-quick-capture-input-wrap input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbbda7;font-size:13px;background:#fffdf8;}");
+        out.println(
+                ".pa-quick-capture-actions input{padding:8px 12px;border:1px solid #9fb1a0;background:#eef5ee;color:#2f4330;cursor:pointer;border-radius:4px;}");
+        out.println(
+                ".pa-qc-start-btn{padding:8px 12px;border:1px solid #7a9b7a;background:#d6ecd6;color:#1f3a1f;cursor:pointer;border-radius:4px;font-size:inherit;}");
+        out.println(
+                ".pa-capture-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid #cbbda7;border-top:none;box-shadow:0 6px 16px rgba(0,0,0,.12);max-height:180px;overflow-y:auto;}");
+        out.println(".pa-capture-suggestions div{padding:7px 10px;cursor:pointer;font-size:13px;color:#2f4330;}");
+        out.println(".pa-capture-suggestions div:hover{background:#eef5ee;}");
+        out.println(".pa-controls{display:flex;gap:8px;margin-bottom:16px;}");
+        out.println(
+                ".pa-shift{display:inline-block;padding:6px 10px;background:#49654a;color:#fff;text-decoration:none;border-radius:4px;font-size:0.9em;}");
+        out.println(".pa-shift-active{background:#2d3d2d;box-shadow:inset 0 2px 4px rgba(0,0,0,.25);cursor:default;}");
+        // Template-specific styles
+        out.println(".tmpl-content{max-width:960px;}");
+        out.println(".tmpl-mode-toggle{margin-bottom:16px;}");
+        out.println(
+                ".tmpl-mode-toggle a{padding:6px 14px;border:1px solid #aaa;border-radius:3px;text-decoration:none;color:#333;margin-right:4px;}");
+        out.println(".tmpl-mode-toggle a.active{background:#49654a;color:#fff;border-color:#2d3d2d;}");
+        out.println(".tmpl-table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:0.9em;}");
+        out.println(
+                ".tmpl-table th{background:#f1f5f9;text-align:left;padding:6px 8px;border-bottom:2px solid #cbd5e1;}");
+        out.println(".tmpl-table td{padding:6px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;}");
+        out.println(".tmpl-row{cursor:pointer;}");
+        out.println(".tmpl-row:hover td{background:#eef3ee !important;}");
+        out.println(".tmpl-row-active td{background:#e6ede6 !important;}");
+        out.println(".tmpl-edit-row td{background:#f1f5ef;}");
+        out.println(
+                ".tmpl-form{background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:16px;margin-bottom:24px;}");
+        out.println(".tmpl-form h3{margin:0 0 12px;font-size:1em;}");
+        out.println(
+                ".tmpl-form label{display:block;margin-bottom:4px;font-size:0.85em;font-weight:600;color:#475569;}");
+        out.println(
+                ".tmpl-form input[type=text],.tmpl-form select,.tmpl-form textarea{width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9em;margin-bottom:10px;}");
+        out.println(".tmpl-form .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}");
+        out.println(".tmpl-form .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}");
+        out.println(".tmpl-btn{padding:6px 14px;border:none;border-radius:3px;cursor:pointer;font-size:0.88em;}");
+        out.println(".tmpl-btn-primary{background:#49654a;color:#fff;}");
+        out.println(".tmpl-btn-secondary{background:#e2e8f0;color:#334155;}");
+        out.println(".tmpl-btn-danger{background:#ef4444;color:#fff;margin-left:6px;}");
+        out.println(".tmpl-btn-warn{background:#f59e0b;color:#fff;margin-left:6px;}");
+        out.println(".tmpl-msg{padding:10px 14px;border-radius:3px;margin-bottom:12px;display:none;}");
+        out.println(".tmpl-msg.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}");
+        out.println(".tmpl-msg.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}");
+        out.println("</style>");
+
+        out.println("<div class='pa-page'>");
+
+        // PA-style intro bar with Quick Capture
+        out.println("  <div class='pa-intro-bar'>");
+        out.println("    <div class='pa-intro'>");
+        out.println("      <h1>Plan Ahead</h1>");
+        out.println("      <p>"
+                + (personalMode ? "Manage personal recurring templates." : "Manage work recurring templates.")
+                + "</p>");
+        out.println("    </div>");
+        out.println("    <div class='pa-quick-capture'>");
+        out.println("      <div class='pa-quick-capture-title'>Quick Capture</div>");
+        out.println("      <form class='pa-quick-capture-form' method='POST' action='PlanAheadServlet'>");
+        out.println("        <div class='pa-quick-capture-row'>");
+        out.println("          <div class='pa-quick-capture-input-wrap'>");
+        out.println("            <input type='text' id='paSentenceInput' name='sentenceInput' value=''");
+        out.println("              placeholder='Project Name: I will action details' autocomplete='off' />");
+        out.println("            <div id='paSuggestions' class='pa-capture-suggestions'></div>");
+        out.println("          </div>");
+        out.println("          <div class='pa-quick-capture-actions'>");
+        out.println("            <input type='submit' name='action' value='Schedule' />");
+        out.println(
+                "            <button type='submit' name='action' value='Schedule and Start' class='pa-qc-start-btn'>Start</button>");
+        out.println("          </div>");
+        out.println("        </div>");
+        out.println("      </form>");
+        out.println("    </div>");
+        out.println("  </div>");
+
+        // PA-style nav controls
+        out.println("  <div class='pa-controls'>");
+        out.println("    <a class='pa-shift' href='PlanAheadServlet?windowStart=" + todayKey + "'>Today</a>");
+        out.println("    <a class='pa-shift' href='PlanAheadServlet?action=shiftWindowForward&days=1&windowStart="
+                + todayKey + "'>Next Day &#9654;</a>");
+        out.println("    <span class='pa-shift pa-shift-active'>Manage Templates</span>");
+        out.println("  </div>");
+
+        out.println("<div class='tmpl-content'>");
+        out.println("<div id='tmplMsg' class='tmpl-msg'></div>");
+
+        // Mode toggle
+        out.println("<div class='tmpl-mode-toggle'>");
+        out.println("<a href='TemplateManagementServlet?action=setMode&mode=WORK' class='"
+                + (personalMode ? "" : "active") + "'>Work</a>");
+        out.println("<a href='TemplateManagementServlet?action=setMode&mode=PERSONAL' class='"
+                + (personalMode ? "active" : "") + "'>Personal</a>");
+        out.println("</div>");
+
+        // Template list
+        out.println("<h2 style='font-size:1em;margin-bottom:8px;'>"
+                + (personalMode ? "Personal" : "Work") + " Templates</h2>");
+        renderTemplateTable(appReq, out, personalMode);
+
+        // Add form
+        out.println("<div style='margin-bottom:12px;'>");
+        out.println(
+                "<button class='tmpl-btn tmpl-btn-primary' onclick='tmplShowAddForm()'>+ Add New Template</button>");
+        out.println("</div>");
+        renderAddForm(appReq, out, personalMode);
+
+        // JS
+        renderJavaScript(out, personalMode, qcProjectNames);
+
+        out.println("</div>"); // end tmpl-content
+        out.println("</div>"); // end pa-page
+    }
+
+    @SuppressWarnings("unchecked")
+    private void renderTemplateTable(AppReq appReq, PrintWriter out, boolean personalMode) throws Exception {
+        Session session = appReq.getDataSession();
+        boolean billable = !personalMode;
+
+        Query query = session.createQuery(
+                "from ActionNext an where an.workspaceId = :workspaceId "
+                        + "and an.contactId = :contactId "
+                        + "and an.billable = :billable "
+                        + "and an.templateTypeString is not null and an.templateTypeString <> '' "
+                        + "and (an.templateActionNextId is null or an.templateActionNextId = 0) "
+                        + "order by an.nextDescription");
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+        query.setParameter("contactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", billable);
+
+        List<ActionNext> templates = query.list();
+        int colspan = personalMode ? 5 : 6;
+
+        out.println("<table class='tmpl-table'>");
+        out.println("<thead><tr>");
+        out.println("<th>Description</th>");
+        out.println("<th>Type</th>");
+        if (!personalMode) {
+            out.println("<th>Project</th>");
+        }
+        out.println("<th>Schedule</th>");
+        out.println("<th>Auto-Gen</th>");
+        out.println("<th>Missed</th>");
+        out.println("</tr></thead><tbody>");
+
+        if (templates.isEmpty()) {
+            out.println("<tr><td colspan='" + colspan
+                    + "' style='color:#94a3b8;font-style:italic;'>No templates found. Click \"+ Add New Template\" below.</td></tr>");
+        }
+
+        for (ActionNext t : templates) {
+            ActionNextTemplateConfig config = (ActionNextTemplateConfig) session.get(
+                    ActionNextTemplateConfig.class, t.getActionNextId());
+            boolean cancelled = ProjectNextActionStatus.CANCELLED.equals(t.getNextActionStatus());
+            if (cancelled) {
+                continue;
+            }
+            int id = t.getActionNextId();
+            boolean autoGenOn = config != null && config.isAutoGenerate();
+            String missedBehavior = config != null && config.getMissedActionBehavior() != null
+                    ? config.getMissedActionBehavior()
+                    : "AUTO_CANCEL";
+            String schedDow = config != null && config.getScheduleDaysOfWeek() != null
+                    ? config.getScheduleDaysOfWeek()
+                    : "";
+            String schedDom = config != null && config.getScheduleDaysOfMonth() != null
+                    ? config.getScheduleDaysOfMonth()
+                    : "";
+            String schedDoq = config != null && config.getScheduleDaysOfQuarter() != null
+                    ? config.getScheduleDaysOfQuarter()
+                    : "";
+            String schedDoy = config != null && config.getScheduleDaysOfYear() != null
+                    ? config.getScheduleDaysOfYear()
+                    : "";
+            String editProjectId = t.getProject() != null ? String.valueOf(t.getProject().getProjectId()) : "";
+            String editProjectName = t.getProject() != null ? t.getProject().getProjectName() : "";
+            String editActionType = t.getNextActionType() != null ? t.getNextActionType() : "";
+            int editTimeEst = t.getNextTimeEstimate() != null ? t.getNextTimeEstimate().intValue() : 0;
+            String editTimeSlot = t.getTimeSlot() != null ? t.getTimeSlot().getId() : "";
+            String editTmplType = t.getTemplateType() != null ? t.getTemplateType().getId() : "D";
+
+            // Main clickable row
+            out.println("<tr class='tmpl-row' id='tmplRow_" + id + "' onclick='tmplToggleEdit(" + id + ")'>");
+            out.println("<td>" + t.getNextDescriptionForDisplay(null) + "</td>");
+            out.println("<td>" + (t.getTemplateType() != null ? t.getTemplateType().getLabel() : "") + "</td>");
+            if (!personalMode) {
+                String projectName = t.getProject() != null ? t.getProject().getProjectName() : "(none)";
+                out.println("<td>" + esc(projectName) + "</td>");
+            }
+            String schedule = config != null ? summarizeSchedule(t.getTemplateType(), config) : "";
+            out.println("<td>" + esc(schedule) + "</td>");
+            out.println("<td>" + (autoGenOn ? "Yes" : "No") + "</td>");
+            out.println("<td>" + formatMissed(missedBehavior) + "</td>");
+            out.println("</tr>");
+
+            // Inline edit row — hidden until the row above is clicked
+            out.println("<tr id='tmplEditRow_" + id + "' class='tmpl-edit-row' style='display:none;'>");
+            out.println("<td colspan='" + colspan + "' style='padding:0;'>");
+            out.println("<div class='tmpl-form' style='margin:0;border-radius:0;border-top:none;'>");
+
+            // Commitment type + estimate/timeslot
+            out.println("<div class='row2'><div>");
+            out.println("<label>Commitment Type</label>");
+            out.println("<select id='tmplNAT_" + id + "'>");
+            out.println("<option value='" + ProjectNextActionType.WILL + "'"
+                    + sel(editActionType, ProjectNextActionType.WILL) + ">I will</option>");
+            out.println("<option value='" + ProjectNextActionType.WILL_MEET + "'"
+                    + sel(editActionType, ProjectNextActionType.WILL_MEET) + ">I will meet</option>");
+            out.println("<option value='" + ProjectNextActionType.WILL_CONTACT + "'"
+                    + sel(editActionType, ProjectNextActionType.WILL_CONTACT) + ">I will contact</option>");
+            out.println("<option value='" + ProjectNextActionType.WILL_FOLLOW_UP + "'"
+                    + sel(editActionType, ProjectNextActionType.WILL_FOLLOW_UP) + ">I will follow up</option>");
+            out.println("<option value='" + ProjectNextActionType.WILL_REVIEW + "'"
+                    + sel(editActionType, ProjectNextActionType.WILL_REVIEW) + ">I will review</option>");
+            out.println("<option value='" + ProjectNextActionType.WILL_DOCUMENT + "'"
+                    + sel(editActionType, ProjectNextActionType.WILL_DOCUMENT) + ">I will document</option>");
+            out.println("<option value='" + ProjectNextActionType.MIGHT + "'"
+                    + sel(editActionType, ProjectNextActionType.MIGHT) + ">I might</option>");
+            out.println("<option value='" + ProjectNextActionType.WOULD_LIKE_TO + "'"
+                    + sel(editActionType, ProjectNextActionType.WOULD_LIKE_TO) + ">I would like to</option>");
+            out.println("<option value='" + ProjectNextActionType.COMMITTED_TO + "'"
+                    + sel(editActionType, ProjectNextActionType.COMMITTED_TO) + ">I have committed to</option>");
+            out.println("<option value='" + ProjectNextActionType.GOAL + "'"
+                    + sel(editActionType, ProjectNextActionType.GOAL) + ">Goal</option>");
+            out.println("<option value='" + ProjectNextActionType.WAITING + "'"
+                    + sel(editActionType, ProjectNextActionType.WAITING) + ">Waiting</option>");
+            out.println("</select></div>");
+            if (!personalMode) {
+                out.println("<div><label>Estimate (minutes)</label>");
+                out.println("<input type='text' id='tmplEst_" + id + "' value='" + editTimeEst + "'></div>");
+            } else {
+                out.println("<div><label>Time Slot</label>");
+                out.println("<select id='tmplTS_" + id + "'>");
+                for (TimeSlot ts : TimeSlot.values()) {
+                    out.println("<option value='" + ts.getId() + "'" + sel(editTimeSlot, ts.getId()) + ">"
+                            + ts.getLabel() + "</option>");
+                }
+                out.println("</select></div>");
+            }
+            out.println("</div>"); // end row2
+
+            if (!personalMode) {
+                out.println("<label>Project</label>");
+                out.println(
+                        "<div style='padding:5px 7px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:0.9em;color:#334155;margin-bottom:10px;'>"
+                                + esc(editProjectName) + "</div>");
+                out.println("<input type='hidden' id='tmplPid_" + id + "' value='" + esc(editProjectId) + "'>");
+            }
+
+            out.println("<label>Description</label>");
+            out.println("<textarea id='tmplDesc_" + id + "' rows='2'>" + esc(t.getNextDescription()) + "</textarea>");
+
+            out.println("<div class='row2'><div>");
+            out.println("<label>Recurrence</label>");
+            out.println("<select id='tmplTmplType_" + id + "' onchange='tmplUpdateSched(" + id + ")'>");
+            for (TemplateType tt : TemplateType.values()) {
+                out.println("<option value='" + tt.getId() + "'" + sel(editTmplType, tt.getId()) + ">" + tt.getLabel()
+                        + "</option>");
+            }
+            out.println("</select></div><div>");
+            out.println("<label>Missed Action</label>");
+            out.println("<select id='tmplMissed_" + id + "'>");
+            out.println("<option value='AUTO_CANCEL'" + sel(missedBehavior, "AUTO_CANCEL") + ">Auto Cancel</option>");
+            out.println(
+                    "<option value='CARRY_FORWARD'" + sel(missedBehavior, "CARRY_FORWARD") + ">Carry Forward</option>");
+            out.println("<option value='IGNORE'" + sel(missedBehavior, "IGNORE") + ">Ignore</option>");
+            out.println("</select></div></div>");
+
+            out.println("<label style='display:inline;'><input type='checkbox' id='tmplAutoGen_" + id + "'"
+                    + (autoGenOn ? " checked" : "") + "> Auto-generate instances</label><br><br>");
+
+            out.println("<div id='tmplSchedW_" + id + "'" + ("W".equals(editTmplType) ? "" : " style='display:none;'")
+                    + ">");
+            out.println("<label>Days of Week (e.g. MON,WED,FRI)</label>");
+            out.println("<input type='text' id='tmplDow_" + id + "' value='" + esc(schedDow)
+                    + "' placeholder='MON,TUE,WED,THU,FRI'>");
+            out.println("</div>");
+            out.println("<div id='tmplSchedM_" + id + "'" + ("M".equals(editTmplType) ? "" : " style='display:none;'")
+                    + ">");
+            out.println("<label>Days of Month (e.g. 1,15 or L for last day)</label>");
+            out.println("<input type='text' id='tmplDom_" + id + "' value='" + esc(schedDom) + "' placeholder='1,15'>");
+            out.println("</div>");
+            out.println("<div id='tmplSchedQ_" + id + "'" + ("Q".equals(editTmplType) ? "" : " style='display:none;'")
+                    + ">");
+            out.println("<label>Days of Quarter (e.g. 1,45,90)</label>");
+            out.println("<input type='text' id='tmplDoq_" + id + "' value='" + esc(schedDoq) + "' placeholder='1'>");
+            out.println("</div>");
+            out.println("<div id='tmplSchedY_" + id + "'" + ("Y".equals(editTmplType) ? "" : " style='display:none;'")
+                    + ">");
+            out.println("<label>Days of Year (e.g. 01-01,07-04)</label>");
+            out.println(
+                    "<input type='text' id='tmplDoy_" + id + "' value='" + esc(schedDoy) + "' placeholder='01-01'>");
+            out.println("</div>");
+
+            out.println("<label>Link URL (optional)</label>");
+            out.println("<input type='text' id='tmplLink_" + id + "' value='"
+                    + esc(t.getLinkUrl() != null ? t.getLinkUrl() : "") + "' placeholder='https://'>");
+            out.println("<label>Notes (optional)</label>");
+            out.println("<textarea id='tmplNote_" + id + "' rows='2'>"
+                    + esc(t.getNextNotes() != null ? t.getNextNotes() : "") + "</textarea>");
+
+            out.println("<div style='margin-top:8px;'>");
+            out.println("<button class='tmpl-btn tmpl-btn-primary' onclick='tmplSave(" + id + ")'>Save</button>");
+            out.println("<button class='tmpl-btn tmpl-btn-secondary' style='margin-left:8px;' onclick='tmplToggleEdit("
+                    + id + ")'>Cancel</button>");
+            out.println("<button class='tmpl-btn tmpl-btn-danger' style='margin-left:8px;' onclick='tmplDelete(" + id
+                    + ")'>Delete</button>");
+            if (!autoGenOn) {
+                out.println("<button class='tmpl-btn tmpl-btn-warn' style='margin-left:8px;' onclick='tmplReactivate("
+                        + id + ")'>Reactivate Auto-Gen</button>");
+            }
+            out.println("</div>");
+            out.println("</div></td></tr>"); // end form, td, edit row
+        }
+
+        out.println("</tbody></table>");
+    }
+
+    @SuppressWarnings("unchecked")
+    private void renderAddForm(AppReq appReq, PrintWriter out, boolean personalMode) throws Exception {
+        out.println("<div class='tmpl-form' id='tmplForm'>");
+        out.println("<h3 id='tmplFormTitle'>Add Template</h3>");
+        out.println("<input type='hidden' id='tmplMode' value='add'>");
+        out.println("<input type='hidden' id='tmplActionNextId' value=''>");
+
+        // Action Type (both modes)
+        out.println("<label>Commitment Type</label>");
+        out.println("<select id='tmplNextActionType' name='nextActionType'>");
+        out.println("<option value='" + ProjectNextActionType.WILL + "'>I will</option>");
+        out.println("<option value='" + ProjectNextActionType.WILL_MEET + "'>I will meet</option>");
+        out.println("<option value='" + ProjectNextActionType.WILL_CONTACT + "'>I will contact</option>");
+        out.println("<option value='" + ProjectNextActionType.WILL_FOLLOW_UP + "'>I will follow up</option>");
+        out.println("<option value='" + ProjectNextActionType.WILL_REVIEW + "'>I will review</option>");
+        out.println("<option value='" + ProjectNextActionType.WILL_DOCUMENT + "'>I will document</option>");
+        out.println("<option value='" + ProjectNextActionType.MIGHT + "'>I might</option>");
+        out.println("<option value='" + ProjectNextActionType.WOULD_LIKE_TO + "'>I would like to</option>");
+        out.println("<option value='" + ProjectNextActionType.COMMITTED_TO + "'>I have committed to</option>");
+        out.println("<option value='" + ProjectNextActionType.GOAL + "'>Goal</option>");
+        out.println("<option value='" + ProjectNextActionType.WAITING + "'>Waiting</option>");
+        out.println("</select>");
+
+        if (!personalMode) {
+            // Project selector
+            Session session = appReq.getDataSession();
+            Query pq = session.createQuery(
+                    "from Project p where p.workspaceId = :workspaceId and p.projectStatus = :status "
+                            + "order by p.projectName");
+            pq.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+            pq.setParameter("status", "A");
+            List<Project> projects = pq.list();
+
+            out.println("<div id='tmplProjectWrapper'>");
+            out.println("<label>Project</label>");
+            out.println("<select id='tmplProjectId' name='projectId'>");
+            out.println("<option value=''>-- Select project --</option>");
+            for (Project p : projects) {
+                out.println("<option value='" + p.getProjectId() + "'>" + esc(p.getProjectName()) + "</option>");
+            }
+            out.println("</select>");
+            out.println("</div>");
+            out.println("<div id='tmplProjectReadOnly' style='display:none; margin-bottom:10px;'>");
+            out.println("<label>Project</label>");
+            out.println(
+                    "<div style='padding:5px 7px;border:1px solid #e2e8f0;border-radius:3px;background:#f1f5f9;font-size:0.9em;color:#334155;margin-bottom:10px;'><span id='tmplProjectName'></span></div>");
+            out.println("</div>");
+
+            out.println("<label>Estimate (minutes)</label>");
+            out.println("<input type='text' id='tmplNextTimeEstimate' name='nextTimeEstimate' placeholder='0'>");
+        } else {
+            // Personal: time slot
+            out.println("<label>Time Slot</label>");
+            out.println("<select id='tmplTimeSlot' name='timeSlot'>");
+            for (TimeSlot ts : TimeSlot.values()) {
+                out.println("<option value='" + ts.getId() + "'>" + ts.getLabel() + "</option>");
+            }
+            out.println("</select>");
+        }
+
+        out.println("<label>Description</label>");
+        out.println("<textarea id='tmplNextDescription' name='nextDescription' rows='2'></textarea>");
+
+        out.println("<div class='row2'>");
+        out.println("<div>");
+        out.println("<label>Template Type (Recurrence)</label>");
+        out.println("<select id='tmplTemplateType' name='templateType' onchange='tmplUpdateScheduleFields()'>");
+        for (TemplateType tt : TemplateType.values()) {
+            out.println("<option value='" + tt.getId() + "'>" + tt.getLabel() + "</option>");
+        }
+        out.println("</select>");
+        out.println("</div>");
+        out.println("<div>");
+        out.println("<label>Missed Action Behavior</label>");
+        out.println("<select id='tmplMissedActionBehavior' name='missedActionBehavior'>");
+        out.println("<option value='AUTO_CANCEL'>Auto Cancel</option>");
+        out.println("<option value='CARRY_FORWARD'>Carry Forward</option>");
+        out.println("<option value='IGNORE'>Ignore</option>");
+        out.println("</select>");
+        out.println("</div>");
+        out.println("</div>");
+
+        // Auto-generate toggle
+        out.println(
+                "<label><input type='checkbox' id='tmplAutoGenerate' name='autoGenerate' value='Y' checked> Auto-generate instances</label><br><br>");
+
+        // Schedule patterns (shown/hidden based on type)
+        out.println("<div id='tmplScheduleWeekly' style='display:none;'>");
+        out.println("<label>Days of Week (e.g. MON,WED,FRI)</label>");
+        out.println(
+                "<input type='text' id='tmplScheduleDaysOfWeek' name='scheduleDaysOfWeek' placeholder='MON,TUE,WED,THU,FRI'>");
+        out.println("</div>");
+
+        out.println("<div id='tmplScheduleMonthly' style='display:none;'>");
+        out.println("<label>Days of Month (e.g. 1,15 or L for last day)</label>");
+        out.println("<input type='text' id='tmplScheduleDaysOfMonth' name='scheduleDaysOfMonth' placeholder='1,15'>");
+        out.println("</div>");
+
+        out.println("<div id='tmplScheduleQuarterly' style='display:none;'>");
+        out.println("<label>Days of Quarter (e.g. 1,45,90)</label>");
+        out.println("<input type='text' id='tmplScheduleDaysOfQuarter' name='scheduleDaysOfQuarter' placeholder='1'>");
+        out.println("</div>");
+
+        out.println("<div id='tmplScheduleYearly' style='display:none;'>");
+        out.println("<label>Days of Year (e.g. 01-01,07-04 or MM-DD format)</label>");
+        out.println("<input type='text' id='tmplScheduleDaysOfYear' name='scheduleDaysOfYear' placeholder='01-01'>");
+        out.println("</div>");
+
+        out.println("<label>Link URL (optional)</label>");
+        out.println("<input type='text' id='tmplLinkUrl' name='linkUrl' placeholder='https://'>");
+
+        out.println("<label>Notes (optional)</label>");
+        out.println("<textarea id='tmplNextNote' name='nextNote' rows='2'></textarea>");
+
+        out.println("<div style='margin-top:8px;'>");
+        out.println("<button class='tmpl-btn tmpl-btn-primary' onclick='tmplSubmitForm()'>Save Template</button>");
+        out.println(
+                "<button class='tmpl-btn tmpl-btn-secondary' style='margin-left:8px;' onclick='tmplShowAddForm()'>Clear</button>");
+        out.println(
+                "<button id='tmplDeleteBtn' class='tmpl-btn tmpl-btn-danger' style='margin-left:8px;display:none;' onclick='tmplDeleteCurrent()'>Delete Template</button>");
+
+        out.println("</div>");
+        out.println("</div>");
+    }
+
+    private void renderJavaScript(PrintWriter out, boolean personalMode, List<String> qcProjectNames) {
+        out.println("<script>");
+
+        // Shared message utility
+        out.println("function tmplShowMsg(msg, ok) {");
+        out.println("  var el = document.getElementById('tmplMsg');");
+        out.println("  el.textContent = msg;");
+        out.println("  el.className = 'tmpl-msg ' + (ok ? 'success' : 'error');");
+        out.println("  el.style.display = 'block';");
+        out.println("  window.scrollTo(0, 0);");
+        out.println("}");
+
+        // Add-form schedule visibility
+        out.println("function tmplUpdateScheduleFields() {");
+        out.println("  var t = document.getElementById('tmplTemplateType').value;");
+        out.println("  document.getElementById('tmplScheduleWeekly').style.display = (t==='W') ? '' : 'none';");
+        out.println("  document.getElementById('tmplScheduleMonthly').style.display = (t==='M') ? '' : 'none';");
+        out.println("  document.getElementById('tmplScheduleQuarterly').style.display = (t==='Q') ? '' : 'none';");
+        out.println("  document.getElementById('tmplScheduleYearly').style.display = (t==='Y') ? '' : 'none';");
+        out.println("}");
+        out.println("tmplUpdateScheduleFields();");
+
+        out.println("function tmplGetField(id) {");
+        out.println("  var el = document.getElementById(id);");
+        out.println("  return el ? el.value : '';");
+        out.println("}");
+
+        // Add-form save
+        out.println("function tmplSubmitForm() {");
+        out.println("  var params = new URLSearchParams();");
+        out.println("  params.append('action', 'saveTemplate');");
+        out.println("  params.append('mode', tmplGetField('tmplMode'));");
+        out.println("  params.append('actionNextId', tmplGetField('tmplActionNextId'));");
+        out.println("  params.append('templateType', tmplGetField('tmplTemplateType'));");
+        out.println("  params.append('nextDescription', tmplGetField('tmplNextDescription'));");
+        out.println("  params.append('missedActionBehavior', tmplGetField('tmplMissedActionBehavior'));");
+        out.println("  var autoGen = document.getElementById('tmplAutoGenerate');");
+        out.println("  params.append('autoGenerate', (autoGen && autoGen.checked) ? 'Y' : 'N');");
+        out.println("  params.append('scheduleDaysOfWeek', tmplGetField('tmplScheduleDaysOfWeek'));");
+        out.println("  params.append('scheduleDaysOfMonth', tmplGetField('tmplScheduleDaysOfMonth'));");
+        out.println("  params.append('scheduleDaysOfQuarter', tmplGetField('tmplScheduleDaysOfQuarter'));");
+        out.println("  params.append('scheduleDaysOfYear', tmplGetField('tmplScheduleDaysOfYear'));");
+        out.println("  params.append('linkUrl', tmplGetField('tmplLinkUrl'));");
+        out.println("  params.append('nextNote', tmplGetField('tmplNextNote'));");
+        out.println("  params.append('nextActionType', tmplGetField('tmplNextActionType'));");
+        if (personalMode) {
+            out.println("  params.append('timeSlot', tmplGetField('tmplTimeSlot'));");
+            out.println("  params.append('nextTimeEstimate', '0');");
+        } else {
+            out.println("  params.append('projectId', tmplGetField('tmplProjectId'));");
+            out.println("  params.append('nextTimeEstimate', tmplGetField('tmplNextTimeEstimate'));");
+        }
+        out.println("  fetch('TemplateManagementServlet', {method:'POST', body:params})");
+        out.println("    .then(r => r.json()).then(data => {");
+        out.println("      tmplShowMsg(data.message, data.success);");
+        out.println("      if (data.success) { setTimeout(function(){ location.reload(); }, 1000); }");
+        out.println("    }).catch(e => tmplShowMsg('Request failed: ' + e, false));");
+        out.println("}");
+
+        // Add-form delete
+        out.println("function tmplDeleteCurrent() {");
+        out.println("  var id = tmplGetField('tmplActionNextId');");
+        out.println("  if (!id) return;");
+        out.println("  if (!confirm('Delete this template? Existing generated instances will remain.')) return;");
+        out.println("  var params = new URLSearchParams();");
+        out.println("  params.append('action', 'deleteTemplate');");
+        out.println("  params.append('actionNextId', id);");
+        out.println("  fetch('TemplateManagementServlet', {method:'POST', body:params})");
+        out.println("    .then(r => r.json()).then(data => {");
+        out.println("      tmplShowMsg(data.message, data.success);");
+        out.println("      if (data.success) { setTimeout(function(){ location.reload(); }, 1000); }");
+        out.println("    }).catch(e => tmplShowMsg('Request failed: ' + e, false));");
+        out.println("}");
+
+        // Show/reset the Add form
+        out.println("function tmplShowAddForm() {");
+        out.println(
+                "  document.querySelectorAll('.tmpl-edit-row').forEach(function(r) { r.style.display = 'none'; });");
+        out.println(
+                "  document.querySelectorAll('.tmpl-row').forEach(function(r) { r.classList.remove('tmpl-row-active'); });");
+        out.println("  document.getElementById('tmplMode').value = 'add';");
+        out.println("  document.getElementById('tmplActionNextId').value = '';");
+        out.println("  document.getElementById('tmplFormTitle').textContent = 'Add Template';");
+        out.println("  document.getElementById('tmplNextDescription').value = '';");
+        out.println("  document.getElementById('tmplLinkUrl').value = '';");
+        out.println("  document.getElementById('tmplNextNote').value = '';");
+        out.println("  document.getElementById('tmplAutoGenerate').checked = true;");
+        out.println("  document.getElementById('tmplTemplateType').value = 'D';");
+        out.println("  document.getElementById('tmplMissedActionBehavior').value = 'AUTO_CANCEL';");
+        out.println("  document.getElementById('tmplNextActionType').value = '" + ProjectNextActionType.WILL + "';");
+        out.println("  document.getElementById('tmplDeleteBtn').style.display = 'none';");
+        out.println("  var pw = document.getElementById('tmplProjectWrapper');");
+        out.println("  if (pw) pw.style.display = '';");
+        out.println("  var pr = document.getElementById('tmplProjectReadOnly');");
+        out.println("  if (pr) pr.style.display = 'none';");
+        out.println("  tmplUpdateScheduleFields();");
+        out.println("  document.getElementById('tmplForm').scrollIntoView({behavior:'smooth'});");
+        out.println("  document.getElementById('tmplNextDescription').focus();");
+        out.println("}");
+
+        // ---- Inline row-edit functions ----
+
+        out.println("function tmplToggleEdit(id) {");
+        out.println("  var row = document.getElementById('tmplEditRow_' + id);");
+        out.println("  if (!row) return;");
+        out.println("  var isOpen = row.style.display !== 'none';");
+        out.println(
+                "  document.querySelectorAll('.tmpl-edit-row').forEach(function(r) { r.style.display = 'none'; });");
+        out.println(
+                "  document.querySelectorAll('.tmpl-row').forEach(function(r) { r.classList.remove('tmpl-row-active'); });");
+        out.println("  if (!isOpen) {");
+        out.println("    row.style.display = '';");
+        out.println("    var mainRow = document.getElementById('tmplRow_' + id);");
+        out.println("    if (mainRow) mainRow.classList.add('tmpl-row-active');");
+        out.println("    row.scrollIntoView({behavior:'smooth', block:'nearest'});");
+        out.println("  }");
+        out.println("}");
+
+        out.println("function tmplUpdateSched(id) {");
+        out.println("  var t = document.getElementById('tmplTmplType_' + id).value;");
+        out.println("  ['W','M','Q','Y'].forEach(function(s) {");
+        out.println("    var el = document.getElementById('tmplSched' + s + '_' + id);");
+        out.println("    if (el) el.style.display = (t === s) ? '' : 'none';");
+        out.println("  });");
+        out.println("}");
+
+        out.println("function tmplSave(id) {");
+        out.println("  var params = new URLSearchParams();");
+        out.println("  params.append('action', 'saveTemplate');");
+        out.println("  params.append('mode', 'edit');");
+        out.println("  params.append('actionNextId', id);");
+        out.println("  params.append('nextDescription', document.getElementById('tmplDesc_' + id).value);");
+        out.println("  params.append('nextActionType', document.getElementById('tmplNAT_' + id).value);");
+        out.println("  params.append('templateType', document.getElementById('tmplTmplType_' + id).value);");
+        out.println("  params.append('missedActionBehavior', document.getElementById('tmplMissed_' + id).value);");
+        out.println("  var ag = document.getElementById('tmplAutoGen_' + id);");
+        out.println("  params.append('autoGenerate', (ag && ag.checked) ? 'Y' : 'N');");
+        out.println(
+                "  var dw = document.getElementById('tmplDow_' + id); params.append('scheduleDaysOfWeek', dw ? dw.value : '');");
+        out.println(
+                "  var dm = document.getElementById('tmplDom_' + id); params.append('scheduleDaysOfMonth', dm ? dm.value : '');");
+        out.println(
+                "  var dq = document.getElementById('tmplDoq_' + id); params.append('scheduleDaysOfQuarter', dq ? dq.value : '');");
+        out.println(
+                "  var dy = document.getElementById('tmplDoy_' + id); params.append('scheduleDaysOfYear', dy ? dy.value : '');");
+        out.println("  params.append('linkUrl', document.getElementById('tmplLink_' + id).value);");
+        out.println("  params.append('nextNote', document.getElementById('tmplNote_' + id).value);");
+        if (personalMode) {
+            out.println(
+                    "  var ts = document.getElementById('tmplTS_' + id); params.append('timeSlot', ts ? ts.value : '');");
+            out.println("  params.append('nextTimeEstimate', '0');");
+        } else {
+            out.println(
+                    "  var pid = document.getElementById('tmplPid_' + id); params.append('projectId', pid ? pid.value : '');");
+            out.println(
+                    "  var est = document.getElementById('tmplEst_' + id); params.append('nextTimeEstimate', est ? est.value : '0');");
+        }
+        out.println("  fetch('TemplateManagementServlet', {method:'POST', body:params})");
+        out.println("    .then(r => r.json()).then(data => {");
+        out.println("      if (data.success) { setTimeout(function(){ location.reload(); }, 800); }");
+        out.println("      else { tmplShowMsg(data.message, false); }");
+        out.println("    }).catch(e => tmplShowMsg('Request failed: ' + e, false));");
+        out.println("}");
+
+        out.println("function tmplDelete(id) {");
+        out.println("  if (!confirm('Delete this template? Existing generated instances will remain.')) return;");
+        out.println("  var params = new URLSearchParams();");
+        out.println("  params.append('action', 'deleteTemplate');");
+        out.println("  params.append('actionNextId', id);");
+        out.println("  fetch('TemplateManagementServlet', {method:'POST', body:params})");
+        out.println("    .then(r => r.json()).then(data => {");
+        out.println("      if (data.success) { setTimeout(function(){ location.reload(); }, 800); }");
+        out.println("      else { tmplShowMsg(data.message, false); }");
+        out.println("    }).catch(e => tmplShowMsg('Request failed: ' + e, false));");
+        out.println("}");
+
+        out.println("function tmplReactivate(id) {");
+        out.println("  var params = new URLSearchParams();");
+        out.println("  params.append('action', 'reactivateTemplate');");
+        out.println("  params.append('actionNextId', id);");
+        out.println("  fetch('TemplateManagementServlet', {method:'POST', body:params})");
+        out.println("    .then(r => r.json()).then(data => {");
+        out.println("      if (data.success) { setTimeout(function(){ location.reload(); }, 800); }");
+        out.println("      else { tmplShowMsg(data.message, false); }");
+        out.println("    }).catch(e => tmplShowMsg('Request failed: ' + e, false));");
+        out.println("}");
+
+        out.println("</script>");
+
+        // Quick Capture autocomplete (separate script block to avoid syntax collision)
+        out.println("<script>");
+        out.print("const paProjectNames = [");
+        for (int i = 0; i < qcProjectNames.size(); i++) {
+            out.print("\"" + jsonEsc(qcProjectNames.get(i)) + "\"");
+            if (i < qcProjectNames.size() - 1) {
+                out.print(", ");
+            }
+        }
+        out.println("];");
+        out.println(
+                "const paActionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
+        out.println("(function(){");
+        out.println("  var input = document.getElementById('paSentenceInput');");
+        out.println("  var suggestionsBox = document.getElementById('paSuggestions');");
+        out.println("  if (!input || !suggestionsBox) { return; }");
+        out.println("  var selectedIndex = -1;");
+        out.println("  var currentSuggestions = [];");
+        out.println("  input.addEventListener('input', function(){");
+        out.println(
+                "    var text = input.value || '';\n    var colonIndex = text.indexOf(':');\n    var suggestions = [];");
+        out.println("    if (colonIndex === -1) {");
+        out.println(
+                "      suggestions = paProjectNames.filter(function(name){ return name.toLowerCase().indexOf(text.toLowerCase()) === 0; });");
+        out.println("    } else {");
+        out.println(
+                "      var beforeColon = text.substring(0, colonIndex).trim();\n      var afterColon = text.substring(colonIndex + 1).trim();");
+        out.println("      if (paProjectNames.indexOf(beforeColon) === -1) {");
+        out.println(
+                "        suggestions = paProjectNames.filter(function(name){ return name.toLowerCase().indexOf(beforeColon.toLowerCase()) >= 0; });");
+        out.println("      } else if (afterColon.length === 0) {");
+        out.println("        suggestions = paActionVerbs;");
+        out.println("      } else {");
+        out.println(
+                "        suggestions = paActionVerbs.filter(function(verb){ return verb.toLowerCase().indexOf(afterColon.toLowerCase()) === 0; });");
+        out.println("      }");
+        out.println("    }");
+        out.println(
+                "    currentSuggestions = suggestions;\n    selectedIndex = -1;\n    paShowSuggestions(suggestions, text);");
+        out.println("  });");
+        out.println("  input.addEventListener('keydown', function(e){");
+        out.println("    if (!currentSuggestions.length || suggestionsBox.style.display !== 'block') { return; }");
+        out.println(
+                "    if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex = (selectedIndex + 1) % currentSuggestions.length; paShowSuggestions(currentSuggestions, input.value || ''); }");
+        out.println(
+                "    if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex = (selectedIndex <= 0 ? currentSuggestions.length - 1 : selectedIndex - 1); paShowSuggestions(currentSuggestions, input.value || ''); }");
+        out.println(
+                "    if (e.key === 'Enter' && selectedIndex >= 0) { e.preventDefault(); paAcceptSuggestion(currentSuggestions[selectedIndex], input.value || ''); }");
+        out.println(
+                "    if (e.key === 'Tab' && currentSuggestions.length > 0) { e.preventDefault(); if (selectedIndex < 0) { selectedIndex = 0; } paAcceptSuggestion(currentSuggestions[selectedIndex], input.value || ''); }");
+        out.println("    if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; }");
+        out.println("  });");
+        out.println(
+                "  document.addEventListener('click', function(e){ if (!suggestionsBox.contains(e.target) && e.target !== input) { suggestionsBox.style.display = 'none'; } });");
+        out.println("  function paShowSuggestions(suggestions, text){");
+        out.println(
+                "    suggestionsBox.innerHTML = '';\n    suggestionsBox.style.display = suggestions.length ? 'block' : 'none';");
+        out.println("    suggestions.forEach(function(suggestion, i){");
+        out.println(
+                "      var div = document.createElement('div');\n      div.textContent = suggestion;\n      if (i === selectedIndex) { div.style.backgroundColor = '#e7efe0'; }");
+        out.println(
+                "      div.addEventListener('mousedown', function(e){ e.preventDefault(); paAcceptSuggestion(suggestion, text); });");
+        out.println("      suggestionsBox.appendChild(div);");
+        out.println("    });");
+        out.println("  }");
+        out.println("  function paAcceptSuggestion(suggestion, text){");
+        out.println("    if (text.indexOf(':') === -1) {");
+        out.println("      input.value = suggestion + ': ';");
+        out.println("    } else {");
+        out.println("      var beforeColon = text.substring(0, text.indexOf(':')).trim();");
+        out.println("      if (paProjectNames.indexOf(beforeColon) === -1) {");
+        out.println("        input.value = suggestion + ': ';");
+        out.println("      } else {");
+        out.println("        input.value = beforeColon + ': ' + suggestion + ' ';");
+        out.println("      }");
+        out.println("    }");
+        out.println("    suggestionsBox.style.display = 'none';\n    input.focus();");
+        out.println("  }");
+        out.println("})();");
+        out.println("</script>");
+    }
+
+    // =========================================================================
+    // Mutation handlers
+    // =========================================================================
+
+    private PlanAheadMutationResult handleReactivate(AppReq appReq) {
+        PlanAheadMutationResult result = new PlanAheadMutationResult();
+        String idStr = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(idStr == null ? "" : idStr.trim());
+        } catch (NumberFormatException e) {
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+        Session session = appReq.getDataSession();
+        Transaction transaction = session.beginTransaction();
+        try {
+            ActionNext action = (ActionNext) session.get(ActionNext.class, actionNextId);
+            if (action == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template not found");
+                return result;
+            }
+            if (action.getWorkspaceId() == null
+                    || !action.getWorkspaceId().equals(appReq.getActiveWorkspaceId())) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template is not available for this workspace");
+                return result;
+            }
+            ActionNextTemplateConfig config = (ActionNextTemplateConfig) session.get(
+                    ActionNextTemplateConfig.class, actionNextId);
+            if (config == null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Template configuration not found");
+                return result;
+            }
+            config.setAutoGenerate(true);
+            session.update(config);
+            transaction.commit();
+            result.setSuccess(true);
+            result.setMessage("Template reactivated");
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+        return result;
+    }
+
+    private void handleMutationResult(AppReq appReq, PlanAheadMutationResult result) throws IOException {
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        data.put("success", result.isSuccess());
+        data.put("message", result.getMessage());
+        sendJson(appReq, data);
+    }
+
+    private void sendJson(AppReq appReq, Map<String, Object> data) throws IOException {
+        HttpServletResponse response = appReq.getResponse();
+        response.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = response.getWriter();
+        out.println("{");
+        out.println("  \"success\": " + data.get("success") + ",");
+        out.println("  \"message\": \"" + jsonEsc(String.valueOf(data.get("message"))) + "\"");
+        out.println("}");
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private String summarizeSchedule(TemplateType tt, ActionNextTemplateConfig config) {
+        if (tt == null) {
+            return "";
+        }
+        switch (tt) {
+            case WEEKLY:
+                return config.getScheduleDaysOfWeek() != null ? config.getScheduleDaysOfWeek() : "any";
+            case MONTHLY:
+                return config.getScheduleDaysOfMonth() != null ? config.getScheduleDaysOfMonth() : "any";
+            case QUARTERLY:
+                return config.getScheduleDaysOfQuarter() != null ? config.getScheduleDaysOfQuarter() : "any";
+            case YEARLY:
+                return config.getScheduleDaysOfYear() != null ? config.getScheduleDaysOfYear() : "any";
+            default:
+                return "daily";
+        }
+    }
+
+    private String formatMissed(String value) {
+        if ("CARRY_FORWARD".equals(value))
+            return "Carry Forward";
+        if ("IGNORE".equals(value))
+            return "Ignore";
+        return "Auto Cancel";
+    }
+
+    private String sel(String current, String value) {
+        if (current == null || value == null)
+            return "";
+        return value.equals(current) ? " selected" : "";
+    }
+
+    private String esc(String value) {
+        if (value == null)
+            return "";
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    private String jsonEsc(String value) {
+        if (value == null)
+            return "";
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "");
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        processRequest(request, response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        processRequest(request, response);
+    }
+}

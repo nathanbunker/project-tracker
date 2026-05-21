@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="ActionNextTemplateConfig" table="action_next_template_config">
+    <id name="actionNextId" type="int">
+      <column name="action_next_id" />
+      <generator class="assigned" />
+    </id>
+    <property name="autoGenerate" type="yes_no">
+      <column name="auto_generate" length="1" not-null="true" />
+    </property>
+    <property name="missedActionBehavior" type="string">
+      <column name="missed_action_behavior" length="16" not-null="true" />
+    </property>
+    <property name="scheduleDaysOfWeek" type="string">
+      <column name="schedule_days_of_week" length="30" />
+    </property>
+    <property name="scheduleDaysOfMonth" type="string">
+      <column name="schedule_days_of_month" length="100" />
+    </property>
+    <property name="scheduleDaysOfQuarter" type="string">
+      <column name="schedule_days_of_quarter" length="200" />
+    </property>
+    <property name="scheduleDaysOfYear" type="string">
+      <column name="schedule_days_of_year" length="400" />
+    </property>
+    <property name="lastGeneratedDate" type="date">
+      <column name="last_generated_date" />
+    </property>
+  </class>
+</hibernate-mapping>

@@ -46,6 +46,7 @@ public class PlanAheadPageRenderer {
                                 + "\">Today</a>");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?action=shiftWindowForward&days=1&windowStart="
                                 + escapeHtml(boardModel.getWindowStartKey()) + "\">Next Day &#9654;</a>");
+                out.println("    <a class=\"pa-shift\" href=\"TemplateManagementServlet\">Manage Templates</a>");
                 out.println("  </div>");
 
                 out.println("  <div class=\"pa-grid\">");
@@ -107,31 +108,9 @@ public class PlanAheadPageRenderer {
                         }
                 }
 
-                if (boardModel.getTemplateRow().getTemplateCards().isEmpty()) {
-                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label\">Templates</div>");
-                        for (int i = 0; i < boardModel.getDayHeaders().size(); i++) {
-                                out.println("    <div class=\"pa-cell pa-template-day-column\"><div class=\"pa-empty\">No templates found</div></div>");
-                        }
-                } else {
-                        for (PlanAheadBoardModel.TemplateCardModel templateCard : boardModel.getTemplateRow()
-                                        .getTemplateCards()) {
-                                out.println(renderTemplateRowLabelCell(templateCard, boardModel.isWorkMode()));
-                                for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
-                                        out.println(renderTemplateSelectionCell(templateCard, dayHeader));
-                                }
-                        }
-                }
-                out.println("    <div class=\"pa-cell pa-template-label-cell pa-template-add-row\">"
-                                + "<button type=\"button\" class=\"pa-template-add-btn\" onclick=\"paOpenTemplateModal(0, event)\">+ Add Template</button>"
-                                + "</div>");
-                for (int i = 0; i < boardModel.getDayHeaders().size(); i++) {
-                        out.println("    <div class=\"pa-cell pa-template-day-column pa-template-add-empty\"></div>");
-                }
-
                 out.println("  </div>");
                 printEditModal(out, appReq);
                 printStatusModal(out);
-                printTemplateModal(out);
                 printQuickCaptureScript(out, boardModel);
                 printDragDropScript(out, boardModel.getWindowStartKey(), boardModel.getMode());
                 out.println("</div>");
@@ -249,67 +228,6 @@ public class PlanAheadPageRenderer {
                 out.println("</script>");
         }
 
-        private void printTemplateModal(PrintWriter out) {
-                out.println("<div id=\"paTemplateModal\" class=\"pa-modal-overlay\" style=\"display:none;\">");
-                out.println("  <div class=\"pa-modal\">");
-                out.println("    <div class=\"pa-modal-head\">");
-                out.println("      <h3 id=\"paTemplateModalTitle\">Edit Template</h3>");
-                out.println("      <button type=\"button\" class=\"pa-modal-close\" onclick=\"paCloseTemplateModal()\">&times;</button>");
-                out.println("    </div>");
-                out.println("    <div class=\"pa-modal-body\">");
-                out.println("      <input type=\"hidden\" id=\"paTemplateActionNextId\" value=\"0\" />");
-                out.println("      <input type=\"hidden\" id=\"paTemplateMode\" value=\"edit\" />");
-                out.println("      <label id=\"paTemplateProjectSelectWrap\">Project");
-                out.println("        <select id=\"paTemplateProjectId\"></select>");
-                out.println("      </label>");
-                out.println("      <label id=\"paTemplateProjectReadOnlyWrap\" style=\"display:none;\">Project");
-                out.println("        <input type=\"text\" id=\"paTemplateProjectName\" readonly=\"readonly\" />");
-                out.println("      </label>");
-                out.println("      <label id=\"paTemplateTypeWrap\">Type <select id=\"paTemplateNextActionType\">"
-                                + "<option value=\"WILL_MEET\">Meeting</option>"
-                                + "<option value=\"COMMITTED_TO\">Committed</option>"
-                                + "<option value=\"WILL\">Will</option>"
-                                + "<option value=\"WILL_CONTACT\">Will Contact</option>"
-                                + "<option value=\"REVIEW\">Will Review</option>"
-                                + "<option value=\"DOCUMENT\">Will Document</option>"
-                                + "<option value=\"WILL_FOLLOW_UP\">Follow Up</option>"
-                                + "<option value=\"MIGHT\">Might</option>"
-                                + "<option value=\"WOULD_LIKE_TO\">Would Like To</option>"
-                                + "</select></label>");
-                out.println("      <label id=\"paTemplateSlotWrap\" style=\"display:none;\">Time Slot <select id=\"paTemplateTimeSlot\">"
-                                + "<option value=\"WAKE\">Wake</option>"
-                                + "<option value=\"MORNING\">Morning</option>"
-                                + "<option value=\"AFTERNOON\">Afternoon</option>"
-                                + "<option value=\"EVENING\">Evening</option>"
-                                + "</select></label>");
-                out.println("      <label>Template Type <select id=\"paTemplateType\">"
-                                + "<option value=\"D\">Daily</option>"
-                                + "<option value=\"W\">Weekly</option>"
-                                + "<option value=\"M\">Monthly</option>"
-                                + "<option value=\"Q\">Quarterly</option>"
-                                + "<option value=\"Y\">Yearly</option>"
-                                + "</select></label>");
-                out.println("      <label>Process Stage <select id=\"paTemplateProcessStage\">"
-                                + "<option value=\"\">(none)</option>"
-                                + "<option value=\"1\">First</option>"
-                                + "<option value=\"2\">Second</option>"
-                                + "<option value=\"P\">Penultimate</option>"
-                                + "<option value=\"L\">Last</option>"
-                                + "</select></label>");
-                out.println("      <label>Description <textarea id=\"paTemplateDescription\" rows=\"4\"></textarea></label>");
-                out.println("      <label id=\"paTemplateEstimateWrap\">Estimate (mins) <input type=\"number\" id=\"paTemplateEstimate\" min=\"0\" /></label>");
-                out.println("      <label>Link URL <input type=\"text\" id=\"paTemplateLinkUrl\" /></label>");
-                out.println("      <label>Notes <textarea id=\"paTemplateNotes\" rows=\"3\"></textarea></label>");
-                out.println("      <div class=\"pa-modal-actions\">");
-                out.println("        <button type=\"button\" id=\"paTemplateDeleteBtn\" onclick=\"paDeleteTemplate()\">Delete</button>");
-                out.println("        <button type=\"button\" onclick=\"paSaveTemplateModal()\">Save</button>");
-                out.println("        <button type=\"button\" onclick=\"paCloseTemplateModal()\">Cancel</button>");
-                out.println("      </div>");
-                out.println("    </div>");
-                out.println("  </div>");
-                out.println("</div>");
-        }
-
         private void printStatusModal(PrintWriter out) {
                 out.println("<div id=\"paStatusModal\" class=\"pa-modal-overlay pa-status-modal-overlay\" style=\"display:none;\">");
                 out.println("  <div class=\"pa-modal pa-status-modal\">");
@@ -347,18 +265,51 @@ public class PlanAheadPageRenderer {
         String buildEditModalBodyHtml() {
                 StringWriter sw = new StringWriter();
                 PrintWriter pw = new PrintWriter(sw);
-                pw.println("<div id=\"paEditModal\" class=\"pa-modal-overlay pa-edit-modal-overlay\" onclick=\"paCloseModalOnOverlay(event, this)\">");
+                pw.println("<div id=\"paEditModal\" class=\"pa-modal-overlay\" onclick=\"paCloseModalOnOverlay(event, this)\">");
                 pw.println("  <div class=\"pa-modal\" onclick=\"event.stopPropagation()\">");
-                pw.println("    <div class=\"ea-modal-head\">");
-                pw.println("      <h3 class=\"ea-modal-title\">Edit Action</h3>");
-                pw.println("      <button type=\"button\" class=\"ea-modal-close\" onclick=\"paCloseEditModal()\">&times;</button>");
+                pw.println("    <div class=\"pa-modal-head\">");
+                pw.println("      <h3 class=\"pa-modal-title\">Edit Action</h3>");
+                pw.println("      <button type=\"button\" class=\"pa-modal-close\" onclick=\"paCloseEditModal()\">&times;</button>");
                 pw.println("    </div>");
-                pw.println("    <div class=\"ea-modal-body\">");
-                pw.println("      <input type=\"hidden\" id=\"eaEditActionId\" value=\"\" />");
-                pw.println("      <input type=\"hidden\" id=\"eaEditActionDateOriginal\" value=\"\" />");
-                pw.println("      <div id=\"eaEditActionTypeSection\" class=\"ea-modal-field\"></div>");
-                pw.println("      <div id=\"eaEditActionSlotSection\" class=\"ea-modal-field\" style=\"display:none\"></div>");
-                pw.println("      <div id=\"eaEditActionTimeSection\" class=\"ea-modal-field\"></div>");
+                pw.println("    <div class=\"pa-modal-body\">");
+                pw.println("      <input type=\"hidden\" id=\"paEditActionId\" value=\"\" />");
+                pw.println("      <input type=\"hidden\" id=\"paEditActionDateOriginal\" value=\"\" />");
+                pw.println("      <label>Date <input type=\"date\" id=\"paEditNextActionDate\" /></label>");
+                pw.println("      <div id=\"paEditTypeWrap\">");
+                pw.println("        <div class=\"pa-action-type-chips\">");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"WILL\" onclick=\"paSetEditActionType('WILL')\">Will</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"MIGHT\" onclick=\"paSetEditActionType('MIGHT')\">Might</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"WOULD_LIKE_TO\" onclick=\"paSetEditActionType('WOULD_LIKE_TO')\">Would Like To</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"WILL_CONTACT\" onclick=\"paSetEditActionType('WILL_CONTACT')\">Will Contact</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"WILL_MEET\" onclick=\"paSetEditActionType('WILL_MEET')\">Will Meet</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"REVIEW\" onclick=\"paSetEditActionType('REVIEW')\">Review</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"DOCUMENT\" onclick=\"paSetEditActionType('DOCUMENT')\">Document</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"WILL_FOLLOW_UP\" onclick=\"paSetEditActionType('WILL_FOLLOW_UP')\">Will Follow Up</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"COMMITTED_TO\" onclick=\"paSetEditActionType('COMMITTED_TO')\">Committed To</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"GOAL\" onclick=\"paSetEditActionType('GOAL')\">Goal</button>");
+                pw.println("          <button type=\"button\" class=\"pa-chip pa-action-type-btn\" data-action-type=\"WAITING\" onclick=\"paSetEditActionType('WAITING')\">Waiting</button>");
+                pw.println("        </div>");
+                pw.println("        <input type=\"hidden\" id=\"paEditNextActionType\" value=\"\" />");
+                pw.println("      </div>");
+                pw.println("      <div id=\"paEditSlotWrap\" style=\"display:none;\">");
+                pw.println("        <label>Time Slot <select id=\"paEditTimeSlot\"></select></label>");
+                pw.println("      </div>");
+                pw.println("      <div id=\"paEditContactWrap\">");
+                pw.println("        <label>Contact <select id=\"paEditNextContactId\"><option value=\"\">(none)</option></select></label>");
+                pw.println("      </div>");
+                pw.println("      <div id=\"paEditEstimateWrap\">");
+                pw.println("        <label>Estimate (min) <input type=\"number\" id=\"paEditNextTimeEstimate\" min=\"0\" /></label>");
+                pw.println("      </div>");
+                pw.println("      <label>Link URL <input type=\"text\" id=\"paEditLinkUrl\" /></label>");
+                pw.println("      <div id=\"paEditAdvancedSection\" class=\"pa-advanced-section\">");
+                pw.println("        <label>Target Date <input type=\"date\" id=\"paEditNextTargetDate\" /></label>");
+                pw.println("        <label>Deadline <input type=\"date\" id=\"paEditNextDeadlineDate\" /></label>");
+                pw.println("        <label>Notes <textarea id=\"paEditNextNote\"></textarea></label>");
+                pw.println("      </div>");
+                pw.println("    </div>");
+                pw.println("    <div class=\"pa-modal-foot\">");
+                pw.println("      <button type=\"button\" onclick=\"paSaveEditModal()\">Save</button>");
+                pw.println("      <button type=\"button\" onclick=\"paCloseEditModal()\">Cancel</button>");
                 pw.println("    </div>");
                 pw.println("  </div>");
                 pw.println("</div>");
@@ -405,6 +356,7 @@ public class PlanAheadPageRenderer {
                 out.println("  document.addEventListener('dragstart', function(e){");
                 out.println("    var card = e.target && e.target.closest ? e.target.closest('.pa-card') : null;");
                 out.println("    if (!card) { return; }");
+                out.println("    if (card.getAttribute('data-reschedule-locked') === 'true') { e.preventDefault(); return; }");
                 out.println("    paDraggedActionId = card.getAttribute('data-action-id');");
                 out.println("    if (e.dataTransfer) { e.dataTransfer.setData('text/plain', paDraggedActionId || ''); }");
                 out.println("  });");
@@ -566,179 +518,6 @@ public class PlanAheadPageRenderer {
                 out.println("      paCloseEditModal();");
                 out.println("    })");
                 out.println("    .catch(function(err){ console.log('Save edit request failed', err); });");
-                out.println("  };");
-
-                out.println("  window.paOpenTemplateModal = function(actionNextId, evt){");
-                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
-                out.println("    var id = parseInt(actionNextId || 0, 10);");
-                out.println("    if (isNaN(id)) { id = 0; }");
-                out.println("    var body = 'action=loadTemplateEdit&actionNextId=' + encodeURIComponent(id) +");
-                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    fetch('PlanAheadServlet', {");
-                out.println("      method: 'POST',");
-                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
-                out.println("      body: body");
-                out.println("    })");
-                out.println("    .then(function(r){ return r.json(); })");
-                out.println("    .then(function(resp){");
-                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Template load failed'); return; }");
-                out.println("      var data = resp.data || {};");
-                out.println("      var isAdd = !!data.isAdd;");
-                out.println("      document.getElementById('paTemplateActionNextId').value = data.actionNextId || 0;");
-                out.println("      document.getElementById('paTemplateMode').value = isAdd ? 'add' : 'edit';");
-                out.println("      document.getElementById('paTemplateModalTitle').innerText = isAdd ? 'Add Template' : 'Edit Template';");
-                out.println("      document.getElementById('paTemplateNextActionType').value = data.nextActionType || 'WILL';");
-                out.println("      document.getElementById('paTemplateTimeSlot').value = data.timeSlot || 'AFTERNOON';");
-                out.println("      document.getElementById('paTemplateType').value = data.templateType || 'D';");
-                out.println("      document.getElementById('paTemplateProcessStage').value = data.processStage || ''; ");
-                out.println("      document.getElementById('paTemplateDescription').value = data.nextDescription || ''; ");
-                out.println("      document.getElementById('paTemplateEstimate').value = data.nextTimeEstimate || 0; ");
-                out.println("      document.getElementById('paTemplateLinkUrl').value = data.linkUrl || ''; ");
-                out.println("      document.getElementById('paTemplateNotes').value = data.nextNote || ''; ");
-                out.println("      var projectSelectWrap = document.getElementById('paTemplateProjectSelectWrap');");
-                out.println("      var projectReadOnlyWrap = document.getElementById('paTemplateProjectReadOnlyWrap');");
-                out.println("      var projectSelect = document.getElementById('paTemplateProjectId');");
-                out.println("      var projectNameInput = document.getElementById('paTemplateProjectName');");
-                out.println("      var templateTypeWrap = document.getElementById('paTemplateTypeWrap');");
-                out.println("      var templateSlotWrap = document.getElementById('paTemplateSlotWrap');");
-                out.println("      var templateEstimateWrap = document.getElementById('paTemplateEstimateWrap');");
-                out.println("      var deleteBtn = document.getElementById('paTemplateDeleteBtn');");
-                out.println("      if (templateTypeWrap) { templateTypeWrap.style.display = paIsPersonal ? 'none' : ''; }");
-                out.println("      if (templateSlotWrap) { templateSlotWrap.style.display = paIsPersonal ? '' : 'none'; }");
-                out.println("      if (templateEstimateWrap) { templateEstimateWrap.style.display = paIsPersonal ? 'none' : ''; }");
-                out.println("      if (isAdd) {");
-                out.println("        if (projectSelectWrap) { projectSelectWrap.style.display = ''; }");
-                out.println("        if (projectReadOnlyWrap) { projectReadOnlyWrap.style.display = 'none'; }");
-                out.println("        if (deleteBtn) { deleteBtn.style.display = 'none'; }");
-                out.println("        if (projectSelect) {");
-                out.println("          var projects = data.projects || []; ");
-                out.println("          projectSelect.innerHTML = ''; ");
-                out.println("          projects.forEach(function(p){");
-                out.println("            var opt = document.createElement('option');");
-                out.println("            opt.value = p.projectId;");
-                out.println("            opt.text = p.projectName;");
-                out.println("            projectSelect.appendChild(opt);");
-                out.println("          });");
-                out.println("          if (projects.length > 0) {");
-                out.println("            projectSelect.value = String(projects[0].projectId);");
-                out.println("          }");
-                out.println("        }");
-                out.println("      } else {");
-                out.println("        if (projectSelectWrap) { projectSelectWrap.style.display = 'none'; }");
-                out.println("        if (projectReadOnlyWrap) { projectReadOnlyWrap.style.display = ''; }");
-                out.println("        if (deleteBtn) { deleteBtn.style.display = ''; }");
-                out.println("        if (projectNameInput) { projectNameInput.value = data.projectName || ''; }");
-                out.println("      }");
-                out.println("      document.getElementById('paTemplateModal').style.display = 'flex';");
-                out.println("    })");
-                out.println("    .catch(function(err){ console.log('Template load request failed', err); });");
-                out.println("  };");
-
-                out.println("  window.paCloseTemplateModal = function(){");
-                out.println("    var modal = document.getElementById('paTemplateModal');");
-                out.println("    if (modal) { modal.style.display = 'none'; }");
-                out.println("  };");
-
-                out.println("  window.paSaveTemplateModal = function(){");
-                out.println("    var mode = document.getElementById('paTemplateMode').value || 'edit';");
-                out.println("    var actionNextId = document.getElementById('paTemplateActionNextId').value || '0';");
-                out.println("    var projectId = document.getElementById('paTemplateProjectId').value || ''; ");
-                out.println("    var body = 'action=saveTemplateEdit' +");
-                out.println("      '&mode=' + encodeURIComponent(mode) +");
-                out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
-                out.println("      '&projectId=' + encodeURIComponent(projectId) +");
-                out.println("      '&nextActionType=' + encodeURIComponent(document.getElementById('paTemplateNextActionType').value || 'WILL') +");
-                out.println("      '&timeSlot=' + encodeURIComponent(document.getElementById('paTemplateTimeSlot').value || 'AFTERNOON') +");
-                out.println("      '&templateType=' + encodeURIComponent(document.getElementById('paTemplateType').value || 'D') +");
-                out.println("      '&processStage=' + encodeURIComponent(document.getElementById('paTemplateProcessStage').value || '') +");
-                out.println("      '&nextDescription=' + encodeURIComponent(document.getElementById('paTemplateDescription').value || '') +");
-                out.println("      '&nextTimeEstimate=' + encodeURIComponent(document.getElementById('paTemplateEstimate').value || '0') +");
-                out.println("      '&linkUrl=' + encodeURIComponent(document.getElementById('paTemplateLinkUrl').value || '') +");
-                out.println("      '&nextNote=' + encodeURIComponent(document.getElementById('paTemplateNotes').value || '') +");
-                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    fetch('PlanAheadServlet', {");
-                out.println("      method: 'POST',");
-                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
-                out.println("      body: body");
-                out.println("    })");
-                out.println("    .then(function(r){ return r.json(); })");
-                out.println("    .then(function(resp){");
-                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Template save failed'); return; }");
-                out.println("      window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    })");
-                out.println("    .catch(function(err){ console.log('Template save request failed', err); });");
-                out.println("  };");
-
-                out.println("  window.paDeleteTemplate = function(){");
-                out.println("    var actionNextId = document.getElementById('paTemplateActionNextId').value || '0';");
-                out.println("    if (!actionNextId || actionNextId === '0') { return; }");
-                out.println("    var body = 'action=deleteTemplateEdit' +");
-                out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
-                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    paCloseTemplateModal();");
-                out.println("    fetch('PlanAheadServlet', {");
-                out.println("      method: 'POST',");
-                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
-                out.println("      body: body");
-                out.println("    })");
-                out.println("    .then(function(r){ return r.json(); })");
-                out.println("    .then(function(resp){");
-                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Template delete failed'); return; }");
-                out.println("      var undoLink = '<a href=\\\"#\\\" onclick=\\\"paUndoDeleteTemplate(' + actionNextId + '); return false;\\\" style=\\\"cursor:pointer;text-decoration:underline;\\\">undo</a>';");
-                out.println("      var notifDiv = document.createElement('div');");
-                out.println("      notifDiv.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#fdd;color:#333;padding:12px 16px;border:1px solid #ccc;border-radius:4px;z-index:5000;font-size:13px;';");
-                out.println("      notifDiv.innerHTML = 'Template deleted. ' + undoLink;");
-                out.println("      document.body.appendChild(notifDiv);");
-                out.println("      setTimeout(function(){");
-                out.println("        window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("      }, 3000);");
-                out.println("    })");
-                out.println("    .catch(function(err){ console.log('Template delete request failed', err); });");
-                out.println("  };");
-
-                out.println("  window.paUndoDeleteTemplate = function(actionNextId){");
-                out.println("    if (!actionNextId) { return; }");
-                out.println("    var body = 'action=undoDeleteTemplate' +");
-                out.println("      '&actionNextId=' + encodeURIComponent(actionNextId) +");
-                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    fetch('PlanAheadServlet', {");
-                out.println("      method: 'POST',");
-                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
-                out.println("      body: body");
-                out.println("    })");
-                out.println("    .then(function(r){ return r.json(); })");
-                out.println("    .then(function(resp){");
-                out.println("      if (!resp || !resp.success) { alert(resp ? resp.message : 'Undo failed'); return; }");
-                out.println("      window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    })");
-                out.println("    .catch(function(err){ console.log('Undo request failed', err); });");
-                out.println("  };");
-
-                out.println("  window.paToggleTemplateDay = function(templateActionNextId, dayKey, checkbox){");
-                out.println("    var checked = checkbox && checkbox.checked ? 'true' : 'false';");
-                out.println("    var body = 'action=toggleTemplateDay' +");
-                out.println("      '&templateActionNextId=' + encodeURIComponent(templateActionNextId) +");
-                out.println("      '&billDate=' + encodeURIComponent(dayKey || '') +");
-                out.println("      '&checked=' + encodeURIComponent(checked) +");
-                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
-                out.println("    fetch('PlanAheadServlet', {");
-                out.println("      method: 'POST',");
-                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
-                out.println("      body: body");
-                out.println("    })");
-                out.println("    .then(function(r){ return r.json(); })");
-                out.println("    .then(function(resp){");
-                out.println("      if (!resp || !resp.success) {");
-                out.println("        if (checkbox) { checkbox.checked = !checkbox.checked; }");
-                out.println("        console.log('Template toggle failed', resp ? resp.message : 'Unknown');");
-                out.println("        return;");
-                out.println("      }");
-                out.println("      paApplyMutationPayload(resp);");
-                out.println("    })");
-                out.println("    .catch(function(err){");
-                out.println("      if (checkbox) { checkbox.checked = !checkbox.checked; }");
-                out.println("      console.log('Template toggle request failed', err);");
-                out.println("    });");
                 out.println("  };");
 
                 out.println("  var paStatusModalContext = { dayKey: '', statusCode: 'W', billMins: 0 }; ");
@@ -1292,7 +1071,11 @@ public class PlanAheadPageRenderer {
                 } else {
                         for (PlanAheadBoardModel.CardModel card : cell.getCards()) {
                                 s.append("<div class=\"pa-card\" draggable=\"true\" data-action-id=\"")
-                                                .append(card.getActionNextId()).append("\">");
+                                                .append(card.getActionNextId()).append("\"");
+                                if (card.isRescheduleLocked()) {
+                                        s.append(" data-reschedule-locked=\"true\"");
+                                }
+                                s.append(">");
                                 s.append("<div class=\"pa-card-main\">");
                                 s.append("<div class=\"pa-card-body\">");
                                 s.append("<div class=\"pa-card-title pa-card-desc-editable\" data-action-id=\"")
@@ -1339,6 +1122,21 @@ public class PlanAheadPageRenderer {
                 return renderOverdueTodayCell(overdueRow, showEstimate);
         }
 
+        public String renderTemplateSelectionCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard,
+                        PlanAheadBoardModel.DayHeaderModel dayHeader) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("<div class=\"pa-template-selection-card\">");
+                sb.append("<button type=\"button\" class=\"pa-template-toggle-btn\" onclick=\"paToggleTemplateDay(");
+                sb.append(templateCard.getTemplateActionNextId());
+                sb.append(",'");
+                sb.append(dayHeader.getDayKey());
+                sb.append("', this)\">");
+                sb.append(templateCard.getDescription());
+                sb.append("</button>");
+                sb.append("</div>");
+                return sb.toString();
+        }
+
         private String renderOverdueTodayCell(PlanAheadBoardModel.OverdueRowModel overdueRow,
                         boolean showEstimate) {
                 StringBuilder s = new StringBuilder();
@@ -1348,7 +1146,11 @@ public class PlanAheadPageRenderer {
                                 .append("\">");
                 for (PlanAheadBoardModel.CardModel card : overdueRow.getCards()) {
                         s.append("<div class=\"pa-card pa-card-overdue\" draggable=\"true\" data-action-id=\"")
-                                        .append(card.getActionNextId()).append("\">");
+                                        .append(card.getActionNextId()).append("\"");
+                        if (card.isRescheduleLocked()) {
+                                s.append(" data-reschedule-locked=\"true\"");
+                        }
+                        s.append(">");
                         s.append("<div class=\"pa-card-main\">");
                         s.append("<div class=\"pa-card-body\">");
                         s.append("<div class=\"pa-card-title pa-card-desc-editable\" data-action-id=\"")
@@ -1389,89 +1191,6 @@ public class PlanAheadPageRenderer {
 
         public static String kanbanCellDomId(String dayKey, String rowKey) {
                 return "pa-kanban-" + dayKey + "-" + rowKey;
-        }
-
-        private String renderTemplateRowLabelCell(PlanAheadBoardModel.TemplateCardModel templateCard,
-                        boolean showEstimate) {
-                StringBuilder s = new StringBuilder();
-                s.append("    <div class=\"pa-cell pa-template-label-cell\" id=\"")
-                                .append(templateLabelDomId(templateCard.getTemplateActionNextId()))
-                                .append("\">");
-                s.append("      <div class=\"pa-template-label-main\">");
-                s.append("      <span class=\"pa-template-inline-text\">")
-                                .append(templateCard.getProjectName())
-                                .append("</span>");
-                s.append("      <button type=\"button\" class=\"pa-template-inline-edit\" onclick=\"paOpenTemplateModal(")
-                                .append(templateCard.getTemplateActionNextId())
-                                .append(", event)\">edit template</button>");
-                s.append("      </div>");
-                if (showEstimate) {
-                        s.append("      <button type=\"button\" class=\"pa-card-est-box pa-template-est-editable\" data-template-action-id=\"")
-                                        .append(templateCard.getTemplateActionNextId())
-                                        .append("\" data-est-mins=\"")
-                                        .append(templateCard.getEstimateMins())
-                                        .append("\" title=\"Click to edit template estimate\">")
-                                        .append(escapeHtml(templateCard.getEstimateDisplay()))
-                                        .append("</button>");
-                }
-                s.append("    </div>");
-                return s.toString();
-        }
-
-        public String renderTemplateRowLabelCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard) {
-                return renderTemplateRowLabelCell(templateCard, true);
-        }
-
-        public String renderTemplateRowLabelCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard,
-                        boolean showEstimate) {
-                return renderTemplateRowLabelCell(templateCard, showEstimate);
-        }
-
-        private String renderTemplateSelectionCell(PlanAheadBoardModel.TemplateCardModel templateCard,
-                        PlanAheadBoardModel.DayHeaderModel dayHeader) {
-                StringBuilder s = new StringBuilder();
-                String dayKey = dayHeader.getDayKey();
-                s.append("    <div class=\"pa-cell pa-template-day-column\" id=\"")
-                                .append(templateDayDomId(templateCard.getTemplateActionNextId(), dayKey))
-                                .append("\">");
-                s.append("<label class=\"pa-template-day-toggle\">");
-                s.append("<input type=\"checkbox\" ");
-                if (isTemplateSelectedForDay(templateCard, dayKey)) {
-                        s.append("checked ");
-                }
-                s.append("onchange=\"paToggleTemplateDay(")
-                                .append(templateCard.getTemplateActionNextId())
-                                .append(",'")
-                                .append(escapeHtml(dayKey))
-                                .append("', this)\" />");
-                s.append("<span class=\"pa-template-day-desc\">")
-                                .append(templateCard.getDescription())
-                                .append("</span>");
-                s.append("</label>");
-                s.append("</div>");
-                return s.toString();
-        }
-
-        public String renderTemplateSelectionCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard,
-                        PlanAheadBoardModel.DayHeaderModel dayHeader) {
-                return renderTemplateSelectionCell(templateCard, dayHeader);
-        }
-
-        public static String templateDayDomId(int templateActionNextId, String dayKey) {
-                return "pa-template-day-" + templateActionNextId + "-" + dayKey;
-        }
-
-        public static String templateLabelDomId(int templateActionNextId) {
-                return "pa-template-label-" + templateActionNextId;
-        }
-
-        private boolean isTemplateSelectedForDay(PlanAheadBoardModel.TemplateCardModel templateCard, String dayKey) {
-                for (PlanAheadBoardModel.TemplateDaySelectionModel selection : templateCard.getDaySelections()) {
-                        if (dayKey.equals(selection.getDayKey())) {
-                                return selection.isSelected();
-                        }
-                }
-                return false;
         }
 
         private String renderGauge(PlanAheadBoardModel.DayHeaderModel dayHeader) {

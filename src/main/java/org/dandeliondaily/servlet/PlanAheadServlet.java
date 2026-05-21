@@ -84,30 +84,6 @@ public class PlanAheadServlet extends ClientServlet {
                 handleMutationResult(appReq, mutationService.undoDeleteCard(appReq));
                 return;
             }
-            if ("saveTemplateEstimate".equals(action)) {
-                handleMutationResult(appReq, mutationService.saveTemplateEstimate(appReq));
-                return;
-            }
-            if ("loadTemplateEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.loadTemplateEdit(appReq));
-                return;
-            }
-            if ("saveTemplateEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.saveTemplateEdit(appReq));
-                return;
-            }
-            if ("deleteTemplateEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.deleteTemplateEdit(appReq));
-                return;
-            }
-            if ("undoDeleteTemplate".equals(action)) {
-                handleMutationResult(appReq, mutationService.undoDeleteTemplate(appReq));
-                return;
-            }
-            if ("toggleTemplateDay".equals(action)) {
-                handleMutationResult(appReq, mutationService.toggleTemplateDay(appReq));
-                return;
-            }
             if ("refreshDayHeaders".equals(action)) {
                 handleRefreshDayHeaders(appReq);
                 return;
@@ -166,12 +142,6 @@ public class PlanAheadServlet extends ClientServlet {
                 || "saveCardDescriptionInline".equals(action)
                 || "deleteCardEdit".equals(action)
                 || "undoDeleteCard".equals(action)
-                || "saveTemplateEstimate".equals(action)
-                || "loadTemplateEdit".equals(action)
-                || "saveTemplateEdit".equals(action)
-                || "deleteTemplateEdit".equals(action)
-                || "undoDeleteTemplate".equals(action)
-                || "toggleTemplateDay".equals(action)
                 || "refreshDayHeaders".equals(action)
                 || "shiftWindowForward".equals(action);
     }

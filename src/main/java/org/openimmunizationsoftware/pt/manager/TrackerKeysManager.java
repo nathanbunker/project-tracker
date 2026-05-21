@@ -46,9 +46,13 @@ public class TrackerKeysManager {
   public static final String KEY_EMAIL_USERNAME = "system.email.smtps.username";
   public static final String KEY_EMAIL_USE_SMTPS = "system.email.use.smtps";
 
+  public static final int KEY_TYPE_GLOBAL = 0;
   public static final int KEY_TYPE_APPLICATION = 1;
   public static final int KEY_TYPE_USER = 2;
   public static final int KEY_TYPE_REPORT = 5;
+
+  public static final String KEY_ID_GLOBAL = "global";
+  public static final String KEY_TEMPLATE_ADVANCE_DAYS = "TEMPLATE_ADVANCE_DAYS";
 
   public static String getKeyContent(String keyName, int keyType, String keyId,
       Session dataSession) {

@@ -45,6 +45,7 @@ public class ActionNext implements java.io.Serializable {
     private boolean billable;
     private TimeSlot timeSlot;
     private Integer gamePoints;
+    private boolean rescheduleLocked;
     private Set<GamePointLedger> gamePointEntries = new HashSet<>();
     private Set<ActionNextNote> nextNoteEntries = new LinkedHashSet<>();
     private ActionSet actionSet;
@@ -583,6 +584,14 @@ public class ActionNext implements java.io.Serializable {
 
     public void setGamePoints(Integer gamePoints) {
         this.gamePoints = gamePoints;
+    }
+
+    public boolean isRescheduleLocked() {
+        return rescheduleLocked;
+    }
+
+    public void setRescheduleLocked(boolean rescheduleLocked) {
+        this.rescheduleLocked = rescheduleLocked;
     }
 
     public Set<GamePointLedger> getGamePointEntries() {

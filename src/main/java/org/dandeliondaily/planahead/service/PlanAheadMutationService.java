@@ -2,10 +2,9 @@ package org.dandeliondaily.planahead.service;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,20 +16,19 @@ import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
-import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionNextTemplateConfig;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
-import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
-import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 
 public class PlanAheadMutationService {
 
@@ -708,116 +706,10 @@ public class PlanAheadMutationService {
         return result;
     }
 
-    public PlanAheadMutationResult saveTemplateEstimate(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        if (isPersonalMode(appReq)) {
-            result.setSuccess(false);
-            result.setMessage("Template estimate editing is only available in Work mode");
-            return result;
-        }
-        String templateActionNextIdString = appReq.getRequest().getParameter("templateActionNextId");
-        int templateActionNextId;
-        try {
-            templateActionNextId = Integer.parseInt(n(templateActionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("templateActionNextId must be a whole number");
-            return result;
-        }
-
-        Integer nextTimeEstimate = parseIntegerOrNull(appReq.getRequest().getParameter("nextTimeEstimate"));
-        if (nextTimeEstimate == null) {
-            nextTimeEstimate = Integer.valueOf(0);
-        }
-        if (nextTimeEstimate.intValue() < 0) {
-            result.setSuccess(false);
-            result.setMessage("nextTimeEstimate cannot be negative");
-            return result;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            ActionNext templateAction = (ActionNext) dataSession.get(ActionNext.class,
-                    templateActionNextId);
-            if (templateAction == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Template action not found");
-                return result;
-            }
-            if (!isOwnedByCurrentWorkspace(templateAction.getWorkspaceId(), appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Template action is not available for this workspace");
-                return result;
-            }
-            if (!templateAction.isBillable() || templateAction.getTemplateType() == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Only work templates are editable here");
-                return result;
-            }
-
-            templateAction.setNextTimeEstimate(nextTimeEstimate);
-            templateAction.setNextChangeDate(new Date());
-            dataSession.update(templateAction);
-
-            Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
-            Query query = dataSession.createQuery(
-                    "from ActionNext an where an.workspaceId = :workspaceId "
-                            + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                            + "and an.billable = :billable "
-                            + "and an.templateActionNextId = :templateActionNextId "
-                            + "and an.nextActionDate is not null and an.nextActionDate >= :today "
-                            + "and an.nextActionStatusString <> :cancelled "
-                            + "and an.nextActionStatusString <> :completed");
-            query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-            query.setParameter("contactId", appReq.getWebUser().getContactId());
-            query.setParameter("nextContactId", appReq.getWebUser().getContactId());
-            query.setParameter("billable", true);
-            query.setParameter("templateActionNextId", templateActionNextId);
-            query.setParameter("today", today);
-            query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
-            query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
-            @SuppressWarnings("unchecked")
-            List<ActionNext> generatedActions = query.list();
-            for (ActionNext generatedAction : generatedActions) {
-                generatedAction.setNextTimeEstimate(nextTimeEstimate);
-                generatedAction.setNextChangeDate(new Date());
-                dataSession.update(generatedAction);
-            }
-
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        Date windowStart = boardService.resolveWindowStart(appReq);
-        PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
-        for (PlanAheadBoardModel.TemplateCardModel templateCard : boardModel.getTemplateRow().getTemplateCards()) {
-            if (templateCard.getTemplateActionNextId() == templateActionNextId) {
-                result.getAffectedCellsHtml().put(
-                        PlanAheadPageRenderer.templateLabelDomId(templateActionNextId),
-                        renderer.renderTemplateRowLabelCellHtml(templateCard, boardModel.isWorkMode()));
-                break;
-            }
-        }
-        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
-            result.getAffectedHeadersHtml().put(
-                    PlanAheadPageRenderer.dayHeaderDomId(dayHeaderModel.getDayKey()),
-                    renderer.renderDayHeader(dayHeaderModel));
-        }
-
-        result.setSuccess(true);
-        result.setMessage("Template estimate updated");
-        return result;
-    }
-
-    public PlanAheadMutationResult loadTemplateEdit(AppReq appReq) {
+    public PlanAheadMutationResult saveTemplateEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
         boolean personalMode = isPersonalMode(appReq);
+
         String actionNextIdString = n(appReq.getRequest().getParameter("actionNextId")).trim();
         int actionNextId = 0;
         if (actionNextIdString.length() > 0) {
@@ -830,151 +722,66 @@ public class PlanAheadMutationService {
             }
         }
 
-        Map<String, Object> data = new LinkedHashMap<String, Object>();
-        Session dataSession = appReq.getDataSession();
-        if (actionNextId <= 0) {
-            data.put("isAdd", Boolean.TRUE);
-            data.put("actionNextId", 0);
-            data.put("nextActionType", ProjectNextActionType.WILL);
-            data.put("timeSlot", TimeSlot.AFTERNOON.getId());
-            data.put("templateType", TemplateType.DAILY.getId());
-            data.put("nextDescription", "");
-            data.put("nextTimeEstimate", 0);
-            data.put("linkUrl", "");
-            data.put("processStage", "");
-            data.put("nextNote", "");
-            data.put("projects", listProjectsForProvider(dataSession, appReq));
-            result.setSuccess(true);
-            result.setMessage("OK");
-            result.setData(data);
-            return result;
-        }
-
-        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-        if (action == null) {
+        String nextDescription = clip(n(appReq.getRequest().getParameter("nextDescription")), 12000);
+        if (nextDescription.length() == 0) {
             result.setSuccess(false);
-            result.setMessage("Template action not found");
-            return result;
-        }
-        if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
-            result.setSuccess(false);
-            result.setMessage("Template action is not available for this workspace");
-            return result;
-        }
-        if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
-            result.setSuccess(false);
-            result.setMessage(personalMode ? "Only personal templates are editable in Personal mode"
-                    : "Only work templates are editable in Work mode");
+            result.setMessage("Description is required");
             return result;
         }
 
-        data.put("isAdd", Boolean.FALSE);
-        data.put("actionNextId", action.getActionNextId());
-        data.put("projectName", action.getProject() == null ? "" : n(action.getProject().getProjectName()));
-        data.put("nextActionType", n(action.getNextActionType()));
-        data.put("timeSlot", action.getTimeSlot() == null ? TimeSlot.AFTERNOON.getId() : action.getTimeSlot().getId());
-        data.put("templateType", action.getTemplateType().getId());
-        data.put("nextDescription", n(action.getNextDescription()));
-        data.put("nextTimeEstimate", action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
-        data.put("linkUrl", n(action.getLinkUrl()));
-        data.put("processStage", action.getProcessStage() == null ? "" : n(action.getProcessStage().getId()));
-        data.put("nextNote", n(action.getNextNotes()));
-        result.setSuccess(true);
-        result.setMessage("OK");
-        result.setData(data);
-        return result;
-    }
-
-    public PlanAheadMutationResult saveTemplateEdit(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        boolean personalMode = isPersonalMode(appReq);
-        String formMode = n(appReq.getRequest().getParameter("mode")).trim().toLowerCase();
-        boolean isAdd = "add".equals(formMode);
-
-        String nextActionType = n(appReq.getRequest().getParameter("nextActionType")).trim();
-        if (!personalMode
-                && (nextActionType.length() == 0
-                        || boardService.resolveRowKeyForActionType(nextActionType).length() == 0)) {
-            result.setSuccess(false);
-            result.setMessage("nextActionType is invalid for template");
-            return result;
-        }
-        TimeSlot templateTimeSlot = TimeSlot.getTimeSlot(n(appReq.getRequest().getParameter("timeSlot")).trim());
-        if (personalMode && templateTimeSlot == null) {
-            templateTimeSlot = TimeSlot.AFTERNOON;
-        }
-
-        TemplateType templateType = TemplateType
-                .getTemplateType(n(appReq.getRequest().getParameter("templateType")).trim());
+        String templateTypeId = n(appReq.getRequest().getParameter("templateType")).trim();
+        TemplateType templateType = TemplateType.getTemplateType(templateTypeId);
         if (templateType == null) {
             result.setSuccess(false);
-            result.setMessage("templateType is invalid");
+            result.setMessage("templateType is required");
             return result;
+        }
+
+        String nextActionType = null;
+        TimeSlot timeSlot = null;
+        if (personalMode) {
+            timeSlot = TimeSlot.getTimeSlot(n(appReq.getRequest().getParameter("timeSlot")).trim());
+            if (timeSlot == null) {
+                timeSlot = TimeSlot.AFTERNOON;
+            }
+        } else {
+            nextActionType = n(appReq.getRequest().getParameter("nextActionType")).trim();
+            if (nextActionType.length() == 0
+                    || boardService.resolveRowKeyForActionType(nextActionType).length() == 0) {
+                result.setSuccess(false);
+                result.setMessage("nextActionType is invalid");
+                return result;
+            }
         }
 
         Integer nextTimeEstimate = parseIntegerOrNull(appReq.getRequest().getParameter("nextTimeEstimate"));
-        if (nextTimeEstimate != null && nextTimeEstimate.intValue() < 0) {
+        if (nextTimeEstimate == null) {
+            nextTimeEstimate = Integer.valueOf(0);
+        }
+        if (nextTimeEstimate.intValue() < 0) {
             result.setSuccess(false);
             result.setMessage("nextTimeEstimate cannot be negative");
             return result;
         }
 
-        String processStageId = n(appReq.getRequest().getParameter("processStage")).trim();
-        ProcessStage processStage = null;
-        if (processStageId.length() > 0) {
-            processStage = ProcessStage.getProcessStage(processStageId);
-            if (processStage == null) {
-                result.setSuccess(false);
-                result.setMessage("processStage is invalid");
-                return result;
-            }
+        String missedActionBehavior = n(appReq.getRequest().getParameter("missedActionBehavior")).trim();
+        if (missedActionBehavior.length() == 0) {
+            missedActionBehavior = "AUTO_CANCEL";
         }
+
+        boolean autoGenerate = "Y".equals(n(appReq.getRequest().getParameter("autoGenerate")).trim());
+        String scheduleDaysOfWeek = clip(n(appReq.getRequest().getParameter("scheduleDaysOfWeek")), 200);
+        String scheduleDaysOfMonth = clip(n(appReq.getRequest().getParameter("scheduleDaysOfMonth")), 200);
+        String scheduleDaysOfQuarter = clip(n(appReq.getRequest().getParameter("scheduleDaysOfQuarter")), 200);
+        String scheduleDaysOfYear = clip(n(appReq.getRequest().getParameter("scheduleDaysOfYear")), 200);
+        String linkUrl = clip(n(appReq.getRequest().getParameter("linkUrl")), 1200);
+        String nextNotes = clip(n(appReq.getRequest().getParameter("nextNote")), 4000);
 
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
         try {
             ActionNext action;
-            if (isAdd) {
-                int projectId;
-                try {
-                    projectId = Integer.parseInt(n(appReq.getRequest().getParameter("projectId")).trim());
-                } catch (NumberFormatException nfe) {
-                    transaction.rollback();
-                    result.setSuccess(false);
-                    result.setMessage("projectId is required and must be a whole number");
-                    return result;
-                }
-                Project project = findProjectById(dataSession, appReq, projectId);
-                if (project == null) {
-                    transaction.rollback();
-                    result.setSuccess(false);
-                    result.setMessage("Selected project is invalid");
-                    return result;
-                }
-
-                action = new ActionNext();
-                action.setProjectId(project.getProjectId());
-                action.setProject(project);
-                action.setContactId(appReq.getWebUser().getContactId());
-                action.setContact(appReq.getWebUser().getProjectContact());
-                action.setWorkspaceId(appReq.getActiveWorkspaceId());
-                action.setNextActionDate(null);
-                action.setNextActionStatus(ProjectNextActionStatus.READY);
-                action.setTemplateType(templateType);
-                action.setTemplateActionNextId(null);
-                action.setPriorityLevel(0);
-                action.setCompletionOrder(0);
-                action.setBillable(!personalMode ? true : false);
-            } else {
-                int actionNextId;
-                try {
-                    actionNextId = Integer.parseInt(n(appReq.getRequest().getParameter("actionNextId")).trim());
-                } catch (NumberFormatException nfe) {
-                    transaction.rollback();
-                    result.setSuccess(false);
-                    result.setMessage("actionNextId must be a whole number");
-                    return result;
-                }
+            if (actionNextId > 0) {
                 action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
                 if (action == null) {
                     transaction.rollback();
@@ -988,80 +795,106 @@ public class PlanAheadMutationService {
                     result.setMessage("Template action is not available for this workspace");
                     return result;
                 }
-                if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
-                    transaction.rollback();
-                    result.setSuccess(false);
-                    result.setMessage(personalMode ? "Only personal templates are editable in Personal mode"
-                            : "Only work templates are editable in Work mode");
-                    return result;
-                }
+            } else {
+                action = new ActionNext();
+                action.setWorkspaceId(appReq.getActiveWorkspaceId());
+                action.setContactId(appReq.getWebUser().getContactId());
+                action.setNextContactId(appReq.getWebUser().getContactId());
+                action.setBillable(!personalMode);
+                action.setNextActionStatus(ProjectNextActionStatus.READY);
             }
 
-            action.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
             action.setTemplateType(templateType);
-            action.setProcessStage(processStage);
-            action.setNextDescription(clip(n(appReq.getRequest().getParameter("nextDescription")), 12000));
-            action.setNextTimeEstimate(personalMode ? Integer.valueOf(0)
-                    : (nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate));
-            action.setTimeSlot(personalMode ? templateTimeSlot : null);
-            action.setLinkUrl(clip(n(appReq.getRequest().getParameter("linkUrl")), 1200));
-            action.setNextNotes(clip(n(appReq.getRequest().getParameter("nextNote")), 4000));
-            action.setNextActionDate(null);
+            action.setNextDescription(nextDescription);
+            action.setNextTimeEstimate(nextTimeEstimate);
+            action.setLinkUrl(linkUrl);
+            action.setNextNotes(nextNotes);
             action.setNextChangeDate(new Date());
 
-            if (isAdd) {
-                action.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
-                dataSession.save(action);
+            if (personalMode) {
+                action.setTimeSlot(timeSlot);
+                action.setNextActionType(ProjectNextActionType.WILL);
             } else {
-                dataSession.update(action);
-
-                Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
-                Query query = dataSession.createQuery(
-                        "from ActionNext an where an.workspaceId = :workspaceId "
-                                + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                                + "and an.billable = :billable "
-                                + "and an.templateActionNextId = :templateActionNextId "
-                                + "and an.nextActionDate is not null and an.nextActionDate >= :today "
-                                + "and an.nextActionStatusString <> :cancelled "
-                                + "and an.nextActionStatusString <> :completed");
-                query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-                query.setParameter("contactId", appReq.getWebUser().getContactId());
-                query.setParameter("nextContactId", appReq.getWebUser().getContactId());
-                query.setParameter("billable", !personalMode ? true : false);
-                query.setParameter("templateActionNextId", action.getActionNextId());
-                query.setParameter("today", today);
-                query.setParameter("cancelled", ProjectNextActionStatus.CANCELLED.getId());
-                query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
-                @SuppressWarnings("unchecked")
-                List<ActionNext> generatedActions = query.list();
-                for (ActionNext generatedAction : generatedActions) {
-                    generatedAction.setNextActionType(action.getNextActionType());
-                    generatedAction.setNextDescription(action.getNextDescription());
-                    generatedAction.setNextTimeEstimate(action.getNextTimeEstimate());
-                    generatedAction.setTimeSlot(action.getTimeSlot());
-                    generatedAction.setLinkUrl(action.getLinkUrl());
-                    generatedAction.setProcessStage(action.getProcessStage());
-                    generatedAction.setNextChangeDate(new Date());
-                    dataSession.update(generatedAction);
-                }
+                action.setNextActionType(nextActionType);
             }
+
+            if (actionNextId > 0) {
+                dataSession.update(action);
+            } else {
+                dataSession.save(action);
+                actionNextId = action.getActionNextId();
+            }
+
+            ActionNextTemplateConfig config = (ActionNextTemplateConfig) dataSession.get(ActionNextTemplateConfig.class,
+                    actionNextId);
+            if (config == null) {
+                config = new ActionNextTemplateConfig();
+                config.setActionNextId(actionNextId);
+                config.setAutoGenerate(autoGenerate);
+                config.setMissedActionBehavior(missedActionBehavior);
+                config.setScheduleDaysOfWeek(scheduleDaysOfWeek.length() > 0 ? scheduleDaysOfWeek : null);
+                config.setScheduleDaysOfMonth(scheduleDaysOfMonth.length() > 0 ? scheduleDaysOfMonth : null);
+                config.setScheduleDaysOfQuarter(scheduleDaysOfQuarter.length() > 0 ? scheduleDaysOfQuarter : null);
+                config.setScheduleDaysOfYear(scheduleDaysOfYear.length() > 0 ? scheduleDaysOfYear : null);
+                dataSession.save(config);
+            } else {
+                config.setAutoGenerate(autoGenerate);
+                config.setMissedActionBehavior(missedActionBehavior);
+                config.setScheduleDaysOfWeek(scheduleDaysOfWeek.length() > 0 ? scheduleDaysOfWeek : null);
+                config.setScheduleDaysOfMonth(scheduleDaysOfMonth.length() > 0 ? scheduleDaysOfMonth : null);
+                config.setScheduleDaysOfQuarter(scheduleDaysOfQuarter.length() > 0 ? scheduleDaysOfQuarter : null);
+                config.setScheduleDaysOfYear(scheduleDaysOfYear.length() > 0 ? scheduleDaysOfYear : null);
+                dataSession.update(config);
+            }
+
             transaction.commit();
         } catch (RuntimeException re) {
             transaction.rollback();
             throw re;
         }
 
+        // Immediately sync schedule: propagate field changes to existing instances,
+        // cancel instances whose dates no longer match, and generate new ones.
+        final int savedActionNextId = actionNextId;
+        Transaction syncTx = dataSession.beginTransaction();
+        try {
+            ActionNext reloadedTemplate = (ActionNext) dataSession.get(ActionNext.class, savedActionNextId);
+            if (reloadedTemplate != null) {
+                LocalDate today = LocalDate.now(appReq.getWebUser().getTimeZone().toZoneId());
+                int advanceDays;
+                try {
+                    advanceDays = Integer.parseInt(TrackerKeysManager.getKeyValue(
+                            TrackerKeysManager.KEY_TEMPLATE_ADVANCE_DAYS,
+                            TrackerKeysManager.KEY_TYPE_GLOBAL,
+                            TrackerKeysManager.KEY_ID_GLOBAL,
+                            "14", dataSession).trim());
+                } catch (NumberFormatException nfe) {
+                    advanceDays = 14;
+                }
+                new TemplateGenerationService().syncAfterEdit(
+                        dataSession, reloadedTemplate,
+                        appReq.getActiveWorkspaceId(),
+                        appReq.getWebUser().getContactId(),
+                        today, advanceDays);
+            }
+            syncTx.commit();
+        } catch (RuntimeException e) {
+            syncTx.rollback();
+            System.err.println("[TemplateManagement] Schedule sync failed for template "
+                    + savedActionNextId + ": " + e.getMessage());
+        }
+
         result.setSuccess(true);
-        result.setMessage(isAdd ? "Template created" : "Template saved");
+        result.setMessage(actionNextId > 0 ? "Template saved" : "Template created");
         return result;
     }
 
     public PlanAheadMutationResult deleteTemplateEdit(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
-        boolean personalMode = isPersonalMode(appReq);
+        String actionNextIdString = n(appReq.getRequest().getParameter("actionNextId")).trim();
         int actionNextId;
         try {
-            actionNextId = Integer.parseInt(n(appReq.getRequest().getParameter("actionNextId")).trim());
+            actionNextId = Integer.parseInt(actionNextIdString);
         } catch (NumberFormatException nfe) {
             result.setSuccess(false);
             result.setMessage("actionNextId must be a whole number");
@@ -1082,13 +915,6 @@ public class PlanAheadMutationService {
                 transaction.rollback();
                 result.setSuccess(false);
                 result.setMessage("Template action is not available for this workspace");
-                return result;
-            }
-            if (!isActionCompatibleWithMode(action, appReq) || action.getTemplateType() == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage(personalMode ? "Only personal templates are editable in Personal mode"
-                        : "Only work templates are editable in Work mode");
                 return result;
             }
 
@@ -1104,302 +930,6 @@ public class PlanAheadMutationService {
         result.setSuccess(true);
         result.setMessage("Template deleted");
         return result;
-    }
-
-    public PlanAheadMutationResult undoDeleteTemplate(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
-        int actionNextId;
-        try {
-            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("actionNextId must be a whole number");
-            return result;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-            if (action == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Template action not found");
-                return result;
-            }
-            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Template action is not available for this workspace");
-                return result;
-            }
-
-            action.setNextActionStatus(ProjectNextActionStatus.READY);
-            action.setNextChangeDate(new Date());
-            dataSession.update(action);
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        result.setSuccess(true);
-        result.setMessage("Template restored");
-        return result;
-    }
-
-    public PlanAheadMutationResult toggleTemplateDay(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        boolean personalMode = isPersonalMode(appReq);
-        String templateActionNextIdString = appReq.getRequest().getParameter("templateActionNextId");
-        int templateActionNextId;
-        try {
-            templateActionNextId = Integer.parseInt(n(templateActionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("templateActionNextId must be a whole number");
-            return result;
-        }
-
-        Date day = parseDay(appReq.getRequest().getParameter("billDate"));
-        if (day == null) {
-            result.setSuccess(false);
-            result.setMessage("billDate must be in yyyy-MM-dd format");
-            return result;
-        }
-        boolean checked = parseBoolean(appReq.getRequest().getParameter("checked"));
-
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            ActionNext templateAction = (ActionNext) dataSession.get(ActionNext.class,
-                    templateActionNextId);
-            if (templateAction == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Template action not found");
-                return result;
-            }
-            if (!isOwnedByCurrentWorkspace(templateAction.getWorkspaceId(), appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Template action is not available for this workspace");
-                return result;
-            }
-            if (!isActionCompatibleWithMode(templateAction, appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage(personalMode ? "Only personal templates are available in Personal mode"
-                        : "Only work templates are available in Work mode");
-                return result;
-            }
-
-            ActionNext generatedAction = findGeneratedTemplateAction(dataSession, appReq, templateActionNextId,
-                    day);
-            Date today = stripToDate(appReq.getWebUser().getToday(), appReq);
-            String todayKey = toDayKey(today);
-
-            if (checked) {
-                String nextActionType = n(templateAction.getNextActionType()).trim();
-                if (nextActionType.length() == 0) {
-                    nextActionType = ProjectNextActionType.WILL;
-                }
-                if (generatedAction == null) {
-                    generatedAction = new ActionNext();
-                    generatedAction.setProjectId(templateAction.getProjectId());
-                    generatedAction.setProject(templateAction.getProject());
-                    generatedAction.setContactId(appReq.getWebUser().getContactId());
-                    generatedAction.setContact(appReq.getWebUser().getProjectContact());
-                    generatedAction.setWorkspaceId(appReq.getActiveWorkspaceId());
-                    generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
-                    generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
-                    generatedAction.setTemplateActionNextId(templateAction.getActionNextId());
-                    generatedAction.setPriorityLevel(templateAction.getPriorityLevel());
-                    generatedAction.setCompletionOrder(0);
-                    generatedAction.setBillable(templateAction.isBillable());
-                    generatedAction.setNextContactId(templateAction.getNextContactId());
-                    generatedAction.setNextProjectContact(templateAction.getNextProjectContact());
-                    generatedAction.setProcessStage(templateAction.getProcessStage());
-                    generatedAction.setTimeSlot(templateAction.getTimeSlot());
-                    generatedAction.setLinkUrl(clip(n(templateAction.getLinkUrl()), 1200));
-                    generatedAction.setNextNotes(clip(n(templateAction.getNextNotes()), 4000));
-                    generatedAction.setNextChangeDate(new Date());
-                    generatedAction.setNextDescription(templateAction.getNextDescription());
-                    generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
-                            ? Integer.valueOf(0)
-                            : templateAction.getNextTimeEstimate());
-                    generatedAction.setActionSet(
-                            new ActionSetDao(dataSession).createStandardActionSet(appReq.getWebUser()));
-                    dataSession.save(generatedAction);
-                } else {
-                    generatedAction.setNextActionStatus(ProjectNextActionStatus.READY);
-                    generatedAction.setNextActionDate(day);
-                    generatedAction.setNextActionType(personalMode ? ProjectNextActionType.WILL : nextActionType);
-                    generatedAction.setProcessStage(templateAction.getProcessStage());
-                    generatedAction.setLinkUrl(clip(n(templateAction.getLinkUrl()), 1200));
-                    generatedAction.setNextNotes(clip(n(templateAction.getNextNotes()), 4000));
-                    generatedAction.setNextDescription(templateAction.getNextDescription());
-                    generatedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate() == null
-                            ? Integer.valueOf(0)
-                            : templateAction.getNextTimeEstimate());
-                    generatedAction.setNextChangeDate(new Date());
-                    dataSession.update(generatedAction);
-                }
-            } else {
-                if (generatedAction != null) {
-                    String dayKey = toDayKey(day);
-                    if (dayKey.compareTo(todayKey) < 0) {
-                        transaction.rollback();
-                        result.setSuccess(false);
-                        result.setMessage("Cannot modify template actions in past days");
-                        return result;
-                    }
-                    if (dayKey.equals(todayKey)) {
-                        generatedAction.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
-                        generatedAction.setNextChangeDate(new Date());
-                        dataSession.update(generatedAction);
-                    } else {
-                        dataSession.delete(generatedAction);
-                    }
-                }
-            }
-
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        Date windowStart = boardService.resolveWindowStart(appReq);
-        PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
-        String dayKey = toDayKey(day);
-
-        PlanAheadBoardModel.DayHeaderModel targetDayHeader = null;
-        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
-            if (dayKey.equals(dayHeaderModel.getDayKey())) {
-                targetDayHeader = dayHeaderModel;
-                break;
-            }
-        }
-        if (targetDayHeader != null) {
-            for (PlanAheadBoardModel.TemplateCardModel templateCard : boardModel.getTemplateRow().getTemplateCards()) {
-                if (templateCard.getTemplateActionNextId() == templateActionNextId) {
-                    String domId = PlanAheadPageRenderer.templateDayDomId(templateActionNextId, dayKey);
-                    result.getAffectedCellsHtml().put(domId,
-                            renderer.renderTemplateSelectionCellHtml(templateCard, targetDayHeader));
-                    break;
-                }
-            }
-        }
-        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
-            if (dayKey.equals(dayHeaderModel.getDayKey())) {
-                result.getAffectedHeadersHtml().put(
-                        PlanAheadPageRenderer.dayHeaderDomId(dayHeaderModel.getDayKey()),
-                        renderer.renderDayHeader(dayHeaderModel));
-                break;
-            }
-        }
-        result.setSuccess(true);
-        result.setMessage("Template updated");
-        return result;
-    }
-
-    private ActionNext findGeneratedTemplateAction(Session dataSession, AppReq appReq, int templateActionNextId,
-            Date day) {
-        boolean billable = !isPersonalMode(appReq);
-        Query query = dataSession.createQuery(
-                "from ActionNext an where an.workspaceId = :workspaceId "
-                        + "and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                        + "and an.billable = :billable "
-                        + "and an.templateActionNextId = :templateActionNextId and an.nextActionDate = :nextActionDate");
-        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        query.setParameter("contactId", appReq.getWebUser().getContactId());
-        query.setParameter("nextContactId", appReq.getWebUser().getContactId());
-        query.setParameter("billable", billable);
-        query.setParameter("templateActionNextId", templateActionNextId);
-        query.setParameter("nextActionDate", day);
-        @SuppressWarnings("unchecked")
-        java.util.List<ActionNext> list = query.list();
-        if (list.size() > 0) {
-            return list.get(0);
-        }
-        return null;
-    }
-
-    private List<Map<String, Object>> listProjectsForProvider(Session dataSession, AppReq appReq) {
-        Query query = dataSession.createQuery(
-                "from Project p where p.workspaceId = :workspaceId "
-                        + "and (p.projectStatus is null or p.projectStatus = :projectStatus) "
-                        + "order by p.priorityLevel desc, p.projectName");
-        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        query.setParameter("projectStatus", STATUS_ACTIVE);
-        @SuppressWarnings("unchecked")
-        List<Project> projects = query.list();
-        List<Project> filteredProjects = filterProjectsForTemplateMode(projects,
-                loadBillCodesForProvider(dataSession, appReq), isPersonalMode(appReq));
-        List<Map<String, Object>> projectList = new ArrayList<Map<String, Object>>();
-        for (Project project : filteredProjects) {
-            Map<String, Object> p = new LinkedHashMap<String, Object>();
-            p.put("projectId", project.getProjectId());
-            p.put("projectName", n(project.getProjectName()));
-            projectList.add(p);
-        }
-        return projectList;
-    }
-
-    Map<String, BillCode> loadBillCodesForProvider(Session dataSession, AppReq appReq) {
-        Query query = dataSession.createQuery("from BillCode bc where bc.workspaceId = :workspaceId");
-        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        @SuppressWarnings("unchecked")
-        List<BillCode> billCodes = query.list();
-        Map<String, BillCode> billCodeMap = new HashMap<String, BillCode>();
-        for (BillCode billCode : billCodes) {
-            if (billCode != null && billCode.getBillCode() != null) {
-                billCodeMap.put(billCode.getBillCode(), billCode);
-            }
-        }
-        return billCodeMap;
-    }
-
-    List<Project> filterProjectsForTemplateMode(List<Project> projects, Map<String, BillCode> billCodeMap,
-            boolean personalMode) {
-        if (projects == null || projects.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Project> filteredProjects = new ArrayList<Project>();
-        for (Project project : projects) {
-            if (project == null) {
-                continue;
-            }
-            boolean billableProject = isBillableProject(project, billCodeMap);
-            if (personalMode ? !billableProject : billableProject) {
-                filteredProjects.add(project);
-            }
-        }
-        return filteredProjects;
-    }
-
-    boolean isBillableProject(Project project, Map<String, BillCode> billCodeMap) {
-        if (project == null || project.getBillCode() == null || project.getBillCode().trim().length() == 0) {
-            return false;
-        }
-        BillCode billCode = billCodeMap == null ? null : billCodeMap.get(project.getBillCode());
-        return billCode != null && BILLABLE_YES.equalsIgnoreCase(n(billCode.getBillable()).trim());
-    }
-
-    private Project findProjectById(Session dataSession, AppReq appReq, int projectId) {
-        Query query = dataSession.createQuery(
-                "from Project p where p.projectId = :projectId and p.workspaceId = :workspaceId");
-        query.setParameter("projectId", projectId);
-        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-        @SuppressWarnings("unchecked")
-        List<Project> projects = query.list();
-        if (projects.size() > 0) {
-            return projects.get(0);
-        }
-        return null;
     }
 
     Date parseDay(String value) {
@@ -1486,14 +1016,6 @@ public class PlanAheadMutationService {
         return v.substring(0, max);
     }
 
-    private boolean parseBoolean(String value) {
-        if (value == null) {
-            return false;
-        }
-        String v = value.trim().toLowerCase();
-        return "true".equals(v) || "1".equals(v) || "yes".equals(v) || "on".equals(v);
-    }
-
     private String resolveMode(AppReq appReq) {
         return boardService.resolveMode(appReq);
     }
@@ -1518,5 +1040,32 @@ public class PlanAheadMutationService {
             return boardService.resolveRowKeyForTimeSlot(action.getTimeSlot());
         }
         return boardService.resolveRowKeyForActionType(action.getNextActionType());
+    }
+
+    List<Project> filterProjectsForTemplateMode(List<Project> projects, Map<String, BillCode> billCodeMap,
+            boolean personalMode) {
+        List<Project> result = new ArrayList<Project>();
+        for (Project project : projects) {
+            boolean billable = isBillableProject(project, billCodeMap);
+            if (personalMode ? !billable : billable) {
+                result.add(project);
+            }
+        }
+        return result;
+    }
+
+    boolean isBillableProject(Project project, Map<String, BillCode> billCodeMap) {
+        if (project == null) {
+            return false;
+        }
+        String code = project.getBillCode();
+        if (code == null || code.trim().length() == 0) {
+            return false;
+        }
+        BillCode billCode = billCodeMap.get(code);
+        if (billCode == null) {
+            return false;
+        }
+        return BILLABLE_YES.equals(billCode.getBillable());
     }
 }

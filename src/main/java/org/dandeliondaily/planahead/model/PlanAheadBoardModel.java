@@ -15,7 +15,6 @@ public class PlanAheadBoardModel {
     private List<String> quickCaptureProjectNames = new ArrayList<String>();
     private List<DayHeaderModel> dayHeaders = new ArrayList<DayHeaderModel>();
     private List<RowModel> rows = new ArrayList<RowModel>();
-    private TemplateRowModel templateRow = new TemplateRowModel();
     private OverdueRowModel overdueRow = new OverdueRowModel();
 
     public String getWindowStartKey() {
@@ -88,14 +87,6 @@ public class PlanAheadBoardModel {
 
     public void setRows(List<RowModel> rows) {
         this.rows = rows;
-    }
-
-    public TemplateRowModel getTemplateRow() {
-        return templateRow;
-    }
-
-    public void setTemplateRow(TemplateRowModel templateRow) {
-        this.templateRow = templateRow;
     }
 
     public OverdueRowModel getOverdueRow() {
@@ -267,6 +258,7 @@ public class PlanAheadBoardModel {
         private int estimateMins;
         private String estimateDisplay = "";
         private String nextActionType = "";
+        private boolean rescheduleLocked;
 
         public int getActionNextId() {
             return actionNextId;
@@ -323,122 +315,13 @@ public class PlanAheadBoardModel {
         public void setNextActionType(String nextActionType) {
             this.nextActionType = nextActionType;
         }
-    }
 
-    public static class TemplateRowModel {
-        private List<TemplateCardModel> templateCards = new ArrayList<TemplateCardModel>();
-
-        public List<TemplateCardModel> getTemplateCards() {
-            return templateCards;
+        public boolean isRescheduleLocked() {
+            return rescheduleLocked;
         }
 
-        public void setTemplateCards(List<TemplateCardModel> templateCards) {
-            this.templateCards = templateCards;
-        }
-    }
-
-    public static class TemplateCardModel {
-        private int templateActionNextId;
-        private String projectName = "";
-        private String description = "";
-        private int estimateMins;
-        private String estimateDisplay = "";
-        private String templateTypeLabel = "";
-        private String templateTypeId = "";
-        private List<TemplateDaySelectionModel> daySelections = new ArrayList<TemplateDaySelectionModel>();
-
-        public int getTemplateActionNextId() {
-            return templateActionNextId;
-        }
-
-        public void setTemplateActionNextId(int templateActionNextId) {
-            this.templateActionNextId = templateActionNextId;
-        }
-
-        public String getProjectName() {
-            return projectName;
-        }
-
-        public void setProjectName(String projectName) {
-            this.projectName = projectName;
-        }
-
-        public String getDescription() {
-            return description;
-        }
-
-        public void setDescription(String description) {
-            this.description = description;
-        }
-
-        public int getEstimateMins() {
-            return estimateMins;
-        }
-
-        public void setEstimateMins(int estimateMins) {
-            this.estimateMins = estimateMins;
-        }
-
-        public String getEstimateDisplay() {
-            return estimateDisplay;
-        }
-
-        public void setEstimateDisplay(String estimateDisplay) {
-            this.estimateDisplay = estimateDisplay;
-        }
-
-        public String getTemplateTypeLabel() {
-            return templateTypeLabel;
-        }
-
-        public void setTemplateTypeLabel(String templateTypeLabel) {
-            this.templateTypeLabel = templateTypeLabel;
-        }
-
-        public String getTemplateTypeId() {
-            return templateTypeId;
-        }
-
-        public void setTemplateTypeId(String templateTypeId) {
-            this.templateTypeId = templateTypeId;
-        }
-
-        public List<TemplateDaySelectionModel> getDaySelections() {
-            return daySelections;
-        }
-
-        public void setDaySelections(List<TemplateDaySelectionModel> daySelections) {
-            this.daySelections = daySelections;
-        }
-    }
-
-    public static class TemplateDaySelectionModel {
-        private String dayKey = "";
-        private String dayLabel = "";
-        private boolean selected;
-
-        public String getDayKey() {
-            return dayKey;
-        }
-
-        public void setDayKey(String dayKey) {
-            this.dayKey = dayKey;
-        }
-
-        public String getDayLabel() {
-            return dayLabel;
-        }
-
-        public void setDayLabel(String dayLabel) {
-            this.dayLabel = dayLabel;
-        }
-
-        public boolean isSelected() {
-            return selected;
-        }
-
-        public void setSelected(boolean selected) {
-            this.selected = selected;
+        public void setRescheduleLocked(boolean rescheduleLocked) {
+            this.rescheduleLocked = rescheduleLocked;
         }
     }
 
@@ -464,6 +347,27 @@ public class PlanAheadBoardModel {
 
         public boolean isHasItems() {
             return cards != null && !cards.isEmpty();
+        }
+    }
+
+    public static class TemplateCardModel {
+        private int templateActionNextId;
+        private String description = "";
+
+        public int getTemplateActionNextId() {
+            return templateActionNextId;
+        }
+
+        public void setTemplateActionNextId(int templateActionNextId) {
+            this.templateActionNextId = templateActionNextId;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description == null ? "" : description;
         }
     }
 }
