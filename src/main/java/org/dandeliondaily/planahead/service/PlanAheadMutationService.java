@@ -776,6 +776,15 @@ public class PlanAheadMutationService {
         String scheduleDaysOfYear = clip(n(appReq.getRequest().getParameter("scheduleDaysOfYear")), 200);
         String linkUrl = clip(n(appReq.getRequest().getParameter("linkUrl")), 1200);
         String nextNotes = clip(n(appReq.getRequest().getParameter("nextNote")), 4000);
+        Integer projectId = null;
+        try {
+            String pidStr = n(appReq.getRequest().getParameter("projectId")).trim();
+            if (pidStr.length() > 0) {
+                projectId = Integer.parseInt(pidStr);
+            }
+        } catch (NumberFormatException nfe) {
+            // no project
+        }
 
         Session dataSession = appReq.getDataSession();
         Transaction transaction = dataSession.beginTransaction();
@@ -816,6 +825,18 @@ public class PlanAheadMutationService {
                 action.setNextActionType(ProjectNextActionType.WILL);
             } else {
                 action.setNextActionType(nextActionType);
+            }
+
+            // Set project for both modes
+            if (projectId != null && projectId.intValue() > 0) {
+                Project project = (Project) dataSession.get(Project.class, projectId);
+                if (project != null && project.getWorkspaceId() != null
+                        && project.getWorkspaceId().intValue() == appReq.getActiveWorkspaceId()) {
+                    action.setProject(project);
+                }
+            } else {
+                action.setProject(null);
+                action.setProjectId(0);
             }
 
             if (actionNextId > 0) {

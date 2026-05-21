@@ -2,6 +2,7 @@ package org.dandeliondaily.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,8 +21,10 @@ import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionNextTemplateConfig;
+import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
@@ -244,15 +247,14 @@ public class TemplateManagementServlet extends ClientServlet {
         query.setParameter("billable", billable);
 
         List<ActionNext> templates = query.list();
-        int colspan = personalMode ? 5 : 6;
+        List<Project> projects = loadFilteredProjects(session, appReq.getActiveWorkspaceId(), personalMode);
+        int colspan = 6;
 
         out.println("<table class='tmpl-table'>");
         out.println("<thead><tr>");
         out.println("<th>Description</th>");
         out.println("<th>Type</th>");
-        if (!personalMode) {
-            out.println("<th>Project</th>");
-        }
+        out.println("<th>Project</th>");
         out.println("<th>Schedule</th>");
         out.println("<th>Auto-Gen</th>");
         out.println("<th>Missed</th>");
@@ -288,7 +290,6 @@ public class TemplateManagementServlet extends ClientServlet {
                     ? config.getScheduleDaysOfYear()
                     : "";
             String editProjectId = t.getProject() != null ? String.valueOf(t.getProject().getProjectId()) : "";
-            String editProjectName = t.getProject() != null ? t.getProject().getProjectName() : "";
             String editActionType = t.getNextActionType() != null ? t.getNextActionType() : "";
             int editTimeEst = t.getNextTimeEstimate() != null ? t.getNextTimeEstimate().intValue() : 0;
             String editTimeSlot = t.getTimeSlot() != null ? t.getTimeSlot().getId() : "";
@@ -298,10 +299,8 @@ public class TemplateManagementServlet extends ClientServlet {
             out.println("<tr class='tmpl-row' id='tmplRow_" + id + "' onclick='tmplToggleEdit(" + id + ")'>");
             out.println("<td>" + t.getNextDescriptionForDisplay(null) + "</td>");
             out.println("<td>" + (t.getTemplateType() != null ? t.getTemplateType().getLabel() : "") + "</td>");
-            if (!personalMode) {
-                String projectName = t.getProject() != null ? t.getProject().getProjectName() : "(none)";
-                out.println("<td>" + esc(projectName) + "</td>");
-            }
+            String projectName = t.getProject() != null ? t.getProject().getProjectName() : "";
+            out.println("<td>" + esc(projectName) + "</td>");
             String schedule = config != null ? summarizeSchedule(t.getTemplateType(), config) : "";
             out.println("<td>" + esc(schedule) + "</td>");
             out.println("<td>" + (autoGenOn ? "Yes" : "No") + "</td>");
@@ -313,8 +312,32 @@ public class TemplateManagementServlet extends ClientServlet {
             out.println("<td colspan='" + colspan + "' style='padding:0;'>");
             out.println("<div class='tmpl-form' style='margin:0;border-radius:0;border-top:none;'>");
 
-            // Commitment type + estimate/timeslot
+            // Project + estimate/timeslot
             out.println("<div class='row2'><div>");
+            out.println("<label>Project</label>");
+            out.println("<select id='tmplPid_" + id + "'>");
+            out.println("<option value=''>-- None --</option>");
+            for (Project p : projects) {
+                out.println("<option value='" + p.getProjectId() + "'"
+                        + sel(editProjectId, String.valueOf(p.getProjectId())) + ">"
+                        + esc(p.getProjectName()) + "</option>");
+            }
+            out.println("</select></div>");
+            if (!personalMode) {
+                out.println("<div><label>Estimate (minutes)</label>");
+                out.println("<input type='text' id='tmplEst_" + id + "' value='" + editTimeEst + "'></div>");
+            } else {
+                out.println("<div><label>Time Slot</label>");
+                out.println("<select id='tmplTS_" + id + "'>");
+                for (TimeSlot ts : TimeSlot.values()) {
+                    out.println("<option value='" + ts.getId() + "'" + sel(editTimeSlot, ts.getId()) + ">"
+                            + ts.getLabel() + "</option>");
+                }
+                out.println("</select></div>");
+            }
+            out.println("</div>"); // end row2
+
+            // Commitment type (full width)
             out.println("<label>Commitment Type</label>");
             out.println("<select id='tmplNAT_" + id + "'>");
             out.println("<option value='" + ProjectNextActionType.WILL + "'"
@@ -339,28 +362,7 @@ public class TemplateManagementServlet extends ClientServlet {
                     + sel(editActionType, ProjectNextActionType.GOAL) + ">Goal</option>");
             out.println("<option value='" + ProjectNextActionType.WAITING + "'"
                     + sel(editActionType, ProjectNextActionType.WAITING) + ">Waiting</option>");
-            out.println("</select></div>");
-            if (!personalMode) {
-                out.println("<div><label>Estimate (minutes)</label>");
-                out.println("<input type='text' id='tmplEst_" + id + "' value='" + editTimeEst + "'></div>");
-            } else {
-                out.println("<div><label>Time Slot</label>");
-                out.println("<select id='tmplTS_" + id + "'>");
-                for (TimeSlot ts : TimeSlot.values()) {
-                    out.println("<option value='" + ts.getId() + "'" + sel(editTimeSlot, ts.getId()) + ">"
-                            + ts.getLabel() + "</option>");
-                }
-                out.println("</select></div>");
-            }
-            out.println("</div>"); // end row2
-
-            if (!personalMode) {
-                out.println("<label>Project</label>");
-                out.println(
-                        "<div style='padding:5px 7px;border:1px solid #e2e8f0;border-radius:3px;background:#fff;font-size:0.9em;color:#334155;margin-bottom:10px;'>"
-                                + esc(editProjectName) + "</div>");
-                out.println("<input type='hidden' id='tmplPid_" + id + "' value='" + esc(editProjectId) + "'>");
-            }
+            out.println("</select>");
 
             out.println("<label>Description</label>");
             out.println("<textarea id='tmplDesc_" + id + "' rows='2'>" + esc(t.getNextDescription()) + "</textarea>");
@@ -431,14 +433,38 @@ public class TemplateManagementServlet extends ClientServlet {
         out.println("</tbody></table>");
     }
 
-    @SuppressWarnings("unchecked")
     private void renderAddForm(AppReq appReq, PrintWriter out, boolean personalMode) throws Exception {
+        Session session = appReq.getDataSession();
+        List<Project> projects = loadFilteredProjects(session, appReq.getActiveWorkspaceId(), personalMode);
+
         out.println("<div class='tmpl-form' id='tmplForm'>");
         out.println("<h3 id='tmplFormTitle'>Add Template</h3>");
         out.println("<input type='hidden' id='tmplMode' value='add'>");
         out.println("<input type='hidden' id='tmplActionNextId' value=''>");
 
-        // Action Type (both modes)
+        // Project selector (both modes, filtered by work/personal)
+        out.println("<label>Project</label>");
+        out.println("<select id='tmplProjectId' name='projectId'>");
+        out.println("<option value=''>-- None --</option>");
+        for (Project p : projects) {
+            out.println("<option value='" + p.getProjectId() + "'>" + esc(p.getProjectName()) + "</option>");
+        }
+        out.println("</select>");
+
+        if (!personalMode) {
+            out.println("<label>Estimate (minutes)</label>");
+            out.println("<input type='text' id='tmplNextTimeEstimate' name='nextTimeEstimate' placeholder='0'>");
+        } else {
+            // Personal: time slot
+            out.println("<label>Time Slot</label>");
+            out.println("<select id='tmplTimeSlot' name='timeSlot'>");
+            for (TimeSlot ts : TimeSlot.values()) {
+                out.println("<option value='" + ts.getId() + "'>" + ts.getLabel() + "</option>");
+            }
+            out.println("</select>");
+        }
+
+        // Commitment Type — shown after project/time fields, before description
         out.println("<label>Commitment Type</label>");
         out.println("<select id='tmplNextActionType' name='nextActionType'>");
         out.println("<option value='" + ProjectNextActionType.WILL + "'>I will</option>");
@@ -453,43 +479,6 @@ public class TemplateManagementServlet extends ClientServlet {
         out.println("<option value='" + ProjectNextActionType.GOAL + "'>Goal</option>");
         out.println("<option value='" + ProjectNextActionType.WAITING + "'>Waiting</option>");
         out.println("</select>");
-
-        if (!personalMode) {
-            // Project selector
-            Session session = appReq.getDataSession();
-            Query pq = session.createQuery(
-                    "from Project p where p.workspaceId = :workspaceId and p.projectStatus = :status "
-                            + "order by p.projectName");
-            pq.setParameter("workspaceId", appReq.getActiveWorkspaceId());
-            pq.setParameter("status", "A");
-            List<Project> projects = pq.list();
-
-            out.println("<div id='tmplProjectWrapper'>");
-            out.println("<label>Project</label>");
-            out.println("<select id='tmplProjectId' name='projectId'>");
-            out.println("<option value=''>-- Select project --</option>");
-            for (Project p : projects) {
-                out.println("<option value='" + p.getProjectId() + "'>" + esc(p.getProjectName()) + "</option>");
-            }
-            out.println("</select>");
-            out.println("</div>");
-            out.println("<div id='tmplProjectReadOnly' style='display:none; margin-bottom:10px;'>");
-            out.println("<label>Project</label>");
-            out.println(
-                    "<div style='padding:5px 7px;border:1px solid #e2e8f0;border-radius:3px;background:#f1f5f9;font-size:0.9em;color:#334155;margin-bottom:10px;'><span id='tmplProjectName'></span></div>");
-            out.println("</div>");
-
-            out.println("<label>Estimate (minutes)</label>");
-            out.println("<input type='text' id='tmplNextTimeEstimate' name='nextTimeEstimate' placeholder='0'>");
-        } else {
-            // Personal: time slot
-            out.println("<label>Time Slot</label>");
-            out.println("<select id='tmplTimeSlot' name='timeSlot'>");
-            for (TimeSlot ts : TimeSlot.values()) {
-                out.println("<option value='" + ts.getId() + "'>" + ts.getLabel() + "</option>");
-            }
-            out.println("</select>");
-        }
 
         out.println("<label>Description</label>");
         out.println("<textarea id='tmplNextDescription' name='nextDescription' rows='2'></textarea>");
@@ -601,11 +590,11 @@ public class TemplateManagementServlet extends ClientServlet {
         out.println("  params.append('linkUrl', tmplGetField('tmplLinkUrl'));");
         out.println("  params.append('nextNote', tmplGetField('tmplNextNote'));");
         out.println("  params.append('nextActionType', tmplGetField('tmplNextActionType'));");
+        out.println("  params.append('projectId', tmplGetField('tmplProjectId'));");
         if (personalMode) {
             out.println("  params.append('timeSlot', tmplGetField('tmplTimeSlot'));");
             out.println("  params.append('nextTimeEstimate', '0');");
         } else {
-            out.println("  params.append('projectId', tmplGetField('tmplProjectId'));");
             out.println("  params.append('nextTimeEstimate', tmplGetField('tmplNextTimeEstimate'));");
         }
         out.println("  fetch('TemplateManagementServlet', {method:'POST', body:params})");
@@ -647,10 +636,8 @@ public class TemplateManagementServlet extends ClientServlet {
         out.println("  document.getElementById('tmplMissedActionBehavior').value = 'AUTO_CANCEL';");
         out.println("  document.getElementById('tmplNextActionType').value = '" + ProjectNextActionType.WILL + "';");
         out.println("  document.getElementById('tmplDeleteBtn').style.display = 'none';");
-        out.println("  var pw = document.getElementById('tmplProjectWrapper');");
-        out.println("  if (pw) pw.style.display = '';");
-        out.println("  var pr = document.getElementById('tmplProjectReadOnly');");
-        out.println("  if (pr) pr.style.display = 'none';");
+        out.println("  var projSel = document.getElementById('tmplProjectId');");
+        out.println("  if (projSel) projSel.value = '';");
         out.println("  tmplUpdateScheduleFields();");
         out.println("  document.getElementById('tmplForm').scrollIntoView({behavior:'smooth'});");
         out.println("  document.getElementById('tmplNextDescription').focus();");
@@ -703,13 +690,13 @@ public class TemplateManagementServlet extends ClientServlet {
                 "  var dy = document.getElementById('tmplDoy_' + id); params.append('scheduleDaysOfYear', dy ? dy.value : '');");
         out.println("  params.append('linkUrl', document.getElementById('tmplLink_' + id).value);");
         out.println("  params.append('nextNote', document.getElementById('tmplNote_' + id).value);");
+        out.println(
+                "  var pid = document.getElementById('tmplPid_' + id); params.append('projectId', pid ? pid.value : '');");
         if (personalMode) {
             out.println(
                     "  var ts = document.getElementById('tmplTS_' + id); params.append('timeSlot', ts ? ts.value : '');");
             out.println("  params.append('nextTimeEstimate', '0');");
         } else {
-            out.println(
-                    "  var pid = document.getElementById('tmplPid_' + id); params.append('projectId', pid ? pid.value : '');");
             out.println(
                     "  var est = document.getElementById('tmplEst_' + id); params.append('nextTimeEstimate', est ? est.value : '0');");
         }
@@ -899,6 +886,38 @@ public class TemplateManagementServlet extends ClientServlet {
     // =========================================================================
     // Helpers
     // =========================================================================
+
+    @SuppressWarnings("unchecked")
+    private List<Project> loadFilteredProjects(Session session, int workspaceId, boolean personalMode) {
+        Query pq = session.createQuery(
+                "from Project p where p.workspaceId = :workspaceId "
+                        + "and (p.projectStatus is null or p.projectStatus = :status) "
+                        + "order by p.projectName");
+        pq.setParameter("workspaceId", workspaceId);
+        pq.setParameter("status", ProjectStatus.ACTIVE.getDatabaseValue());
+        List<Project> all = pq.list();
+
+        Query bcq = session.createQuery("from BillCode where workspaceId = :workspaceId");
+        bcq.setParameter("workspaceId", workspaceId);
+        List<BillCode> billCodes = bcq.list();
+        Map<String, BillCode> billCodeMap = new HashMap<String, BillCode>();
+        for (BillCode bc : billCodes) {
+            if (bc.getBillCode() != null) {
+                billCodeMap.put(bc.getBillCode(), bc);
+            }
+        }
+
+        List<Project> filtered = new java.util.ArrayList<Project>();
+        for (Project p : all) {
+            String code = p.getBillCode();
+            BillCode bc = (code != null && !code.trim().isEmpty()) ? billCodeMap.get(code.trim()) : null;
+            boolean billable = bc != null && "Y".equals(bc.getBillable());
+            if (personalMode ? !billable : billable) {
+                filtered.add(p);
+            }
+        }
+        return filtered;
+    }
 
     private String summarizeSchedule(TemplateType tt, ActionNextTemplateConfig config) {
         if (tt == null) {
