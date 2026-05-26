@@ -16,6 +16,7 @@ public class PlanAheadBoardModel {
     private List<DayHeaderModel> dayHeaders = new ArrayList<DayHeaderModel>();
     private List<RowModel> rows = new ArrayList<RowModel>();
     private OverdueRowModel overdueRow = new OverdueRowModel();
+    private TimeSpentRowModel timeSpentRow = new TimeSpentRowModel();
 
     public String getWindowStartKey() {
         return windowStartKey;
@@ -95,6 +96,14 @@ public class PlanAheadBoardModel {
 
     public void setOverdueRow(OverdueRowModel overdueRow) {
         this.overdueRow = overdueRow;
+    }
+
+    public TimeSpentRowModel getTimeSpentRow() {
+        return timeSpentRow;
+    }
+
+    public void setTimeSpentRow(TimeSpentRowModel completedRow) {
+        this.timeSpentRow = completedRow;
     }
 
     public static class DayHeaderModel {
@@ -257,6 +266,9 @@ public class PlanAheadBoardModel {
         private String rawDescription = "";
         private int estimateMins;
         private String estimateDisplay = "";
+        private int remainingMins;
+        private int spentTodayMins;
+        private String spentTodayDisplay = "";
         private String nextActionType = "";
         private boolean rescheduleLocked;
 
@@ -308,6 +320,30 @@ public class PlanAheadBoardModel {
             this.estimateDisplay = estimateDisplay;
         }
 
+        public int getRemainingMins() {
+            return remainingMins;
+        }
+
+        public void setRemainingMins(int remainingMins) {
+            this.remainingMins = remainingMins;
+        }
+
+        public int getSpentTodayMins() {
+            return spentTodayMins;
+        }
+
+        public void setSpentTodayMins(int spentTodayMins) {
+            this.spentTodayMins = spentTodayMins;
+        }
+
+        public String getSpentTodayDisplay() {
+            return spentTodayDisplay;
+        }
+
+        public void setSpentTodayDisplay(String spentTodayDisplay) {
+            this.spentTodayDisplay = spentTodayDisplay == null ? "" : spentTodayDisplay;
+        }
+
         public String getNextActionType() {
             return nextActionType;
         }
@@ -326,6 +362,31 @@ public class PlanAheadBoardModel {
     }
 
     public static class OverdueRowModel {
+        private String todayKey = "";
+        private List<CardModel> cards = new ArrayList<CardModel>();
+
+        public String getTodayKey() {
+            return todayKey;
+        }
+
+        public void setTodayKey(String todayKey) {
+            this.todayKey = todayKey == null ? "" : todayKey;
+        }
+
+        public List<CardModel> getCards() {
+            return cards;
+        }
+
+        public void setCards(List<CardModel> cards) {
+            this.cards = cards;
+        }
+
+        public boolean isHasItems() {
+            return cards != null && !cards.isEmpty();
+        }
+    }
+
+    public static class TimeSpentRowModel {
         private String todayKey = "";
         private List<CardModel> cards = new ArrayList<CardModel>();
 

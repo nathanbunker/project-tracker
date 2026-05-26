@@ -8,9 +8,11 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
@@ -43,6 +45,7 @@ public class PlanAheadBoardService {
     public static final String ROW_AFTERNOON = "afternoon";
     public static final String ROW_EVENING = "evening";
     public static final String ROW_OVERDUE = "overdue";
+    public static final String ROW_COMPLETED = "completed";
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
@@ -129,6 +132,12 @@ public class PlanAheadBoardService {
         List<ActionNext> movableActions = loadMovableActions(appReq, mode, startDate, endDateExclusive);
         List<ActionNext> overdueActions = loadOverdueActions(appReq, mode);
         List<ActionNext> plannedActions = loadPlannedActions(appReq, mode, startDate, endDateExclusive);
+        Map<Integer, Integer> spentTodayByActionId = MODE_WORK.equalsIgnoreCase(mode)
+                ? loadSpentTodayByActionId(appReq)
+                : new HashMap<Integer, Integer>();
+        List<ActionNext> timeSpentActions = MODE_WORK.equalsIgnoreCase(mode)
+                ? loadTimeSpentActionsForToday(appReq)
+                : new ArrayList<ActionNext>();
 
         Map<String, List<ActionNext>> plannedByDay = bucketByDay(plannedActions);
         Map<String, List<ActionNext>> movableByDayRow = bucketMovableByDayRow(movableActions, mode);
@@ -145,7 +154,28 @@ public class PlanAheadBoardService {
 
             TimeAdder timeAdder;
             if (todayKey.equals(dayKey)) {
-                timeAdder = new TimeAdder(dayPlannedActions, appReq);
+                int plannedMinutes = personalMode ? 0
+                        : calculateTodayPlannedMinutes(appReq, dayPlannedActions, overdueActions);
+                int availableMinutes = personalMode ? 0 : dayCapacity.getBillMins() - plannedMinutes;
+
+                PlanAheadBoardModel.DayHeaderModel dayHeader = new PlanAheadBoardModel.DayHeaderModel();
+                dayHeader.setDayKey(dayKey);
+                dayHeader.setDayLabel(webUser.getDateFormatService().formatPattern(day, "EEEE", webUser.getTimeZone()));
+                dayHeader.setDateLabel(
+                        webUser.getDateFormatService().formatPattern(day, "MMM dd, yyyy", webUser.getTimeZone()));
+                Calendar cal = Calendar.getInstance(webUser.getTimeZone());
+                cal.setTime(day);
+                int dow = cal.get(Calendar.DAY_OF_WEEK);
+                dayHeader.setWeekend(dow == Calendar.SATURDAY || dow == Calendar.SUNDAY);
+                dayHeader.setBillMins(personalMode ? 0 : dayCapacity.getBillMins());
+                dayHeader.setPlannedMins(plannedMinutes);
+                dayHeader.setAvailableMins(availableMinutes);
+                dayHeader.setWorkStatusCode(personalMode ? "" : dayCapacity.getWorkStatusCode());
+                dayHeader.setWorkStatusLabel(
+                        personalMode ? "" : dayCapacityService.getStatusLabel(dayCapacity.getWorkStatusCode()));
+                dayHeader.setGauge(gaugeService.buildDayGauge(plannedMinutes, availableMinutes));
+                dayHeaders.add(dayHeader);
+                continue;
             } else {
                 timeAdder = new TimeAdder(dayPlannedActions, appReq, day);
             }
@@ -172,33 +202,70 @@ public class PlanAheadBoardService {
         }
         model.setDayHeaders(dayHeaders);
 
-        model.setRows(createRows(appReq, mode, dayHeaders, movableByDayRow));
-        model.setOverdueRow(createOverdueRow(appReq, mode, todayKey, overdueActions));
+        model.setRows(createRows(appReq, mode, dayHeaders, movableByDayRow, spentTodayByActionId));
+        model.setOverdueRow(createOverdueRow(appReq, mode, todayKey, overdueActions, spentTodayByActionId));
+        model.setTimeSpentRow(createTimeSpentRow(appReq, mode, todayKey, timeSpentActions, spentTodayByActionId));
         return model;
+    }
+
+    private int calculateTodayPlannedMinutes(AppReq appReq,
+            List<ActionNext> todayPlannedActions,
+            List<ActionNext> overdueActions) {
+        List<ActionNext> todayAndOverdue = mergeActionsDistinct(todayPlannedActions, overdueActions);
+        TimeAdder timeAdderToday = new TimeAdder(todayAndOverdue, appReq);
+        TimeAdder timeAdderScheduled = new TimeAdder(todayAndOverdue, appReq, appReq.getWebUser().getToday());
+        return timeAdderToday.getCompletedAct()
+                + timeAdderScheduled.getCommittedEst()
+                + timeAdderScheduled.getWillEst()
+                + timeAdderScheduled.getWillMeetEst();
+    }
+
+    private List<ActionNext> mergeActionsDistinct(List<ActionNext> primary, List<ActionNext> secondary) {
+        List<ActionNext> merged = new ArrayList<ActionNext>();
+        Set<Integer> seenActionIds = new HashSet<Integer>();
+        addDistinctByActionId(merged, seenActionIds, primary);
+        addDistinctByActionId(merged, seenActionIds, secondary);
+        return merged;
+    }
+
+    private void addDistinctByActionId(List<ActionNext> merged, Set<Integer> seenActionIds, List<ActionNext> source) {
+        if (source == null) {
+            return;
+        }
+        for (ActionNext action : source) {
+            if (action == null) {
+                continue;
+            }
+            if (seenActionIds.add(action.getActionNextId())) {
+                merged.add(action);
+            }
+        }
     }
 
     private List<PlanAheadBoardModel.RowModel> createRows(AppReq appReq,
             String mode,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
-            Map<String, List<ActionNext>> movableByDayRow) {
+            Map<String, List<ActionNext>> movableByDayRow,
+            Map<Integer, Integer> spentTodayByActionId) {
         List<PlanAheadBoardModel.RowModel> rows = new ArrayList<PlanAheadBoardModel.RowModel>();
         if (MODE_PERSONAL.equalsIgnoreCase(mode)) {
-            rows.add(createRow(appReq, ROW_WAKE, "Wake", dayHeaders, movableByDayRow));
-            rows.add(createRow(appReq, ROW_MORNING, "Morning", dayHeaders, movableByDayRow));
-            rows.add(createRow(appReq, ROW_AFTERNOON, "Afternoon", dayHeaders, movableByDayRow));
-            rows.add(createRow(appReq, ROW_EVENING, "Evening", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_WAKE, "Wake", dayHeaders, movableByDayRow, spentTodayByActionId));
+            rows.add(createRow(appReq, ROW_MORNING, "Morning", dayHeaders, movableByDayRow, spentTodayByActionId));
+            rows.add(createRow(appReq, ROW_AFTERNOON, "Afternoon", dayHeaders, movableByDayRow, spentTodayByActionId));
+            rows.add(createRow(appReq, ROW_EVENING, "Evening", dayHeaders, movableByDayRow, spentTodayByActionId));
         } else {
-            rows.add(createRow(appReq, ROW_MEETINGS, "Meetings", dayHeaders, movableByDayRow));
-            rows.add(createRow(appReq, ROW_COMMITTED, "Committed", dayHeaders, movableByDayRow));
-            rows.add(createRow(appReq, ROW_WILL, "Will", dayHeaders, movableByDayRow));
-            rows.add(createRow(appReq, ROW_MIGHT, "Might", dayHeaders, movableByDayRow));
+            rows.add(createRow(appReq, ROW_MEETINGS, "Meetings", dayHeaders, movableByDayRow, spentTodayByActionId));
+            rows.add(createRow(appReq, ROW_COMMITTED, "Committed", dayHeaders, movableByDayRow, spentTodayByActionId));
+            rows.add(createRow(appReq, ROW_WILL, "Will", dayHeaders, movableByDayRow, spentTodayByActionId));
+            rows.add(createRow(appReq, ROW_MIGHT, "Might", dayHeaders, movableByDayRow, spentTodayByActionId));
         }
         return rows;
     }
 
     private PlanAheadBoardModel.RowModel createRow(AppReq appReq, String rowKey, String rowLabel,
             List<PlanAheadBoardModel.DayHeaderModel> dayHeaders,
-            Map<String, List<ActionNext>> movableByDayRow) {
+            Map<String, List<ActionNext>> movableByDayRow,
+            Map<Integer, Integer> spentTodayByActionId) {
         PlanAheadBoardModel.RowModel row = new PlanAheadBoardModel.RowModel();
         row.setRowKey(rowKey);
         row.setRowLabel(rowLabel);
@@ -221,13 +288,19 @@ public class PlanAheadBoardService {
 
             List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
             for (ActionNext action : actions) {
+                int spentTodayMins = n(spentTodayByActionId.get(action.getActionNextId()));
+                int totalEstimateMins = n(action.getNextTimeEstimate());
+                int remainingMins = Math.max(totalEstimateMins - spentTodayMins, 0);
                 PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
                 card.setActionNextId(action.getActionNextId());
                 card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
                 card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
                 card.setRawDescription(n(action.getNextDescription()));
-                card.setEstimateMins(n(action.getNextTimeEstimate()));
+                card.setEstimateMins(totalEstimateMins);
                 card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
+                card.setRemainingMins(remainingMins);
+                card.setSpentTodayMins(spentTodayMins);
+                card.setSpentTodayDisplay(spentTodayMins > 0 ? ActionNext.getTimeForDisplay(spentTodayMins) : "");
                 card.setNextActionType(n(action.getNextActionType()));
                 card.setRescheduleLocked(action.isRescheduleLocked());
                 cards.add(card);
@@ -330,21 +403,119 @@ public class PlanAheadBoardService {
         return filtered;
     }
 
+    private List<ActionNext> loadTimeSpentActionsForToday(AppReq appReq) {
+        Session dataSession = appReq.getDataSession();
+        Date today = stripToDate(appReq.getWebUser(), appReq.getWebUser().getToday());
+        Date tomorrow = nextDay(today, appReq.getWebUser());
+        Query query = dataSession.createQuery(
+                "select distinct an from ActionNext an "
+                        + "left join fetch an.project "
+                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
+                        + "and an.billable = :billable "
+                        + "and an.nextDescription <> '' "
+                        + "and exists (select 1 from BillEntry be "
+                        + "where be.action.actionNextId = an.actionNextId "
+                        + "and be.webUser.webUserId = :webUserId "
+                        + "and be.startTime >= :today "
+                        + "and be.startTime < :tomorrow "
+                        + "and be.billMins > 0) "
+                        + "order by an.priorityLevel desc, an.nextTimeEstimate desc");
+        query.setParameter("workspaceId", appReq.getActiveWorkspaceId());
+        query.setParameter("contactId", appReq.getWebUser().getContactId());
+        query.setParameter("nextContactId", appReq.getWebUser().getContactId());
+        query.setParameter("billable", true);
+        query.setParameter("webUserId", appReq.getWebUser().getWebUserId());
+        query.setParameter("today", today);
+        query.setParameter("tomorrow", tomorrow);
+        @SuppressWarnings("unchecked")
+        List<ActionNext> list = query.list();
+        return list;
+    }
+
+    private Map<Integer, Integer> loadSpentTodayByActionId(AppReq appReq) {
+        Session dataSession = appReq.getDataSession();
+        Date today = stripToDate(appReq.getWebUser(), appReq.getWebUser().getToday());
+        Date tomorrow = nextDay(today, appReq.getWebUser());
+        Query query = dataSession.createQuery(
+                "select be.action.actionNextId, sum(be.billMins) from BillEntry be "
+                        + "where be.webUser.webUserId = :webUserId "
+                        + "and be.startTime >= :today and be.startTime < :tomorrow "
+                        + "and be.billMins > 0 and be.action is not null "
+                        + "group by be.action.actionNextId");
+        query.setParameter("webUserId", appReq.getWebUser().getWebUserId());
+        query.setParameter("today", today);
+        query.setParameter("tomorrow", tomorrow);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.list();
+        Map<Integer, Integer> spentByActionId = new HashMap<Integer, Integer>();
+        for (Object[] row : rows) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) {
+                continue;
+            }
+            int actionId = ((Number) row[0]).intValue();
+            int spentMins = ((Number) row[1]).intValue();
+            spentByActionId.put(actionId, spentMins);
+        }
+        return spentByActionId;
+    }
+
     private PlanAheadBoardModel.OverdueRowModel createOverdueRow(AppReq appReq, String mode,
-            String todayKey, List<ActionNext> overdueActions) {
+            String todayKey, List<ActionNext> overdueActions, Map<Integer, Integer> spentTodayByActionId) {
         PlanAheadBoardModel.OverdueRowModel row = new PlanAheadBoardModel.OverdueRowModel();
         row.setTodayKey(todayKey);
         List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
         for (ActionNext action : overdueActions) {
+            int spentTodayMins = n(spentTodayByActionId.get(action.getActionNextId()));
+            int totalEstimateMins = n(action.getNextTimeEstimate());
+            int remainingMins = Math.max(totalEstimateMins - spentTodayMins, 0);
             PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
             card.setActionNextId(action.getActionNextId());
             card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
             card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
             card.setRawDescription(n(action.getNextDescription()));
-            card.setEstimateMins(n(action.getNextTimeEstimate()));
+            card.setEstimateMins(totalEstimateMins);
             card.setEstimateDisplay(action.getNextTimeEstimateForDisplay());
+            card.setRemainingMins(remainingMins);
+            card.setSpentTodayMins(spentTodayMins);
+            card.setSpentTodayDisplay(spentTodayMins > 0 ? ActionNext.getTimeForDisplay(spentTodayMins) : "");
             card.setNextActionType(n(action.getNextActionType()));
             card.setRescheduleLocked(action.isRescheduleLocked());
+            cards.add(card);
+        }
+        cards.sort(Comparator
+                .comparing((PlanAheadBoardModel.CardModel c) -> c.getEstimateMins()).reversed()
+                .thenComparing(PlanAheadBoardModel.CardModel::getActionNextId));
+        row.setCards(cards);
+        return row;
+    }
+
+    private PlanAheadBoardModel.TimeSpentRowModel createTimeSpentRow(AppReq appReq, String mode,
+            String todayKey, List<ActionNext> timeSpentActions, Map<Integer, Integer> spentTodayByActionId) {
+        PlanAheadBoardModel.TimeSpentRowModel row = new PlanAheadBoardModel.TimeSpentRowModel();
+        row.setTodayKey(todayKey);
+        if (!MODE_WORK.equalsIgnoreCase(mode)) {
+            return row;
+        }
+
+        List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
+        for (ActionNext action : timeSpentActions) {
+            int spentMins = n(spentTodayByActionId.get(action.getActionNextId()));
+            if (spentMins <= 0) {
+                continue;
+            }
+            PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
+            card.setActionNextId(action.getActionNextId());
+            card.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
+            card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
+            card.setRawDescription(n(action.getNextDescription()));
+            card.setEstimateMins(spentMins);
+            card.setEstimateDisplay(ActionNext.getTimeForDisplay(spentMins));
+            card.setRemainingMins(spentMins);
+            card.setSpentTodayMins(spentMins);
+            card.setSpentTodayDisplay(ActionNext.getTimeForDisplay(spentMins));
+            card.setNextActionType(n(action.getNextActionType()));
+            card.setRescheduleLocked(true);
             cards.add(card);
         }
         cards.sort(Comparator

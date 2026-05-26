@@ -34,12 +34,7 @@ public class PlanAheadPageRenderer {
                 printQuickCapture(out, boardModel);
                 out.println("  </div>");
 
-                int viewAllocatedMins = 0;
-                if (!personalMode) {
-                        for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
-                                viewAllocatedMins += dayHeader.getBillMins();
-                        }
-                }
+                int viewAllocatedMins = computeFirstDisplayedDayTotal(boardModel);
                 out.println("  <div class=\"pa-controls\">");
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?windowStart="
                                 + escapeHtml(todayKey)
@@ -55,25 +50,29 @@ public class PlanAheadPageRenderer {
                         out.println(renderDayHeader(dayHeader));
                 }
 
+                out.println("    <div class=\"pa-cell pa-cell-label pa-status pa-status-total-cell\">");
+                out.println("      <div class=\"pa-status-main\">");
+                out.println("        <span class=\"pa-status-total-label\">Working</span>");
+                out.println("        <span id=\"pa-view-total\" class=\"pa-card-est-box pa-status-total-box\""
+                                + " title=\"First Displayed Day Total\">"
+                                + escapeHtml(TimeTracker.formatTime(viewAllocatedMins))
+                                + "</span>");
+                out.println("      </div>");
+                out.println("    </div>");
                 if (!personalMode) {
-                        out.println("    <div class=\"pa-cell pa-cell-label pa-status pa-status-total-cell\">");
-                        out.println("      <div class=\"pa-status-main\">");
-                        out.println("        <span class=\"pa-status-total-label\">Working</span>");
-                        out.println("        <span id=\"pa-view-total\" class=\"pa-card-est-box pa-status-total-box\""
-                                        + " title=\"Total Time in View\">"
-                                        + escapeHtml(TimeTracker.formatTime(viewAllocatedMins))
-                                        + "</span>");
-                        out.println("      </div>");
-                        out.println("    </div>");
                         for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
                                 out.println(renderDayStatusCell(dayHeader));
+                        }
+                } else {
+                        for (int i = 0; i < boardModel.getDayHeaders().size(); i++) {
+                                out.println("    <div class=\"pa-cell pa-cell-blank pa-status\"></div>");
                         }
                 }
 
                 if (boardModel.getOverdueRow().isHasItems()) {
                         int overdueTotalMins = 0;
                         for (PlanAheadBoardModel.CardModel c : boardModel.getOverdueRow().getCards()) {
-                                overdueTotalMins += c.getEstimateMins();
+                                overdueTotalMins += c.getRemainingMins();
                         }
                         out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-row-overdue-label\""
                                         + " id=\"pa-row-label-overdue\" data-row-key=\"overdue\">"
@@ -92,7 +91,7 @@ public class PlanAheadPageRenderer {
                         int rowTotalMins = 0;
                         for (PlanAheadBoardModel.CellModel rowCell : row.getCells()) {
                                 for (PlanAheadBoardModel.CardModel rowCard : rowCell.getCards()) {
-                                        rowTotalMins += rowCard.getEstimateMins();
+                                        rowTotalMins += rowCard.getRemainingMins();
                                 }
                         }
                         out.println("    <div class=\"pa-cell pa-cell-label pa-row-label\""
@@ -105,6 +104,24 @@ public class PlanAheadPageRenderer {
                                         + "</div>");
                         for (PlanAheadBoardModel.CellModel cell : row.getCells()) {
                                 out.println(renderKanbanCell(cell, boardModel.isWorkMode()));
+                        }
+                }
+
+                if (boardModel.getTimeSpentRow().isHasItems()) {
+                        int completedTotalMins = 0;
+                        for (PlanAheadBoardModel.CardModel c : boardModel.getTimeSpentRow().getCards()) {
+                                completedTotalMins += c.getEstimateMins();
+                        }
+                        out.println("    <div class=\"pa-cell pa-cell-label pa-row-label pa-row-completed-label\""
+                                        + " id=\"pa-row-label-completed\" data-row-key=\"completed\">"
+                                        + "<span class=\"pa-row-label-name\">Time Spent</span>"
+                                        + "<span class=\"pa-row-total pa-card-est-box\">"
+                                        + escapeHtml(TimeTracker.formatTime(completedTotalMins))
+                                        + "</span>"
+                                        + "</div>");
+                        out.println(renderCompletedTodayCell(boardModel.getTimeSpentRow(), boardModel.isWorkMode()));
+                        for (int i = 1; i < boardModel.getDayHeaders().size(); i++) {
+                                out.println("    <div class=\"pa-cell pa-overdue-disabled\"></div>");
                         }
                 }
 
@@ -543,18 +560,19 @@ public class PlanAheadPageRenderer {
                 out.println("  }");
 
                 out.println("  function paRecalculateTotals(){");
-                out.println("    var grandTotal = 0;");
-                out.println("    document.querySelectorAll('.pa-status-time-btn').forEach(function(btn){");
-                out.println("      var mins = parseInt(btn.getAttribute('data-bill-mins') || '0', 10);");
-                out.println("      if (!isNaN(mins) && mins > 0) { grandTotal += mins; }");
-                out.println("    });");
+                out.println("    var firstDayTotal = 0;");
+                out.println("    var firstStatusBtn = document.querySelector('.pa-status-time-btn');");
+                out.println("    if (firstStatusBtn) {");
+                out.println("      var mins = parseInt(firstStatusBtn.getAttribute('data-bill-mins') || '0', 10);");
+                out.println("      if (!isNaN(mins) && mins > 0) { firstDayTotal = mins; }");
+                out.println("    }");
                 out.println("    var rowLabelEls = document.querySelectorAll('[data-row-key]');");
                 out.println("    rowLabelEls.forEach(function(labelEl){");
                 out.println("      var rowKey = labelEl.getAttribute('data-row-key');");
                 out.println("      var rowTotal = 0;");
-                out.println("      document.querySelectorAll('.pa-kanban[data-row=\"' + rowKey + '\"]').forEach(function(cell){");
-                out.println("        cell.querySelectorAll('.pa-card-est-editable').forEach(function(btn){");
-                out.println("          var mins = parseInt(btn.getAttribute('data-est-mins') || '0', 10);");
+                out.println("      document.querySelectorAll('[data-row=\"' + rowKey + '\"]').forEach(function(cell){");
+                out.println("        cell.querySelectorAll('[data-row-mins],[data-est-mins]').forEach(function(btn){");
+                out.println("          var mins = parseInt(btn.getAttribute('data-row-mins') || btn.getAttribute('data-est-mins') || '0', 10);");
                 out.println("          if (!isNaN(mins) && mins > 0) { rowTotal += mins; }");
                 out.println("        });");
                 out.println("      });");
@@ -562,7 +580,7 @@ public class PlanAheadPageRenderer {
                 out.println("      if (totalSpan) { totalSpan.textContent = paMinutesToClock(rowTotal); }");
                 out.println("    });");
                 out.println("    var grandEl = document.getElementById('pa-view-total');");
-                out.println("    if (grandEl) { grandEl.textContent = paMinutesToClock(grandTotal); }");
+                out.println("    if (grandEl) { grandEl.textContent = paMinutesToClock(firstDayTotal); }");
                 out.println("  }");
 
                 out.println("  function paSaveDayCapacityValue(dayKey, statusCode, billMins, applyHeader){");
@@ -1092,12 +1110,19 @@ public class PlanAheadPageRenderer {
                                                 .append(card.getActionNextId())
                                                 .append(", event)\">edit</button>");
                                 s.append("</div>");
+                                if (card.getSpentTodayMins() > 0) {
+                                        s.append("<div class=\"pa-card-spent-note\">Spent today: ")
+                                                        .append(escapeHtml(card.getSpentTodayDisplay()))
+                                                        .append("</div>");
+                                }
                                 s.append("</div>");
                                 if (showEstimate) {
                                         s.append("<button type=\"button\" class=\"pa-card-est-box pa-card-est-editable\" data-action-id=\"")
                                                         .append(card.getActionNextId())
                                                         .append("\" data-est-mins=\"")
                                                         .append(card.getEstimateMins())
+                                                        .append("\" data-row-mins=\"")
+                                                        .append(card.getRemainingMins())
                                                         .append("\" title=\"Click to edit estimate\">")
                                                         .append(escapeHtml(card.getEstimateDisplay()))
                                                         .append("</button>");
@@ -1122,6 +1147,11 @@ public class PlanAheadPageRenderer {
                 return renderOverdueTodayCell(overdueRow, showEstimate);
         }
 
+        public String renderCompletedCellHtml(PlanAheadBoardModel.TimeSpentRowModel completedRow,
+                        boolean showEstimate) {
+                return renderCompletedTodayCell(completedRow, showEstimate);
+        }
+
         public String renderTemplateSelectionCellHtml(PlanAheadBoardModel.TemplateCardModel templateCard,
                         PlanAheadBoardModel.DayHeaderModel dayHeader) {
                 StringBuilder sb = new StringBuilder();
@@ -1143,7 +1173,7 @@ public class PlanAheadPageRenderer {
                 s.append("    <div class=\"pa-cell pa-overdue-today\" id=\"")
                                 .append(kanbanCellDomId(overdueRow.getTodayKey(),
                                                 org.dandeliondaily.planahead.service.PlanAheadBoardService.ROW_OVERDUE))
-                                .append("\">");
+                                .append("\" data-row=\"overdue\">");
                 for (PlanAheadBoardModel.CardModel card : overdueRow.getCards()) {
                         s.append("<div class=\"pa-card pa-card-overdue\" draggable=\"true\" data-action-id=\"")
                                         .append(card.getActionNextId()).append("\"");
@@ -1168,12 +1198,19 @@ public class PlanAheadPageRenderer {
                                         .append(card.getActionNextId())
                                         .append(", event, true)\">edit</button>");
                         s.append("</div>");
+                        if (card.getSpentTodayMins() > 0) {
+                                s.append("<div class=\"pa-card-spent-note\">Spent today: ")
+                                                .append(escapeHtml(card.getSpentTodayDisplay()))
+                                                .append("</div>");
+                        }
                         s.append("</div>");
                         if (showEstimate) {
                                 s.append("<button type=\"button\" class=\"pa-card-est-box pa-card-est-editable\" data-action-id=\"")
                                                 .append(card.getActionNextId())
                                                 .append("\" data-est-mins=\"")
                                                 .append(card.getEstimateMins())
+                                                .append("\" data-row-mins=\"")
+                                                .append(card.getRemainingMins())
                                                 .append("\" title=\"Click to edit estimate\">")
                                                 .append(escapeHtml(card.getEstimateDisplay()))
                                                 .append("</button>");
@@ -1183,6 +1220,51 @@ public class PlanAheadPageRenderer {
                 }
                 s.append("</div>");
                 return s.toString();
+        }
+
+        private String renderCompletedTodayCell(PlanAheadBoardModel.TimeSpentRowModel completedRow,
+                        boolean showEstimate) {
+                StringBuilder s = new StringBuilder();
+                s.append("    <div class=\"pa-cell pa-overdue-today pa-completed-today\" id=\"")
+                                .append(kanbanCellDomId(completedRow.getTodayKey(),
+                                                org.dandeliondaily.planahead.service.PlanAheadBoardService.ROW_COMPLETED))
+                                .append("\" data-row=\"completed\">");
+                for (PlanAheadBoardModel.CardModel card : completedRow.getCards()) {
+                        s.append("<div class=\"pa-card pa-card-completed\" data-action-id=\"")
+                                        .append(card.getActionNextId())
+                                        .append("\" data-reschedule-locked=\"true\">");
+                        s.append("<div class=\"pa-card-main\">");
+                        s.append("<div class=\"pa-card-body\">");
+                        s.append("<div class=\"pa-card-title\">")
+                                        .append(card.getDescription())
+                                        .append("</div>");
+                        s.append("<div class=\"pa-card-subline\">");
+                        s.append("<span class=\"pa-card-project\">")
+                                        .append(escapeHtml(card.getProjectName()))
+                                        .append("</span>");
+                        s.append("<span class=\"pa-card-readonly-note\">final</span>");
+                        s.append("</div>");
+                        s.append("</div>");
+                        if (showEstimate) {
+                                s.append("<span class=\"pa-card-est-box pa-card-est-readonly\" data-est-mins=\"")
+                                                .append(card.getEstimateMins())
+                                                .append("\">")
+                                                .append(escapeHtml(card.getEstimateDisplay()))
+                                                .append("</span>");
+                        }
+                        s.append("</div>");
+                        s.append("</div>");
+                }
+                s.append("</div>");
+                return s.toString();
+        }
+
+        int computeFirstDisplayedDayTotal(PlanAheadBoardModel boardModel) {
+                if (boardModel == null || boardModel.getDayHeaders() == null || boardModel.getDayHeaders().isEmpty()) {
+                        return 0;
+                }
+                PlanAheadBoardModel.DayHeaderModel firstDay = boardModel.getDayHeaders().get(0);
+                return firstDay == null ? 0 : firstDay.getBillMins();
         }
 
         public static String dayHeaderDomId(String dayKey) {
@@ -1261,8 +1343,15 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-row-overdue-label{background:#fff0ee;color:#8b2020;}");
                 out.println(".pa-row-overdue-label .pa-row-label-name{color:#8b2020;}");
                 out.println(".pa-row-overdue-label .pa-card-est-box{background:#fdecea;border-color:#e0a0a0;color:#8b2020;}");
+                out.println(".pa-row-completed-label{background:#edf5ec;color:#27562d;}");
+                out.println(".pa-row-completed-label .pa-row-label-name{color:#27562d;}");
+                out.println(".pa-row-completed-label .pa-card-est-box{background:#e4f2e2;border-color:#9bc39b;color:#27562d;}");
                 out.println(".pa-overdue-today{background:#fff0ee;padding:6px 8px;min-height:40px;}");
                 out.println(".pa-card-overdue{background:#fdecea;border-color:#e0a0a0;}");
+                out.println(".pa-completed-today{background:#edf5ec;}");
+                out.println(".pa-card-completed{background:#f3faf1;border-color:#b9d7b9;cursor:default;}");
+                out.println(".pa-card-readonly-note{font-size:11px;color:#5f7a64;font-style:italic;}");
+                out.println(".pa-card-est-readonly{cursor:default;background:#f8fff8;}");
                 out.println(".pa-overdue-disabled{background:#f5f5f5;background-image:repeating-linear-gradient(45deg,#e2e2e2 0,#e2e2e2 1px,transparent 0,transparent 50%);background-size:6px 6px;min-height:40px;}");
                 out.println(
                                 ".pa-card{background:#f6f8fb;border:1px solid #d9e1ea;border-radius:6px;padding:6px 8px;margin-bottom:6px;cursor:grab;}");
@@ -1272,6 +1361,7 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-card-title i{font-style:italic;color:#3a4d5b;}");
                 out.println(".pa-card-desc-editable{cursor:text;}");
                 out.println(".pa-card-subline{margin-top:4px;display:flex;align-items:center;gap:8px;min-width:0;}");
+                out.println(".pa-card-spent-note{margin-top:3px;font-size:11px;color:#5a6f81;}");
                 out.println(".pa-card-project{font-size:11px;font-weight:bold;color:#4b6072;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}");
                 out.println(".pa-card-edit-link{border:none;background:none;padding:0;color:#9aa0a6;font-size:11px;cursor:pointer;text-decoration:none;}");
                 out.println(".pa-card-edit-link:hover{color:#6f767d;text-decoration:underline;}");

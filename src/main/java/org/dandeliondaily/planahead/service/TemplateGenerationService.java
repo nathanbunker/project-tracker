@@ -157,6 +157,29 @@ public class TemplateGenerationService {
     }
 
     /**
+     * Zero out actual minutes for past active items so today's display starts
+     * fresh every day.
+     */
+    public void cleanupPastActualTimes(Session session, int workspaceId, int contactId,
+            LocalDate today) {
+        Date todayDate = toUtcDate(today);
+        Query query = session.createQuery(
+                "update ActionNext an set an.nextTimeActual = 0 "
+                        + "where an.workspaceId = :workspaceId "
+                        + "and (an.contactId = :contactId or an.nextContactId = :contactId) "
+                        + "and an.nextActionDate is not null and an.nextActionDate < :today "
+                        + "and an.nextTimeActual > 0 "
+                        + "and an.nextActionStatusString <> :cancelled "
+                        + "and an.nextActionStatusString <> :completed");
+        query.setParameter("workspaceId", workspaceId);
+        query.setParameter("contactId", contactId);
+        query.setParameter("today", todayDate);
+        query.setParameter("cancelled", STATUS_CANCELLED);
+        query.setParameter("completed", ProjectNextActionStatus.COMPLETED.getId());
+        query.executeUpdate();
+    }
+
+    /**
      * Called immediately after a template definition is saved via the UI.
      * Propagates field changes to future instances, cancels instances that no
      * longer match the updated schedule, and generates new instances for any

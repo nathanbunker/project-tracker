@@ -111,6 +111,7 @@ public class TemplateSchedulerListener implements ServletContextListener {
             transaction = session.beginTransaction();
             generationService.applyMissedActionBehavior(session, workspaceId, contactId, today);
             generationService.generateForwardWindow(session, workspaceId, contactId, today, advanceDays);
+            generationService.cleanupPastActualTimes(session, workspaceId, contactId, today);
             transaction.commit();
         } catch (RuntimeException re) {
             if (transaction != null) {
