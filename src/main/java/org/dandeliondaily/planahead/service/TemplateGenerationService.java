@@ -189,7 +189,8 @@ public class TemplateGenerationService {
 
         // Step 3 — generate new instances for matching dates that don't have one yet.
         // Reset lastGeneratedDate first so generateForTemplate always covers the full
-        // [today, today+advanceDays] window even if it was already set to a future date.
+        // [today, today+advanceDays] window even if it was already set to a future
+        // date.
         // Without this, lastGeneratedDate causes generateForTemplate to skip the window
         // entirely after cancellations from a schedule change.
         ActionNextTemplateConfig configForReset = (ActionNextTemplateConfig) session.get(
