@@ -37,6 +37,11 @@ import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WeUserDependency;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
+import java.time.LocalDate;
+import org.dandeliondaily.planahead.service.TemplateGenerationService;
+import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
+import org.openimmunizationsoftware.pt.model.ActionNextTemplateConfig;
+
 public class ScheduleSchoolServlet extends ClientServlet {
 
     private static final String PARAM_DEPENDENCY_ID = "dependencyId";
@@ -50,13 +55,19 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String ACTION_DELETE_SCHEDULE_ACTION = "DeleteScheduleAction";
     private static final String ACTION_ADD_SCHEDULE_ACTION = "AddScheduleAction";
 
-    private static final String TEMPLATE_SELECTED = "s";
     private static final String PROJECT_ID = "projectId";
     private static final String TIME_ESTIMATE = "te";
     private static final String TIME_SLOT = "ts";
     private static final String NEXT_DESCRIPTION = "nd";
     private static final String NEXT_ACTION_TYPE = "na";
     private static final String GAME_POINTS = "gp";
+    private static final String TEMPLATE_TYPE = "tt";
+    private static final String MISSED_ACTION_BEHAVIOR = "mab";
+    private static final String AUTO_GENERATE = "ag";
+    private static final String SCHEDULE_DAYS_OF_WEEK = "sdow";
+    private static final String SCHEDULE_DAYS_OF_MONTH = "sdom";
+    private static final String SCHEDULE_DAYS_OF_QUARTER = "sdoq";
+    private static final String SCHEDULE_DAYS_OF_YEAR = "sdoy";
     private static final String PARAM_EDIT_NEXT_DESCRIPTION = "editNextDescription";
     private static final String PARAM_EDIT_NEXT_ACTION_DATE = "editNextActionDate";
     private static final String PARAM_EDIT_NEXT_TIME_ESTIMATE = "editNextTimeEstimate";
@@ -64,7 +75,6 @@ public class ScheduleSchoolServlet extends ClientServlet {
     private static final String PARAM_EDIT_NEXT_ACTION_TYPE = "editNextActionType";
     private static final String PARAM_EDIT_PROJECT_ID = "editProjectId";
 
-    private static final int TEMPLATE_DAY_SPAN = 15;
     private static final int ASSIGNMENT_PAST_DAYS = 2;
     private static final int ASSIGNMENT_FUTURE_DAYS = 7;
 
@@ -112,15 +122,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
             Map<Integer, Boolean> projectBillableMap = buildProjectBillableMap(projectList, dataSession,
                     activeWorkspaceId);
 
-            List<Calendar> dayList = buildTemplateDayList(dependentUser);
-            Calendar dayRangeEnd = (Calendar) dayList.get(dayList.size() - 1).clone();
-            dayRangeEnd.add(Calendar.DAY_OF_MONTH, 1);
-
             Map<Project, List<ActionNext>> templateMap = new HashMap<Project, List<ActionNext>>();
-            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap = new HashMap<ActionNext, Map<Calendar, ActionNext>>();
-            populateTemplateData(dataSession, dependentUser, projectList, dayList, dayRangeEnd, activeWorkspaceId,
-                    templateMap,
-                    projectActionDayMap);
+            Map<Integer, ActionNextTemplateConfig> templateConfigMap = new HashMap<Integer, ActionNextTemplateConfig>();
+            populateTemplateData(dataSession, dependentUser, projectList, activeWorkspaceId, templateMap,
+                    templateConfigMap);
 
             String action = appReq.getAction();
             if (ACTION_MOVE_UP.equals(action) || ACTION_MOVE_DOWN.equals(action)) {
@@ -145,8 +150,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 return;
             }
             if (ACTION_UPDATE.equals(action)) {
-                handleTemplateUpdate(request, dataSession, dependentUser, projectList, projectBillableMap, dayList,
-                        templateMap, projectActionDayMap, activeWorkspaceId);
+                handleTemplateUpdate(request, dataSession, dependentUser, projectList, projectBillableMap,
+                        templateMap, activeWorkspaceId);
                 response.sendRedirect(buildSelfUrl(dependency.getDependencyId()));
                 return;
             }
@@ -173,9 +178,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             out.println("<h2>Template Scheduler</h2>");
-            printTemplateTable(out, dependentUser, dayList, schoolProjects, templateMap, projectActionDayMap,
+            printTemplateTable(out, dependentUser, schoolProjects, templateMap, templateConfigMap,
                     "School", "School", false);
-            printTemplateTable(out, dependentUser, dayList, choreProjects, templateMap, projectActionDayMap,
+            printTemplateTable(out, dependentUser, choreProjects, templateMap, templateConfigMap,
                     "Chores", "Chores", true);
 
             out.println("<br/>");
@@ -267,29 +272,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return billableMap;
     }
 
-    private List<Calendar> buildTemplateDayList(WebUser dependentUser) {
-        List<Calendar> dayList = new ArrayList<Calendar>();
-        for (int i = 0; i < TEMPLATE_DAY_SPAN; i++) {
-            Calendar day = dependentUser.getCalendar();
-            day.set(Calendar.HOUR_OF_DAY, 0);
-            day.set(Calendar.MINUTE, 0);
-            day.set(Calendar.SECOND, 0);
-            day.set(Calendar.MILLISECOND, 0);
-            day.add(Calendar.DAY_OF_MONTH, i);
-            dayList.add(day);
-        }
-        return dayList;
-    }
-
     private void populateTemplateData(Session dataSession, WebUser dependentUser, List<Project> projectList,
-            List<Calendar> dayList, Calendar dayRangeEnd, Integer workspaceId,
-            Map<Project, List<ActionNext>> templateMap,
-            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap) {
-
-        Map<String, Calendar> dayByKey = new HashMap<String, Calendar>();
-        for (Calendar day : dayList) {
-            dayByKey.put(toDayKey(day), day);
-        }
+            Integer workspaceId, Map<Project, List<ActionNext>> templateMap,
+            Map<Integer, ActionNextTemplateConfig> templateConfigMap) {
 
         for (Project project : projectList) {
             Query templateQuery = dataSession.createQuery(
@@ -308,33 +293,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
             templateMap.put(project, templateList);
 
             for (ActionNext templateAction : templateList) {
-                Map<Calendar, ActionNext> projectActionMap = new HashMap<Calendar, ActionNext>();
-                projectActionDayMap.put(templateAction, projectActionMap);
-
-                Query dayQuery = dataSession.createQuery(
-                        "from ActionNext where templateActionNextId = :templateActionNextId "
-                                + "and nextActionDate >= :nextActionDate "
-                                + "and nextActionDate < :nextActionDateEnd "
-                                + "and (contactId = :contactId or nextContactId = :nextContactId) "
-                                + "and workspaceId = :workspaceId "
-                                + "and nextActionStatusString in (:readyStatus, :completedStatus, :cancelledStatus) "
-                                + "order by nextChangeDate desc");
-                dayQuery.setParameter("templateActionNextId", templateAction.getActionNextId());
-                dayQuery.setParameter("nextActionDate", java.sql.Date.valueOf(toDayKey(dayList.get(0))));
-                dayQuery.setParameter("nextActionDateEnd", java.sql.Date.valueOf(toDayKey(dayRangeEnd)));
-                dayQuery.setParameter("contactId", dependentUser.getContactId());
-                dayQuery.setParameter("nextContactId", dependentUser.getContactId());
-                dayQuery.setParameter("workspaceId", workspaceId);
-                dayQuery.setParameter("readyStatus", ProjectNextActionStatus.READY.getId());
-                dayQuery.setParameter("completedStatus", ProjectNextActionStatus.COMPLETED.getId());
-                dayQuery.setParameter("cancelledStatus", ProjectNextActionStatus.CANCELLED.getId());
-                @SuppressWarnings("unchecked")
-                List<ActionNext> scheduledList = dayQuery.list();
-                for (ActionNext scheduledAction : scheduledList) {
-                    Calendar calendar = dayByKey.get(toDayKey(scheduledAction.getNextActionDate()));
-                    if (calendar != null && !projectActionMap.containsKey(calendar)) {
-                        projectActionMap.put(calendar, scheduledAction);
-                    }
+                ActionNextTemplateConfig config = (ActionNextTemplateConfig) dataSession
+                        .get(ActionNextTemplateConfig.class, templateAction.getActionNextId());
+                if (config != null) {
+                    templateConfigMap.put(Integer.valueOf(templateAction.getActionNextId()), config);
                 }
             }
         }
@@ -342,13 +304,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
     private void handleTemplateUpdate(HttpServletRequest request, Session dataSession, WebUser dependentUser,
             List<Project> projectList, Map<Integer, Boolean> projectBillableMap,
-            List<Calendar> dayList,
             Map<Project, List<ActionNext>> templateMap,
-            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap,
             Integer workspaceId) {
 
-        SimpleDateFormat sdfField = dependentUser.getDateFormat("yyyyMMdd");
         Date endOfYear = calculateEndOfYear(dependentUser);
+        List<Integer> syncList = new ArrayList<Integer>();
 
         Transaction transaction = dataSession.beginTransaction();
         try {
@@ -361,7 +321,6 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 }
 
                 for (ActionNext templateAction : templateList) {
-                    Map<Calendar, ActionNext> projectActionMap = projectActionDayMap.get(templateAction);
                     String nextDescription = trim(
                             request.getParameter(NEXT_DESCRIPTION + templateAction.getActionNextId()),
                             12000);
@@ -373,7 +332,47 @@ public class ScheduleSchoolServlet extends ClientServlet {
                     String timeSlotString = request.getParameter(TIME_SLOT + templateAction.getActionNextId());
                     String pointsString = request.getParameter(GAME_POINTS + templateAction.getActionNextId());
 
-                    boolean templateChanged = !safe(templateAction.getNextDescription()).equals(nextDescription);
+                    String nextActionType = safe(
+                            request.getParameter(NEXT_ACTION_TYPE + templateAction.getActionNextId())).trim();
+                    if (nextActionType.isEmpty()) {
+                        nextActionType = ProjectNextActionType.WILL;
+                    }
+
+                    String templateTypeId = safe(
+                            request.getParameter(TEMPLATE_TYPE + templateAction.getActionNextId())).trim();
+                    TemplateType templateType = TemplateType.getTemplateType(templateTypeId);
+                    if (templateType == null) {
+                        templateType = templateAction.getTemplateType() != null
+                                ? templateAction.getTemplateType()
+                                : TemplateType.DAILY;
+                    }
+
+                    String missedActionBehavior = safe(
+                            request.getParameter(MISSED_ACTION_BEHAVIOR + templateAction.getActionNextId())).trim();
+                    if (missedActionBehavior.isEmpty()) {
+                        missedActionBehavior = "AUTO_CANCEL";
+                    }
+
+                    boolean autoGenerate = "Y".equals(
+                            safe(request.getParameter(AUTO_GENERATE + templateAction.getActionNextId())).trim());
+
+                    String scheduleDaysOfWeek = trim(
+                            safe(request.getParameter(SCHEDULE_DAYS_OF_WEEK + templateAction.getActionNextId())),
+                            200);
+                    String scheduleDaysOfMonth = trim(
+                            safe(request.getParameter(SCHEDULE_DAYS_OF_MONTH + templateAction.getActionNextId())),
+                            200);
+                    String scheduleDaysOfQuarter = trim(
+                            safe(request.getParameter(SCHEDULE_DAYS_OF_QUARTER + templateAction.getActionNextId())),
+                            200);
+                    String scheduleDaysOfYear = trim(
+                            safe(request.getParameter(SCHEDULE_DAYS_OF_YEAR + templateAction.getActionNextId())),
+                            200);
+
+                    boolean templateChanged = !safe(templateAction.getNextDescription()).equals(nextDescription)
+                            || templateType != templateAction.getTemplateType()
+                            || !nextActionType.equals(safe(templateAction.getNextActionType()));
+
                     if (projectBillable) {
                         Integer currentMinutes = templateAction.getNextTimeEstimate() == null ? Integer.valueOf(0)
                                 : templateAction.getNextTimeEstimate();
@@ -399,96 +398,47 @@ public class ScheduleSchoolServlet extends ClientServlet {
                         templateAction.setTimeSlot(requestedTimeSlot);
                     }
 
+                    templateAction.setNextDescription(nextDescription);
+                    templateAction.setTemplateType(templateType);
+                    templateAction.setNextActionType(nextActionType);
                     if (templateChanged) {
-                        templateAction.setNextDescription(nextDescription);
                         templateAction.setNextActionDate(endOfYear);
                         templateAction.setNextChangeDate(new Date());
-                        dataSession.update(templateAction);
                     }
+                    dataSession.update(templateAction);
 
-                    for (Calendar day : dayList) {
-                        String fieldName = TEMPLATE_SELECTED + templateAction.getActionNextId() + "."
-                                + sdfField.format(day.getTime());
-                        boolean checked = request.getParameter(fieldName) != null;
-                        ActionNext assignedAction = projectActionMap == null ? null : projectActionMap.get(day);
-                        boolean hasTemplateDescription = templateAction.getNextDescription() != null
-                                && !templateAction.getNextDescription().trim().equals("");
-
-                        if (!checked) {
-                            if (assignedAction != null
-                                    && assignedAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED) {
-                                assignedAction.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
-                                assignedAction.setNextChangeDate(new Date());
-                                dataSession.update(assignedAction);
-                            }
-                        } else {
-                            if (!hasTemplateDescription) {
-                                if (assignedAction != null
-                                        && assignedAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED) {
-                                    assignedAction.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
-                                    assignedAction.setNextChangeDate(new Date());
-                                    dataSession.update(assignedAction);
-                                }
-                                continue;
-                            }
-                            if (assignedAction == null) {
-                                assignedAction = new ActionNext();
-                                assignedAction.setProjectId(project.getProjectId());
-                                assignedAction.setContactId(dependentUser.getContactId());
-                                assignedAction.setContact(dependentUser.getProjectContact());
-                                assignedAction.setWorkspaceId(workspaceId);
-                                assignedAction.setNextActionDate(day.getTime());
-                                assignedAction.setBillable(projectBillable);
-                                assignedAction.setTemplateActionNextId(templateAction.getActionNextId());
-                                assignedAction.setProcessStage(templateAction.getProcessStage());
-                                assignedAction.setCompletionOrder(0);
-                                String nextActionType = request
-                                        .getParameter(NEXT_ACTION_TYPE + templateAction.getActionNextId());
-                                if (nextActionType == null || nextActionType.trim().equals("")) {
-                                    nextActionType = ProjectNextActionType.WILL;
-                                }
-                                assignedAction.setNextActionType(nextActionType);
-                                int priorityLevel = project.getPriorityLevel();
-                                if (ProjectNextActionType.COMMITTED_TO.equals(nextActionType)) {
-                                    priorityLevel += 1;
-                                } else if (ProjectNextActionType.MIGHT.equals(nextActionType)
-                                        || ProjectNextActionType.WAITING.equals(nextActionType)) {
-                                    priorityLevel -= 1;
-                                }
-                                assignedAction.setPriorityLevel(priorityLevel);
-                                if (!projectBillable) {
-                                    TimeSlot templateSlot = templateAction.getTimeSlot();
-                                    assignedAction
-                                            .setTimeSlot(templateSlot == null ? TimeSlot.AFTERNOON : templateSlot);
-                                }
-                                if (projectActionMap != null) {
-                                    projectActionMap.put(day, assignedAction);
-                                }
-                            }
-                            String assignedDescription = templateAction.getNextDescription();
-                            if (assignedDescription == null) {
-                                assignedDescription = "";
-                            }
-                            assignedAction.setNextDescription(assignedDescription);
-                            assignedAction.setNextTimeEstimate(templateAction.getNextTimeEstimate());
-                            assignedAction.setGamePoints(templateAction.getGamePoints());
-                            if (!projectBillable) {
-                                assignedAction.setTimeSlot(templateAction.getTimeSlot());
-                            }
-                            if (assignedAction.getNextActionStatus() == null
-                                    || assignedAction.getNextActionStatus() == ProjectNextActionStatus.CANCELLED) {
-                                assignedAction.setNextActionStatus(ProjectNextActionStatus.READY);
-                            }
-                            assignedAction.setNextChangeDate(new Date());
-                            dataSession.saveOrUpdate(assignedAction);
-                        }
+                    int id = templateAction.getActionNextId();
+                    ActionNextTemplateConfig config = (ActionNextTemplateConfig) dataSession
+                            .get(ActionNextTemplateConfig.class, id);
+                    if (config == null) {
+                        config = new ActionNextTemplateConfig();
+                        config.setActionNextId(id);
+                        config.setAutoGenerate(autoGenerate);
+                        config.setMissedActionBehavior(missedActionBehavior);
+                        config.setScheduleDaysOfWeek(scheduleDaysOfWeek.length() > 0 ? scheduleDaysOfWeek : null);
+                        config.setScheduleDaysOfMonth(scheduleDaysOfMonth.length() > 0 ? scheduleDaysOfMonth : null);
+                        config.setScheduleDaysOfQuarter(
+                                scheduleDaysOfQuarter.length() > 0 ? scheduleDaysOfQuarter : null);
+                        config.setScheduleDaysOfYear(scheduleDaysOfYear.length() > 0 ? scheduleDaysOfYear : null);
+                        dataSession.save(config);
+                    } else {
+                        config.setAutoGenerate(autoGenerate);
+                        config.setMissedActionBehavior(missedActionBehavior);
+                        config.setScheduleDaysOfWeek(scheduleDaysOfWeek.length() > 0 ? scheduleDaysOfWeek : null);
+                        config.setScheduleDaysOfMonth(scheduleDaysOfMonth.length() > 0 ? scheduleDaysOfMonth : null);
+                        config.setScheduleDaysOfQuarter(
+                                scheduleDaysOfQuarter.length() > 0 ? scheduleDaysOfQuarter : null);
+                        config.setScheduleDaysOfYear(scheduleDaysOfYear.length() > 0 ? scheduleDaysOfYear : null);
+                        dataSession.update(config);
                     }
+                    syncList.add(Integer.valueOf(id));
                 }
             }
 
             String[] addTemplateRequest = readAddTemplateRequest(request);
             if (addTemplateRequest != null) {
-                Project project = (Project) dataSession.get(Project.class, Integer.parseInt(addTemplateRequest[0]));
+                Project project = (Project) dataSession.get(Project.class,
+                        Integer.parseInt(addTemplateRequest[0]));
                 boolean projectBillable = Boolean.TRUE
                         .equals(projectBillableMap.get(Integer.valueOf(project.getProjectId())));
                 ActionNext templateAction = new ActionNext();
@@ -498,7 +448,11 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 templateAction.setProjectId(project.getProjectId());
                 templateAction.setNextActionDate(endOfYear);
                 templateAction.setNextActionType(ProjectNextActionType.WILL);
-                templateAction.setTemplateType(TemplateType.DAILY);
+                TemplateType newTemplateType = TemplateType.getTemplateType(addTemplateRequest[5]);
+                if (newTemplateType == null) {
+                    newTemplateType = TemplateType.DAILY;
+                }
+                templateAction.setTemplateType(newTemplateType);
                 templateAction.setNextDescription(trim(addTemplateRequest[1], 12000));
                 templateAction.setWorkspaceId(workspaceId);
                 templateAction.setBillable(projectBillable);
@@ -515,12 +469,72 @@ public class ScheduleSchoolServlet extends ClientServlet {
                     templateAction.setTimeSlot(timeSlot);
                 }
                 dataSession.save(templateAction);
+
+                int newId = templateAction.getActionNextId();
+                String newMissedBehavior = addTemplateRequest[6];
+                if (newMissedBehavior == null || newMissedBehavior.isEmpty()) {
+                    newMissedBehavior = "AUTO_CANCEL";
+                }
+                boolean newAutoGenerate = "Y".equals(addTemplateRequest[7]);
+                String newDaysOfWeek = addTemplateRequest[8];
+                String newDaysOfMonth = addTemplateRequest[9];
+                String newDaysOfQuarter = addTemplateRequest[10];
+                String newDaysOfYear = addTemplateRequest[11];
+                ActionNextTemplateConfig newConfig = new ActionNextTemplateConfig();
+                newConfig.setActionNextId(newId);
+                newConfig.setAutoGenerate(newAutoGenerate);
+                newConfig.setMissedActionBehavior(newMissedBehavior);
+                newConfig.setScheduleDaysOfWeek(
+                        newDaysOfWeek != null && newDaysOfWeek.length() > 0 ? newDaysOfWeek : null);
+                newConfig.setScheduleDaysOfMonth(
+                        newDaysOfMonth != null && newDaysOfMonth.length() > 0 ? newDaysOfMonth : null);
+                newConfig.setScheduleDaysOfQuarter(
+                        newDaysOfQuarter != null && newDaysOfQuarter.length() > 0 ? newDaysOfQuarter : null);
+                newConfig.setScheduleDaysOfYear(
+                        newDaysOfYear != null && newDaysOfYear.length() > 0 ? newDaysOfYear : null);
+                dataSession.save(newConfig);
+                syncList.add(Integer.valueOf(newId));
             }
 
             transaction.commit();
         } catch (RuntimeException e) {
             transaction.rollback();
             throw e;
+        }
+
+        // Second transaction: call syncAfterEdit for each modified template,
+        // using the dependent's workspace and contact — not the parent's.
+        if (!syncList.isEmpty()) {
+            int advanceDays = 14;
+            try {
+                advanceDays = Integer.parseInt(TrackerKeysManager.getKeyValue(
+                        TrackerKeysManager.KEY_TEMPLATE_ADVANCE_DAYS,
+                        TrackerKeysManager.KEY_TYPE_GLOBAL,
+                        TrackerKeysManager.KEY_ID_GLOBAL,
+                        "14", dataSession).trim());
+            } catch (NumberFormatException nfe) {
+                advanceDays = 14;
+            }
+            LocalDate today = LocalDate.now(dependentUser.getZoneId());
+            for (Integer templateId : syncList) {
+                Transaction syncTx = dataSession.beginTransaction();
+                try {
+                    ActionNext reloadedTemplate = (ActionNext) dataSession.get(ActionNext.class,
+                            templateId.intValue());
+                    if (reloadedTemplate != null) {
+                        new TemplateGenerationService().syncAfterEdit(
+                                dataSession, reloadedTemplate,
+                                workspaceId,
+                                dependentUser.getContactId(),
+                                today, advanceDays);
+                    }
+                    syncTx.commit();
+                } catch (RuntimeException e) {
+                    syncTx.rollback();
+                    System.err.println("[ScheduleSchool] Schedule sync failed for template "
+                            + templateId + ": " + e.getMessage());
+                }
+            }
         }
     }
 
@@ -618,10 +632,10 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("<br/>");
     }
 
-    private void printTemplateTable(PrintWriter out, WebUser dependentUser, List<Calendar> dayList,
+    private void printTemplateTable(PrintWriter out, WebUser dependentUser,
             List<Project> filteredProjectList,
             Map<Project, List<ActionNext>> templateMap,
-            Map<ActionNext, Map<Calendar, ActionNext>> projectActionDayMap,
+            Map<Integer, ActionNextTemplateConfig> templateConfigMap,
             String heading,
             String addFieldSuffix,
             boolean choreTable) {
@@ -635,31 +649,17 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Project</th>");
         out.println("    <th class=\"boxed\">Template</th>");
+        out.println("    <th class=\"boxed\">Schedule Type</th>");
+        out.println("    <th class=\"boxed\">Schedule Days</th>");
+        out.println("    <th class=\"boxed\">Missed Behavior</th>");
+        out.println("    <th class=\"boxed\">Auto Gen</th>");
         if (choreTable) {
             out.println("    <th class=\"boxed\">Time Slot</th>");
         } else {
             out.println("    <th class=\"boxed\">Time<br/>(mins)</th>");
             out.println("    <th class=\"boxed\">Points</th>");
         }
-
-        Set<Calendar> onWeekend = new HashSet<Calendar>();
-        Map<Calendar, Integer> timeMap = new HashMap<Calendar, Integer>();
-        SimpleDateFormat sdfField = dependentUser.getDateFormat("yyyyMMdd");
-        for (Calendar day : dayList) {
-            out.println("    <th class=\"boxed\">"
-                    + dependentUser.getDateFormatService().formatWeekdayShort(day.getTime(),
-                            dependentUser.getTimeZone())
-                    + "<br/>"
-                    + dependentUser.getDateFormatService().formatPattern(day.getTime(), "M/d",
-                            dependentUser.getTimeZone())
-                    + "</th>");
-            timeMap.put(day, Integer.valueOf(0));
-            if (day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY
-                    || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
-                onWeekend.add(day);
-            }
-        }
-        out.println("    <th class=\"boxed\">Action</th>");
+        out.println("    <th class=\"boxed\">Action Type</th>");
         out.println("  </tr>");
 
         List<Project> orderedProjectList = new ArrayList<Project>(filteredProjectList);
@@ -716,59 +716,132 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         for (ActionNext templateAction : rowTemplates) {
             Project project = templateProjectMap.get(templateAction);
-            Map<Calendar, ActionNext> dayMap = projectActionDayMap.get(templateAction);
+            int id = templateAction.getActionNextId();
+            ActionNextTemplateConfig config = templateConfigMap.get(Integer.valueOf(id));
+
+            TemplateType currentType = templateAction.getTemplateType() != null
+                    ? templateAction.getTemplateType()
+                    : TemplateType.DAILY;
+            String currentMissedBehavior = config != null ? safe(config.getMissedActionBehavior()) : "AUTO_CANCEL";
+            if (currentMissedBehavior.isEmpty()) {
+                currentMissedBehavior = "AUTO_CANCEL";
+            }
+            boolean currentAutoGenerate = config == null || config.isAutoGenerate();
+            String currentDaysOfWeek = config != null ? safe(config.getScheduleDaysOfWeek()) : "";
+            String currentDaysOfMonth = config != null ? safe(config.getScheduleDaysOfMonth()) : "";
+            String currentDaysOfQuarter = config != null ? safe(config.getScheduleDaysOfQuarter()) : "";
+            String currentDaysOfYear = config != null ? safe(config.getScheduleDaysOfYear()) : "";
+
+            String schedFieldId = "schedDays" + id;
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
                     + "\" class=\"button\">" + escapeHtml(project.getProjectName()) + "</a></td>");
             out.println("    <td class=\"boxed\">");
-            out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + templateAction.getActionNextId()
+            out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + id
                     + "\" value=\"" + escapeHtml(safe(templateAction.getNextDescription())) + "\" size=\"30\"/>");
             out.println("      <a href=\"javascript:void(0);\" class=\"button\" title=\"Edit action\" "
-                    + "onclick=\"openScheduleEditDialog(" + templateAction.getActionNextId() + ")\">&#9998;</a>");
+                    + "onclick=\"openScheduleEditDialog(" + id + ")\">&#9998;</a>");
             out.println("    </td>");
 
+            // Schedule type dropdown
+            out.println("    <td class=\"boxed\">");
+            out.println("      <select name=\"" + TEMPLATE_TYPE + id + "\" "
+                    + "onchange=\"updateSchedFields" + id + "(this)\">");
+            for (TemplateType tt : TemplateType.values()) {
+                boolean selected = tt == currentType;
+                out.println("        <option value=\"" + tt.getId() + "\""
+                        + (selected ? " selected" : "") + ">" + escapeHtml(tt.getLabel()) + "</option>");
+            }
+            out.println("      </select>");
+            out.println("    </td>");
+
+            // Schedule days — one input per pattern type, shown/hidden by JS
+            out.println("    <td class=\"boxed\" id=\"" + schedFieldId + "\">");
+            out.println("      <span id=\"" + schedFieldId + "_weekly\""
+                    + (currentType == TemplateType.WEEKLY ? "" : " style=\"display:none\"") + ">");
+            out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_WEEK + id
+                    + "\" value=\"" + escapeHtml(currentDaysOfWeek) + "\" size=\"20\""
+                    + " placeholder=\"MON,WED,FRI\"/>");
+            out.println("      </span>");
+            out.println("      <span id=\"" + schedFieldId + "_monthly\""
+                    + (currentType == TemplateType.MONTHLY ? "" : " style=\"display:none\"") + ">");
+            out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_MONTH + id
+                    + "\" value=\"" + escapeHtml(currentDaysOfMonth) + "\" size=\"20\""
+                    + " placeholder=\"1,15\"/>");
+            out.println("      </span>");
+            out.println("      <span id=\"" + schedFieldId + "_quarterly\""
+                    + (currentType == TemplateType.QUARTERLY ? "" : " style=\"display:none\"") + ">");
+            out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_QUARTER + id
+                    + "\" value=\"" + escapeHtml(currentDaysOfQuarter) + "\" size=\"20\"/>");
+            out.println("      </span>");
+            out.println("      <span id=\"" + schedFieldId + "_yearly\""
+                    + (currentType == TemplateType.YEARLY ? "" : " style=\"display:none\"") + ">");
+            out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_YEAR + id
+                    + "\" value=\"" + escapeHtml(currentDaysOfYear) + "\" size=\"20\"/>");
+            out.println("      </span>");
+            out.println("    </td>");
+
+            // JS toggle function for this row's schedule fields
+            out.println("    <script>");
+            out.println("      function updateSchedFields" + id + "(sel) {");
+            out.println("        var v = sel.value;");
+            out.println("        document.getElementById('" + schedFieldId
+                    + "_weekly').style.display   = (v==='W') ? '' : 'none';");
+            out.println("        document.getElementById('" + schedFieldId
+                    + "_monthly').style.display  = (v==='M') ? '' : 'none';");
+            out.println("        document.getElementById('" + schedFieldId
+                    + "_quarterly').style.display= (v==='Q') ? '' : 'none';");
+            out.println("        document.getElementById('" + schedFieldId
+                    + "_yearly').style.display   = (v==='Y') ? '' : 'none';");
+            out.println("      }");
+            out.println("    </script>");
+
+            // Missed action behavior
+            out.println("    <td class=\"boxed\">");
+            out.println("      <select name=\"" + MISSED_ACTION_BEHAVIOR + id + "\">");
+            for (String[] opt : new String[][] {
+                    { "AUTO_CANCEL", "Auto Cancel" },
+                    { "CARRY_FORWARD", "Carry Forward" },
+                    { "IGNORE", "Ignore" } }) {
+                boolean sel = opt[0].equals(currentMissedBehavior);
+                out.println("        <option value=\"" + opt[0] + "\""
+                        + (sel ? " selected" : "") + ">" + opt[1] + "</option>");
+            }
+            out.println("      </select>");
+            out.println("    </td>");
+
+            // Auto generate checkbox
+            out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
+            out.println("      <input type=\"checkbox\" name=\"" + AUTO_GENERATE + id + "\" value=\"Y\""
+                    + (currentAutoGenerate ? " checked" : "") + "/>");
+            out.println("    </td>");
+
+            // Time/points or time slot
             if (choreTable) {
                 out.println("    <td class=\"boxed\">");
-                printTimeSlotSelect(out, TIME_SLOT + templateAction.getActionNextId(), templateAction.getTimeSlot());
+                printTimeSlotSelect(out, TIME_SLOT + id, templateAction.getTimeSlot());
                 out.println("    </td>");
             } else {
                 out.println("    <td class=\"boxed\">");
-                out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE + templateAction.getActionNextId()
+                out.println("      <input type=\"text\" name=\"" + TIME_ESTIMATE + id
                         + "\" value=\"" + templateAction.getNextTimeEstimateMinsForDisplay() + "\" size=\"4\"/>");
                 out.println("    </td>");
                 out.println("    <td class=\"boxed\">");
-                out.println("      <input type=\"text\" name=\"" + GAME_POINTS + templateAction.getActionNextId()
+                out.println("      <input type=\"text\" name=\"" + GAME_POINTS + id
                         + "\" value=\""
                         + (templateAction.getGamePoints() == null ? "0" : templateAction.getGamePoints())
                         + "\" size=\"4\"/>");
                 out.println("    </td>");
             }
 
-            for (Calendar day : dayList) {
-                ActionNext dayAction = dayMap == null ? null : dayMap.get(day);
-                boolean checked = dayAction != null
-                        && dayAction.getNextActionStatus() != ProjectNextActionStatus.CANCELLED;
-                String style = onWeekend.contains(day) ? "boxed-lowlight" : "boxed";
-                out.println("    <td class=\"" + style + "\">");
-                out.println("      <input type=\"checkbox\" name=\"" + TEMPLATE_SELECTED
-                        + templateAction.getActionNextId() + "."
-                        + sdfField.format(day.getTime()) + "\" value=\"Y\"" + (checked ? " checked" : "") + "/>");
-                out.println("    </td>");
-
-                if (!choreTable && checked && templateAction.getNextTimeEstimate() != null
-                        && templateAction.getNextTimeEstimate().intValue() > 0) {
-                    timeMap.put(day, Integer
-                            .valueOf(timeMap.get(day).intValue() + templateAction.getNextTimeEstimate().intValue()));
-                }
-            }
-
+            // Action type
             out.println("    <td class=\"boxed\">");
             String nextActionType = safe(templateAction.getNextActionType());
             if (nextActionType.equals("")) {
                 nextActionType = ProjectNextActionType.WILL;
             }
-            out.println("      <select name=\"" + NEXT_ACTION_TYPE + templateAction.getActionNextId() + "\">");
+            out.println("      <select name=\"" + NEXT_ACTION_TYPE + id + "\">");
             for (String nat : new String[] { ProjectNextActionType.WILL, ProjectNextActionType.MIGHT,
                     ProjectNextActionType.WILL_CONTACT, ProjectNextActionType.COMMITTED_TO }) {
                 String label = ProjectNextActionType.getLabel(nat);
@@ -781,18 +854,85 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("  </tr>");
         }
 
+        // Add-template row
+        String addSchedFieldId = "schedDaysAdd" + addFieldSuffix;
         out.println("  <tr>");
         out.println("    <td class=\"boxed\">");
         out.println("      <select name=\"" + PROJECT_ID + addFieldSuffix + "\">");
         for (Project project : orderedProjectList) {
-            out.println(
-                    "        <option value=\"" + project.getProjectId() + "\">" + escapeHtml(project.getProjectName())
-                            + "</option>");
+            out.println("        <option value=\"" + project.getProjectId() + "\">"
+                    + escapeHtml(project.getProjectName()) + "</option>");
         }
         out.println("      </select>");
         out.println("    </td>");
         out.println("    <td class=\"boxed\"><input type=\"text\" name=\"" + NEXT_DESCRIPTION + addFieldSuffix
                 + "\" value=\"\" size=\"30\"/></td>");
+
+        // Schedule type for add row
+        out.println("    <td class=\"boxed\">");
+        out.println("      <select name=\"" + TEMPLATE_TYPE + addFieldSuffix + "\" "
+                + "onchange=\"updateSchedFieldsAdd" + addFieldSuffix + "(this)\">");
+        for (TemplateType tt : TemplateType.values()) {
+            boolean selected = tt == TemplateType.DAILY;
+            out.println("        <option value=\"" + tt.getId() + "\""
+                    + (selected ? " selected" : "") + ">" + escapeHtml(tt.getLabel()) + "</option>");
+        }
+        out.println("      </select>");
+        out.println("    </td>");
+
+        // Schedule days for add row
+        out.println("    <td class=\"boxed\" id=\"" + addSchedFieldId + "\">");
+        out.println("      <span id=\"" + addSchedFieldId + "_weekly\" style=\"display:none\">");
+        out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_WEEK + addFieldSuffix
+                + "\" value=\"\" size=\"20\" placeholder=\"MON,WED,FRI\"/>");
+        out.println("      </span>");
+        out.println("      <span id=\"" + addSchedFieldId + "_monthly\" style=\"display:none\">");
+        out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_MONTH + addFieldSuffix
+                + "\" value=\"\" size=\"20\" placeholder=\"1,15\"/>");
+        out.println("      </span>");
+        out.println("      <span id=\"" + addSchedFieldId + "_quarterly\" style=\"display:none\">");
+        out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_QUARTER + addFieldSuffix
+                + "\" value=\"\" size=\"20\"/>");
+        out.println("      </span>");
+        out.println("      <span id=\"" + addSchedFieldId + "_yearly\" style=\"display:none\">");
+        out.println("        <input type=\"text\" name=\"" + SCHEDULE_DAYS_OF_YEAR + addFieldSuffix
+                + "\" value=\"\" size=\"20\"/>");
+        out.println("      </span>");
+        out.println("    </td>");
+
+        out.println("    <script>");
+        out.println("      function updateSchedFieldsAdd" + addFieldSuffix + "(sel) {");
+        out.println("        var v = sel.value;");
+        out.println("        document.getElementById('" + addSchedFieldId
+                + "_weekly').style.display   = (v==='W') ? '' : 'none';");
+        out.println("        document.getElementById('" + addSchedFieldId
+                + "_monthly').style.display  = (v==='M') ? '' : 'none';");
+        out.println("        document.getElementById('" + addSchedFieldId
+                + "_quarterly').style.display= (v==='Q') ? '' : 'none';");
+        out.println("        document.getElementById('" + addSchedFieldId
+                + "_yearly').style.display   = (v==='Y') ? '' : 'none';");
+        out.println("      }");
+        out.println("    </script>");
+
+        // Missed behavior for add row
+        out.println("    <td class=\"boxed\">");
+        out.println("      <select name=\"" + MISSED_ACTION_BEHAVIOR + addFieldSuffix + "\">");
+        for (String[] opt : new String[][] {
+                { "AUTO_CANCEL", "Auto Cancel" },
+                { "CARRY_FORWARD", "Carry Forward" },
+                { "IGNORE", "Ignore" } }) {
+            boolean sel = "AUTO_CANCEL".equals(opt[0]);
+            out.println("        <option value=\"" + opt[0] + "\""
+                    + (sel ? " selected" : "") + ">" + opt[1] + "</option>");
+        }
+        out.println("      </select>");
+        out.println("    </td>");
+
+        // Auto gen for add row
+        out.println("    <td class=\"boxed\" style=\"text-align:center;\">");
+        out.println("      <input type=\"checkbox\" name=\"" + AUTO_GENERATE + addFieldSuffix
+                + "\" value=\"Y\" checked/>");
+        out.println("    </td>");
 
         if (choreTable) {
             out.println("    <td class=\"boxed\">");
@@ -803,14 +943,6 @@ public class ScheduleSchoolServlet extends ClientServlet {
                     + "\" value=\"\" size=\"4\"/></td>");
             out.println("    <td class=\"boxed\"><input type=\"text\" name=\"" + GAME_POINTS + addFieldSuffix
                     + "\" value=\"0\" size=\"4\"/></td>");
-        }
-
-        for (Calendar day : dayList) {
-            out.println("    <td class=\"boxed\">");
-            if (!choreTable) {
-                out.println(ActionNext.getTimeForDisplay(timeMap.get(day).intValue()));
-            }
-            out.println("    </td>");
         }
         out.println("    <td class=\"boxed\">&nbsp;</td>");
         out.println("  </tr>");
@@ -1441,11 +1573,29 @@ public class ScheduleSchoolServlet extends ClientServlet {
             String timeEstimateParam = suffix.equals("") ? TIME_ESTIMATE : TIME_ESTIMATE + suffix;
             String timeSlotParam = suffix.equals("") ? TIME_SLOT : TIME_SLOT + suffix;
             String pointsParam = suffix.equals("") ? GAME_POINTS : GAME_POINTS + suffix;
+            String templateTypeParam = suffix.equals("") ? TEMPLATE_TYPE : TEMPLATE_TYPE + suffix;
+            String missedBehaviorParam = suffix.equals("") ? MISSED_ACTION_BEHAVIOR
+                    : MISSED_ACTION_BEHAVIOR + suffix;
+            String autoGenerateParam = suffix.equals("") ? AUTO_GENERATE : AUTO_GENERATE + suffix;
+            String daysOfWeekParam = suffix.equals("") ? SCHEDULE_DAYS_OF_WEEK : SCHEDULE_DAYS_OF_WEEK + suffix;
+            String daysOfMonthParam = suffix.equals("") ? SCHEDULE_DAYS_OF_MONTH : SCHEDULE_DAYS_OF_MONTH + suffix;
+            String daysOfQuarterParam = suffix.equals("") ? SCHEDULE_DAYS_OF_QUARTER
+                    : SCHEDULE_DAYS_OF_QUARTER + suffix;
+            String daysOfYearParam = suffix.equals("") ? SCHEDULE_DAYS_OF_YEAR : SCHEDULE_DAYS_OF_YEAR + suffix;
+
             String projectId = request.getParameter(projectIdParam);
             String description = request.getParameter(descriptionParam);
             String timeEstimate = request.getParameter(timeEstimateParam);
             String timeSlot = request.getParameter(timeSlotParam);
             String points = request.getParameter(pointsParam);
+            String templateType = request.getParameter(templateTypeParam);
+            String missedBehavior = request.getParameter(missedBehaviorParam);
+            String autoGenerate = request.getParameter(autoGenerateParam);
+            String daysOfWeek = request.getParameter(daysOfWeekParam);
+            String daysOfMonth = request.getParameter(daysOfMonthParam);
+            String daysOfQuarter = request.getParameter(daysOfQuarterParam);
+            String daysOfYear = request.getParameter(daysOfYearParam);
+
             if (projectId != null && !projectId.equals("")
                     && description != null && !description.trim().equals("")) {
                 if (timeEstimate == null) {
@@ -1457,8 +1607,32 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 if (points == null) {
                     points = "0";
                 }
-                return new String[] { projectId, description.trim(), timeEstimate.trim(), timeSlot.trim(),
-                        points.trim() };
+                if (templateType == null) {
+                    templateType = "D";
+                }
+                if (missedBehavior == null) {
+                    missedBehavior = "AUTO_CANCEL";
+                }
+                if (autoGenerate == null) {
+                    autoGenerate = "";
+                }
+                if (daysOfWeek == null) {
+                    daysOfWeek = "";
+                }
+                if (daysOfMonth == null) {
+                    daysOfMonth = "";
+                }
+                if (daysOfQuarter == null) {
+                    daysOfQuarter = "";
+                }
+                if (daysOfYear == null) {
+                    daysOfYear = "";
+                }
+                return new String[] {
+                        projectId, description.trim(), timeEstimate.trim(), timeSlot.trim(), points.trim(),
+                        templateType.trim(), missedBehavior.trim(), autoGenerate.trim(),
+                        daysOfWeek.trim(), daysOfMonth.trim(), daysOfQuarter.trim(), daysOfYear.trim()
+                };
             }
         }
         return null;

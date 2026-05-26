@@ -295,6 +295,7 @@ public class TemplateGenerationService {
         instance.setNextDescription(n(template.getNextDescription()));
         instance.setNextTimeEstimate(
                 template.getNextTimeEstimate() == null ? 0 : template.getNextTimeEstimate());
+        instance.setGamePoints(template.getGamePoints());
         instance.setTimeSlot(template.getTimeSlot());
         instance.setLinkUrl(n(template.getLinkUrl()));
         instance.setNextNotes(n(template.getNextNotes()));
@@ -364,6 +365,7 @@ public class TemplateGenerationService {
         instance.setNextDescription(n(template.getNextDescription()));
         instance.setNextTimeEstimate(
                 template.getNextTimeEstimate() == null ? 0 : template.getNextTimeEstimate());
+        instance.setGamePoints(template.getGamePoints());
         instance.setTimeSlot(template.getTimeSlot());
         instance.setLinkUrl(n(template.getLinkUrl()));
         instance.setProcessStage(template.getProcessStage());
