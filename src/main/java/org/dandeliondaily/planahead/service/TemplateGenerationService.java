@@ -187,7 +187,18 @@ public class TemplateGenerationService {
         cancelInstancesNotMatchingSchedule(session, template.getActionNextId(),
                 workspaceId, contactId, today, type, pattern);
 
-        // Step 3 — generate new instances for matching dates that don't have one yet
+        // Step 3 — generate new instances for matching dates that don't have one yet.
+        // Reset lastGeneratedDate first so generateForTemplate always covers the full
+        // [today, today+advanceDays] window even if it was already set to a future date.
+        // Without this, lastGeneratedDate causes generateForTemplate to skip the window
+        // entirely after cancellations from a schedule change.
+        ActionNextTemplateConfig configForReset = (ActionNextTemplateConfig) session.get(
+                ActionNextTemplateConfig.class, template.getActionNextId());
+        if (configForReset != null) {
+            configForReset.setLastGeneratedDate(null);
+            session.update(configForReset);
+            session.flush();
+        }
         generateForTemplate(session, template, today, today.plusDays(advanceDays));
     }
 
@@ -263,12 +274,14 @@ public class TemplateGenerationService {
                         + "and (an.contactId = :contactId or an.nextContactId = :contactId) "
                         + "and an.templateActionNextId = :templateId "
                         + "and an.nextActionDate is not null "
-                        + "and an.nextActionDate >= :fromDate and an.nextActionDate <= :toDate");
+                        + "and an.nextActionDate >= :fromDate and an.nextActionDate <= :toDate "
+                        + "and an.nextActionStatusString <> :cancelled");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", contactId);
         query.setParameter("templateId", templateActionNextId);
         query.setParameter("fromDate", fromDate);
         query.setParameter("toDate", toDate);
+        query.setParameter("cancelled", STATUS_CANCELLED);
         @SuppressWarnings("unchecked")
         List<Date> dates = query.list();
         Set<LocalDate> result = new HashSet<>();

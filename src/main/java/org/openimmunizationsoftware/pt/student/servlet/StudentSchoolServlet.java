@@ -86,8 +86,43 @@ public class StudentSchoolServlet extends StudentBaseServlet {
                     + webUser.getDateFormatService().formatDate(selectedDate, webUser.getTimeZone()) + "</p>");
 
             if (!schoolActions.isEmpty()) {
-                out.println("<h2>School</h2>");
-                printActionTable(out, schoolActions, selectedDate, webUser, true);
+                List<ActionNext> requiredActions = new ArrayList<ActionNext>();
+                List<ActionNext> assignedActions = new ArrayList<ActionNext>();
+                List<ActionNext> optionalActions = new ArrayList<ActionNext>();
+                for (ActionNext schoolAction : schoolActions) {
+                    if (schoolAction.isCommittedTo() || schoolAction.isOverdueTo()) {
+                        requiredActions.add(schoolAction);
+                    } else if (schoolAction.isMight() || schoolAction.isWouldLikeTo()) {
+                        optionalActions.add(schoolAction);
+                    } else {
+                        assignedActions.add(schoolAction);
+                    }
+                }
+
+                out.println("<h2>Required</h2>");
+                if (requiredActions.isEmpty()) {
+                    out.println("<table class=\"boxed-mobile\">");
+                    out.println(
+                            "  <tr class=\"boxed\"><td class=\"boxed\">All required school work is complete for today.</td></tr>");
+                    out.println("</table>");
+                } else {
+                    printActionTable(out, requiredActions, selectedDate, webUser, true);
+                }
+
+                out.println("<h2>Assigned</h2>");
+                if (assignedActions.isEmpty()) {
+                    out.println("<table class=\"boxed-mobile\">");
+                    out.println(
+                            "  <tr class=\"boxed\"><td class=\"boxed\">All assigned school work is complete for today.</td></tr>");
+                    out.println("</table>");
+                } else {
+                    printActionTable(out, assignedActions, selectedDate, webUser, true);
+                }
+
+                if (!optionalActions.isEmpty()) {
+                    out.println("<h2>Optional</h2>");
+                    printActionTable(out, optionalActions, selectedDate, webUser, true);
+                }
             }
             if (!choreActions.isEmpty()) {
                 out.println("<h2>Chores</h2>");
