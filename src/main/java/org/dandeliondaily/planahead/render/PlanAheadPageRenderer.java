@@ -49,6 +49,9 @@ public class PlanAheadPageRenderer {
                 for (PlanAheadBoardModel.DayHeaderModel dayHeader : boardModel.getDayHeaders()) {
                         out.println(renderDayHeader(dayHeader));
                 }
+                String firstDayKey = boardModel.getDayHeaders().isEmpty()
+                                ? ""
+                                : boardModel.getDayHeaders().get(0).getDayKey();
 
                 out.println("    <div class=\"pa-cell pa-cell-label pa-status pa-status-total-cell\">");
                 out.println("      <div class=\"pa-status-main\">");
@@ -90,6 +93,9 @@ public class PlanAheadPageRenderer {
                 for (PlanAheadBoardModel.RowModel row : boardModel.getRows()) {
                         int rowTotalMins = 0;
                         for (PlanAheadBoardModel.CellModel rowCell : row.getCells()) {
+                                if (!firstDayKey.equals(rowCell.getDayKey())) {
+                                        continue;
+                                }
                                 for (PlanAheadBoardModel.CardModel rowCard : rowCell.getCards()) {
                                         rowTotalMins += rowCard.getRemainingMins();
                                 }
@@ -562,6 +568,9 @@ public class PlanAheadPageRenderer {
                 out.println("  function paRecalculateTotals(){");
                 out.println("    var firstDayTotal = 0;");
                 out.println("    var firstStatusBtn = document.querySelector('.pa-status-time-btn');");
+                out.println("    var firstDayKey = ''; ");
+                out.println("    var firstDayHeader = document.querySelector('[id^=\"pa-day-header-\"]');");
+                out.println("    if (firstDayHeader && firstDayHeader.id) { firstDayKey = firstDayHeader.id.replace('pa-day-header-', ''); }");
                 out.println("    if (firstStatusBtn) {");
                 out.println("      var mins = parseInt(firstStatusBtn.getAttribute('data-bill-mins') || '0', 10);");
                 out.println("      if (!isNaN(mins) && mins > 0) { firstDayTotal = mins; }");
@@ -570,7 +579,9 @@ public class PlanAheadPageRenderer {
                 out.println("    rowLabelEls.forEach(function(labelEl){");
                 out.println("      var rowKey = labelEl.getAttribute('data-row-key');");
                 out.println("      var rowTotal = 0;");
-                out.println("      document.querySelectorAll('[data-row=\"' + rowKey + '\"]').forEach(function(cell){");
+                out.println("      var isSpecialRow = (rowKey === 'overdue' || rowKey === 'completed');");
+                out.println("      var selector = isSpecialRow ? '[data-row=\"' + rowKey + '\"]' : '[data-row=\"' + rowKey + '\"][data-day=\"' + firstDayKey + '\"]';");
+                out.println("      document.querySelectorAll(selector).forEach(function(cell){");
                 out.println("        cell.querySelectorAll('[data-row-mins],[data-est-mins]').forEach(function(btn){");
                 out.println("          var mins = parseInt(btn.getAttribute('data-row-mins') || btn.getAttribute('data-est-mins') || '0', 10);");
                 out.println("          if (!isNaN(mins) && mins > 0) { rowTotal += mins; }");
