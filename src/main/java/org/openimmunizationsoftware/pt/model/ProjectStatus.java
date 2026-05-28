@@ -30,6 +30,20 @@ public enum ProjectStatus {
         return ACTIVE;
     }
 
+    public static boolean isKnownStatus(String value) {
+        if (value == null || value.trim().length() == 0) {
+            return false;
+        }
+        String normalized = value.trim();
+        for (ProjectStatus status : values()) {
+            if (status.databaseValue.equalsIgnoreCase(normalized)
+                    || status.name().equalsIgnoreCase(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean isClosed() {
         return this == CLOSED;
     }

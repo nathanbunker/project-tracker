@@ -84,3 +84,24 @@ CREATE TABLE `meeting_note_line` (
   KEY `idx_meeting_note_line_linked_next_action_id` (`linked_next_action_id`),
   KEY `idx_meeting_note_line_visibility` (`visibility`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- v5.3 addition: external sync identity for project + project_contact
+ALTER TABLE project
+  ADD COLUMN external_source_key varchar(100) DEFAULT NULL,
+  ADD COLUMN external_project_id varchar(120) DEFAULT NULL,
+  ADD COLUMN external_managed char(1) NOT NULL DEFAULT 'N',
+  ADD COLUMN external_last_synced_at datetime DEFAULT NULL;
+
+ALTER TABLE project
+  ADD KEY idx_project_workspace_external (workspace_id, external_source_key, external_project_id),
+  ADD UNIQUE KEY uk_project_workspace_external (workspace_id, external_source_key, external_project_id);
+
+ALTER TABLE project_contact
+  ADD COLUMN external_source_key varchar(100) DEFAULT NULL,
+  ADD COLUMN external_contact_id varchar(120) DEFAULT NULL,
+  ADD COLUMN external_managed char(1) NOT NULL DEFAULT 'N',
+  ADD COLUMN external_last_synced_at datetime DEFAULT NULL;
+
+ALTER TABLE project_contact
+  ADD KEY idx_project_contact_workspace_external (workspace_id, external_source_key, external_contact_id),
+  ADD UNIQUE KEY uk_project_contact_workspace_external (workspace_id, external_source_key, external_contact_id);

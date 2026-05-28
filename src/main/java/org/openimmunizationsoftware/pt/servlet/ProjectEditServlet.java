@@ -84,6 +84,21 @@ public class ProjectEditServlet extends ClientServlet {
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
+          String requestProjectName = trim(request.getParameter("projectName"), 100);
+          String requestDescription = trim(request.getParameter("description"), 1200);
+          String requestStatus = trim(request.getParameter("projectStatus"), 20);
+          String requestHandle = HandleValidationSupport.resolveHandle(
+              request.getParameter("projectHandle"), requestProjectName, 60);
+          if (project.isExternalManaged()) {
+            if (!n(project.getProjectName()).equals(requestProjectName)
+                || !n(project.getDescription()).equals(requestDescription)
+                || !ProjectStatus.fromDatabaseValue(project.getProjectStatus()).getDatabaseValue()
+                    .equalsIgnoreCase(ProjectStatus.fromDatabaseValue(requestStatus).getDatabaseValue())
+                || !n(project.getProjectHandle()).equals(requestHandle)) {
+              message = "Project name, handle, description, and status are externally managed and cannot be edited here.";
+            }
+          }
+
           project.setDescription(trim(request.getParameter("description"), 1200));
           String projectStatus = trim(request.getParameter("projectStatus"), 20);
           project.setProjectStatus(ProjectStatus.fromDatabaseValue(projectStatus).getDatabaseValue());
@@ -158,6 +173,8 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("<form action=\"ProjectEditServlet\" method=\"POST\" accept-charset=\"UTF-8\">");
       out.println(
           "<input type=\"hidden\" name=\"projectId\" value=\"" + project.getProjectId() + "\">");
+      boolean externalManaged = project.isExternalManaged();
+      String externalReadonly = externalManaged ? " readonly" : "";
       out.println("<table class=\"boxed-full\">");
       out.println("  <tr>");
       out.println("    <th class=\"title\" colspan=\"2\">Edit Project Information</th>");
@@ -165,12 +182,12 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project Name</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"projectName\" value=\""
-          + n(project.getProjectName()) + "\" size=\"30\"></td>");
+          + n(project.getProjectName()) + "\" size=\"30\"" + externalReadonly + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project Handle</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"projectHandle\" value=\""
-          + n(project.getProjectHandle()) + "\" size=\"30\"></td>");
+          + n(project.getProjectHandle()) + "\" size=\"30\"" + externalReadonly + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Priority Level</th>");
@@ -184,13 +201,18 @@ public class ProjectEditServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Description</th>");
-      out.println(
-          "    <td class=\"boxed\"><textarea type=\"text\" name=\"description\" rows=\"5\">"
-              + n(project.getDescription()) + "</textarea></td>");
+      out.println("    <td class=\"boxed\"><textarea type=\"text\" name=\"description\" rows=\"5\""
+          + externalReadonly + ">" + n(project.getDescription()) + "</textarea></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Status</th>");
-      out.println("    <td class=\"boxed\"><select name=\"projectStatus\">");
+      out.println("    <td class=\"boxed\">");
+      if (externalManaged) {
+        out.println("<input type=\"hidden\" name=\"projectStatus\" value=\""
+            + n(ProjectStatus.fromDatabaseValue(project.getProjectStatus()).getDatabaseValue())
+            + "\">");
+      }
+      out.println("<select name=\"projectStatus\"" + (externalManaged ? " disabled" : "") + ">");
       {
         String selectedStatus = ProjectStatus.fromDatabaseValue(project.getProjectStatus()).getDatabaseValue();
         for (ProjectStatus status : ProjectStatus.values()) {
@@ -206,6 +228,16 @@ public class ProjectEditServlet extends ClientServlet {
       }
       out.println("    </td>");
       out.println("  </tr>");
+      if (project.isExternalManaged()) {
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">External Sync</th>");
+        out.println("    <td class=\"boxed\">Externally managed"
+            + (project.getExternalLastSyncedAt() == null
+                ? ""
+                : " (Last Synced: " + webUser.getTimeFormat().format(project.getExternalLastSyncedAt()) + ")")
+            + "</td>");
+        out.println("  </tr>");
+      }
       if (webUser.isTrackTime()) {
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Bill Code</th>");

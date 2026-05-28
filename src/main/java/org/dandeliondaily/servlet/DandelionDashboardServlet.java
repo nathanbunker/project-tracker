@@ -1647,6 +1647,20 @@ public class DandelionDashboardServlet extends ClientServlet {
                 }
             }
 
+            if (!createMode && project.isExternalManaged()) {
+                String existingStatus = normalizeProjectStatus(project.getProjectStatus());
+                if (!sameString(project.getProjectName(), projectName)
+                        || !sameString(project.getDescription(), description)
+                        || !sameString(project.getProjectHandle(), projectHandle)
+                        || !sameString(existingStatus, projectStatus)) {
+                    transaction.rollback();
+                    sendJsonResponse(appReq, false,
+                            "Project name, handle, description, and status are externally managed and cannot be edited here.",
+                            null);
+                    return;
+                }
+            }
+
             if (projectName.length() == 0) {
                 transaction.rollback();
                 sendJsonResponse(appReq, false, "Project name is required", null);
@@ -1951,6 +1965,12 @@ public class DandelionDashboardServlet extends ClientServlet {
             return false;
         }
         return left.equals(right);
+    }
+
+    private boolean sameString(String left, String right) {
+        String safeLeft = left == null ? "" : left;
+        String safeRight = right == null ? "" : right;
+        return safeLeft.equals(safeRight);
     }
 
     private LocalDate toStoredLocalDate(Date date, WebUser webUser) {

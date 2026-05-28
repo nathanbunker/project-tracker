@@ -1,5 +1,6 @@
 package org.openimmunizationsoftware.pt.model;
 
+import java.util.Date;
 import java.util.List;
 
 // Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1
@@ -23,6 +24,10 @@ public class Project implements java.io.Serializable {
   private Integer createdByWebUserId;
   private Integer lastModifiedByWebUserId;
   private Integer linkedPatchWorkspaceId;
+  private String externalSourceKey;
+  private String externalProjectId;
+  private boolean externalManaged = false;
+  private Date externalLastSyncedAt;
   private WebUser webUser;
   private int priorityLevel = 0;
 
@@ -165,6 +170,38 @@ public class Project implements java.io.Serializable {
 
   public void setLastModifiedByWebUserId(Integer lastModifiedByWebUserId) {
     this.lastModifiedByWebUserId = lastModifiedByWebUserId;
+  }
+
+  public String getExternalSourceKey() {
+    return externalSourceKey;
+  }
+
+  public void setExternalSourceKey(String externalSourceKey) {
+    this.externalSourceKey = externalSourceKey;
+  }
+
+  public String getExternalProjectId() {
+    return externalProjectId;
+  }
+
+  public void setExternalProjectId(String externalProjectId) {
+    this.externalProjectId = externalProjectId;
+  }
+
+  public boolean isExternalManaged() {
+    return externalManaged;
+  }
+
+  public void setExternalManaged(boolean externalManaged) {
+    this.externalManaged = externalManaged;
+  }
+
+  public Date getExternalLastSyncedAt() {
+    return externalLastSyncedAt;
+  }
+
+  public void setExternalLastSyncedAt(Date externalLastSyncedAt) {
+    this.externalLastSyncedAt = externalLastSyncedAt;
   }
 
   public String getUsername() {

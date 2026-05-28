@@ -84,14 +84,39 @@ public class ProjectContactEditServlet extends ClientServlet {
       if (action != null) {
         String message = null;
         if (action.equals("Save")) {
+          String requestFirst = trim(request.getParameter("nameFirst"), 60);
+          String requestLast = trim(request.getParameter("nameLast"), 60);
+          String requestTitle = trim(request.getParameter("nameTitle"), 10);
+          String requestOrganization = trim(request.getParameter("organizationName"), 90);
+          String requestEmail = trim(request.getParameter("email"), 60);
+          String requestTimeZone = trim(request.getParameter("timeZone"), 60);
+          String requestStatus = trim(request.getParameter("contactStatus"), 20).toUpperCase();
+          if (requestStatus.equals("")) {
+            requestStatus = ProjectContact.STATUS_ACTIVE;
+          }
+          if (projectContact.isExternalManaged()) {
+            if (!n(projectContact.getNameFirst()).equals(requestFirst)
+                || !n(projectContact.getNameLast()).equals(requestLast)
+                || !n(projectContact.getNameTitle()).equals(requestTitle)
+                || !n(projectContact.getOrganizationName()).equals(requestOrganization)
+                || !n(projectContact.getEmailAddress()).equals(requestEmail)
+                || !n(projectContact.getTimeZone()).equals(requestTimeZone)
+                || !n(projectContact.getContactStatus(), ProjectContact.STATUS_ACTIVE)
+                    .equalsIgnoreCase(requestStatus)) {
+              message = "Name, title, organization, email, timezone, and status are externally managed and cannot be edited here.";
+            }
+          }
+
           projectContact.setWorkspaceId(activeWorkspaceId);
           projectContact.setNameLast(trim(request.getParameter("nameLast"), 60));
           projectContact.setNameFirst(trim(request.getParameter("nameFirst"), 60));
+          projectContact.setNameTitle(trim(request.getParameter("nameTitle"), 10));
           projectContact.setOrganizationName(trim(request.getParameter("organizationName"), 90));
           projectContact.setDepartmentName(trim(request.getParameter("departmentName"), 90));
           projectContact.setPositionTitle(trim(request.getParameter("positionTitle"), 90));
           projectContact.setPhoneNumber(trim(request.getParameter("numberPhone"), 30));
           projectContact.setEmailAddress(trim(request.getParameter("email"), 60));
+          projectContact.setTimeZone(trim(request.getParameter("timeZone"), 60));
           projectContact.setContactInfo(trim(request.getParameter("contactInfo"), 1500));
           String contactHandle = HandleValidationSupport.resolveHandle(
               request.getParameter("contactHandle"), projectContact.getNameFirst(), 60);
@@ -174,6 +199,8 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("<form action=\"ProjectContactEditServlet\" method=\"POST\">");
       out.println("<input type=\"hidden\" name=\"projectContactId\" value=\""
           + n(request.getParameter("projectContactId")) + "\">");
+      boolean externalManaged = projectContact.isExternalManaged();
+      String externalReadonly = externalManaged ? " readonly" : "";
       out.println("<table class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("     <th  class=\"title\" colspan=\"2\">Edit Contact</td>");
@@ -182,13 +209,18 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Name</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"nameFirst\" value=\""
           + n(projectContact.getNameFirst())
-          + "\" size=\"15\"> <input type=\"text\" name=\"nameLast\" value=\""
-          + n(projectContact.getNameLast()) + "\" size=\"15\"></td>");
+          + "\" size=\"15\"" + externalReadonly + "> <input type=\"text\" name=\"nameLast\" value=\""
+          + n(projectContact.getNameLast()) + "\" size=\"15\"" + externalReadonly + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Organization</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"organizationName\" value=\""
-          + n(projectContact.getOrganizationName()) + "\" size=\"15\"></td>");
+          + n(projectContact.getOrganizationName()) + "\" size=\"15\"" + externalReadonly + "></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Title</th>");
+      out.println("    <td class=\"boxed\"><input type=\"text\" name=\"nameTitle\" value=\""
+          + n(projectContact.getNameTitle()) + "\" size=\"10\"" + externalReadonly + "></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Handle</th>");
@@ -197,7 +229,12 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Status</th>");
-      out.println("    <td class=\"boxed\"><select name=\"contactStatus\">");
+      out.println("    <td class=\"boxed\">");
+      if (externalManaged) {
+        out.println("<input type=\"hidden\" name=\"contactStatus\" value=\""
+            + n(projectContact.getContactStatus(), ProjectContact.STATUS_ACTIVE) + "\">");
+      }
+      out.println("<select name=\"contactStatus\"" + (externalManaged ? " disabled" : "") + ">");
       String contactStatusValue = n(projectContact.getContactStatus(), ProjectContact.STATUS_ACTIVE);
       if (ProjectContact.STATUS_ACTIVE.equals(contactStatusValue)) {
         out.println("      <option value=\"ACTIVE\" selected>ACTIVE</option>");
@@ -221,7 +258,7 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Email</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"email\" value=\""
-          + n(projectContact.getEmailAddress()) + "\" size=\"30\"></td>");
+          + n(projectContact.getEmailAddress()) + "\" size=\"30\"" + externalReadonly + "></td>");
       out.println("  <tr class=\"boxed\">");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Phone</th>");
@@ -231,7 +268,11 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Time Zone</th>");
       out.println("    <td class=\"boxed\">");
-      out.println("      <select name=\"timeZone\">");
+      if (externalManaged) {
+        out.println("<input type=\"hidden\" name=\"timeZone\" value=\""
+            + n(projectContact.getTimeZone()) + "\">");
+      }
+      out.println("      <select name=\"timeZone\"" + (externalManaged ? " disabled" : "") + ">");
       out.println("        <option value=\"\" selected></option>");
       for (String tz : TimeZone.getAvailableIDs()) {
         if (tz.equals(projectContact.getTimeZone())) {
@@ -249,6 +290,18 @@ public class ProjectContactEditServlet extends ClientServlet {
       out.println("    <td class=\"boxed\"><textarea name=\"contactInfo\" cols=\"30\" rows=\"5\">"
           + n(projectContact.getContactInfo()) + "</textarea></td>");
       out.println("  </tr>");
+      if (projectContact.isExternalManaged()) {
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">External Sync</th>");
+        out.println("    <td class=\"boxed\">Externally managed"
+            + (projectContact.getExternalLastSyncedAt() == null
+                ? ""
+                : " (Last Synced: "
+                    + webUser.getTimeFormat().format(projectContact.getExternalLastSyncedAt())
+                    + ")")
+            + "</td>");
+        out.println("  </tr>");
+      }
       out.println("  <tr class=\"boxed\">");
       out.println(
           "    <td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\"action\" value=\"Save\"></td>");

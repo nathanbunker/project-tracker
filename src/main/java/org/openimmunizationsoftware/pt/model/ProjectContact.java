@@ -1,5 +1,7 @@
 package org.openimmunizationsoftware.pt.model;
 
+import java.util.Date;
+
 // Generated Dec 12, 2012 3:50:50 AM by Hibernate Tools 3.4.0.CR1
 
 /**
@@ -29,7 +31,23 @@ public class ProjectContact implements java.io.Serializable {
   private String contactStatus = STATUS_ACTIVE;
   private Integer workspaceId;
   private String timeZone = "";
+  private String externalSourceKey;
+  private String externalContactId;
+  private boolean externalManaged = false;
+  private Date externalLastSyncedAt;
   private ProjectAddress address = null;
+
+  public static boolean isKnownStatus(String value) {
+    if (value == null) {
+      return false;
+    }
+    String normalized = value.trim();
+    if (normalized.length() == 0) {
+      return false;
+    }
+    return STATUS_ACTIVE.equalsIgnoreCase(normalized)
+        || STATUS_INACTIVE.equalsIgnoreCase(normalized);
+  }
 
   public String getName() {
     return nameFirst + " " + nameLast;
@@ -153,6 +171,38 @@ public class ProjectContact implements java.io.Serializable {
 
   public void setTimeZone(String timeZone) {
     this.timeZone = timeZone;
+  }
+
+  public String getExternalSourceKey() {
+    return externalSourceKey;
+  }
+
+  public void setExternalSourceKey(String externalSourceKey) {
+    this.externalSourceKey = externalSourceKey;
+  }
+
+  public String getExternalContactId() {
+    return externalContactId;
+  }
+
+  public void setExternalContactId(String externalContactId) {
+    this.externalContactId = externalContactId;
+  }
+
+  public boolean isExternalManaged() {
+    return externalManaged;
+  }
+
+  public void setExternalManaged(boolean externalManaged) {
+    this.externalManaged = externalManaged;
+  }
+
+  public Date getExternalLastSyncedAt() {
+    return externalLastSyncedAt;
+  }
+
+  public void setExternalLastSyncedAt(Date externalLastSyncedAt) {
+    this.externalLastSyncedAt = externalLastSyncedAt;
   }
 
   public boolean isPhoneTextable() {

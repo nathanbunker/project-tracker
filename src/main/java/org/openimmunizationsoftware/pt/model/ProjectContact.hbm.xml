@@ -56,6 +56,18 @@
         <property name="workspaceId" type="java.lang.Integer">
             <column name="workspace_id" />
         </property>
+        <property name="externalSourceKey" type="string">
+            <column name="external_source_key" length="100" />
+        </property>
+        <property name="externalContactId" type="string">
+            <column name="external_contact_id" length="120" />
+        </property>
+        <property name="externalManaged" type="yes_no">
+            <column name="external_managed" length="1" not-null="true" />
+        </property>
+        <property name="externalLastSyncedAt" type="timestamp">
+            <column name="external_last_synced_at" />
+        </property>
         
         <many-to-one name="address" column="address_id" class="ProjectAddress"/>
         
