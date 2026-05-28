@@ -20,9 +20,11 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.WebApiClient;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.model.Workspace;
 
 /**
  * 
@@ -47,6 +49,7 @@ public class SettingsServlet extends ClientServlet {
   private static final String PARAM_TRACK_TIME = "trackTime";
   private static final String PARAM_REPORT_DAILY_ENABLED = "reportDailyEnabled";
   private static final String PARAM_API_KEY_AGENT_NAME = "apiKeyAgentName";
+  private static final String PARAM_API_KEY_WORKSPACE_ID = "apiKeyWorkspaceId";
   private static final String PARAM_API_KEY_CLIENT_ID = "apiKeyClientId";
   private static final String PARAM_FIRST_NAME = "firstName";
   private static final String PARAM_LAST_NAME = "lastName";
@@ -80,6 +83,10 @@ public class SettingsServlet extends ClientServlet {
       PrintWriter out = appReq.getOut();
       Session dataSession = appReq.getDataSession();
       String action = appReq.getAction();
+      Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession,
+          webUser.getWebUserId());
+      List<Workspace> patchWorkspaces = WorkspaceRegistry.getPatchWorkspacesForWebUser(dataSession,
+          webUser.getWebUserId());
 
       if (action != null) {
         if (action.equals(ACTION_SAVE)) {
@@ -166,34 +173,37 @@ public class SettingsServlet extends ClientServlet {
             appReq.setMessageProblem("Agent name is required to create an API key. ");
           } else {
             agentName = agentName.trim();
-            Integer workspaceId = appReq.getActiveWorkspaceId();
-            Query query = null;
+            Integer workspaceId = resolveRequestedWorkspaceId(
+                request.getParameter(PARAM_API_KEY_WORKSPACE_ID), privateWorkspaceId);
             if (workspaceId == null) {
-              query = dataSession.createQuery(
-                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and workspaceId is null");
-            } else {
-              query = dataSession.createQuery(
-                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and workspaceId = :workspaceId");
-              query.setParameter("workspaceId", workspaceId);
-            }
-            query.setParameter("webUser", webUser);
-            query.setParameter("agentNameLower", agentName.toLowerCase());
-            @SuppressWarnings("unchecked")
-            List<WebApiClient> existingClients = query.list();
-            if (existingClients.size() > 0) {
               appReq.setMessageProblem(
-                  "Agent name already exists, so new API key not created. ");
+                  "Private workspace is not available. Please choose a valid workspace.");
+            } else if (!isAllowedWorkspaceSelection(dataSession, webUser, workspaceId,
+                privateWorkspaceId)) {
+              appReq.setMessageProblem("Workspace selection is not valid for this account.");
             } else {
-              WebApiClient client = new WebApiClient();
-              client.setWebUser(webUser);
-              client.setWorkspaceId(workspaceId);
-              client.setAgentName(agentName);
-              client.setEnabled(true);
-              client.setCreateDate(new Date());
-              client.setApiKey(generateUniqueApiKey(dataSession));
-              Transaction trans = dataSession.beginTransaction();
-              dataSession.save(client);
-              trans.commit();
+              Query query = dataSession.createQuery(
+                  "from WebApiClient where webUser = :webUser and enabled = true and lower(agentName) = :agentNameLower and workspaceId = :workspaceId");
+              query.setParameter("webUser", webUser);
+              query.setParameter("agentNameLower", agentName.toLowerCase());
+              query.setParameter("workspaceId", workspaceId);
+              @SuppressWarnings("unchecked")
+              List<WebApiClient> existingClients = query.list();
+              if (existingClients.size() > 0) {
+                appReq.setMessageProblem(
+                    "Agent name already exists in selected workspace, so new API key not created. ");
+              } else {
+                WebApiClient client = new WebApiClient();
+                client.setWebUser(webUser);
+                client.setWorkspaceId(workspaceId);
+                client.setAgentName(agentName);
+                client.setEnabled(true);
+                client.setCreateDate(new Date());
+                client.setApiKey(generateUniqueApiKey(dataSession));
+                Transaction trans = dataSession.beginTransaction();
+                dataSession.save(client);
+                trans.commit();
+              }
             }
           }
         } else if (action.equals(ACTION_DELETE_API_KEY)) {
@@ -202,10 +212,8 @@ public class SettingsServlet extends ClientServlet {
             try {
               int clientId = Integer.parseInt(clientIdString);
               WebApiClient client = (WebApiClient) dataSession.get(WebApiClient.class, clientId);
-              Integer workspaceId = appReq.getActiveWorkspaceId();
               if (client != null && client.isEnabled()
-                  && webUser.equals(client.getWebUser())
-                  && sameWorkspace(workspaceId, client.getWorkspaceId())) {
+                  && webUser.equals(client.getWebUser())) {
                 client.setEnabled(false);
                 Transaction trans = dataSession.beginTransaction();
                 dataSession.update(client);
@@ -302,16 +310,8 @@ public class SettingsServlet extends ClientServlet {
       out.println("</table>");
       out.println("</form>");
 
-      Integer workspaceId = appReq.getActiveWorkspaceId();
-      Query apiKeyQuery;
-      if (workspaceId == null) {
-        apiKeyQuery = dataSession.createQuery(
-            "from WebApiClient where webUser = :webUser and enabled = true and workspaceId is null order by createDate desc");
-      } else {
-        apiKeyQuery = dataSession.createQuery(
-            "from WebApiClient where webUser = :webUser and enabled = true and workspaceId = :workspaceId order by createDate desc");
-        apiKeyQuery.setParameter("workspaceId", workspaceId);
-      }
+      Query apiKeyQuery = dataSession.createQuery(
+          "from WebApiClient where webUser = :webUser and enabled = true order by createDate desc");
       apiKeyQuery.setParameter("webUser", webUser);
       @SuppressWarnings("unchecked")
       List<WebApiClient> apiClients = apiKeyQuery.list();
@@ -319,10 +319,11 @@ public class SettingsServlet extends ClientServlet {
         out.println("<br/>");
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
-        out.println("     <th class=\"title\" colspan=\"5\">Web API Client Keys</td>");
+        out.println("     <th class=\"title\" colspan=\"6\">Web API Client Keys</td>");
         out.println("  </tr>");
         out.println("  <tr class=\"boxed\">");
         out.println("     <th>Agent Name</th>");
+        out.println("     <th>Scope</th>");
         out.println("     <th>Created Date</th>");
         out.println("     <th>Last Used Date</th>");
         out.println("     <th>API Key</th>");
@@ -332,6 +333,8 @@ public class SettingsServlet extends ClientServlet {
         for (WebApiClient client : apiClients) {
           out.println("  <tr class=\"boxed\">");
           out.println("     <td>" + n(client.getAgentName()) + "</td>");
+          out.println("     <td>" + n(resolveWorkspaceLabel(dataSession, client.getWorkspaceId(),
+              privateWorkspaceId)) + "</td>");
           out.println("     <td>"
               + (client.getCreateDate() == null ? "" : apiKeyDateFormat.format(client.getCreateDate()))
               + "</td>");
@@ -357,11 +360,37 @@ public class SettingsServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println("     <th class=\"title\" colspan=\"2\">Create Web API Client Key</td>");
       out.println("  </tr>");
+      Integer selectedWorkspaceId = resolveWorkspaceSelectionForForm(
+          request.getParameter(PARAM_API_KEY_WORKSPACE_ID), privateWorkspaceId);
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Scope</th>");
+      out.println("    <td class=\"boxed\">");
+      out.println("      <select name=\"" + PARAM_API_KEY_WORKSPACE_ID + "\">");
+      if (privateWorkspaceId != null) {
+        out.println("        <option value=\"" + privateWorkspaceId + "\""
+            + (selectedWorkspaceId != null && selectedWorkspaceId.equals(privateWorkspaceId)
+                ? " selected"
+                : "")
+            + ">Private (default)</option>");
+      }
+      for (Workspace patchWorkspace : patchWorkspaces) {
+        Integer patchWorkspaceId = Integer.valueOf(patchWorkspace.getWorkspaceId());
+        out.println("        <option value=\"" + patchWorkspaceId + "\""
+            + (selectedWorkspaceId != null && selectedWorkspaceId.equals(patchWorkspaceId)
+                ? " selected"
+                : "")
+            + ">" + h(patchWorkspace.getWorkspaceName()) + "</option>");
+      }
+      out.println("      </select>");
+      out.println("    </td>");
+      out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Agent Name</th>");
       out.println("    <td class=\"boxed\">");
       out.println("      <input type=\"text\" name=\"" + PARAM_API_KEY_AGENT_NAME
-          + "\" size=\"30\" value=\"\">");
+          + "\" size=\"30\" value=\"" + h(valueOrEmpty(request.getParameter(
+              PARAM_API_KEY_AGENT_NAME)))
+          + "\">");
       out.println("    </td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
@@ -433,11 +462,76 @@ public class SettingsServlet extends ClientServlet {
     return "DQA Tester Home Page";
   }// </editor-fold>
 
-  private static boolean sameWorkspace(Integer expectedWorkspaceId, Integer actualWorkspaceId) {
-    if (expectedWorkspaceId == null) {
-      return actualWorkspaceId == null;
+  private static Integer resolveRequestedWorkspaceId(String requestedWorkspaceId,
+      Integer privateWorkspaceId) {
+    Integer workspaceId = parseWorkspaceId(requestedWorkspaceId);
+    if (workspaceId != null) {
+      return workspaceId;
     }
-    return expectedWorkspaceId.equals(actualWorkspaceId);
+    return privateWorkspaceId;
+  }
+
+  private static Integer resolveWorkspaceSelectionForForm(String requestedWorkspaceId,
+      Integer privateWorkspaceId) {
+    Integer workspaceId = parseWorkspaceId(requestedWorkspaceId);
+    if (workspaceId != null) {
+      return workspaceId;
+    }
+    return privateWorkspaceId;
+  }
+
+  private static Integer parseWorkspaceId(String workspaceIdString) {
+    if (workspaceIdString == null) {
+      return null;
+    }
+    String trimmed = workspaceIdString.trim();
+    if (trimmed.length() == 0) {
+      return null;
+    }
+    try {
+      int workspaceId = Integer.parseInt(trimmed);
+      return workspaceId > 0 ? Integer.valueOf(workspaceId) : null;
+    } catch (NumberFormatException nfe) {
+      return null;
+    }
+  }
+
+  private static boolean isAllowedWorkspaceSelection(Session dataSession, WebUser webUser,
+      Integer workspaceId, Integer privateWorkspaceId) {
+    if (workspaceId == null) {
+      return false;
+    }
+    if (privateWorkspaceId != null && privateWorkspaceId.equals(workspaceId)) {
+      return true;
+    }
+    Workspace workspace = (Workspace) dataSession.get(Workspace.class, workspaceId);
+    if (workspace == null) {
+      return false;
+    }
+    if (!Workspace.STATUS_ACTIVE.equals(workspace.getWorkspaceStatus())) {
+      return false;
+    }
+    if (!Workspace.TYPE_PATCH.equals(workspace.getWorkspaceType())) {
+      return false;
+    }
+    return WorkspaceRegistry.hasActiveMembership(dataSession, workspaceId.intValue(),
+        webUser.getWebUserId());
+  }
+
+  private static String resolveWorkspaceLabel(Session dataSession, Integer workspaceId,
+      Integer privateWorkspaceId) {
+    if (workspaceId == null) {
+      return "Unscoped";
+    }
+    if (privateWorkspaceId != null && privateWorkspaceId.equals(workspaceId)) {
+      return "Private";
+    }
+    Workspace workspace = (Workspace) dataSession.get(Workspace.class, workspaceId);
+    if (workspace == null) {
+      return "Workspace #" + workspaceId;
+    }
+    String workspaceName = workspace.getWorkspaceName() == null ? "" : workspace.getWorkspaceName();
+    return workspaceName;
   }
 
   private static String generateUniqueApiKey(Session dataSession) {
@@ -461,6 +555,10 @@ public class SettingsServlet extends ClientServlet {
     }
     return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         .replace("\"", "&quot;").replace("'", "&#39;");
+  }
+
+  private static String valueOrEmpty(String value) {
+    return value == null ? "" : value;
   }
 
 }
