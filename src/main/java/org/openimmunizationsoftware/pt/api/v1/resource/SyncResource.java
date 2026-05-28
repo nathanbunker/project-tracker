@@ -36,12 +36,33 @@ public class SyncResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Workspace scope missing")
     public SyncBatchResponse upsertProjects(SyncProjectsUpsertRequest request) {
-        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw badRequest("Request body must include a non-empty items array.");
+        try {
+            if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+                throw badRequest("Request body must include a non-empty items array.");
+            }
+            ApiRequestContext.ApiClientInfo client = requireClient();
+            int workspaceId = requireWorkspaceId(client);
+            return syncService.upsertProjects(client, workspaceId, request.getItems());
+        } catch (WebApplicationException e) {
+            throw e;
+        } catch (Exception e) {
+            SyncBatchResponse errorResponse = new SyncBatchResponse();
+            errorResponse.setTotal(request != null && request.getItems() != null ? request.getItems().size() : 0);
+            errorResponse.setSuccessCount(0);
+            errorResponse.setErrorCount(errorResponse.getTotal());
+            if (errorResponse.getTotal() > 0) {
+                java.util.List<org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult> results = new java.util.ArrayList<>();
+                for (Object item : request.getItems()) {
+                    org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult result = new org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult();
+                    result.setStatus("error");
+                    result.setMessage("Unexpected server error: "
+                            + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                    results.add(result);
+                }
+                errorResponse.setResults(results);
+            }
+            return errorResponse;
         }
-        ApiRequestContext.ApiClientInfo client = requireClient();
-        int workspaceId = requireWorkspaceId(client);
-        return syncService.upsertProjects(client, workspaceId, request.getItems());
     }
 
     @POST
@@ -53,12 +74,33 @@ public class SyncResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Workspace scope missing")
     public SyncBatchResponse upsertContacts(SyncContactsUpsertRequest request) {
-        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw badRequest("Request body must include a non-empty items array.");
+        try {
+            if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+                throw badRequest("Request body must include a non-empty items array.");
+            }
+            ApiRequestContext.ApiClientInfo client = requireClient();
+            int workspaceId = requireWorkspaceId(client);
+            return syncService.upsertContacts(client, workspaceId, request.getItems());
+        } catch (WebApplicationException e) {
+            throw e;
+        } catch (Exception e) {
+            SyncBatchResponse errorResponse = new SyncBatchResponse();
+            errorResponse.setTotal(request != null && request.getItems() != null ? request.getItems().size() : 0);
+            errorResponse.setSuccessCount(0);
+            errorResponse.setErrorCount(errorResponse.getTotal());
+            if (errorResponse.getTotal() > 0) {
+                java.util.List<org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult> results = new java.util.ArrayList<>();
+                for (Object item : request.getItems()) {
+                    org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult result = new org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult();
+                    result.setStatus("error");
+                    result.setMessage("Unexpected server error: "
+                            + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                    results.add(result);
+                }
+                errorResponse.setResults(results);
+            }
+            return errorResponse;
         }
-        ApiRequestContext.ApiClientInfo client = requireClient();
-        int workspaceId = requireWorkspaceId(client);
-        return syncService.upsertContacts(client, workspaceId, request.getItems());
     }
 
     @POST
@@ -70,12 +112,33 @@ public class SyncResource extends BaseApiResource {
     @ApiResponse(responseCode = "401", description = "Missing or invalid API key")
     @ApiResponse(responseCode = "403", description = "Workspace scope missing")
     public SyncBatchResponse applyAssignments(SyncAssignmentsApplyRequest request) {
-        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw badRequest("Request body must include a non-empty items array.");
+        try {
+            if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+                throw badRequest("Request body must include a non-empty items array.");
+            }
+            ApiRequestContext.ApiClientInfo client = requireClient();
+            int workspaceId = requireWorkspaceId(client);
+            return syncService.applyAssignments(client, workspaceId, request.getItems());
+        } catch (WebApplicationException e) {
+            throw e;
+        } catch (Exception e) {
+            SyncBatchResponse errorResponse = new SyncBatchResponse();
+            errorResponse.setTotal(request != null && request.getItems() != null ? request.getItems().size() : 0);
+            errorResponse.setSuccessCount(0);
+            errorResponse.setErrorCount(errorResponse.getTotal());
+            if (errorResponse.getTotal() > 0) {
+                java.util.List<org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult> results = new java.util.ArrayList<>();
+                for (Object item : request.getItems()) {
+                    org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult result = new org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult();
+                    result.setStatus("error");
+                    result.setMessage("Unexpected server error: "
+                            + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                    results.add(result);
+                }
+                errorResponse.setResults(results);
+            }
+            return errorResponse;
         }
-        ApiRequestContext.ApiClientInfo client = requireClient();
-        int workspaceId = requireWorkspaceId(client);
-        return syncService.applyAssignments(client, workspaceId, request.getItems());
     }
 
     private WebApplicationException badRequest(String message) {

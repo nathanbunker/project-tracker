@@ -18,7 +18,7 @@
             <column name="contact_handle" length="60" />
         </property>
         <property name="nameTitle" type="string">
-            <column name="name_title" length="10" />
+            <column name="name_title" length="200" />
         </property>
         <property name="organizationName" type="string">
             <column name="organization_name" length="90" />

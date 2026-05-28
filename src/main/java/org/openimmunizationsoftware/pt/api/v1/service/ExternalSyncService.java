@@ -83,8 +83,9 @@ public class ExternalSyncService {
                 result.setMessage(createMode ? "Project created." : "Project updated.");
                 results.add(result);
             } catch (Exception ex) {
-                error(result, ex.getMessage());
+                error(result, rootCauseMessage(ex));
                 results.add(result);
+                session.clear();
             }
         }
 
@@ -145,8 +146,9 @@ public class ExternalSyncService {
                 result.setMessage(createMode ? "Contact created." : "Contact updated.");
                 results.add(result);
             } catch (Exception ex) {
-                error(result, ex.getMessage());
+                error(result, rootCauseMessage(ex));
                 results.add(result);
+                session.clear();
             }
         }
 
@@ -228,8 +230,9 @@ public class ExternalSyncService {
                 result.setContactId(Integer.valueOf(contact.getContactId()));
                 results.add(result);
             } catch (Exception ex) {
-                error(result, ex.getMessage());
+                error(result, rootCauseMessage(ex));
                 results.add(result);
+                session.clear();
             }
         }
 
@@ -471,5 +474,26 @@ public class ExternalSyncService {
     private void error(SyncBatchItemResult result, String message) {
         result.setStatus("error");
         result.setMessage(message == null ? "Unexpected error." : message);
+    }
+
+    /**
+     * Walks the full exception cause chain and returns the most specific
+     * (deepest) non-null message, prefixed with the immediate exception class.
+     * This surfaces the actual SQL or constraint error that Hibernate wraps.
+     */
+    private String rootCauseMessage(Exception ex) {
+        String top = ex.getClass().getSimpleName() + ": " + ex.getMessage();
+        Throwable cause = ex.getCause();
+        Throwable deepest = null;
+        while (cause != null) {
+            if (cause.getMessage() != null && !cause.getMessage().isEmpty()) {
+                deepest = cause;
+            }
+            cause = cause.getCause();
+        }
+        if (deepest != null) {
+            return top + " | Caused by " + deepest.getClass().getSimpleName() + ": " + deepest.getMessage();
+        }
+        return top;
     }
 }

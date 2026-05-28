@@ -86,6 +86,9 @@ CREATE TABLE `meeting_note_line` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- v5.3 addition: external sync identity for project + project_contact
+ALTER TABLE project_contact
+  MODIFY COLUMN name_title varchar(200) DEFAULT NULL;
+
 ALTER TABLE project
   ADD COLUMN external_source_key varchar(100) DEFAULT NULL,
   ADD COLUMN external_project_id varchar(120) DEFAULT NULL,
