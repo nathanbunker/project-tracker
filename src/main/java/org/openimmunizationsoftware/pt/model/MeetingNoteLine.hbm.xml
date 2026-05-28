@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="MeetingNoteLine" table="meeting_note_line">
+    <id name="meetingNoteLineId" type="java.lang.Integer">
+      <column name="meeting_note_line_id" />
+      <generator class="native" />
+    </id>
+    <property name="meetingSessionTopicId" type="java.lang.Integer">
+      <column name="meeting_session_topic_id" not-null="true" />
+    </property>
+    <property name="workspaceId" type="java.lang.Integer">
+      <column name="workspace_id" not-null="true" />
+    </property>
+    <property name="parentMeetingNoteLineId" type="java.lang.Integer">
+      <column name="parent_meeting_note_line_id" />
+    </property>
+    <property name="displayOrder" type="java.lang.Integer">
+      <column name="display_order" not-null="true" />
+    </property>
+    <property name="noteText" type="text">
+      <column name="note_text" not-null="true" />
+    </property>
+    <property name="narrativeCategory" type="string">
+      <column name="narrative_category" length="20" />
+    </property>
+    <property name="actionType" type="string">
+      <column name="action_type" length="32" />
+    </property>
+    <property name="linkedNextActionId" type="java.lang.Integer">
+      <column name="linked_next_action_id" />
+    </property>
+    <property name="visibility" type="string">
+      <column name="visibility" length="20" not-null="true" />
+    </property>
+    <property name="urlDetected" type="boolean">
+      <column name="url_detected" not-null="true" />
+    </property>
+    <property name="createdAt" type="timestamp">
+      <column name="created_at" not-null="true" />
+    </property>
+    <property name="updatedAt" type="timestamp">
+      <column name="updated_at" not-null="true" />
+    </property>
+    <property name="createdByUserId" type="java.lang.Integer">
+      <column name="created_by_user_id" />
+    </property>
+    <property name="updatedByUserId" type="java.lang.Integer">
+      <column name="updated_by_user_id" />
+    </property>
+  </class>
+</hibernate-mapping>

@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="MeetingSession" table="meeting_session">
+    <id name="meetingSessionId" type="java.lang.Integer">
+      <column name="meeting_session_id" />
+      <generator class="native" />
+    </id>
+    <property name="workspaceId" type="java.lang.Integer">
+      <column name="workspace_id" not-null="true" />
+    </property>
+    <property name="interopHubMeetingId" type="java.lang.Integer">
+      <column name="interop_hub_meeting_id" />
+    </property>
+    <property name="meetingKey" type="string">
+      <column name="meeting_key" length="80" />
+    </property>
+    <property name="meetingName" type="string">
+      <column name="meeting_name" length="160" not-null="true" />
+    </property>
+    <property name="meetingDescription" type="text">
+      <column name="meeting_description" />
+    </property>
+    <property name="scheduledStart" type="timestamp">
+      <column name="scheduled_start" not-null="true" />
+    </property>
+    <property name="scheduledEnd" type="timestamp">
+      <column name="scheduled_end" />
+    </property>
+    <property name="timezoneId" type="string">
+      <column name="timezone_id" length="64" />
+    </property>
+    <property name="status" type="string">
+      <column name="status" length="20" not-null="true" />
+    </property>
+    <property name="parentProjectId" type="java.lang.Integer">
+      <column name="parent_project_id" />
+    </property>
+    <property name="onlineMeetingUrl" type="string">
+      <column name="online_meeting_url" length="2048" />
+    </property>
+    <property name="onlineMeetingDetails" type="text">
+      <column name="online_meeting_details" />
+    </property>
+    <property name="cancellationReason" type="text">
+      <column name="cancellation_reason" />
+    </property>
+    <property name="interopHubUpdatedAt" type="timestamp">
+      <column name="interop_hub_updated_at" />
+    </property>
+    <property name="lastSyncedAt" type="timestamp">
+      <column name="last_synced_at" />
+    </property>
+    <property name="createdAt" type="timestamp">
+      <column name="created_at" not-null="true" />
+    </property>
+    <property name="updatedAt" type="timestamp">
+      <column name="updated_at" not-null="true" />
+    </property>
+    <property name="createdByUserId" type="java.lang.Integer">
+      <column name="created_by_user_id" />
+    </property>
+    <property name="updatedByUserId" type="java.lang.Integer">
+      <column name="updated_by_user_id" />
+    </property>
+  </class>
+</hibernate-mapping>

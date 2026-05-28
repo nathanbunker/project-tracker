@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="MeetingSessionTopic" table="meeting_session_topic">
+    <id name="meetingSessionTopicId" type="java.lang.Integer">
+      <column name="meeting_session_topic_id" />
+      <generator class="native" />
+    </id>
+    <property name="meetingSessionId" type="java.lang.Integer">
+      <column name="meeting_session_id" not-null="true" />
+    </property>
+    <property name="workspaceId" type="java.lang.Integer">
+      <column name="workspace_id" not-null="true" />
+    </property>
+    <property name="interopHubAgendaItemId" type="java.lang.Integer">
+      <column name="interop_hub_agenda_item_id" />
+    </property>
+    <property name="interopHubTopicId" type="java.lang.Integer">
+      <column name="interop_hub_topic_id" />
+    </property>
+    <property name="projectId" type="java.lang.Integer">
+      <column name="project_id" />
+    </property>
+    <property name="title" type="string">
+      <column name="title" length="200" not-null="true" />
+    </property>
+    <property name="agendaMarkdown" type="text">
+      <column name="agenda_markdown" />
+    </property>
+    <property name="displayOrder" type="java.lang.Integer">
+      <column name="display_order" not-null="true" />
+    </property>
+    <property name="timeMinutes" type="java.lang.Integer">
+      <column name="time_minutes" />
+    </property>
+    <property name="status" type="string">
+      <column name="status" length="20" not-null="true" />
+    </property>
+    <property name="statusNote" type="text">
+      <column name="status_note" />
+    </property>
+    <property name="postponedToInteropHubMeetingId" type="java.lang.Integer">
+      <column name="postponed_to_interop_hub_meeting_id" />
+    </property>
+    <property name="interopHubUpdatedAt" type="timestamp">
+      <column name="interop_hub_updated_at" />
+    </property>
+    <property name="lastSyncedAt" type="timestamp">
+      <column name="last_synced_at" />
+    </property>
+    <property name="createdAt" type="timestamp">
+      <column name="created_at" not-null="true" />
+    </property>
+    <property name="updatedAt" type="timestamp">
+      <column name="updated_at" not-null="true" />
+    </property>
+  </class>
+</hibernate-mapping>
