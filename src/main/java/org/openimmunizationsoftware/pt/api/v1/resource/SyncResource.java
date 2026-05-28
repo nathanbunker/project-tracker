@@ -52,7 +52,7 @@ public class SyncResource extends BaseApiResource {
             errorResponse.setErrorCount(errorResponse.getTotal());
             if (errorResponse.getTotal() > 0) {
                 java.util.List<org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult> results = new java.util.ArrayList<>();
-                for (Object item : request.getItems()) {
+                for (int i = 0; i < request.getItems().size(); i++) {
                     org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult result = new org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult();
                     result.setStatus("error");
                     result.setMessage("Unexpected server error: "
@@ -90,7 +90,7 @@ public class SyncResource extends BaseApiResource {
             errorResponse.setErrorCount(errorResponse.getTotal());
             if (errorResponse.getTotal() > 0) {
                 java.util.List<org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult> results = new java.util.ArrayList<>();
-                for (Object item : request.getItems()) {
+                for (int i = 0; i < request.getItems().size(); i++) {
                     org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult result = new org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult();
                     result.setStatus("error");
                     result.setMessage("Unexpected server error: "
@@ -128,7 +128,7 @@ public class SyncResource extends BaseApiResource {
             errorResponse.setErrorCount(errorResponse.getTotal());
             if (errorResponse.getTotal() > 0) {
                 java.util.List<org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult> results = new java.util.ArrayList<>();
-                for (Object item : request.getItems()) {
+                for (int i = 0; i < request.getItems().size(); i++) {
                     org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult result = new org.openimmunizationsoftware.pt.api.v1.resource.dto.SyncBatchItemResult();
                     result.setStatus("error");
                     result.setMessage("Unexpected server error: "
