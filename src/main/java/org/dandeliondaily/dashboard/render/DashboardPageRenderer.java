@@ -1791,7 +1791,8 @@ public class DashboardPageRenderer {
                 out.println("      <div class=\"dd-form-field\">");
                 out.println("        <label class=\"dd-form-label\">Tags:</label>");
                 out.println(
-                                "        <select id=\"ddCurrentProjectTags\" name=\"projectTagIds\" class=\"dd-form-input\" multiple size=\"6\">");
+                                "        <select id=\"ddCurrentProjectTags\" name=\"projectTagIds\" class=\"dd-form-input\" multiple size=\"6\""
+                                                + (project.isExternalManaged() ? " disabled" : "") + ">");
                 Query tagQuery = dataSession.createQuery(
                                 "from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus order by sortOrder, tagName");
                 tagQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
@@ -1806,6 +1807,14 @@ public class DashboardPageRenderer {
                                         + escapeHtml(projectTag.getTagName()) + "</option>");
                 }
                 out.println("        </select>");
+                if (project.isExternalManaged()) {
+                        for (Integer selectedTagId : selectedProjectTagIds) {
+                                out.println("        <input type=\"hidden\" name=\"projectTagIds\" value=\""
+                                                + selectedTagId + "\" />");
+                        }
+                        out.println(
+                                        "        <div class=\"dd-subtle\">Tags are externally managed and cannot be edited here.</div>");
+                }
                 out.println("      </div>");
 
                 out.println("      <div class=\"dd-form-field\">");

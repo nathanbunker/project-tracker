@@ -1649,13 +1649,15 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             if (!createMode && project.isExternalManaged()) {
                 String existingStatus = normalizeProjectStatus(project.getProjectStatus());
+                List<Integer> existingProjectTagIds = loadProjectTagIds(dataSession, project.getProjectId());
                 if (!sameString(project.getProjectName(), projectName)
                         || !sameString(project.getDescription(), description)
                         || !sameString(project.getProjectHandle(), projectHandle)
-                        || !sameString(existingStatus, projectStatus)) {
+                        || !sameString(existingStatus, projectStatus)
+                        || !sameIntegerContent(existingProjectTagIds, requestedProjectTagIds)) {
                     transaction.rollback();
                     sendJsonResponse(appReq, false,
-                            "Project name, handle, description, and status are externally managed and cannot be edited here.",
+                            "Project name, handle, description, status, and tags are externally managed and cannot be edited here.",
                             null);
                     return;
                 }
@@ -1885,6 +1887,43 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
         }
         return tagIds;
+    }
+
+    private List<Integer> loadProjectTagIds(Session dataSession, int projectId) {
+        Query query = dataSession.createQuery(
+                "select projectTagId from ProjectTagMap where projectId = :projectId");
+        query.setParameter("projectId", projectId);
+        @SuppressWarnings("unchecked")
+        List<Integer> ids = query.list();
+        return ids == null ? new ArrayList<Integer>() : ids;
+    }
+
+    private boolean sameIntegerContent(List<Integer> left, List<Integer> right) {
+        List<Integer> normalizedLeft = normalizeIntegerList(left);
+        List<Integer> normalizedRight = normalizeIntegerList(right);
+        if (normalizedLeft.size() != normalizedRight.size()) {
+            return false;
+        }
+        for (Integer value : normalizedLeft) {
+            if (!normalizedRight.contains(value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<Integer> normalizeIntegerList(List<Integer> source) {
+        List<Integer> normalized = new ArrayList<Integer>();
+        if (source == null) {
+            return normalized;
+        }
+        for (Integer value : source) {
+            if (value == null || normalized.contains(value)) {
+                continue;
+            }
+            normalized.add(value);
+        }
+        return normalized;
     }
 
     private String normalizeProjectStatus(String projectStatus) {

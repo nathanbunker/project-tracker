@@ -524,7 +524,8 @@ public class ProjectHealthPageRenderer {
                 Integer workspaceId = model.getContextWorkspaceId() != null ? model.getContextWorkspaceId()
                                 : appReq.getActiveWorkspaceId();
                 out.println("      <div class=\"ph-form-field\"><label>Tags</label>");
-                out.println("      <select id=\"phProjectTags\" name=\"projectTagIds\" multiple size=\"6\">");
+                out.println("      <select id=\"phProjectTags\" name=\"projectTagIds\" multiple size=\"6\""
+                                + (project.isExternalManaged() ? " disabled" : "") + ">");
                 Query tagQuery = dataSession
                                 .createQuery("from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus order by sortOrder, tagName");
                 tagQuery.setParameter("workspaceId", workspaceId);
@@ -536,7 +537,15 @@ public class ProjectHealthPageRenderer {
                         out.println("        <option value=\"" + tag.getProjectTagId() + "\"" + selected + ">"
                                         + escapeHtml(tag.getTagName()) + "</option>");
                 }
-                out.println("      </select></div>");
+                out.println("      </select>");
+                if (project.isExternalManaged()) {
+                        for (Integer selectedTagId : selectedProjectTagIds) {
+                                out.println("      <input type=\"hidden\" name=\"projectTagIds\" value=\""
+                                                + selectedTagId + "\" />");
+                        }
+                        out.println("      <div class=\"ph-subtle\">Tags are externally managed and cannot be edited here.</div>");
+                }
+                out.println("      </div>");
 
                 out.println("      <div class=\"ph-form-field\"><label>Project Icon</label>");
                 out.println("      <input id=\"phProjectIcon\" type=\"text\" name=\"projectIcon\" value=\""

@@ -2,7 +2,9 @@ package org.openimmunizationsoftware.pt.api.v1.service;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -18,12 +20,17 @@ import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ProjectTag;
+import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
 
 public class ExternalSyncService {
 
     public static final String OPERATION_ADD = "add";
     public static final String OPERATION_REMOVE = "remove";
+    private static final int MAX_TAG_NAME_LENGTH = 100;
+    private static final int MAX_TAG_HANDLE_LENGTH = 60;
 
     public SyncBatchResponse upsertProjects(ApiRequestContext.ApiClientInfo client, int workspaceId,
             List<SyncProjectUpsertItem> items) {
@@ -78,6 +85,10 @@ public class ExternalSyncService {
                 }
 
                 session.saveOrUpdate(project);
+                session.flush();
+                if (item.isHasProjectTags()) {
+                    reconcileProjectTags(session, workspaceId, apiUser, project, item.getProjectTags());
+                }
                 result.setProjectId(Integer.valueOf(project.getProjectId()));
                 result.setStatus(createMode ? "created" : "updated");
                 result.setMessage(createMode ? "Project created." : "Project updated.");
@@ -283,6 +294,189 @@ public class ExternalSyncService {
                 contact.setContactStatus(status.toUpperCase());
             }
         }
+    }
+
+    private void reconcileProjectTags(Session session, int workspaceId, WebUser apiUser,
+            Project project, List<String> requestedProjectTags) {
+        Set<Integer> requestedProjectTagIds = resolveRequestedProjectTagIds(session, workspaceId, apiUser,
+                requestedProjectTags);
+
+        Query existingTagMapQuery = session.createQuery(
+                "select projectTagId from ProjectTagMap where projectId = :projectId");
+        existingTagMapQuery.setInteger("projectId", project.getProjectId());
+        @SuppressWarnings("unchecked")
+        List<Integer> existingTagIdList = existingTagMapQuery.list();
+        Set<Integer> existingTagIds = new LinkedHashSet<Integer>();
+        if (existingTagIdList != null) {
+            existingTagIds.addAll(existingTagIdList);
+        }
+
+        for (Integer existingTagId : existingTagIds) {
+            if (!requestedProjectTagIds.contains(existingTagId)) {
+                Query deleteMapQuery = session.createQuery(
+                        "delete from ProjectTagMap where projectId = :projectId and projectTagId = :projectTagId");
+                deleteMapQuery.setInteger("projectId", project.getProjectId());
+                deleteMapQuery.setInteger("projectTagId", existingTagId.intValue());
+                deleteMapQuery.executeUpdate();
+            }
+        }
+
+        for (Integer requestedTagId : requestedProjectTagIds) {
+            if (!existingTagIds.contains(requestedTagId)) {
+                ProjectTagMap tagMap = new ProjectTagMap();
+                tagMap.setProjectId(project.getProjectId());
+                tagMap.setProjectTagId(requestedTagId.intValue());
+                tagMap.setCreatedDate(new Date());
+                session.save(tagMap);
+            }
+        }
+    }
+
+    private Set<Integer> resolveRequestedProjectTagIds(Session session, int workspaceId, WebUser apiUser,
+            List<String> requestedProjectTags) {
+        Set<Integer> resolvedTagIds = new LinkedHashSet<Integer>();
+        if (requestedProjectTags == null || requestedProjectTags.isEmpty()) {
+            return resolvedTagIds;
+        }
+
+        int nextSortOrder = resolveNextTagSortOrder(session, workspaceId);
+        for (String rawProjectTag : requestedProjectTags) {
+            String tagName = clipTagName(rawProjectTag);
+            if (tagName.length() == 0) {
+                continue;
+            }
+
+            ProjectTag existingTag = findTagByNameOrHandle(session, workspaceId, tagName);
+            if (existingTag == null) {
+                ProjectTag createdTag = new ProjectTag();
+                createdTag.setWorkspaceId(workspaceId);
+                createdTag.setTagName(tagName);
+                createdTag.setTagHandle(resolveUniqueTagHandle(session, workspaceId, tagName));
+                createdTag.setTagStatus(ProjectTag.STATUS_ACTIVE);
+                createdTag.setSortOrder(Integer.valueOf(nextSortOrder));
+                nextSortOrder += 10;
+                createdTag.setCreatedByWebUserId(
+                        apiUser == null ? null : Integer.valueOf(apiUser.getWebUserId()));
+                createdTag.setCreatedDate(new Date());
+                session.save(createdTag);
+                session.flush();
+                resolvedTagIds.add(Integer.valueOf(createdTag.getProjectTagId()));
+            } else {
+                if (!ProjectTag.STATUS_ACTIVE.equalsIgnoreCase(existingTag.getTagStatus())) {
+                    existingTag.setTagStatus(ProjectTag.STATUS_ACTIVE);
+                    session.update(existingTag);
+                }
+                resolvedTagIds.add(Integer.valueOf(existingTag.getProjectTagId()));
+            }
+        }
+        return resolvedTagIds;
+    }
+
+    private int resolveNextTagSortOrder(Session session, int workspaceId) {
+        Query maxSortOrderQuery = session
+                .createQuery("select max(sortOrder) from ProjectTag where workspaceId = :workspaceId");
+        maxSortOrderQuery.setInteger("workspaceId", workspaceId);
+        Number maxSortOrder = (Number) maxSortOrderQuery.uniqueResult();
+        if (maxSortOrder == null) {
+            return 10;
+        }
+        return maxSortOrder.intValue() + 10;
+    }
+
+    private String clipTagName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= MAX_TAG_NAME_LENGTH) {
+            return trimmed;
+        }
+        return trimmed.substring(0, MAX_TAG_NAME_LENGTH);
+    }
+
+    private ProjectTag findTagByNameOrHandle(Session session, int workspaceId, String tagName) {
+        String normalizedTagName = normalize(tagName);
+        if (normalizedTagName.length() == 0) {
+            return null;
+        }
+
+        Query byNameQuery = session.createQuery("from ProjectTag where workspaceId = :workspaceId "
+                + "and lower(tagName) = :tagName order by projectTagId");
+        byNameQuery.setInteger("workspaceId", workspaceId);
+        byNameQuery.setString("tagName", normalizedTagName);
+        byNameQuery.setMaxResults(1);
+        @SuppressWarnings("unchecked")
+        List<ProjectTag> byNameMatches = byNameQuery.list();
+        if (!byNameMatches.isEmpty()) {
+            return byNameMatches.get(0);
+        }
+
+        String normalizedHandle = normalize(resolveTagHandleCandidate(tagName));
+        if (normalizedHandle.length() == 0) {
+            return null;
+        }
+        Query byHandleQuery = session.createQuery("from ProjectTag where workspaceId = :workspaceId "
+                + "and lower(tagHandle) = :tagHandle order by projectTagId");
+        byHandleQuery.setInteger("workspaceId", workspaceId);
+        byHandleQuery.setString("tagHandle", normalizedHandle);
+        byHandleQuery.setMaxResults(1);
+        @SuppressWarnings("unchecked")
+        List<ProjectTag> byHandleMatches = byHandleQuery.list();
+        if (!byHandleMatches.isEmpty()) {
+            return byHandleMatches.get(0);
+        }
+        return null;
+    }
+
+    private String resolveUniqueTagHandle(Session session, int workspaceId, String tagName) {
+        String baseHandle = resolveTagHandleCandidate(tagName);
+        if (baseHandle.length() == 0) {
+            baseHandle = "tag";
+        }
+
+        int suffix = 1;
+        while (true) {
+            String candidate = baseHandle;
+            if (suffix > 1) {
+                String suffixText = "-" + suffix;
+                int maxBaseLength = MAX_TAG_HANDLE_LENGTH - suffixText.length();
+                if (maxBaseLength < 1) {
+                    maxBaseLength = 1;
+                }
+                String clippedBase = baseHandle.length() > maxBaseLength
+                        ? baseHandle.substring(0, maxBaseLength)
+                        : baseHandle;
+                candidate = clippedBase + suffixText;
+            }
+            if (!tagHandleExists(session, workspaceId, candidate)) {
+                return candidate;
+            }
+            suffix++;
+        }
+    }
+
+    private String resolveTagHandleCandidate(String tagName) {
+        String resolvedHandle = HandleValidationSupport.resolveHandle("", tagName, MAX_TAG_HANDLE_LENGTH);
+        if (resolvedHandle == null) {
+            return "";
+        }
+        return resolvedHandle.trim();
+    }
+
+    private boolean tagHandleExists(Session session, int workspaceId, String tagHandle) {
+        Query query = session.createQuery("select count(*) from ProjectTag where workspaceId = :workspaceId "
+                + "and lower(tagHandle) = :tagHandle");
+        query.setInteger("workspaceId", workspaceId);
+        query.setString("tagHandle", normalize(tagHandle));
+        Number count = (Number) query.uniqueResult();
+        return count != null && count.intValue() > 0;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().toLowerCase();
     }
 
     private String validateProjectItem(SyncProjectUpsertItem item) {

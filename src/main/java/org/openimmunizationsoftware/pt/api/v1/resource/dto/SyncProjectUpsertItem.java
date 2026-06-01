@@ -1,5 +1,7 @@
 package org.openimmunizationsoftware.pt.api.v1.resource.dto;
 
+import java.util.List;
+
 public class SyncProjectUpsertItem {
 
     private String externalProjectId;
@@ -7,11 +9,13 @@ public class SyncProjectUpsertItem {
     private String description;
     private String projectHandle;
     private String projectStatus;
+    private List<String> projectTags;
 
     private boolean hasProjectName;
     private boolean hasDescription;
     private boolean hasProjectHandle;
     private boolean hasProjectStatus;
+    private boolean hasProjectTags;
 
     public String getExternalProjectId() {
         return externalProjectId;
@@ -71,5 +75,18 @@ public class SyncProjectUpsertItem {
 
     public boolean isHasProjectStatus() {
         return hasProjectStatus;
+    }
+
+    public List<String> getProjectTags() {
+        return projectTags;
+    }
+
+    public void setProjectTags(List<String> projectTags) {
+        this.projectTags = projectTags;
+        this.hasProjectTags = true;
+    }
+
+    public boolean isHasProjectTags() {
+        return hasProjectTags;
     }
 }
