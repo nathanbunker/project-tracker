@@ -355,8 +355,13 @@ public class HomeServlet extends ClientServlet {
         if (nextActionDate != null && toDatabaseDateKey(nextActionDate).compareTo(toDatabaseDateKey(today)) < 0) {
           projectActionListOverdue.add(projectAction);
         }
-        projectAction.setContact(
-            (ProjectContact) dataSession.get(ProjectContact.class, projectAction.getContactId()));
+        Integer actorContactId = projectAction.getContactId();
+        if (actorContactId != null && actorContactId.intValue() > 0) {
+          projectAction.setContact(
+              (ProjectContact) dataSession.get(ProjectContact.class, actorContactId));
+        } else {
+          projectAction.setContact(null);
+        }
         if (projectAction.getNextContactId() != null && projectAction.getNextContactId() > 0) {
           projectAction.setNextProjectContact((ProjectContact) dataSession.get(ProjectContact.class,
               projectAction.getNextContactId()));
@@ -398,8 +403,9 @@ public class HomeServlet extends ClientServlet {
       if (!nextActionType.equals("") && !nextActionType.equals(projectAction.getNextActionType())) {
         continue;
       }
+      Integer actorContactId = projectAction.getContactId();
       if (ProjectNextActionType.WAITING.equals(projectAction.getNextActionType())
-          && projectAction.getContactId() == webUser.getContactId()) {
+          && actorContactId != null && actorContactId.intValue() == webUser.getContactId()) {
         askingAndWaitingCount++;
         continue;
       }
@@ -449,7 +455,8 @@ public class HomeServlet extends ClientServlet {
           && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL)
           && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT)
           && !(ProjectNextActionType.WAITING.equals(projectAction.getNextActionType())
-              && projectAction.getContactId() == webUser.getContactId())) {
+              && projectAction.getContactId() != null
+              && projectAction.getContactId().intValue() == webUser.getContactId())) {
         printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
@@ -475,8 +482,9 @@ public class HomeServlet extends ClientServlet {
             && !nextActionType.equals(projectAction.getNextActionType())) {
           continue;
         }
+        Integer actorContactId2 = projectAction.getContactId();
         if (ProjectNextActionType.WAITING.equals(projectAction.getNextActionType())
-            && projectAction.getContactId() == webUser.getContactId()) {
+            && actorContactId2 != null && actorContactId2.intValue() == webUser.getContactId()) {
           printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
               showLink);
         }

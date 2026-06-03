@@ -238,8 +238,10 @@ public class StudentSchoolServlet extends StudentBaseServlet {
             if (action.getProject() == null && action.getProjectId() > 0) {
                 action.setProject((Project) dataSession.get(Project.class, action.getProjectId()));
             }
-            if (action.getContact() == null && action.getContactId() > 0) {
-                action.setContact((ProjectContact) dataSession.get(ProjectContact.class, action.getContactId()));
+            if (action.getContact() == null && action.getContactId() != null
+                    && action.getContactId().intValue() > 0) {
+                action.setContact((ProjectContact) dataSession.get(ProjectContact.class,
+                        action.getContactId()));
             }
         }
 

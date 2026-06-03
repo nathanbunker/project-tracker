@@ -202,6 +202,9 @@ public class TemplateGenerationService {
         if (type == null) {
             return;
         }
+        if (template.getContactId() == null || template.getWorkspaceId() == null) {
+            return;
+        }
 
         String pattern = resolvePattern(type, config);
 
@@ -471,7 +474,8 @@ public class TemplateGenerationService {
     }
 
     private int contactId(ActionNext template) {
-        return template.getContactId();
+        Integer value = template.getContactId();
+        return value == null ? 0 : value.intValue();
     }
 
     static LocalDate toLocalDate(Date date) {

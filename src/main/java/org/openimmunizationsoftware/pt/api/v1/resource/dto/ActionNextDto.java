@@ -22,7 +22,7 @@ public class ActionNextDto {
         ActionNextDto dto = new ActionNextDto();
         dto.setActionNextId(action.getActionNextId());
         dto.setProjectId(action.getProjectId());
-        dto.setContactId(action.getContactId());
+        dto.setContactId(action.getContactId() == null ? 0 : action.getContactId().intValue());
         dto.setNextDescription(action.getNextDescription());
         dto.setNextActionDate(action.getNextActionDate());
         dto.setNextDeadlineDate(action.getNextDeadlineDate());
@@ -95,4 +95,3 @@ public class ActionNextDto {
         this.priorityLevel = priorityLevel;
     }
 }
-

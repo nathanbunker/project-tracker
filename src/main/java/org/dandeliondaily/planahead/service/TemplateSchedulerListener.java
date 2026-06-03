@@ -81,6 +81,9 @@ public class TemplateSchedulerListener implements ServletContextListener {
 
             for (Object[] pair : pairs) {
                 int workspaceId = ((Number) pair[0]).intValue();
+                if (pair[1] == null) {
+                    continue;
+                }
                 int contactId = ((Number) pair[1]).intValue();
                 try {
                     processUser(factory, workspaceId, contactId, advanceDays);
@@ -132,6 +135,7 @@ public class TemplateSchedulerListener implements ServletContextListener {
         Query query = session.createQuery(
                 "select distinct an.workspaceId, an.contactId from ActionNext an "
                         + "where an.templateTypeString is not null and an.templateTypeString <> '' "
+                        + "and an.contactId is not null "
                         + "and an.templateActionNextId is null "
                         + "and an.nextActionStatusString <> :cancelled");
         query.setParameter("cancelled", "X");

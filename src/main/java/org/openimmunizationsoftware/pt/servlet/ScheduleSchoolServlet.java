@@ -1528,7 +1528,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
             return false;
         }
         int dependentContactId = dependentUser.getContactId();
-        return action.getContactId() == dependentContactId
+        return (action.getContactId() != null && action.getContactId().intValue() == dependentContactId)
                 || (action.getNextContactId() != null && action.getNextContactId().intValue() == dependentContactId);
     }
 

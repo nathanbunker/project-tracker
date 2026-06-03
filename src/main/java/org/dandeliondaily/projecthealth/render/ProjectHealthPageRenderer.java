@@ -15,6 +15,7 @@ import org.dandeliondaily.projecthealth.model.ProjectTagSummaryRowModel;
 import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
@@ -51,11 +52,19 @@ public class ProjectHealthPageRenderer {
                 out.println("    </div>");
 
                 out.println("    <div class=\"ph-col ph-col-center\">");
-                printReportColumn(out, model);
+                if (model.isFactsMode()) {
+                        printFactDefinitionsColumn(out, model);
+                } else {
+                        printReportColumn(out, model);
+                }
                 out.println("    </div>");
 
                 out.println("    <div class=\"ph-col ph-col-right\">");
-                printIssuesAndActions(out, model);
+                if (model.isFactsMode()) {
+                        printFactEditorColumn(out, model);
+                } else {
+                        printIssuesAndActions(out, model);
+                }
                 out.println("    </div>");
                 out.println("  </div>");
 
@@ -88,6 +97,8 @@ public class ProjectHealthPageRenderer {
                         out.println(
                                         "      <button type=\"button\" class=\"ph-emoji-btn\" title=\"Reprioritize selected project\" onclick=\"phOpenReprioritizeProjectModal(event)\">↕️</button>");
                 }
+                out.println("      <a class=\"ph-facts-link\" href=\"" + factsLink(model, null, null)
+                                + "\">Edit Facts</a>");
                 out.println("    </span>");
                 out.println("  </div>");
                 printProjectCadenceGroups(out, model.getWorkProjectGroups(), "WORK", model);
@@ -113,6 +124,8 @@ public class ProjectHealthPageRenderer {
                 } else {
                         out.println("    <h2>Tag: " + escapeHtml(model.getSelectedPatchTagLabel()) + "</h2>");
                 }
+                out.println("    <span class=\"ph-row-actions\"><a class=\"ph-facts-link\" href=\""
+                                + factsLink(model, null, null) + "\">Edit Facts</a></span>");
                 out.println("  </div>");
 
                 if (model.isPatchSummaryMode()) {
@@ -232,6 +245,145 @@ public class ProjectHealthPageRenderer {
                         out.println("    </tr>");
                 }
                 out.println("  </table>");
+        }
+
+        private void printFactDefinitionsColumn(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("<div class=\"ph-section ph-panel\">");
+                out.println("  <div class=\"ph-section-title-row\">");
+                out.println("    <h2>Project Facts</h2>");
+                out.println("  </div>");
+                out.println(
+                                "  <p class=\"ph-subtle\">Workspace-scoped fact definitions grouped by fact group.</p>");
+
+                if (model.getFactsMessage() != null && model.getFactsMessage().trim().length() > 0) {
+                        String messageClass = model.isFactsMessageError() ? "ph-facts-message-error"
+                                        : "ph-facts-message-ok";
+                        out.println("  <div class=\"ph-facts-message " + messageClass + "\">"
+                                        + escapeHtml(model.getFactsMessage()) + "</div>");
+                }
+
+                List<ProjectFactDefinition> facts = model.getFactDefinitions();
+                if (facts == null || facts.isEmpty()) {
+                        out.println("  <table class=\"ph-project-table\">");
+                        out.println("    <tr><th>Group</th><th>Code</th><th>Label</th><th>Type</th><th>Active</th></tr>");
+                        out.println("    <tr><td colspan=\"5\" class=\"ph-subtle\">No fact definitions yet.</td></tr>");
+                        out.println("    <tr class=\"ph-fact-add-row\"><td colspan=\"5\"><a class=\"ph-project-link\" href=\""
+                                        + factsLink(model, null, model.getSelectedFactGroup())
+                                        + "\">+ Add first fact</a></td></tr>");
+                        out.println("  </table>");
+                        out.println("</div>");
+                        return;
+                }
+
+                out.println("  <table class=\"ph-project-table\">");
+                out.println("    <tr><th>Group</th><th>Code</th><th>Label</th><th>Type</th><th>Active</th></tr>");
+                String currentGroup = null;
+                for (ProjectFactDefinition fact : facts) {
+                        String factGroup = n(fact.getFactGroup());
+                        if (currentGroup != null && !currentGroup.equalsIgnoreCase(factGroup)) {
+                                out.println("    <tr class=\"ph-fact-add-row\"><td colspan=\"5\"><a class=\"ph-project-link\" href=\""
+                                                + factsLink(model, null, currentGroup) + "\">+ Add fact in "
+                                                + escapeHtml(currentGroup)
+                                                + "</a></td></tr>");
+                        }
+                        currentGroup = factGroup;
+
+                        boolean selected = model.getSelectedFactDefinitionId() != null
+                                        && model.getSelectedFactDefinitionId().intValue() == fact
+                                                        .getProjectFactDefinitionId();
+                        out.println("    <tr" + (selected ? " class=\"ph-selected\"" : "") + ">");
+                        out.println("      <td><a class=\"ph-project-link\" href=\""
+                                        + factsLink(model, Integer.valueOf(fact.getProjectFactDefinitionId()), null)
+                                        + "\">" + escapeHtml(factGroup) + "</a></td>");
+                        out.println("      <td>" + escapeHtml(n(fact.getFactCode())) + "</td>");
+                        out.println("      <td>" + escapeHtml(n(fact.getFactLabel())) + "</td>");
+                        out.println("      <td>" + escapeHtml(n(fact.getFactInputType())) + "</td>");
+                        out.println("      <td>"
+                                        + (ProjectFactDefinition.ACTIVE_YES.equalsIgnoreCase(n(fact.getActive())) ? "Y"
+                                                        : "N")
+                                        + "</td>");
+                        out.println("    </tr>");
+                }
+                if (currentGroup != null && currentGroup.length() > 0) {
+                        out.println("    <tr class=\"ph-fact-add-row\"><td colspan=\"5\"><a class=\"ph-project-link\" href=\""
+                                        + factsLink(model, null, currentGroup) + "\">+ Add fact in "
+                                        + escapeHtml(currentGroup)
+                                        + "</a></td></tr>");
+                }
+                out.println("  </table>");
+                out.println("</div>");
+        }
+
+        private void printFactEditorColumn(PrintWriter out, ProjectHealthPageModel model) {
+                ProjectFactDefinition selected = model.getSelectedFactDefinition();
+                String factGroup = selected != null ? n(selected.getFactGroup()) : n(model.getSelectedFactGroup());
+                String factCode = selected != null ? n(selected.getFactCode()) : "";
+                String factLabel = selected != null ? n(selected.getFactLabel()) : "";
+                String factDescription = selected != null ? n(selected.getFactDescription()) : "";
+                String factInputType = selected != null ? n(selected.getFactInputType())
+                                : ProjectFactDefinition.INPUT_TYPE_BOOLEAN;
+                int displayOrder = selected != null ? selected.getDisplayOrder() : 0;
+                String active = selected != null ? n(selected.getActive()) : ProjectFactDefinition.ACTIVE_YES;
+
+                out.println("<div class=\"ph-section ph-panel\">");
+                out.println("  <h2>Fact Editor</h2>");
+                out.println("  <form method=\"POST\" action=\"ProjectHealthServlet\">");
+                out.println("    <input type=\"hidden\" name=\"action\" value=\"saveFactDefinition\" />");
+                out.println("    <input type=\"hidden\" name=\"factDefinitionId\" value=\""
+                                + (selected == null ? "" : selected.getProjectFactDefinitionId()) + "\" />");
+
+                out.println("    <div class=\"ph-form-field\"><label>Fact Group</label>");
+                out.println("    <input type=\"text\" name=\"factGroup\" value=\"" + escapeHtml(factGroup)
+                                + "\" maxlength=\"60\" /></div>");
+
+                out.println("    <div class=\"ph-form-field\"><label>Fact Code</label>");
+                out.println("    <input type=\"text\" name=\"factCode\" value=\"" + escapeHtml(factCode)
+                                + "\" maxlength=\"80\" /></div>");
+
+                out.println("    <div class=\"ph-form-field\"><label>Fact Label</label>");
+                out.println("    <input type=\"text\" name=\"factLabel\" value=\"" + escapeHtml(factLabel)
+                                + "\" maxlength=\"200\" /></div>");
+
+                out.println("    <div class=\"ph-form-field\"><label>Fact Description</label>");
+                out.println("    <textarea name=\"factDescription\" rows=\"4\" maxlength=\"1200\">"
+                                + escapeHtml(factDescription) + "</textarea></div>");
+
+                out.println("    <div class=\"ph-form-field\"><label>Fact Input Type</label>");
+                out.println("    <select name=\"factInputType\">");
+                printFactInputTypeOption(out, factInputType, ProjectFactDefinition.INPUT_TYPE_BOOLEAN);
+                printFactInputTypeOption(out, factInputType, ProjectFactDefinition.INPUT_TYPE_SELECT);
+                printFactInputTypeOption(out, factInputType, ProjectFactDefinition.INPUT_TYPE_TEXT);
+                printFactInputTypeOption(out, factInputType, ProjectFactDefinition.INPUT_TYPE_DATE);
+                printFactInputTypeOption(out, factInputType, ProjectFactDefinition.INPUT_TYPE_NUMBER);
+                out.println("    </select></div>");
+
+                out.println("    <div class=\"ph-form-field\"><label>Display Order</label>");
+                out.println("    <input type=\"number\" name=\"displayOrder\" value=\"" + displayOrder + "\" /></div>");
+
+                out.println("    <div class=\"ph-form-field\"><label>Active</label>");
+                out.println("    <select name=\"active\">");
+                out.println("      <option value=\"Y\""
+                                + ("Y".equalsIgnoreCase(active) ? " selected" : "") + ">Y</option>");
+                out.println("      <option value=\"N\""
+                                + ("N".equalsIgnoreCase(active) ? " selected" : "") + ">N</option>");
+                out.println("    </select></div>");
+
+                out.println("    <div class=\"ph-form-actions\">");
+                out.println("      <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Save Fact</button>");
+                out.println("      <a class=\"ph-btn\" href=\"" + factsLink(model, null, null) + "\">New</a>");
+                out.println("    </div>");
+                out.println("  </form>");
+
+                if (selected != null && ProjectFactDefinition.ACTIVE_YES.equalsIgnoreCase(active)) {
+                        out.println("  <div class=\"ph-divider\"></div>");
+                        out.println("  <form method=\"POST\" action=\"ProjectHealthServlet\" onsubmit=\"return confirm('Deactivate this fact?');\">");
+                        out.println("    <input type=\"hidden\" name=\"action\" value=\"deactivateFactDefinition\" />");
+                        out.println("    <input type=\"hidden\" name=\"factDefinitionId\" value=\""
+                                        + selected.getProjectFactDefinitionId() + "\" />");
+                        out.println("    <button type=\"submit\" class=\"ph-btn\">Deactivate</button>");
+                        out.println("  </form>");
+                }
+                out.println("</div>");
         }
 
         private void printReportColumn(PrintWriter out, ProjectHealthPageModel model) {
@@ -972,6 +1124,12 @@ public class ProjectHealthPageRenderer {
                 out.println("  .ph-project-link { color: #2e4a30; text-decoration: none; }");
                 out.println("  .ph-project-link:hover { text-decoration: underline; }");
                 out.println("  .ph-selected { background: #f1f8ea; }");
+                out.println("  .ph-facts-link { font-size: 11px; color: #2e4a30; text-decoration: none; border: 1px solid #cfbea6; border-radius: 4px; padding: 2px 6px; background: #f0ebe0; }");
+                out.println("  .ph-facts-link:hover { text-decoration: none; background: #e8e1d3; border-color: #bfa982; }");
+                out.println("  .ph-fact-add-row td { background: #f8f4eb; }");
+                out.println("  .ph-facts-message { border-radius: 5px; padding: 7px 9px; margin: 0 0 8px 0; font-size: 12px; }");
+                out.println("  .ph-facts-message-ok { background: #e9f4e9; color: #2d5b34; border: 1px solid #c8dcc9; }");
+                out.println("  .ph-facts-message-error { background: #fdeceb; color: #8d2f2f; border: 1px solid #e6b4b4; }");
 
                 out.println(
                                 "  .ph-health { font-size: 11px; border-radius: 999px; padding: 3px 7px; border: 1px solid #d5cdc0; display: inline-block; }");
@@ -1080,6 +1238,23 @@ public class ProjectHealthPageRenderer {
                         href.append("&patchTag=").append(escapeUrl(model.getSelectedPatchTagKey()));
                 }
                 return href.toString();
+        }
+
+        private String factsLink(ProjectHealthPageModel model, Integer factDefinitionId, String factGroup) {
+                StringBuilder href = new StringBuilder("ProjectHealthServlet?action=editFacts");
+                if (factDefinitionId != null && factDefinitionId.intValue() > 0) {
+                        href.append("&factDefinitionId=").append(factDefinitionId.intValue());
+                }
+                if (factGroup != null && factGroup.trim().length() > 0) {
+                        href.append("&factGroup=").append(escapeUrl(factGroup.trim()));
+                }
+                return href.toString();
+        }
+
+        private void printFactInputTypeOption(PrintWriter out, String selectedValue, String optionValue) {
+                boolean selected = optionValue.equalsIgnoreCase(n(selectedValue));
+                out.println("      <option value=\"" + optionValue + "\"" + (selected ? " selected" : "") + ">"
+                                + optionValue + "</option>");
         }
 
         private String escapeUrl(String value) {

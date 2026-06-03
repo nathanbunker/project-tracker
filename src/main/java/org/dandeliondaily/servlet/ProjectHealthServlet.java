@@ -22,8 +22,10 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.projecthealth.service.ProjectPatchLinkService;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ProjectFactDefinitionDao;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
 import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
@@ -100,11 +102,28 @@ public class ProjectHealthServlet extends ClientServlet {
                 handleRemoveProjectPatchLink(appReq);
                 return;
             }
+            if ("saveFactDefinition".equals(action)) {
+                handleSaveFactDefinition(appReq);
+                return;
+            }
+            if ("deactivateFactDefinition".equals(action)) {
+                handleDeactivateFactDefinition(appReq);
+                return;
+            }
 
             appReq.setTitle("Project Health");
             String selectedPatchTagKey = normalizePatchTagKey(request.getParameter("patchTag"));
             ProjectHealthPageModel model = pageService.buildModel(appReq, contextWorkspaceId, patchWorkspaces,
                     selectedPatchTagKey);
+            boolean factsMode = "editFacts".equals(action);
+            if (factsMode) {
+                Integer selectedFactDefinitionId = parseInteger(request.getParameter("factDefinitionId"));
+                String selectedFactGroup = normalizeFactGroup(request.getParameter("factGroup"));
+                model.setFactsMode(true);
+                model.setFactsMessage(safeText(request.getParameter("factsMessage")));
+                model.setFactsMessageError("Y".equalsIgnoreCase(request.getParameter("factsError")));
+                pageService.populateFactDefinitions(model, appReq, selectedFactDefinitionId, selectedFactGroup);
+            }
             printHtmlHead(appReq);
             pageRenderer.render(appReq, model);
             printHtmlFoot(appReq);
@@ -552,6 +571,156 @@ public class ProjectHealthServlet extends ClientServlet {
         sendJson(appReq, true, "Link removed", null);
     }
 
+    private void handleSaveFactDefinition(AppReq appReq) throws Exception {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            redirectToFacts(appReq, "Workspace is required", true, null, null);
+            return;
+        }
+
+        Integer factDefinitionId = parseInteger(appReq.getRequest().getParameter("factDefinitionId"));
+        String factGroup = normalizeFactGroup(appReq.getRequest().getParameter("factGroup"));
+        String factCode = normalizeFactCode(appReq.getRequest().getParameter("factCode"));
+        String factLabel = clip(appReq.getRequest().getParameter("factLabel"), 200);
+        String factDescription = clipAllowNull(appReq.getRequest().getParameter("factDescription"), 1200);
+        String factInputType = normalizeFactInputType(appReq.getRequest().getParameter("factInputType"));
+        Integer displayOrder = parseInteger(appReq.getRequest().getParameter("displayOrder"));
+        String active = normalizeActive(appReq.getRequest().getParameter("active"));
+
+        if (factGroup.length() == 0) {
+            redirectToFacts(appReq, "Fact group is required", true, factDefinitionId, null);
+            return;
+        }
+        if (factCode.length() == 0) {
+            redirectToFacts(appReq, "Fact code is required", true, factDefinitionId, factGroup);
+            return;
+        }
+        if (factLabel.length() == 0) {
+            redirectToFacts(appReq, "Fact label is required", true, factDefinitionId, factGroup);
+            return;
+        }
+        if (factInputType == null) {
+            redirectToFacts(appReq, "Fact input type is invalid", true, factDefinitionId, factGroup);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        ProjectFactDefinitionDao dao = new ProjectFactDefinitionDao(dataSession);
+        ProjectFactDefinition factDefinition;
+        boolean creating = factDefinitionId == null || factDefinitionId.intValue() <= 0;
+        if (creating) {
+            factDefinition = new ProjectFactDefinition();
+            factDefinition.setWorkspaceId(workspaceId.intValue());
+            factDefinition.setCreatedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+            factDefinition.setCreatedDate(new java.util.Date());
+            if (displayOrder == null) {
+                displayOrder = Integer.valueOf(dao.nextDisplayOrderForGroup(workspaceId.intValue(), factGroup));
+            }
+        } else {
+            factDefinition = dao.getById(factDefinitionId.intValue());
+            if (factDefinition == null || factDefinition.getWorkspaceId() != workspaceId.intValue()) {
+                redirectToFacts(appReq, "Fact definition was not found", true, null, null);
+                return;
+            }
+            if (!factCode.equalsIgnoreCase(safeText(factDefinition.getFactCode()))) {
+                redirectToFacts(appReq, "Fact code is stable and cannot be changed", true,
+                        Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factGroup);
+                return;
+            }
+            if (displayOrder == null) {
+                displayOrder = Integer.valueOf(factDefinition.getDisplayOrder());
+            }
+        }
+
+        if (dao.existsByWorkspaceAndFactCodeIgnoreCase(workspaceId.intValue(), factCode,
+                creating ? null : Integer.valueOf(factDefinition.getProjectFactDefinitionId()))) {
+            redirectToFacts(appReq, "Fact code must be unique in this workspace", true,
+                    creating ? null : Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factGroup);
+            return;
+        }
+
+        factDefinition.setFactGroup(factGroup);
+        factDefinition.setFactCode(factCode);
+        factDefinition.setFactLabel(factLabel);
+        factDefinition.setFactDescription(factDescription);
+        factDefinition.setFactInputType(factInputType);
+        factDefinition.setDisplayOrder(displayOrder == null ? 0 : displayOrder.intValue());
+        factDefinition.setActive(active);
+        factDefinition.setLastModifiedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+        factDefinition.setLastModifiedDate(new java.util.Date());
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            if (creating) {
+                dao.save(factDefinition);
+            } else {
+                dao.update(factDefinition);
+            }
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            redirectToFacts(appReq, "Unable to save fact definition: " + e.getMessage(), true,
+                    creating ? null : Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factGroup);
+            return;
+        }
+
+        redirectToFacts(appReq, "Fact definition saved", false,
+                Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factGroup);
+    }
+
+    private void handleDeactivateFactDefinition(AppReq appReq) throws Exception {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            redirectToFacts(appReq, "Workspace is required", true, null, null);
+            return;
+        }
+
+        Integer factDefinitionId = parseInteger(appReq.getRequest().getParameter("factDefinitionId"));
+        if (factDefinitionId == null || factDefinitionId.intValue() <= 0) {
+            redirectToFacts(appReq, "Fact definition id is required", true, null, null);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        ProjectFactDefinitionDao dao = new ProjectFactDefinitionDao(dataSession);
+        ProjectFactDefinition factDefinition = dao.getById(factDefinitionId.intValue());
+        if (factDefinition == null || factDefinition.getWorkspaceId() != workspaceId.intValue()) {
+            redirectToFacts(appReq, "Fact definition was not found", true, null, null);
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            dao.deactivate(workspaceId.intValue(), factDefinition.getProjectFactDefinitionId(),
+                    Integer.valueOf(appReq.getWebUser().getWebUserId()), new java.util.Date());
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            redirectToFacts(appReq, "Unable to deactivate fact definition: " + e.getMessage(), true,
+                    Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factDefinition.getFactGroup());
+            return;
+        }
+
+        redirectToFacts(appReq, "Fact definition deactivated", false,
+                Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factDefinition.getFactGroup());
+    }
+
+    private void redirectToFacts(AppReq appReq, String message, boolean error, Integer factDefinitionId,
+            String factGroup) throws IOException {
+        StringBuilder url = new StringBuilder("ProjectHealthServlet?action=editFacts");
+        if (message != null && message.trim().length() > 0) {
+            url.append("&factsMessage=").append(urlEncode(message));
+            url.append("&factsError=").append(error ? "Y" : "N");
+        }
+        if (factDefinitionId != null && factDefinitionId.intValue() > 0) {
+            url.append("&factDefinitionId=").append(factDefinitionId.intValue());
+        }
+        if (factGroup != null && factGroup.trim().length() > 0) {
+            url.append("&factGroup=").append(urlEncode(factGroup.trim()));
+        }
+        appReq.getResponse().sendRedirect(url.toString());
+    }
+
     private void sendJson(AppReq appReq, boolean success, String message, Map<String, Object> data) throws Exception {
         appReq.getResponse().setContentType("application/json; charset=UTF-8");
         PrintWriter out = appReq.getResponse().getWriter();
@@ -751,5 +920,59 @@ public class ProjectHealthServlet extends ClientServlet {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeFactGroup(String value) {
+        return clip(value, 60);
+    }
+
+    private String normalizeFactCode(String value) {
+        return clip(value, 80).toUpperCase();
+    }
+
+    private String normalizeFactInputType(String value) {
+        String normalized = safeText(value).trim().toUpperCase();
+        if (normalized.length() == 0) {
+            return ProjectFactDefinition.INPUT_TYPE_BOOLEAN;
+        }
+        if (ProjectFactDefinition.INPUT_TYPE_BOOLEAN.equals(normalized)
+                || ProjectFactDefinition.INPUT_TYPE_SELECT.equals(normalized)
+                || ProjectFactDefinition.INPUT_TYPE_TEXT.equals(normalized)
+                || ProjectFactDefinition.INPUT_TYPE_DATE.equals(normalized)
+                || ProjectFactDefinition.INPUT_TYPE_NUMBER.equals(normalized)) {
+            return normalized;
+        }
+        return null;
+    }
+
+    private String normalizeActive(String value) {
+        return "N".equalsIgnoreCase(safeText(value).trim())
+                ? ProjectFactDefinition.ACTIVE_NO
+                : ProjectFactDefinition.ACTIVE_YES;
+    }
+
+    private String clip(String value, int maxLength) {
+        String normalized = safeText(value).trim();
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLength);
+    }
+
+    private String clipAllowNull(String value, int maxLength) {
+        String normalized = clip(value, maxLength);
+        return normalized.length() == 0 ? null : normalized;
+    }
+
+    private String urlEncode(String value) {
+        try {
+            return java.net.URLEncoder.encode(safeText(value), "UTF-8");
+        } catch (Exception e) {
+            return safeText(value);
+        }
+    }
+
+    private String safeText(String value) {
+        return value == null ? "" : value;
     }
 }

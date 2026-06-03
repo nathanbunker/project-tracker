@@ -24,10 +24,12 @@ import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectTagSummaryRowModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ProjectFactDefinitionDao;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
@@ -160,6 +162,29 @@ public class ProjectHealthPageService {
                 accessiblePatchWorkspaces, dataSession);
 
         return model;
+    }
+
+    public void populateFactDefinitions(ProjectHealthPageModel model, AppReq appReq, Integer selectedFactDefinitionId,
+            String selectedFactGroup) {
+        if (model == null || appReq == null || appReq.getActiveWorkspaceId() == null) {
+            return;
+        }
+
+        ProjectFactDefinitionDao dao = new ProjectFactDefinitionDao(appReq.getDataSession());
+        List<ProjectFactDefinition> factDefinitions = dao.listByWorkspaceId(appReq.getActiveWorkspaceId(), true);
+        model.setFactDefinitions(factDefinitions);
+        model.setSelectedFactDefinitionId(selectedFactDefinitionId);
+        model.setSelectedFactGroup(selectedFactGroup);
+
+        if (selectedFactDefinitionId != null) {
+            ProjectFactDefinition selected = dao.getById(selectedFactDefinitionId.intValue());
+            if (selected != null && selected.getWorkspaceId() == appReq.getActiveWorkspaceId()) {
+                model.setSelectedFactDefinition(selected);
+                if (model.getSelectedFactGroup() == null || model.getSelectedFactGroup().trim().length() == 0) {
+                    model.setSelectedFactGroup(selected.getFactGroup());
+                }
+            }
+        }
     }
 
     private Project buildPrivateLeftPanel(ProjectHealthPageModel model, AppReq appReq, List<Project> projects,

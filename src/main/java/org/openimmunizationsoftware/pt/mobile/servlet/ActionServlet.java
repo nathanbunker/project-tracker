@@ -939,8 +939,10 @@ public class ActionServlet extends MobileBaseServlet {
         String nextContactId = n(request.getParameter(PARAM_NEXT_CONTACT_ID));
         for (ProjectContact projectContact1 : projectContactList) {
             if (projectContact1.getContactId() != webUser.getProjectContact().getContactId()) {
-                boolean selected = nextContactId.equals(Integer.toString(
-                        projectAction == null ? projectContact1.getContactId() : projectAction.getContactId()));
+                Integer selectedContactId = projectAction == null ? Integer.valueOf(projectContact1.getContactId())
+                        : projectAction.getContactId();
+                boolean selected = selectedContactId != null
+                        && nextContactId.equals(Integer.toString(selectedContactId));
                 out.println("      <option value=\"" + projectContact1.getContactId() + "\""
                         + (selected ? " selected" : "") + ">" + projectContact1.getName() + "</option>");
             }

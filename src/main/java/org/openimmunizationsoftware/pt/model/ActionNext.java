@@ -17,7 +17,7 @@ public class ActionNext implements java.io.Serializable {
 
     private int actionNextId;
     private int projectId;
-    private int contactId;
+    private Integer contactId;
     private Integer workspaceId;
     private ProjectContact contact;
     private Project project;
@@ -66,11 +66,11 @@ public class ActionNext implements java.io.Serializable {
         this.projectId = projectId;
     }
 
-    public int getContactId() {
+    public Integer getContactId() {
         return contactId;
     }
 
-    public void setContactId(int contactId) {
+    public void setContactId(Integer contactId) {
         this.contactId = contactId;
     }
 
@@ -90,6 +90,8 @@ public class ActionNext implements java.io.Serializable {
         this.contact = contact;
         if (contact != null) {
             this.contactId = contact.getContactId();
+        } else {
+            this.contactId = null;
         }
     }
 
@@ -348,7 +350,9 @@ public class ActionNext implements java.io.Serializable {
             ActionNextNote note = new ActionNextNote();
             note.setActionNext(this);
             note.setActionNextId(this.actionNextId);
-            note.setContactId(this.contactId);
+            if (this.contactId != null) {
+                note.setContactId(this.contactId.intValue());
+            }
             note.setNoteLine(normalized);
             note.setNoteDate(now);
             nextNoteEntries.add(note);
@@ -475,7 +479,11 @@ public class ActionNext implements java.io.Serializable {
         String i_am = "I am ";
         String i_ = "I ";
         String i_have = "I have";
-        if (forContact != null && contact != null && forContact.getContactId() != contact.getContactId()) {
+        if (contact == null) {
+            i_am = "Someone is ";
+            i_ = "Someone ";
+            i_have = "Someone has ";
+        } else if (forContact != null && forContact.getContactId() != contact.getContactId()) {
             i_am = contact.getName() + " is ";
             i_ = contact.getName() + " ";
             i_have = contact.getName() + " has ";

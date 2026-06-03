@@ -3,6 +3,7 @@ package org.dandeliondaily.projecthealth.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
@@ -44,6 +45,14 @@ public class ProjectHealthPageModel {
     private String selectedPatchTagLabel;
     private List<ProjectTagSummaryRowModel> patchTagSummaryRows = new ArrayList<ProjectTagSummaryRowModel>();
     private List<ProjectCadenceGroupModel> patchTagProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
+
+    private boolean factsMode;
+    private String factsMessage = "";
+    private boolean factsMessageError;
+    private Integer selectedFactDefinitionId;
+    private String selectedFactGroup;
+    private List<ProjectFactDefinition> factDefinitions = new ArrayList<ProjectFactDefinition>();
+    private ProjectFactDefinition selectedFactDefinition;
 
     public int getSelectedProjectId() {
         return selectedProjectId;
@@ -279,5 +288,61 @@ public class ProjectHealthPageModel {
 
     public boolean isPatchTagMode() {
         return LEFT_PANEL_MODE_PATCH_TAG.equals(leftPanelMode);
+    }
+
+    public boolean isFactsMode() {
+        return factsMode;
+    }
+
+    public void setFactsMode(boolean factsMode) {
+        this.factsMode = factsMode;
+    }
+
+    public String getFactsMessage() {
+        return factsMessage;
+    }
+
+    public void setFactsMessage(String factsMessage) {
+        this.factsMessage = factsMessage;
+    }
+
+    public boolean isFactsMessageError() {
+        return factsMessageError;
+    }
+
+    public void setFactsMessageError(boolean factsMessageError) {
+        this.factsMessageError = factsMessageError;
+    }
+
+    public Integer getSelectedFactDefinitionId() {
+        return selectedFactDefinitionId;
+    }
+
+    public void setSelectedFactDefinitionId(Integer selectedFactDefinitionId) {
+        this.selectedFactDefinitionId = selectedFactDefinitionId;
+    }
+
+    public String getSelectedFactGroup() {
+        return selectedFactGroup;
+    }
+
+    public void setSelectedFactGroup(String selectedFactGroup) {
+        this.selectedFactGroup = selectedFactGroup;
+    }
+
+    public List<ProjectFactDefinition> getFactDefinitions() {
+        return factDefinitions;
+    }
+
+    public void setFactDefinitions(List<ProjectFactDefinition> factDefinitions) {
+        this.factDefinitions = factDefinitions;
+    }
+
+    public ProjectFactDefinition getSelectedFactDefinition() {
+        return selectedFactDefinition;
+    }
+
+    public void setSelectedFactDefinition(ProjectFactDefinition selectedFactDefinition) {
+        this.selectedFactDefinition = selectedFactDefinition;
     }
 }

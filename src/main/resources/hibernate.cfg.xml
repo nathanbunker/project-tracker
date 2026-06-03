@@ -37,6 +37,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectBookmark.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectTag.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectTagMap.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectFactDefinition.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContact.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactAssigned.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectContactPosition.hbm.xml"/>
