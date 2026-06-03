@@ -17,7 +17,6 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.dashboard.service.ActionSentenceImportService;
-import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
@@ -53,7 +52,6 @@ public class ProjectHealthPageService {
     private static final String STATUS_CLOSED = ProjectStatus.CLOSED.getDatabaseValue();
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
-    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     private enum ReprioritizeMode {
         BEFORE,
@@ -144,8 +142,7 @@ public class ProjectHealthPageService {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         List<Project> projects = loadProjects(webUser, dataSession, contextWorkspaceId);
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
-                projects);
+        Map<Integer, String> displayNameByProjectId = buildPrivateDisplayNameMap(projects);
         int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser, dataSession);
         model.setSelectedProjectId(selectedProjectId);
 
@@ -206,7 +203,7 @@ public class ProjectHealthPageService {
             ProjectStats selectedStats = statsMap.get(selectedProject.getProjectId());
             model.setSelectedProjectAvailable(true);
             model.setSelectedProjectName(
-                    resolveProjectDisplayName(dataSession, selectedProject, displayNameByProjectId));
+                    resolveProjectDisplayName(selectedProject, displayNameByProjectId));
             model.setReport(buildReport(appReq, selectedProject, selectedStats, displayNameByProjectId));
             String selectedProjectStatus = normalizeProjectStatus(selectedProject.getProjectStatus());
             boolean healthCheckApplicable = STATUS_ACTIVE.equals(selectedProjectStatus);
@@ -322,7 +319,7 @@ public class ProjectHealthPageService {
         Session dataSession = appReq.getDataSession();
 
         List<Project> all = loadProjects(webUser, dataSession);
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession, all);
+        Map<Integer, String> displayNameByProjectId = buildPrivateDisplayNameMap(all);
         Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, all);
         Project selected = null;
         for (Project project : all) {
@@ -351,7 +348,7 @@ public class ProjectHealthPageService {
             }
             ProjectListItemModel item = new ProjectListItemModel();
             item.setProjectId(project.getProjectId());
-            item.setProjectName(resolveProjectDisplayName(dataSession, project, displayNameByProjectId));
+            item.setProjectName(resolveProjectDisplayName(project, displayNameByProjectId));
             item.setPriorityLevel(project.getPriorityLevel());
             candidates.add(item);
         }
@@ -857,7 +854,7 @@ public class ProjectHealthPageService {
             Map<Integer, String> displayNameByProjectId) {
         ProjectListItemModel item = new ProjectListItemModel();
         item.setProjectId(project.getProjectId());
-        item.setProjectName(resolveProjectDisplayName(null, project, displayNameByProjectId));
+        item.setProjectName(resolveProjectDisplayName(project, displayNameByProjectId));
         item.setPriorityLevel(project.getPriorityLevel());
         item.setSelected(project.getProjectId() == selectedProjectId);
         item.setOverdueOpenCount(stats.overdueOpen);
@@ -887,7 +884,7 @@ public class ProjectHealthPageService {
         Session dataSession = appReq.getDataSession();
 
         report.setProjectId(project.getProjectId());
-        report.setProjectName(resolveProjectDisplayName(dataSession, project, displayNameByProjectId));
+        report.setProjectName(resolveProjectDisplayName(project, displayNameByProjectId));
         report.setDescription(n(project.getDescription()));
         report.setCategory(loadTagSummaryForProject(dataSession, project.getProjectId()));
         report.setPhase(normalizeProjectStatus(project.getProjectStatus()));
@@ -921,8 +918,7 @@ public class ProjectHealthPageService {
         return report;
     }
 
-    private String resolveProjectDisplayName(Session dataSession, Project project,
-            Map<Integer, String> displayNameByProjectId) {
+    private String resolveProjectDisplayName(Project project, Map<Integer, String> displayNameByProjectId) {
         if (project == null) {
             return "";
         }
@@ -930,10 +926,21 @@ public class ProjectHealthPageService {
         if (displayName != null) {
             return n(displayName);
         }
-        if (dataSession != null) {
-            return n(projectDisplayLabelService.buildDisplayName(dataSession, project));
-        }
         return n(project.getProjectName());
+    }
+
+    private Map<Integer, String> buildPrivateDisplayNameMap(List<Project> projects) {
+        Map<Integer, String> displayNameByProjectId = new HashMap<Integer, String>();
+        if (projects == null) {
+            return displayNameByProjectId;
+        }
+        for (Project project : projects) {
+            if (project == null) {
+                continue;
+            }
+            displayNameByProjectId.put(project.getProjectId(), n(project.getProjectName()));
+        }
+        return displayNameByProjectId;
     }
 
     private List<ProjectHealthIssueModel> buildIssues(ProjectReportModel report, ProjectStats stats) {
