@@ -1,16 +1,25 @@
 package org.dandeliondaily.servlet;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import javax.servlet.ServletException;
+import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.servlet.http.Part;
 
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
@@ -31,6 +40,7 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
+@MultipartConfig
 public class ProjectHealthServlet extends ClientServlet {
 
     private static final long serialVersionUID = 8700180916236040385L;
@@ -104,6 +114,14 @@ public class ProjectHealthServlet extends ClientServlet {
             }
             if ("saveFactDefinition".equals(action)) {
                 handleSaveFactDefinition(appReq);
+                return;
+            }
+            if ("downloadFactsCsv".equals(action)) {
+                handleDownloadFactsCsv(appReq);
+                return;
+            }
+            if ("uploadFactsCsv".equals(action)) {
+                handleUploadFactsCsv(appReq);
                 return;
             }
             if ("deactivateFactDefinition".equals(action)) {
@@ -668,6 +686,250 @@ public class ProjectHealthServlet extends ClientServlet {
                 Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factGroup);
     }
 
+    private void handleDownloadFactsCsv(AppReq appReq) throws Exception {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            redirectToFacts(appReq, "Workspace is required", true, null, null);
+            return;
+        }
+
+        ProjectFactDefinitionDao dao = new ProjectFactDefinitionDao(appReq.getDataSession());
+        List<ProjectFactDefinition> facts = dao.listByWorkspaceId(workspaceId.intValue(), true);
+
+        HttpServletResponse response = appReq.getResponse();
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("text/csv; charset=UTF-8");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=workspace-" + workspaceId.intValue() + "-facts.csv");
+
+        PrintWriter out = response.getWriter();
+        out.println("fact_group,fact_code,fact_label,fact_description,fact_input_type,display_order,active");
+        for (ProjectFactDefinition fact : facts) {
+            out.println(csvCell(fact.getFactGroup())
+                    + "," + csvCell(fact.getFactCode())
+                    + "," + csvCell(fact.getFactLabel())
+                    + "," + csvCell(fact.getFactDescription())
+                    + "," + csvCell(fact.getFactInputType())
+                    + "," + fact.getDisplayOrder()
+                    + "," + csvCell(fact.getActive()));
+        }
+        out.flush();
+    }
+
+    private void handleUploadFactsCsv(AppReq appReq) throws Exception {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            redirectToFacts(appReq, "Workspace is required", true, null, null);
+            return;
+        }
+
+        Part csvFilePart = null;
+        try {
+            csvFilePart = appReq.getRequest().getPart("factsCsvFile");
+        } catch (Exception e) {
+            redirectToFacts(appReq, "Unable to read uploaded CSV file", true, null, null);
+            return;
+        }
+        if (csvFilePart == null || csvFilePart.getSize() <= 0) {
+            redirectToFacts(appReq, "Please choose a CSV file to upload", true, null, null);
+            return;
+        }
+
+        String csvText = readPartUtf8(csvFilePart);
+        List<List<String>> records = parseCsvRecords(csvText);
+        if (records.isEmpty()) {
+            redirectToFacts(appReq, "CSV file is empty", true, null, null);
+            return;
+        }
+
+        int headerRowIndex = -1;
+        for (int i = 0; i < records.size(); i++) {
+            if (!isBlankCsvRow(records.get(i))) {
+                headerRowIndex = i;
+                break;
+            }
+        }
+        if (headerRowIndex < 0) {
+            redirectToFacts(appReq, "CSV file is empty", true, null, null);
+            return;
+        }
+
+        List<String> headerRow = records.get(headerRowIndex);
+        Map<String, Integer> headerMap = new HashMap<String, Integer>();
+        for (int i = 0; i < headerRow.size(); i++) {
+            String normalizedHeader = normalizeHeaderName(headerRow.get(i));
+            if (normalizedHeader.length() > 0) {
+                headerMap.put(normalizedHeader, Integer.valueOf(i));
+            }
+        }
+
+        List<String> missingHeaders = new ArrayList<String>();
+        if (!headerMap.containsKey("fact_group")) {
+            missingHeaders.add("fact_group");
+        }
+        if (!headerMap.containsKey("fact_code")) {
+            missingHeaders.add("fact_code");
+        }
+        if (!headerMap.containsKey("fact_label")) {
+            missingHeaders.add("fact_label");
+        }
+        if (!missingHeaders.isEmpty()) {
+            redirectToFacts(appReq,
+                    "Missing required CSV header(s): " + joinWithComma(missingHeaders),
+                    true, null, null);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        ProjectFactDefinitionDao dao = new ProjectFactDefinitionDao(dataSession);
+        List<ProjectFactDefinition> existingFacts = dao.listByWorkspaceId(workspaceId.intValue(), true);
+        Map<String, ProjectFactDefinition> existingByCode = new HashMap<String, ProjectFactDefinition>();
+        for (ProjectFactDefinition fact : existingFacts) {
+            existingByCode.put(safeText(fact.getFactCode()).trim().toUpperCase(), fact);
+        }
+
+        Map<Integer, List<String>> rowByLine = new LinkedHashMap<Integer, List<String>>();
+        Map<Integer, String> codeByLine = new HashMap<Integer, String>();
+        Map<String, Integer> occurrencesByCode = new HashMap<String, Integer>();
+        for (int i = headerRowIndex + 1; i < records.size(); i++) {
+            int lineNumber = i + 1;
+            List<String> row = records.get(i);
+            rowByLine.put(Integer.valueOf(lineNumber), row);
+
+            if (isBlankCsvRow(row)) {
+                continue;
+            }
+
+            String factCode = normalizeFactCode(getCsvValue(row, headerMap, "fact_code"));
+            if (factCode.length() == 0) {
+                continue;
+            }
+            codeByLine.put(Integer.valueOf(lineNumber), factCode);
+            Integer count = occurrencesByCode.get(factCode);
+            occurrencesByCode.put(factCode, Integer.valueOf(count == null ? 1 : count.intValue() + 1));
+        }
+
+        Set<String> duplicateCodes = new HashSet<String>();
+        for (Map.Entry<String, Integer> entry : occurrencesByCode.entrySet()) {
+            if (entry.getValue() != null && entry.getValue().intValue() > 1) {
+                duplicateCodes.add(entry.getKey());
+            }
+        }
+
+        int insertedCount = 0;
+        int updatedCount = 0;
+        int skippedCount = 0;
+        List<String> errors = new ArrayList<String>();
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            for (Map.Entry<Integer, List<String>> entry : rowByLine.entrySet()) {
+                int lineNumber = entry.getKey().intValue();
+                List<String> row = entry.getValue();
+
+                if (isBlankCsvRow(row)) {
+                    skippedCount++;
+                    continue;
+                }
+
+                String factGroup = normalizeFactGroup(getCsvValue(row, headerMap, "fact_group"));
+                String factCode = normalizeFactCode(getCsvValue(row, headerMap, "fact_code"));
+                String factLabel = clip(getCsvValue(row, headerMap, "fact_label"), 200);
+                String factDescription = clipAllowNull(getCsvValue(row, headerMap, "fact_description"), 1200);
+
+                if (factGroup.length() == 0 || factCode.length() == 0 || factLabel.length() == 0) {
+                    skippedCount++;
+                    errors.add("Line " + lineNumber + ": required field(s) missing");
+                    continue;
+                }
+
+                if (duplicateCodes.contains(factCode)) {
+                    skippedCount++;
+                    errors.add("Line " + lineNumber + ": duplicate fact_code in CSV (" + factCode + ")");
+                    continue;
+                }
+
+                String factInputTypeRaw = getCsvValue(row, headerMap, "fact_input_type");
+                String factInputType = normalizeFactInputType(factInputTypeRaw);
+                if (factInputType == null) {
+                    skippedCount++;
+                    errors.add("Line " + lineNumber + ": invalid fact_input_type '" + safeText(factInputTypeRaw)
+                            + "'");
+                    continue;
+                }
+
+                int displayOrder = parseIntOrDefault(getCsvValue(row, headerMap, "display_order"), 0);
+
+                String activeRaw = getCsvValue(row, headerMap, "active");
+                String activeProvided = normalizeOptionalActive(activeRaw);
+                if (activeProvided == null && safeText(activeRaw).trim().length() > 0) {
+                    skippedCount++;
+                    errors.add("Line " + lineNumber + ": active must be Y or N");
+                    continue;
+                }
+
+                ProjectFactDefinition existing = existingByCode.get(factCode);
+                if (existing == null) {
+                    ProjectFactDefinition created = new ProjectFactDefinition();
+                    created.setWorkspaceId(workspaceId.intValue());
+                    created.setFactGroup(factGroup);
+                    created.setFactCode(factCode);
+                    created.setFactLabel(factLabel);
+                    created.setFactDescription(factDescription);
+                    created.setFactInputType(factInputType);
+                    created.setDisplayOrder(displayOrder);
+                    created.setActive(activeProvided == null ? ProjectFactDefinition.ACTIVE_YES : activeProvided);
+                    created.setCreatedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+                    created.setCreatedDate(new java.util.Date());
+                    created.setLastModifiedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+                    created.setLastModifiedDate(new java.util.Date());
+                    dao.save(created);
+                    existingByCode.put(factCode, created);
+                    insertedCount++;
+                } else {
+                    existing.setFactGroup(factGroup);
+                    existing.setFactLabel(factLabel);
+                    existing.setFactDescription(factDescription);
+                    existing.setFactInputType(factInputType);
+                    existing.setDisplayOrder(displayOrder);
+                    if (activeProvided != null) {
+                        existing.setActive(activeProvided);
+                    }
+                    existing.setLastModifiedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+                    existing.setLastModifiedDate(new java.util.Date());
+                    dao.update(existing);
+                    updatedCount++;
+                }
+            }
+
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            redirectToFacts(appReq, "Unable to import facts CSV: " + safeText(e.getMessage()), true, null, null);
+            return;
+        }
+
+        StringBuilder summary = new StringBuilder();
+        summary.append("Facts CSV import complete. inserted=").append(insertedCount)
+                .append(", updated=").append(updatedCount)
+                .append(", skipped=").append(skippedCount);
+        if (!errors.isEmpty()) {
+            int showCount = Math.min(10, errors.size());
+            summary.append(". errors (").append(errors.size()).append("): ");
+            for (int i = 0; i < showCount; i++) {
+                if (i > 0) {
+                    summary.append(" | ");
+                }
+                summary.append(errors.get(i));
+            }
+            if (errors.size() > showCount) {
+                summary.append(" | ...");
+            }
+        }
+
+        redirectToFacts(appReq, summary.toString(), !errors.isEmpty(), null, null);
+    }
+
     private void handleDeactivateFactDefinition(AppReq appReq) throws Exception {
         Integer workspaceId = appReq.getActiveWorkspaceId();
         if (workspaceId == null) {
@@ -951,6 +1213,18 @@ public class ProjectHealthServlet extends ClientServlet {
                 : ProjectFactDefinition.ACTIVE_YES;
     }
 
+    private String normalizeOptionalActive(String value) {
+        String normalized = safeText(value).trim().toUpperCase();
+        if (normalized.length() == 0) {
+            return null;
+        }
+        if (ProjectFactDefinition.ACTIVE_YES.equals(normalized)
+                || ProjectFactDefinition.ACTIVE_NO.equals(normalized)) {
+            return normalized;
+        }
+        return null;
+    }
+
     private String clip(String value, int maxLength) {
         String normalized = safeText(value).trim();
         if (normalized.length() <= maxLength) {
@@ -962,6 +1236,127 @@ public class ProjectHealthServlet extends ClientServlet {
     private String clipAllowNull(String value, int maxLength) {
         String normalized = clip(value, maxLength);
         return normalized.length() == 0 ? null : normalized;
+    }
+
+    private String csvCell(String value) {
+        String text = safeText(value);
+        boolean needsQuotes = text.indexOf(',') >= 0 || text.indexOf('"') >= 0
+                || text.indexOf('\n') >= 0 || text.indexOf('\r') >= 0;
+        if (!needsQuotes) {
+            return text;
+        }
+        return "\"" + text.replace("\"", "\"\"") + "\"";
+    }
+
+    private String readPartUtf8(Part part) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        InputStream inputStream = part.getInputStream();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+        try {
+            char[] buffer = new char[4096];
+            int len;
+            while ((len = reader.read(buffer)) >= 0) {
+                if (len == 0) {
+                    continue;
+                }
+                sb.append(buffer, 0, len);
+            }
+        } finally {
+            reader.close();
+        }
+        return sb.toString();
+    }
+
+    private List<List<String>> parseCsvRecords(String content) {
+        List<List<String>> rows = new ArrayList<List<String>>();
+        List<String> currentRow = new ArrayList<String>();
+        StringBuilder currentCell = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < content.length(); i++) {
+            char ch = content.charAt(i);
+            if (ch == '"') {
+                if (inQuotes && i + 1 < content.length() && content.charAt(i + 1) == '"') {
+                    currentCell.append('"');
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+            if (ch == ',' && !inQuotes) {
+                currentRow.add(currentCell.toString());
+                currentCell.setLength(0);
+                continue;
+            }
+            if ((ch == '\n' || ch == '\r') && !inQuotes) {
+                currentRow.add(currentCell.toString());
+                currentCell.setLength(0);
+                rows.add(currentRow);
+                currentRow = new ArrayList<String>();
+                if (ch == '\r' && i + 1 < content.length() && content.charAt(i + 1) == '\n') {
+                    i++;
+                }
+                continue;
+            }
+            currentCell.append(ch);
+        }
+
+        if (currentCell.length() > 0 || !currentRow.isEmpty()) {
+            currentRow.add(currentCell.toString());
+            rows.add(currentRow);
+        }
+
+        return rows;
+    }
+
+    private boolean isBlankCsvRow(List<String> row) {
+        if (row == null || row.isEmpty()) {
+            return true;
+        }
+        for (String cell : row) {
+            if (safeText(cell).trim().length() > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String normalizeHeaderName(String value) {
+        String normalized = safeText(value).trim().toLowerCase();
+        normalized = normalized.replace(' ', '_').replace('-', '_');
+        return normalized;
+    }
+
+    private String getCsvValue(List<String> row, Map<String, Integer> headerMap, String headerName) {
+        Integer index = headerMap.get(headerName);
+        if (index == null) {
+            return "";
+        }
+        int idx = index.intValue();
+        if (idx < 0 || idx >= row.size()) {
+            return "";
+        }
+        return safeText(row.get(idx)).trim();
+    }
+
+    private int parseIntOrDefault(String value, int defaultValue) {
+        try {
+            return Integer.parseInt(safeText(value).trim());
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private String joinWithComma(List<String> values) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(values.get(i));
+        }
+        return sb.toString();
     }
 
     private String urlEncode(String value) {

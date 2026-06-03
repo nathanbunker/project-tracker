@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectFactValue" table="project_fact_value">
+        <id name="projectFactValueId" type="int">
+            <column name="project_fact_value_id" />
+            <generator class="identity" />
+        </id>
+        <property name="projectId" type="int">
+            <column name="project_id" not-null="true" />
+        </property>
+        <property name="projectFactDefinitionId" type="int">
+            <column name="project_fact_definition_id" not-null="true" />
+        </property>
+        <property name="valueBoolean" type="string">
+            <column name="value_boolean" length="1" />
+        </property>
+        <property name="valueText" type="string">
+            <column name="value_text" length="1200" />
+        </property>
+        <property name="valueDate" type="date">
+            <column name="value_date" />
+        </property>
+        <property name="valueNumber" type="java.math.BigDecimal">
+            <column name="value_number" precision="18" scale="4" />
+        </property>
+        <property name="valueCode" type="string">
+            <column name="value_code" length="80" />
+        </property>
+        <property name="notes" type="string">
+            <column name="notes" length="1200" />
+        </property>
+        <property name="createdByWebUserId" type="java.lang.Integer">
+            <column name="created_by_web_user_id" />
+        </property>
+        <property name="createdDate" type="timestamp">
+            <column name="created_date" not-null="true" />
+        </property>
+        <property name="lastModifiedByWebUserId" type="java.lang.Integer">
+            <column name="last_modified_by_web_user_id" />
+        </property>
+        <property name="lastModifiedDate" type="timestamp">
+            <column name="last_modified_date" />
+        </property>
+    </class>
+</hibernate-mapping>

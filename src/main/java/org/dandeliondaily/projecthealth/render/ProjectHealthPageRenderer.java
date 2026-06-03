@@ -327,6 +327,18 @@ public class ProjectHealthPageRenderer {
 
                 out.println("<div class=\"ph-section ph-panel\">");
                 out.println("  <h2>Fact Editor</h2>");
+                out.println("  <div class=\"ph-form-actions\">");
+                out.println("    <a class=\"ph-btn\" href=\"ProjectHealthServlet?action=downloadFactsCsv\">Download Facts CSV</a>");
+                out.println("  </div>");
+                out.println("  <form method=\"POST\" action=\"ProjectHealthServlet\" enctype=\"multipart/form-data\">");
+                out.println("    <input type=\"hidden\" name=\"action\" value=\"uploadFactsCsv\" />");
+                out.println("    <div class=\"ph-form-field\"><label>Upload Facts CSV</label>");
+                out.println("    <input type=\"file\" name=\"factsCsvFile\" accept=\".csv,text/csv\" /></div>");
+                out.println("    <div class=\"ph-form-actions\">");
+                out.println("      <button type=\"submit\" class=\"ph-btn\">Upload CSV</button>");
+                out.println("    </div>");
+                out.println("  </form>");
+                out.println("  <div class=\"ph-divider\"></div>");
                 out.println("  <form method=\"POST\" action=\"ProjectHealthServlet\">");
                 out.println("    <input type=\"hidden\" name=\"action\" value=\"saveFactDefinition\" />");
                 out.println("    <input type=\"hidden\" name=\"factDefinitionId\" value=\""
