@@ -11,6 +11,7 @@ import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.dandeliondaily.projecthealth.model.ProjectPatchLinkDisplayModel;
+import org.dandeliondaily.projecthealth.model.ProjectTagSummaryRowModel;
 import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -70,6 +71,10 @@ public class ProjectHealthPageRenderer {
         }
 
         private void printProjectColumn(PrintWriter out, ProjectHealthPageModel model) {
+                if (model.isPatchContext()) {
+                        printPatchProjectColumn(out, model);
+                        return;
+                }
                 out.println("<div class=\"ph-section ph-panel\">");
                 printDevLabel(out, "PROJECTS WORK");
                 out.println("  <div class=\"ph-section-title-row\">");
@@ -85,30 +90,73 @@ public class ProjectHealthPageRenderer {
                 }
                 out.println("    </span>");
                 out.println("  </div>");
-                printProjectCadenceGroups(out, model.getWorkProjectGroups(), "WORK");
-                printPhasedSection(out, model.getPausedWorkProjects(), "Paused");
-                printPhasedSection(out, model.getCompletedWorkProjects(), "Complete");
+                printProjectCadenceGroups(out, model.getWorkProjectGroups(), "WORK", model);
+                printPhasedSection(out, model.getPausedWorkProjects(), "Paused", model);
+                printPhasedSection(out, model.getCompletedWorkProjects(), "Complete", model);
 
                 out.println("  <div class=\"ph-divider\"></div>");
                 out.println("  <div class=\"ph-section-title-row ph-section-title-row-sub\">");
                 out.println("    <h2>Personal Projects</h2>");
                 out.println("  </div>");
                 printDevLabel(out, "PROJECTS PERSONAL");
-                printProjectCadenceGroups(out, model.getPersonalProjectGroups(), "PERSONAL");
-                printPhasedSection(out, model.getPausedPersonalProjects(), "Paused");
-                printPhasedSection(out, model.getCompletedPersonalProjects(), "Complete");
+                printProjectCadenceGroups(out, model.getPersonalProjectGroups(), "PERSONAL", model);
+                printPhasedSection(out, model.getPausedPersonalProjects(), "Paused", model);
+                printPhasedSection(out, model.getCompletedPersonalProjects(), "Complete", model);
                 out.println("</div>");
         }
 
-        private void printPhasedSection(PrintWriter out, List<ProjectListItemModel> projects, String sectionLabel) {
+        private void printPatchProjectColumn(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("<div class=\"ph-section ph-panel\">");
+                out.println("  <div class=\"ph-section-title-row\">");
+                if (model.isPatchSummaryMode()) {
+                        out.println("    <h2>Workspace Tags</h2>");
+                } else {
+                        out.println("    <h2>Tag: " + escapeHtml(model.getSelectedPatchTagLabel()) + "</h2>");
+                }
+                out.println("  </div>");
+
+                if (model.isPatchSummaryMode()) {
+                        out.println("  <p class=\"ph-subtle\">Select a tag to view active projects grouped by review cadence.</p>");
+                        printPatchTagSummaryTable(out, model);
+                        out.println("</div>");
+                        return;
+                }
+
+                out.println("  <p class=\"ph-subtle\"><a class=\"ph-project-link\" href=\"ProjectHealthServlet\">&larr; Back to tags</a></p>");
+                printProjectCadenceGroups(out, model.getPatchTagProjectGroups(), "PATCH", model);
+                out.println("</div>");
+        }
+
+        private void printPatchTagSummaryTable(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("  <table class=\"ph-project-table\">");
+                out.println("    <tr><th>Tag</th><th>Active Projects</th></tr>");
+                List<ProjectTagSummaryRowModel> rows = model.getPatchTagSummaryRows();
+                if (rows == null || rows.isEmpty()) {
+                        out.println("    <tr><td colspan=\"2\" class=\"ph-subtle\">No tags available.</td></tr>");
+                } else {
+                        for (ProjectTagSummaryRowModel row : rows) {
+                                String href = "ProjectHealthServlet?patchTag=" + escapeUrl(row.getTagKey());
+                                out.println("    <tr>");
+                                out.println("      <td><a class=\"ph-project-link\" href=\"" + href + "\">"
+                                                + escapeHtml(row.getTagLabel()) + "</a></td>");
+                                out.println("      <td>" + row.getActiveProjectCount() + "</td>");
+                                out.println("    </tr>");
+                        }
+                }
+                out.println("  </table>");
+        }
+
+        private void printPhasedSection(PrintWriter out, List<ProjectListItemModel> projects, String sectionLabel,
+                        ProjectHealthPageModel model) {
                 if (projects == null || projects.isEmpty()) {
                         return;
                 }
                 out.println("  <h4 class=\"ph-bucket-title\">" + escapeHtml(sectionLabel) + "</h4>");
-                printSimpleProjectTable(out, projects);
+                printSimpleProjectTable(out, projects, model);
         }
 
-        private void printProjectCadenceGroups(PrintWriter out, List<ProjectCadenceGroupModel> groups, String section) {
+        private void printProjectCadenceGroups(PrintWriter out, List<ProjectCadenceGroupModel> groups, String section,
+                        ProjectHealthPageModel model) {
                 boolean renderedAny = false;
                 for (ProjectCadenceGroupModel group : groups) {
                         if (group.getProjects() == null || group.getProjects().isEmpty()) {
@@ -116,7 +164,7 @@ public class ProjectHealthPageRenderer {
                         }
                         out.println("  <h4 class=\"ph-bucket-title\">" + escapeHtml(group.getGroupLabel()) + "</h4>");
                         printDevLabel(out, "PROJECTS " + section + " " + group.getGroupKey());
-                        printProjectTable(out, group.getProjects());
+                        printProjectTable(out, group.getProjects(), model);
                         renderedAny = true;
                 }
                 if (!renderedAny) {
@@ -124,7 +172,8 @@ public class ProjectHealthPageRenderer {
                 }
         }
 
-        private void printProjectTable(PrintWriter out, List<ProjectListItemModel> projects) {
+        private void printProjectTable(PrintWriter out, List<ProjectListItemModel> projects,
+                        ProjectHealthPageModel model) {
                 out.println("  <table class=\"ph-project-table\">");
                 out.println("    <tr><th>Project</th><th>Health</th><th>Actions</th></tr>");
                 if (projects.isEmpty()) {
@@ -132,10 +181,10 @@ public class ProjectHealthPageRenderer {
                 }
                 for (ProjectListItemModel item : projects) {
                         String rowClass = item.isSelected() ? " class=\"ph-selected\"" : "";
+                        String projectHref = projectSelectHref(model, item.getProjectId());
                         out.println("    <tr" + rowClass + ">");
-                        out.println("      <td><a class=\"ph-project-link\" href=\"ProjectHealthServlet?projectId="
-                                        + item.getProjectId()
-                                        + "\">" + escapeHtml(item.getProjectName()) + "</a></td>");
+                        out.println("      <td><a class=\"ph-project-link\" href=\"" + projectHref + "\">"
+                                        + escapeHtml(item.getProjectName()) + "</a></td>");
 
                         String healthClass = "ph-health-ok";
                         String healthIcon = "●";
@@ -155,29 +204,30 @@ public class ProjectHealthPageRenderer {
                         out.println(
                                         "        <button class=\"ph-mini-btn\" type=\"button\" title=\"Reprioritize\" onclick=\"phOpenReprioritizeProjectModalFor("
                                                         + item.getProjectId() + ", event)\">↕️</button>");
-                        out.println("        <a class=\"ph-mini-btn-link\" title=\"Select\" href=\"ProjectHealthServlet?projectId="
-                                        + item.getProjectId() + "\">→</a>");
+                        out.println("        <a class=\"ph-mini-btn-link\" title=\"Select\" href=\"" + projectHref
+                                        + "\">→</a>");
                         out.println("      </span></td>");
                         out.println("    </tr>");
                 }
                 out.println("  </table>");
         }
 
-        private void printSimpleProjectTable(PrintWriter out, List<ProjectListItemModel> projects) {
+        private void printSimpleProjectTable(PrintWriter out, List<ProjectListItemModel> projects,
+                        ProjectHealthPageModel model) {
                 out.println("  <table class=\"ph-project-table\">");
                 out.println("    <tr><th>Project</th><th>Actions</th></tr>");
                 for (ProjectListItemModel item : projects) {
                         String rowClass = item.isSelected() ? " class=\"ph-selected\"" : "";
+                        String projectHref = projectSelectHref(model, item.getProjectId());
                         out.println("    <tr" + rowClass + ">");
-                        out.println("      <td><a class=\"ph-project-link\" href=\"ProjectHealthServlet?projectId="
-                                        + item.getProjectId()
+                        out.println("      <td><a class=\"ph-project-link\" href=\"" + projectHref
                                         + "\">" + escapeHtml(item.getProjectName()) + "</a></td>");
                         out.println("      <td><span class=\"ph-row-actions\">");
                         out.println(
                                         "        <button class=\"ph-mini-btn\" type=\"button\" title=\"Reprioritize\" onclick=\"phOpenReprioritizeProjectModalFor("
                                                         + item.getProjectId() + ", event)\">↕️</button>");
-                        out.println("        <a class=\"ph-mini-btn-link\" title=\"Select\" href=\"ProjectHealthServlet?projectId="
-                                        + item.getProjectId() + "\">→</a>");
+                        out.println("        <a class=\"ph-mini-btn-link\" title=\"Select\" href=\"" + projectHref
+                                        + "\">→</a>");
                         out.println("      </span></td>");
                         out.println("    </tr>");
                 }
@@ -286,18 +336,22 @@ public class ProjectHealthPageRenderer {
                 out.println("  <h2>Quick Actions</h2>");
                 // Bulk import is intentionally hosted here as the conceptual home for project
                 // maintenance flows, even while this first cut remains scaffolded.
-                out.println("  <div class=\"ph-quick-actions\">");
-                out.println(
-                                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewScheduleModal(event)\">Schedule Project Review</button>");
-                out.println(
-                                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenBulkImportModal(event)\">Bulk Import Actions</button>");
-                out.println(
-                                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewUnscheduledModal(event)\">Review Unscheduled Actions</button>");
-                out.println(
-                                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReprioritizeProjectModal(event)\">Reprioritize Project</button>");
-                out.println(
-                                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenProjectEditModal(event)\">Edit Project</button>");
-                out.println("  </div>");
+                if (model.isSelectedProjectAvailable()) {
+                        out.println("  <div class=\"ph-quick-actions\">");
+                        out.println(
+                                        "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewScheduleModal(event)\">Schedule Project Review</button>");
+                        out.println(
+                                        "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenBulkImportModal(event)\">Bulk Import Actions</button>");
+                        out.println(
+                                        "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewUnscheduledModal(event)\">Review Unscheduled Actions</button>");
+                        out.println(
+                                        "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReprioritizeProjectModal(event)\">Reprioritize Project</button>");
+                        out.println(
+                                        "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenProjectEditModal(event)\">Edit Project</button>");
+                        out.println("  </div>");
+                } else {
+                        out.println("  <p class=\"ph-subtle\">Select a project to run quick actions.</p>");
+                }
 
                 if (model.isPatchLinksVisible()) {
                         out.println("  <div class=\"ph-divider\"></div>");
@@ -1017,6 +1071,26 @@ public class ProjectHealthPageRenderer {
                                 .replace(">", "&gt;")
                                 .replace("\"", "&quot;")
                                 .replace("'", "&#39;");
+        }
+
+        private String projectSelectHref(ProjectHealthPageModel model, int projectId) {
+                StringBuilder href = new StringBuilder("ProjectHealthServlet?projectId=")
+                                .append(projectId);
+                if (model != null && model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                        href.append("&patchTag=").append(escapeUrl(model.getSelectedPatchTagKey()));
+                }
+                return href.toString();
+        }
+
+        private String escapeUrl(String value) {
+                if (value == null) {
+                        return "";
+                }
+                try {
+                        return java.net.URLEncoder.encode(value, "UTF-8");
+                } catch (Exception e) {
+                        return value;
+                }
         }
 
         private String escapeJsString(String value) {

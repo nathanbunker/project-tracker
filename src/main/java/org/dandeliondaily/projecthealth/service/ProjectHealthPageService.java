@@ -21,6 +21,7 @@ import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
+import org.dandeliondaily.projecthealth.model.ProjectTagSummaryRowModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
@@ -133,7 +134,7 @@ public class ProjectHealthPageService {
     }
 
     public ProjectHealthPageModel buildModel(AppReq appReq, Integer contextWorkspaceId,
-            List<Workspace> accessiblePatchWorkspaces) {
+            List<Workspace> accessiblePatchWorkspaces, String selectedPatchTagKey) {
         ProjectHealthPageModel model = new ProjectHealthPageModel();
         model.setContextWorkspaceId(contextWorkspaceId);
         model.setAccessiblePatchWorkspaces(accessiblePatchWorkspaces);
@@ -143,11 +144,30 @@ public class ProjectHealthPageService {
         Session dataSession = appReq.getDataSession();
         List<Project> projects = loadProjects(webUser, dataSession, contextWorkspaceId);
         Map<Integer, String> displayNameByProjectId = buildPrivateDisplayNameMap(projects);
-        int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser, dataSession);
-        model.setSelectedProjectId(selectedProjectId);
-
         Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, projects);
         Map<Integer, ProjectStats> statsMap = buildStatsByProject(projects, webUser, dataSession, updateDueByProject);
+
+        Project selectedProject;
+        if (contextWorkspaceId == null) {
+            selectedProject = buildPrivateLeftPanel(model, appReq, projects, displayNameByProjectId,
+                    updateDueByProject, statsMap, dataSession, webUser);
+        } else {
+            selectedProject = buildPatchLeftPanel(model, appReq, projects, displayNameByProjectId,
+                    updateDueByProject, statsMap, dataSession, selectedPatchTagKey);
+        }
+
+        populateSelectedProjectData(model, appReq, selectedProject, statsMap, displayNameByProjectId,
+                accessiblePatchWorkspaces, dataSession);
+
+        return model;
+    }
+
+    private Project buildPrivateLeftPanel(ProjectHealthPageModel model, AppReq appReq, List<Project> projects,
+            Map<Integer, String> displayNameByProjectId, Map<Integer, Integer> updateDueByProject,
+            Map<Integer, ProjectStats> statsMap, Session dataSession, WebUser webUser) {
+        model.setLeftPanelMode(ProjectHealthPageModel.LEFT_PANEL_MODE_PRIVATE);
+        int selectedProjectId = resolveSelectedProjectId(appReq, projects, webUser, dataSession);
+        model.setSelectedProjectId(selectedProjectId);
 
         List<ProjectCadenceGroupModel> workProjectGroups = createCadenceGroups();
         List<ProjectCadenceGroupModel> personalProjectGroups = createCadenceGroups();
@@ -197,77 +217,137 @@ public class ProjectHealthPageService {
         model.setCompletedWorkProjects(completedWorkProjects);
         model.setPausedPersonalProjects(pausedPersonalProjects);
         model.setCompletedPersonalProjects(completedPersonalProjects);
+        return selectedProject;
+    }
 
-        if (selectedProject != null) {
-            appReq.setProject(selectedProject);
-            ProjectStats selectedStats = statsMap.get(selectedProject.getProjectId());
-            model.setSelectedProjectAvailable(true);
-            model.setSelectedProjectName(
-                    resolveProjectDisplayName(selectedProject, displayNameByProjectId));
-            model.setReport(buildReport(appReq, selectedProject, selectedStats, displayNameByProjectId));
-            String selectedProjectStatus = normalizeProjectStatus(selectedProject.getProjectStatus());
-            boolean healthCheckApplicable = STATUS_ACTIVE.equals(selectedProjectStatus);
-            model.setHealthCheckApplicable(healthCheckApplicable);
-            if (healthCheckApplicable) {
-                model.setIssues(buildIssues(model.getReport(), selectedStats));
-            } else {
-                model.setIssues(new ArrayList<ProjectHealthIssueModel>());
-            }
+    private Project buildPatchLeftPanel(ProjectHealthPageModel model, AppReq appReq, List<Project> projects,
+            Map<Integer, String> displayNameByProjectId, Map<Integer, Integer> updateDueByProject,
+            Map<Integer, ProjectStats> statsMap, Session dataSession, String selectedPatchTagKey) {
+        List<ProjectTagSummaryRowModel> summaryRows = buildPatchTagSummaryRows(dataSession,
+                model.getContextWorkspaceId().intValue());
+        model.setPatchTagSummaryRows(summaryRows);
 
-            boolean isPersonal = isPersonalProject(selectedProject, dataSession);
-            model.setSelectedProjectIsPersonal(isPersonal);
-            boolean isInPrivateWorkspace = isProjectInPrivateWorkspace(selectedProject, dataSession);
-            boolean patchLinksVisible = isInPrivateWorkspace
-                    && accessiblePatchWorkspaces != null && !accessiblePatchWorkspaces.isEmpty();
-            model.setPatchLinksVisible(patchLinksVisible);
+        String resolvedTagKey = resolvePatchTagSelection(summaryRows, selectedPatchTagKey);
+        if (resolvedTagKey == null) {
+            model.setLeftPanelMode(ProjectHealthPageModel.LEFT_PANEL_MODE_PATCH_SUMMARY);
+            model.setSelectedPatchTagKey(null);
+            model.setSelectedPatchTagLabel(null);
+            model.setSelectedProjectId(0);
+            return null;
+        }
 
-            if (patchLinksVisible) {
-                Integer linkedPatchWorkspaceId = selectedProject.getLinkedPatchWorkspaceId();
-                model.setSelectedProjectLinkedPatchWorkspaceId(linkedPatchWorkspaceId);
-                if (linkedPatchWorkspaceId != null) {
-                    Workspace linkedPatchWorkspace = (Workspace) dataSession.get(Workspace.class,
-                            linkedPatchWorkspaceId);
-                    model.setSelectedProjectLinkedPatchWorkspace(linkedPatchWorkspace);
-
-                    ProjectPatchLinkDao patchLinkDao = new ProjectPatchLinkDao(dataSession);
-                    model.setCanChangePatchWorkspace(
-                            !patchLinkDao.hasLinksForProject(selectedProject.getProjectId()));
-
-                    ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
-                    model.setProjectPatchLinks(patchLinkService.buildLinkDisplayModels(
-                            dataSession, selectedProject.getProjectId(), linkedPatchWorkspaceId));
-
-                    Query patchProjectQuery = dataSession.createQuery(
-                            "from Project where workspaceId = :wsId"
-                                    + " and (projectStatus is null or projectStatus <> :closedStatus)"
-                                    + " order by priorityLevel desc, projectName");
-                    patchProjectQuery.setParameter("wsId", linkedPatchWorkspaceId);
-                    patchProjectQuery.setParameter("closedStatus", STATUS_CLOSED);
-                    List<Project> patchProjects = new ArrayList<Project>();
-                    for (Object row : patchProjectQuery.list()) {
-                        if (row instanceof Project) {
-                            patchProjects.add((Project) row);
-                        }
-                    }
-                    model.setAvailablePatchProjects(patchProjects);
-
-                    Query patchTagQuery = dataSession.createQuery(
-                            "from ProjectTag where workspaceId = :wsId and tagStatus = :tagStatus"
-                                    + " order by sortOrder, tagName");
-                    patchTagQuery.setParameter("wsId", linkedPatchWorkspaceId);
-                    patchTagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
-                    List<ProjectTag> patchTags = new ArrayList<ProjectTag>();
-                    for (Object row : patchTagQuery.list()) {
-                        if (row instanceof ProjectTag) {
-                            patchTags.add((ProjectTag) row);
-                        }
-                    }
-                    model.setAvailablePatchTags(patchTags);
-                }
+        String selectedTagLabel = "";
+        for (ProjectTagSummaryRowModel row : summaryRows) {
+            if (resolvedTagKey.equals(row.getTagKey())) {
+                selectedTagLabel = row.getTagLabel();
+                break;
             }
         }
 
-        return model;
+        model.setLeftPanelMode(ProjectHealthPageModel.LEFT_PANEL_MODE_PATCH_TAG);
+        model.setSelectedPatchTagKey(resolvedTagKey);
+        model.setSelectedPatchTagLabel(selectedTagLabel);
+
+        List<Project> filteredProjects = filterProjectsForPatchTag(projects, dataSession,
+                model.getContextWorkspaceId().intValue(), resolvedTagKey);
+        int selectedProjectId = resolveSelectedProjectIdFromRequest(appReq, filteredProjects);
+        model.setSelectedProjectId(selectedProjectId);
+
+        List<ProjectCadenceGroupModel> groups = createCadenceGroups();
+        Map<String, ProjectCadenceGroupModel> groupsByKey = toGroupMap(groups);
+
+        Project selectedProject = null;
+        for (Project project : filteredProjects) {
+            ProjectStats stats = statsMap.get(project.getProjectId());
+            ProjectListItemModel item = toListItem(project, stats, selectedProjectId, displayNameByProjectId);
+            if (item.isSelected()) {
+                selectedProject = project;
+            }
+            String bucketKey = bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId()));
+            ProjectCadenceGroupModel group = groupsByKey.get(bucketKey);
+            if (group != null) {
+                group.getProjects().add(item);
+            }
+        }
+        model.setPatchTagProjectGroups(groups);
+        return selectedProject;
+    }
+
+    private void populateSelectedProjectData(ProjectHealthPageModel model, AppReq appReq, Project selectedProject,
+            Map<Integer, ProjectStats> statsMap, Map<Integer, String> displayNameByProjectId,
+            List<Workspace> accessiblePatchWorkspaces, Session dataSession) {
+        if (selectedProject == null) {
+            return;
+        }
+
+        appReq.setProject(selectedProject);
+        ProjectStats selectedStats = statsMap.get(selectedProject.getProjectId());
+        model.setSelectedProjectAvailable(true);
+        model.setSelectedProjectName(resolveProjectDisplayName(selectedProject, displayNameByProjectId));
+        model.setReport(buildReport(appReq, selectedProject, selectedStats, displayNameByProjectId));
+        String selectedProjectStatus = normalizeProjectStatus(selectedProject.getProjectStatus());
+        boolean healthCheckApplicable = STATUS_ACTIVE.equals(selectedProjectStatus);
+        model.setHealthCheckApplicable(healthCheckApplicable);
+        if (healthCheckApplicable) {
+            model.setIssues(buildIssues(model.getReport(), selectedStats));
+        } else {
+            model.setIssues(new ArrayList<ProjectHealthIssueModel>());
+        }
+
+        boolean isPersonal = isPersonalProject(selectedProject, dataSession);
+        model.setSelectedProjectIsPersonal(isPersonal);
+        boolean isInPrivateWorkspace = isProjectInPrivateWorkspace(selectedProject, dataSession);
+        boolean patchLinksVisible = isInPrivateWorkspace
+                && accessiblePatchWorkspaces != null && !accessiblePatchWorkspaces.isEmpty();
+        model.setPatchLinksVisible(patchLinksVisible);
+
+        if (!patchLinksVisible) {
+            return;
+        }
+
+        Integer linkedPatchWorkspaceId = selectedProject.getLinkedPatchWorkspaceId();
+        model.setSelectedProjectLinkedPatchWorkspaceId(linkedPatchWorkspaceId);
+        if (linkedPatchWorkspaceId == null) {
+            return;
+        }
+
+        Workspace linkedPatchWorkspace = (Workspace) dataSession.get(Workspace.class, linkedPatchWorkspaceId);
+        model.setSelectedProjectLinkedPatchWorkspace(linkedPatchWorkspace);
+
+        ProjectPatchLinkDao patchLinkDao = new ProjectPatchLinkDao(dataSession);
+        model.setCanChangePatchWorkspace(!patchLinkDao.hasLinksForProject(selectedProject.getProjectId()));
+
+        ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
+        model.setProjectPatchLinks(
+                patchLinkService.buildLinkDisplayModels(dataSession, selectedProject.getProjectId(),
+                        linkedPatchWorkspaceId));
+
+        Query patchProjectQuery = dataSession.createQuery(
+                "from Project where workspaceId = :wsId"
+                        + " and (projectStatus is null or projectStatus <> :closedStatus)"
+                        + " order by priorityLevel desc, projectName");
+        patchProjectQuery.setParameter("wsId", linkedPatchWorkspaceId);
+        patchProjectQuery.setParameter("closedStatus", STATUS_CLOSED);
+        List<Project> patchProjects = new ArrayList<Project>();
+        for (Object row : patchProjectQuery.list()) {
+            if (row instanceof Project) {
+                patchProjects.add((Project) row);
+            }
+        }
+        model.setAvailablePatchProjects(patchProjects);
+
+        Query patchTagQuery = dataSession.createQuery(
+                "from ProjectTag where workspaceId = :wsId and tagStatus = :tagStatus"
+                        + " order by sortOrder, tagName");
+        patchTagQuery.setParameter("wsId", linkedPatchWorkspaceId);
+        patchTagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+        List<ProjectTag> patchTags = new ArrayList<ProjectTag>();
+        for (Object row : patchTagQuery.list()) {
+            if (row instanceof ProjectTag) {
+                patchTags.add((ProjectTag) row);
+            }
+        }
+        model.setAvailablePatchTags(patchTags);
     }
 
     public ProjectHealthSnapshot buildProjectHealthSnapshot(AppReq appReq, Project project) {
@@ -317,8 +397,9 @@ public class ProjectHealthPageService {
     public List<ProjectListItemModel> loadReprioritizeCandidates(AppReq appReq, int projectId) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
+        boolean patchContext = isPatchContextWorkspace(appReq, dataSession);
 
-        List<Project> all = loadProjects(webUser, dataSession);
+        List<Project> all = loadProjectsForCurrentWorkspace(appReq, webUser, dataSession);
         Map<Integer, String> displayNameByProjectId = buildPrivateDisplayNameMap(all);
         Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, all);
         Project selected = null;
@@ -332,15 +413,22 @@ public class ProjectHealthPageService {
             return new ArrayList<ProjectListItemModel>();
         }
 
-        boolean personal = isPersonalProject(selected, dataSession);
         String selectedBucket = bucketKeyForUpdateDue(updateDueByProject.get(selected.getProjectId()));
         List<ProjectListItemModel> candidates = new ArrayList<ProjectListItemModel>();
         for (Project project : all) {
             if (project.getProjectId() == projectId) {
                 continue;
             }
-            if (isPersonalProject(project, dataSession) != personal) {
-                continue;
+            if (patchContext) {
+                String status = normalizeProjectStatus(project.getProjectStatus());
+                if (!STATUS_ACTIVE.equals(status)) {
+                    continue;
+                }
+            } else {
+                boolean personal = isPersonalProject(selected, dataSession);
+                if (isPersonalProject(project, dataSession) != personal) {
+                    continue;
+                }
             }
             String projectBucket = bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId()));
             if (!selectedBucket.equals(projectBucket)) {
@@ -358,9 +446,10 @@ public class ProjectHealthPageService {
     public String reprioritizeProject(AppReq appReq, int projectId, Integer beforeProjectId, String modeValue) {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
+        boolean patchContext = isPatchContextWorkspace(appReq, dataSession);
         ReprioritizeMode mode = parseReprioritizeMode(modeValue);
 
-        List<Project> all = loadProjects(webUser, dataSession);
+        List<Project> all = loadProjectsForCurrentWorkspace(appReq, webUser, dataSession);
         Map<Integer, Integer> updateDueByProject = loadUpdateDueByProject(webUser, dataSession, all);
         Project selected = null;
         Project before = null;
@@ -379,10 +468,18 @@ public class ProjectHealthPageService {
             return "Target project was not found";
         }
 
-        boolean personal = isPersonalProject(selected, dataSession);
         String selectedBucket = bucketKeyForUpdateDue(updateDueByProject.get(selected.getProjectId()));
-        if (before != null && isPersonalProject(before, dataSession) != personal) {
-            return "Projects must be in the same section";
+        if (before != null && patchContext) {
+            String beforeStatus = normalizeProjectStatus(before.getProjectStatus());
+            if (!STATUS_ACTIVE.equals(beforeStatus)) {
+                return "Projects must be active";
+            }
+        }
+        if (before != null && !patchContext) {
+            boolean personal = isPersonalProject(selected, dataSession);
+            if (isPersonalProject(before, dataSession) != personal) {
+                return "Projects must be in the same section";
+            }
         }
         if (before != null) {
             String beforeBucket = bucketKeyForUpdateDue(updateDueByProject.get(before.getProjectId()));
@@ -393,10 +490,21 @@ public class ProjectHealthPageService {
 
         List<Project> bucket = new ArrayList<Project>();
         for (Project project : all) {
-            if (isPersonalProject(project, dataSession) == personal
-                    && selectedBucket.equals(bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId())))) {
-                bucket.add(project);
+            if (!selectedBucket.equals(bucketKeyForUpdateDue(updateDueByProject.get(project.getProjectId())))) {
+                continue;
             }
+            if (patchContext) {
+                String status = normalizeProjectStatus(project.getProjectStatus());
+                if (!STATUS_ACTIVE.equals(status)) {
+                    continue;
+                }
+            } else {
+                boolean personal = isPersonalProject(selected, dataSession);
+                if (isPersonalProject(project, dataSession) != personal) {
+                    continue;
+                }
+            }
+            bucket.add(project);
         }
 
         bucket.remove(selected);
@@ -558,7 +666,7 @@ public class ProjectHealthPageService {
         }
 
         Project selectedProject = null;
-        List<Project> projects = loadProjects(webUser, dataSession);
+        List<Project> projects = loadProjectsForCurrentWorkspace(appReq, webUser, dataSession);
         for (Project project : projects) {
             if (project.getProjectId() == projectId) {
                 selectedProject = project;
@@ -607,7 +715,7 @@ public class ProjectHealthPageService {
             throw new IllegalArgumentException("Bulk import text is required");
         }
 
-        List<Project> projects = loadProjects(webUser, dataSession);
+        List<Project> projects = loadProjectsForCurrentWorkspace(appReq, webUser, dataSession);
         Project defaultProject = null;
         for (Project project : projects) {
             if (project.getProjectId() == defaultProjectId) {
@@ -670,6 +778,11 @@ public class ProjectHealthPageService {
         return loadProjects(webUser, dataSession, null);
     }
 
+    private List<Project> loadProjectsForCurrentWorkspace(AppReq appReq, WebUser webUser, Session dataSession) {
+        Integer activeWorkspaceId = appReq == null ? null : appReq.getActiveWorkspaceId();
+        return loadProjects(webUser, dataSession, activeWorkspaceId);
+    }
+
     private List<Project> loadProjects(WebUser webUser, Session dataSession, Integer contextWorkspaceId) {
         Integer workspaceId = contextWorkspaceId;
         if (workspaceId == null && webUser != null) {
@@ -683,6 +796,144 @@ public class ProjectHealthPageService {
         @SuppressWarnings("unchecked")
         List<Project> projects = query.list();
         return projects;
+    }
+
+    private String resolvePatchTagSelection(List<ProjectTagSummaryRowModel> summaryRows, String selectedPatchTagKey) {
+        if (selectedPatchTagKey == null || selectedPatchTagKey.trim().length() == 0) {
+            return null;
+        }
+        String normalized = selectedPatchTagKey.trim();
+        for (ProjectTagSummaryRowModel row : summaryRows) {
+            if (normalized.equals(row.getTagKey())) {
+                return normalized;
+            }
+        }
+        return null;
+    }
+
+    private List<ProjectTagSummaryRowModel> buildPatchTagSummaryRows(Session dataSession, int workspaceId) {
+        List<ProjectTagSummaryRowModel> rows = new ArrayList<ProjectTagSummaryRowModel>();
+
+        Query tagQuery = dataSession.createQuery(
+                "from ProjectTag where workspaceId = :workspaceId and tagStatus = :tagStatus"
+                        + " order by sortOrder, tagName");
+        tagQuery.setParameter("workspaceId", Integer.valueOf(workspaceId));
+        tagQuery.setParameter("tagStatus", ProjectTag.STATUS_ACTIVE);
+
+        @SuppressWarnings("unchecked")
+        List<ProjectTag> tags = tagQuery.list();
+        for (ProjectTag tag : tags) {
+            Number count = (Number) dataSession.createQuery(
+                    "select count(distinct p.projectId) from Project p "
+                            + "where p.workspaceId = :workspaceId "
+                            + "and (p.projectStatus is null or p.projectStatus = :activeStatus) "
+                            + "and exists (select 1 from ProjectTagMap ptm where ptm.projectId = p.projectId and ptm.projectTagId = :tagId)")
+                    .setParameter("workspaceId", Integer.valueOf(workspaceId))
+                    .setParameter("activeStatus", STATUS_ACTIVE)
+                    .setParameter("tagId", Integer.valueOf(tag.getProjectTagId()))
+                    .uniqueResult();
+
+            ProjectTagSummaryRowModel row = new ProjectTagSummaryRowModel();
+            row.setTagKey(Integer.toString(tag.getProjectTagId()));
+            row.setTagLabel(n(tag.getTagName(), "(unnamed tag)"));
+            row.setActiveProjectCount(count == null ? 0 : count.intValue());
+            rows.add(row);
+        }
+
+        Number untaggedCount = (Number) dataSession.createQuery(
+                "select count(*) from Project p "
+                        + "where p.workspaceId = :workspaceId "
+                        + "and (p.projectStatus is null or p.projectStatus = :activeStatus) "
+                        + "and not exists (select 1 from ProjectTagMap ptm where ptm.projectId = p.projectId)")
+                .setParameter("workspaceId", Integer.valueOf(workspaceId))
+                .setParameter("activeStatus", STATUS_ACTIVE)
+                .uniqueResult();
+
+        ProjectTagSummaryRowModel untaggedRow = new ProjectTagSummaryRowModel();
+        untaggedRow.setTagKey(ProjectHealthPageModel.PATCH_TAG_KEY_UNTAGGED);
+        untaggedRow.setTagLabel("Untagged");
+        untaggedRow.setActiveProjectCount(untaggedCount == null ? 0 : untaggedCount.intValue());
+        rows.add(untaggedRow);
+        return rows;
+    }
+
+    private List<Project> filterProjectsForPatchTag(List<Project> projects, Session dataSession, int workspaceId,
+            String patchTagKey) {
+        List<Project> filtered = new ArrayList<Project>();
+        Integer patchTagId = parseInteger(patchTagKey);
+        for (Project project : projects) {
+            if (project == null || project.getWorkspaceId() == null
+                    || project.getWorkspaceId().intValue() != workspaceId) {
+                continue;
+            }
+            String status = normalizeProjectStatus(project.getProjectStatus());
+            if (!STATUS_ACTIVE.equals(status)) {
+                continue;
+            }
+
+            if (ProjectHealthPageModel.PATCH_TAG_KEY_UNTAGGED.equals(patchTagKey)) {
+                if (!hasTagMapping(dataSession, project.getProjectId(), null)) {
+                    filtered.add(project);
+                }
+                continue;
+            }
+
+            if (patchTagId != null && hasTagMapping(dataSession, project.getProjectId(), patchTagId)) {
+                filtered.add(project);
+            }
+        }
+        return filtered;
+    }
+
+    private boolean hasTagMapping(Session dataSession, int projectId, Integer tagId) {
+        Query query;
+        if (tagId == null) {
+            query = dataSession.createQuery("select count(*) from ProjectTagMap where projectId = :projectId");
+            query.setParameter("projectId", Integer.valueOf(projectId));
+        } else {
+            query = dataSession.createQuery(
+                    "select count(*) from ProjectTagMap where projectId = :projectId and projectTagId = :tagId");
+            query.setParameter("projectId", Integer.valueOf(projectId));
+            query.setParameter("tagId", tagId);
+        }
+        Number count = (Number) query.uniqueResult();
+        return count != null && count.intValue() > 0;
+    }
+
+    private int resolveSelectedProjectIdFromRequest(AppReq appReq, List<Project> projects) {
+        String selectedProjectIdStr = appReq.getRequest().getParameter(PARAM_PROJECT_ID);
+        if (selectedProjectIdStr == null || selectedProjectIdStr.trim().length() == 0) {
+            return 0;
+        }
+        Integer selectedProjectId = parseInteger(selectedProjectIdStr);
+        if (selectedProjectId == null) {
+            return 0;
+        }
+        for (Project project : projects) {
+            if (project != null && project.getProjectId() == selectedProjectId.intValue()) {
+                return selectedProjectId.intValue();
+            }
+        }
+        return 0;
+    }
+
+    private boolean isPatchContextWorkspace(AppReq appReq, Session dataSession) {
+        if (appReq == null || appReq.getActiveWorkspaceId() == null) {
+            return false;
+        }
+        Workspace workspace = (Workspace) dataSession.get(Workspace.class, appReq.getActiveWorkspaceId());
+        return workspace != null && Workspace.TYPE_PATCH.equals(workspace.getWorkspaceType());
+    }
+
+    private Integer parseInteger(String value) {
+        if (value == null || value.trim().length() == 0) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(Integer.parseInt(value.trim()));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private int resolveSelectedProjectId(AppReq appReq, List<Project> projects, WebUser webUser,

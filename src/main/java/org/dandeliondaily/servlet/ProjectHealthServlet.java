@@ -102,7 +102,9 @@ public class ProjectHealthServlet extends ClientServlet {
             }
 
             appReq.setTitle("Project Health");
-            ProjectHealthPageModel model = pageService.buildModel(appReq, contextWorkspaceId, patchWorkspaces);
+            String selectedPatchTagKey = normalizePatchTagKey(request.getParameter("patchTag"));
+            ProjectHealthPageModel model = pageService.buildModel(appReq, contextWorkspaceId, patchWorkspaces,
+                    selectedPatchTagKey);
             printHtmlHead(appReq);
             pageRenderer.render(appReq, model);
             printHtmlFoot(appReq);
@@ -742,5 +744,12 @@ public class ProjectHealthServlet extends ClientServlet {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String normalizePatchTagKey(String value) {
+        if (value == null || value.trim().length() == 0) {
+            return null;
+        }
+        return value.trim();
     }
 }

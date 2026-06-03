@@ -9,6 +9,11 @@ import org.openimmunizationsoftware.pt.model.ProjectTag;
 
 public class ProjectHealthPageModel {
 
+    public static final String LEFT_PANEL_MODE_PRIVATE = "PRIVATE";
+    public static final String LEFT_PANEL_MODE_PATCH_SUMMARY = "PATCH_SUMMARY";
+    public static final String LEFT_PANEL_MODE_PATCH_TAG = "PATCH_TAG";
+    public static final String PATCH_TAG_KEY_UNTAGGED = "UNTAGGED";
+
     private int selectedProjectId;
     private String selectedProjectName = "";
     private boolean selectedProjectAvailable;
@@ -34,6 +39,11 @@ public class ProjectHealthPageModel {
     private Integer contextWorkspaceId;
     private List<Workspace> accessiblePatchWorkspaces = new ArrayList<Workspace>();
     private boolean showContextSelector;
+    private String leftPanelMode = LEFT_PANEL_MODE_PRIVATE;
+    private String selectedPatchTagKey;
+    private String selectedPatchTagLabel;
+    private List<ProjectTagSummaryRowModel> patchTagSummaryRows = new ArrayList<ProjectTagSummaryRowModel>();
+    private List<ProjectCadenceGroupModel> patchTagProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
 
     public int getSelectedProjectId() {
         return selectedProjectId;
@@ -217,5 +227,57 @@ public class ProjectHealthPageModel {
 
     public void setAvailablePatchTags(List<ProjectTag> availablePatchTags) {
         this.availablePatchTags = availablePatchTags;
+    }
+
+    public String getLeftPanelMode() {
+        return leftPanelMode;
+    }
+
+    public void setLeftPanelMode(String leftPanelMode) {
+        this.leftPanelMode = leftPanelMode;
+    }
+
+    public String getSelectedPatchTagKey() {
+        return selectedPatchTagKey;
+    }
+
+    public void setSelectedPatchTagKey(String selectedPatchTagKey) {
+        this.selectedPatchTagKey = selectedPatchTagKey;
+    }
+
+    public String getSelectedPatchTagLabel() {
+        return selectedPatchTagLabel;
+    }
+
+    public void setSelectedPatchTagLabel(String selectedPatchTagLabel) {
+        this.selectedPatchTagLabel = selectedPatchTagLabel;
+    }
+
+    public List<ProjectTagSummaryRowModel> getPatchTagSummaryRows() {
+        return patchTagSummaryRows;
+    }
+
+    public void setPatchTagSummaryRows(List<ProjectTagSummaryRowModel> patchTagSummaryRows) {
+        this.patchTagSummaryRows = patchTagSummaryRows;
+    }
+
+    public List<ProjectCadenceGroupModel> getPatchTagProjectGroups() {
+        return patchTagProjectGroups;
+    }
+
+    public void setPatchTagProjectGroups(List<ProjectCadenceGroupModel> patchTagProjectGroups) {
+        this.patchTagProjectGroups = patchTagProjectGroups;
+    }
+
+    public boolean isPatchContext() {
+        return contextWorkspaceId != null;
+    }
+
+    public boolean isPatchSummaryMode() {
+        return LEFT_PANEL_MODE_PATCH_SUMMARY.equals(leftPanelMode);
+    }
+
+    public boolean isPatchTagMode() {
+        return LEFT_PANEL_MODE_PATCH_TAG.equals(leftPanelMode);
     }
 }
