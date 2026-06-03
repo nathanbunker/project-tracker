@@ -90,9 +90,9 @@ public class ProjectServlet extends MobileBaseServlet {
             if (selectedProject == null) {
                 out.println("<h1>Project</h1>");
                 Map<Integer, Integer> todoCountMap = getTodayTodoCountByProject(webUser, dataSession, workspaceId);
-                printProjectList(out, projectList, todoCountMap);
+                printProjectList(out, dataSession, projectList, todoCountMap);
             } else {
-                printProjectDetail(out, selectedProject, fetchOpenActionsForProject(webUser, dataSession,
+                printProjectDetail(out, dataSession, selectedProject, fetchOpenActionsForProject(webUser, dataSession,
                         workspaceId,
                         selectedProject.getProjectId()), webUser);
             }
@@ -123,7 +123,8 @@ public class ProjectServlet extends MobileBaseServlet {
         processRequest(request, response);
     }
 
-    private void printProjectList(PrintWriter out, List<Project> projectList, Map<Integer, Integer> todoCountMap) {
+    private void printProjectList(PrintWriter out, Session dataSession, List<Project> projectList,
+            Map<Integer, Integer> todoCountMap) {
         out.println("<table class=\"boxed-mobile\">");
         out.println("  <tr class=\"boxed\">");
         out.println("    <th class=\"boxed\">Project</th>");
@@ -141,7 +142,8 @@ public class ProjectServlet extends MobileBaseServlet {
                         : 0;
                 out.println("  <tr class=\"boxed\">");
                 out.println("    <td class=\"boxed\"><a href=\"project?" + PARAM_PROJECT_ID + "="
-                        + project.getProjectId() + "\" class=\"button\">" + escapeHtml(project.getProjectName())
+                        + project.getProjectId() + "\" class=\"button\">"
+                        + escapeHtml(getProjectDisplayName(dataSession, project))
                         + "</a></td>");
                 out.println("    <td class=\"boxed\">" + todoCount + "</td>");
                 out.println("  </tr>");
@@ -150,16 +152,16 @@ public class ProjectServlet extends MobileBaseServlet {
         out.println("</table>");
     }
 
-    private void printProjectDetail(PrintWriter out, Project project, List<ActionNext> actions,
+    private void printProjectDetail(PrintWriter out, Session dataSession, Project project, List<ActionNext> actions,
             WebUser webUser) {
-        out.println("<h1>" + escapeHtml(project.getProjectName()) + "</h1>");
+        out.println("<h1>" + escapeHtml(getProjectDisplayName(dataSession, project)) + "</h1>");
         out.println("<p><a href=\"project\" class=\"box\">All Projects</a> ");
         out.println("<a href=\"action?" + PARAM_PROJECT_ID + "=" + project.getProjectId()
                 + "\" class=\"button\">Add Action</a></p>");
-        printProjectActionList(out, actions, project.getProjectId(), webUser);
+        printProjectActionList(out, dataSession, actions, project.getProjectId(), webUser);
     }
 
-    private void printProjectActionList(PrintWriter out, List<ActionNext> actions, int projectId,
+    private void printProjectActionList(PrintWriter out, Session dataSession, List<ActionNext> actions, int projectId,
             WebUser webUser) {
         if (actions.isEmpty()) {
             out.println("<table class=\"boxed-mobile\">");
@@ -193,13 +195,14 @@ public class ProjectServlet extends MobileBaseServlet {
             }
         }
 
-        printProjectActionTable(out, "Overdue", overdueActions, projectId, webUser);
-        printProjectActionTable(out, "Due Today", dueTodayActions, projectId, webUser);
-        printProjectActionTable(out, "Due Later", dueLaterActions, projectId, webUser);
-        printProjectActionTable(out, "Unscheduled", unscheduledActions, projectId, webUser);
+        printProjectActionTable(out, dataSession, "Overdue", overdueActions, projectId, webUser);
+        printProjectActionTable(out, dataSession, "Due Today", dueTodayActions, projectId, webUser);
+        printProjectActionTable(out, dataSession, "Due Later", dueLaterActions, projectId, webUser);
+        printProjectActionTable(out, dataSession, "Unscheduled", unscheduledActions, projectId, webUser);
     }
 
-    private void printProjectActionTable(PrintWriter out, String tableTitle, List<ActionNext> actions,
+    private void printProjectActionTable(PrintWriter out, Session dataSession, String tableTitle,
+            List<ActionNext> actions,
             int projectId, WebUser webUser) {
         if (actions.isEmpty()) {
             return;
@@ -253,7 +256,7 @@ public class ProjectServlet extends MobileBaseServlet {
             out.println("      </span>");
 
             // Print the shared postpone menu with project context
-            printPostponeMenuForProject(out, action, "", webUser, projectId);
+            printPostponeMenuForProject(out, action, "", webUser, dataSession, projectId);
 
             out.println("    </td>");
             out.println("  </tr>");

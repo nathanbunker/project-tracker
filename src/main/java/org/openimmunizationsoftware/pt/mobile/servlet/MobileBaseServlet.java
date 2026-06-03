@@ -219,22 +219,23 @@ public abstract class MobileBaseServlet extends ClientServlet {
 
     // ==================== Shared Rendering Methods ====================
 
-    protected void printPostponeMenu(PrintWriter out, ActionNext action, String dateParam, WebUser webUser) {
-        printPostponeMenuInternal(out, action, dateParam, webUser, "todo");
+    protected void printPostponeMenu(PrintWriter out, ActionNext action, String dateParam, WebUser webUser,
+            Session dataSession) {
+        printPostponeMenuInternal(out, action, dateParam, webUser, dataSession, "todo");
     }
 
     protected void printPostponeMenuForProject(PrintWriter out, ActionNext action, String dateParam,
-            WebUser webUser, int projectId) {
-        printPostponeMenuInternal(out, action, dateParam, webUser, "project", projectId);
+            WebUser webUser, Session dataSession, int projectId) {
+        printPostponeMenuInternal(out, action, dateParam, webUser, dataSession, "project", projectId);
     }
 
     private void printPostponeMenuInternal(PrintWriter out, ActionNext action, String dateParam, WebUser webUser,
-            String servletName) {
-        printPostponeMenuInternal(out, action, dateParam, webUser, servletName, -1);
+            Session dataSession, String servletName) {
+        printPostponeMenuInternal(out, action, dateParam, webUser, dataSession, servletName, -1);
     }
 
     private void printPostponeMenuInternal(PrintWriter out, ActionNext action, String dateParam, WebUser webUser,
-            String servletName, int projectId) {
+            Session dataSession, String servletName, int projectId) {
         int actionNextId = action.getActionNextId();
         String actionDay = action.getNextActionDate() == null
                 ? formatActionDateAsTransport(webUser.getToday())
@@ -258,7 +259,7 @@ public abstract class MobileBaseServlet extends ClientServlet {
         out.println("</script>");
 
         String popupTitle = action.getNextDescriptionForDisplay(action.getContact());
-        String projectLabel = action.getProject() != null ? action.getProject().getProjectName() : "";
+        String projectLabel = dataSession == null ? "" : getActionProjectDisplayName(dataSession, action);
         String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
         boolean hasProjectIcon = projectIcon != null && projectIcon.trim().length() > 0;
         projectLabel = hasProjectIcon ? projectIcon.trim() : projectLabel;

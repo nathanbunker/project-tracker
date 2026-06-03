@@ -22,6 +22,7 @@ import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
@@ -306,35 +307,71 @@ public class DashboardCurrentActionService {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         ActionNext unblockedAction = null;
+        List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, projectAction);
         Transaction trans = dataSession.beginTransaction();
-        if (nextDescription != null && !nextDescription.trim().isEmpty()) {
-            ActionTaken actionTaken = new ActionTaken();
-            actionTaken.setProject(project);
-            actionTaken.setProjectId(project.getProjectId());
-            actionTaken.setActionDate(new Date());
-            actionTaken.setActionDescription(nextDescription);
-            actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
-            actionTaken.setContact(webUser.getProjectContact());
-            actionTaken.setContactId(webUser.getContactId());
-            ActionSet actionSet = projectAction.getActionSet();
-            if (actionSet == null) {
-                actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
-                projectAction.setActionSet(actionSet);
-                dataSession.update(projectAction);
+        Date now = new Date();
+        for (ActionNext sibling : actionSiblings) {
+            Project siblingProject = sibling.getProject();
+            if (siblingProject == null && sibling.getProjectId() > 0) {
+                siblingProject = (Project) dataSession.get(Project.class, sibling.getProjectId());
             }
-            actionTaken.setActionSet(actionSet);
-            dataSession.saveOrUpdate(actionTaken);
-        }
-        projectAction.setNextActionStatus(nextActionStatus);
-        projectAction.setCompletionOrder(0);
-        projectAction.setNextChangeDate(new Date());
-        dataSession.update(projectAction);
-        if (nextActionStatus == ProjectNextActionStatus.COMPLETED
-                || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
-            unblockedAction = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser, projectAction);
+            if (nextDescription != null && !nextDescription.trim().isEmpty() && siblingProject != null) {
+                ActionTaken actionTaken = new ActionTaken();
+                actionTaken.setProject(siblingProject);
+                actionTaken.setProjectId(siblingProject.getProjectId());
+                actionTaken.setActionDate(now);
+                actionTaken.setActionDescription(nextDescription);
+                actionTaken.setWorkspaceId(sibling.getWorkspaceId());
+                actionTaken.setContact(webUser.getProjectContact());
+                actionTaken.setContactId(webUser.getContactId());
+                ActionSet actionSet = sibling.getActionSet();
+                if (actionSet == null) {
+                    actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
+                    sibling.setActionSet(actionSet);
+                    dataSession.update(sibling);
+                }
+                actionTaken.setActionSet(actionSet);
+                dataSession.saveOrUpdate(actionTaken);
+            }
+
+            sibling.setNextActionStatus(nextActionStatus);
+            sibling.setCompletionOrder(0);
+            sibling.setNextChangeDate(now);
+            dataSession.update(sibling);
+
+            if (nextActionStatus == ProjectNextActionStatus.COMPLETED
+                    || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
+                ActionNext unblocked = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser,
+                        sibling);
+                if (unblocked != null) {
+                    unblockedAction = unblocked;
+                }
+            }
         }
         trans.commit();
         return unblockedAction;
+    }
+
+    private List<ActionNext> resolveSharedActionSiblings(Session dataSession, ActionNext selectedAction) {
+        List<ActionNext> singleAction = new ArrayList<ActionNext>();
+        if (selectedAction == null) {
+            return singleAction;
+        }
+        singleAction.add(selectedAction);
+        if (selectedAction.getActionSet() == null
+                || selectedAction.getActionSet().getActionSetType() != ActionSetType.SHARED) {
+            return singleAction;
+        }
+        int actionSetId = selectedAction.getActionSet().getActionSetId();
+        Query siblingQuery = dataSession.createQuery(
+                "from ActionNext an where an.actionSet.actionSetId = :actionSetId order by an.actionNextId");
+        siblingQuery.setParameter("actionSetId", actionSetId);
+        @SuppressWarnings("unchecked")
+        List<ActionNext> siblings = siblingQuery.list();
+        if (siblings == null || siblings.isEmpty()) {
+            return singleAction;
+        }
+        return siblings;
     }
 
     private ActionNext selectNextActionForWorkFlow(WebUser webUser, Session dataSession,

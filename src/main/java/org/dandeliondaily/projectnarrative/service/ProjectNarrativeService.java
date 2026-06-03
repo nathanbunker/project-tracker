@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -23,6 +24,7 @@ import org.dandeliondaily.projectnarrative.model.ProjectNarrativeSummary;
 public class ProjectNarrativeService {
 
     private static final String DEFAULT_NOTE_TEXT = "Reviewed/no comments";
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     public List<ProjectNarrativeSummary> listNarrativeSummariesForCompletedProjects(WebUser webUser,
             Session dataSession, LocalDate reviewDate, List<Integer> completedActionProjectIds) {
@@ -54,7 +56,7 @@ public class ProjectNarrativeService {
 
             ProjectNarrativeSummary summary = new ProjectNarrativeSummary();
             summary.setProjectId(projectId);
-            summary.setProjectName(s(project.getProjectName()));
+            summary.setProjectName(s(projectDisplayLabelService.buildDisplayName(dataSession, project)));
             summary.setCompletedCount(entry.getValue().intValue());
             Integer minutesValue = minutesByProject.get(projectId);
             summary.setMinutesSpent(minutesValue == null ? 0 : Math.max(0, minutesValue.intValue()));

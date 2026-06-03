@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -37,6 +38,24 @@ import org.openimmunizationsoftware.pt.model.WebUser;
  * @author nathan
  */
 public class ClientServlet extends HttpServlet {
+
+  private static final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
+
+  protected static String getProjectDisplayNameStatic(Session dataSession, Project project) {
+    return projectDisplayLabelService.buildDisplayName(dataSession, project);
+  }
+
+  protected static String getActionProjectDisplayNameStatic(Session dataSession, ActionNext action) {
+    return action == null ? "" : getProjectDisplayNameStatic(dataSession, action.getProject());
+  }
+
+  protected String getProjectDisplayName(Session dataSession, Project project) {
+    return getProjectDisplayNameStatic(dataSession, project);
+  }
+
+  protected String getActionProjectDisplayName(Session dataSession, ActionNext action) {
+    return getActionProjectDisplayNameStatic(dataSession, action);
+  }
 
   private static final long serialVersionUID = 8641751774755499569L;
 
@@ -288,7 +307,8 @@ public class ClientServlet extends HttpServlet {
         project = completingAction.getProject();
       }
       if (project != null) {
-        result.append("<span class=\"menuLink\">" + project.getProjectName() + "</span>");
+        result.append("<span class=\"menuLink\">" + getProjectDisplayNameStatic(appReq.getDataSession(), project)
+            + "</span>");
       }
       if (timeTracker != null) {
         String time = timeTracker.getTotalMinsBillableForDisplay();

@@ -3,6 +3,7 @@ package org.dandeliondaily.focus.render;
 import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.List;
+import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.shared.render.EditActionModalRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
@@ -10,6 +11,7 @@ import org.openimmunizationsoftware.pt.model.ActionNext;
 public class FocusedActionPageRenderer {
 
         private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
         public static class CycleBarItem {
                 private final int actionNextId;
@@ -149,7 +151,9 @@ public class FocusedActionPageRenderer {
                         return;
                 }
 
-                String projectName = action.getProject() == null ? "" : n(action.getProject().getProjectName());
+                String projectName = action.getProject() == null ? ""
+                                : n(projectDisplayLabelService.buildDisplayName(appReq.getDataSession(),
+                                                action.getProject()));
                 String descriptionForDisplay = action.getNextDescriptionForDisplay(null);
 
                 out.println("        <div class=\"fa-card fa-title-card\">");

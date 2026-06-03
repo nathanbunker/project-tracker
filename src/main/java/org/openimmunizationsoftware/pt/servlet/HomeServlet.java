@@ -170,7 +170,7 @@ public class HomeServlet extends ClientServlet {
         }
       }
       for (ActionNext projectAction : projectActionListOverdue) {
-        printActionOverdueLine(webUser, out, sdf1, nextActionType, nextActionDate, projectAction,
+        printActionOverdueLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, projectAction,
             showLink);
       }
       out.println("</table><br/>");
@@ -201,9 +201,9 @@ public class HomeServlet extends ClientServlet {
     if (showMenu) {
       printMenuForm(out, sdf1, nextActionType, nextActionDate, webUser);
     }
-    printDueTable(webUser, out, sdf1, nextActionType, nextActionDate, projectActionList, cIndicated,
+    printDueTable(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, projectActionList, cIndicated,
         cToday, cTomorrow, showLink);
-    printDueTable(webUser, out, sdf1, nextActionType, nextActionDateTomorrow, projectActionList,
+    printDueTable(dataSession, webUser, out, sdf1, nextActionType, nextActionDateTomorrow, projectActionList,
         nextActionDateTomorrowCalendar, cToday, cTomorrow, showLink);
   }
 
@@ -366,7 +366,7 @@ public class HomeServlet extends ClientServlet {
     return projectActionListOverdue;
   }
 
-  private static void printDueTable(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
+  private static void printDueTable(Session dataSession, WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
       String nextActionType, Date nextActionDate, List<ActionNext> projectActionList,
       Calendar cIndicated, Calendar cToday, Calendar cTomorrow, boolean showLink) {
     out.println("<table class=\"boxed\">");
@@ -423,14 +423,14 @@ public class HomeServlet extends ClientServlet {
     for (ActionNext projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && projectAction.getNextActionType().equals(ProjectNextActionType.OVERDUE_TO)) {
-        printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
+        printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
     }
     for (ActionNext projectAction : projectActionList) {
       if (projectAction.getNextActionType() != null
           && projectAction.getNextActionType().equals(ProjectNextActionType.COMMITTED_TO)) {
-        printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
+        printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
     }
@@ -438,7 +438,7 @@ public class HomeServlet extends ClientServlet {
       if (projectAction.getNextActionType() != null
           && (projectAction.getNextActionType().equals(ProjectNextActionType.WILL)
               || projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT))) {
-        printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
+        printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
     }
@@ -450,7 +450,7 @@ public class HomeServlet extends ClientServlet {
           && !projectAction.getNextActionType().equals(ProjectNextActionType.WILL_CONTACT)
           && !(ProjectNextActionType.WAITING.equals(projectAction.getNextActionType())
               && projectAction.getContactId() == webUser.getContactId())) {
-        printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
+        printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
             showLink);
       }
     }
@@ -477,7 +477,7 @@ public class HomeServlet extends ClientServlet {
         }
         if (ProjectNextActionType.WAITING.equals(projectAction.getNextActionType())
             && projectAction.getContactId() == webUser.getContactId()) {
-          printActionLine(webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
+          printActionLine(dataSession, webUser, out, sdf1, nextActionType, nextActionDate, cIndicated, projectAction,
               showLink);
         }
       }
@@ -488,7 +488,7 @@ public class HomeServlet extends ClientServlet {
         nextTimeEstimateWillMeet, nextTimeEstimateMight);
   }
 
-  private static void printActionLine(WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
+  private static void printActionLine(Session dataSession, WebUser webUser, PrintWriter out, SimpleDateFormat sdf1,
       String nextActionType, Date nextActionDate, Calendar cIndicated, ActionNext projectAction,
       boolean showLink) {
     if (!sameDay(cIndicated, projectAction.getNextActionDate(), webUser)) {
@@ -501,10 +501,10 @@ public class HomeServlet extends ClientServlet {
     if (showLink) {
       out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
           + projectAction.getProject().getProjectId() + "\" class=\"button\">"
-          + projectAction.getProject().getProjectName() + "</a></td>");
+          + getActionProjectDisplayNameStatic(dataSession, projectAction) + "</a></td>");
     } else {
       out.println(
-          "    <td class=\"boxed\">" + projectAction.getProject().getProjectName() + "</td>");
+          "    <td class=\"boxed\">" + getActionProjectDisplayNameStatic(dataSession, projectAction) + "</td>");
     }
     if (projectAction.getNextTimeEstimate() == null || projectAction.getNextTimeEstimate() == 0) {
       out.println("    <td class=\"boxed\">&nbsp;</a></td>");
@@ -517,17 +517,17 @@ public class HomeServlet extends ClientServlet {
     out.println("  </tr>");
   }
 
-  private static void printActionOverdueLine(WebUser webUser, PrintWriter out,
+  private static void printActionOverdueLine(Session dataSession, WebUser webUser, PrintWriter out,
       SimpleDateFormat sdf1, String nextActionType, Date nextActionDate, ActionNext projectAction,
       boolean showLink) {
     out.println("  <tr class=\"boxed\">");
     if (showLink) {
       out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId="
           + projectAction.getProject().getProjectId() + "\" class=\"button\">"
-          + projectAction.getProject().getProjectName() + "</a></td>");
+          + getActionProjectDisplayNameStatic(dataSession, projectAction) + "</a></td>");
     } else {
       out.println(
-          "    <td class=\"boxed\">" + projectAction.getProject().getProjectName() + "</td>");
+          "    <td class=\"boxed\">" + getActionProjectDisplayNameStatic(dataSession, projectAction) + "</td>");
 
     }
     if (projectAction.getNextTimeEstimate() != null && projectAction.getNextTimeEstimate() > 0) {

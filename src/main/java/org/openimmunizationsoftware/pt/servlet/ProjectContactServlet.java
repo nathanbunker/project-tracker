@@ -135,10 +135,11 @@ public class ProjectContactServlet extends ClientServlet {
         Project project = (Project) dataSession.get(Project.class, projectContactAssigned.getId().getProjectId());
         if (project != null) {
           ProjectsServlet.loadProjectsObject(dataSession, project);
+          String projectDisplayName = getProjectDisplayName(dataSession, project);
           out.println("  <tr class=\"boxed\">");
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+                  + "\" class=\"button\">" + projectDisplayName + "</a></td>");
           out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
           out.println("    <td class=\"boxed\">");
           out.println(
@@ -173,10 +174,11 @@ public class ProjectContactServlet extends ClientServlet {
           query.setParameter(1, projectContact.getContactId());
           @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> assigned = query.list();
+          String projectDisplayName = getProjectDisplayName(dataSession, project);
           out.println("  <tr class=\"boxed\">");
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+                  + "\" class=\"button\">" + projectDisplayName + "</a></td>");
           out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
           out.println("    <td class=\"boxed\">");
           if (assigned.size() == 0) {
@@ -211,10 +213,11 @@ public class ProjectContactServlet extends ClientServlet {
           query.setParameter(1, projectContact.getContactId());
           @SuppressWarnings("unchecked")
           List<ProjectContactAssigned> assigned = query.list();
+          String projectDisplayName = getProjectDisplayName(dataSession, project);
           out.println("  <tr class=\"boxed\">");
           out.println(
               "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                  + "\" class=\"button\">" + project.getProjectName() + "</a></td>");
+                  + "\" class=\"button\">" + projectDisplayName + "</a></td>");
           out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
           out.println("    <td class=\"boxed\">");
           if (assigned.size() == 0) {

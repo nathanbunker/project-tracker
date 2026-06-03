@@ -199,7 +199,7 @@ public class ProjectsServlet extends ClientServlet {
       out.println("  <tr class=\"boxed\">");
       out.println(
           "    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-              + "\" class=\"button\">" + project.getProjectName()
+              + "\" class=\"button\">" + getProjectDisplayName(dataSession, project)
               + (project.getProjectHandle() == null || project.getProjectHandle().equals("")
                   ? ""
                   : " [" + project.getProjectHandle() + "]")

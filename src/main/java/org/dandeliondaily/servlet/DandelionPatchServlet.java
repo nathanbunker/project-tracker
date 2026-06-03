@@ -309,7 +309,8 @@ public class DandelionPatchServlet extends ClientServlet {
             out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\">No projects found.</td></tr>");
         } else {
             for (Project project : projects) {
-                out.println("  <tr class=\"boxed\"><td class=\"boxed\">" + escapeHtml(project.getProjectName())
+                out.println("  <tr class=\"boxed\"><td class=\"boxed\">"
+                        + escapeHtml(getProjectDisplayName(dataSession, project))
                         + "</td><td class=\"boxed\">"
                         + escapeHtml(loadTagSummaryForProject(dataSession, project.getProjectId()))
                         + "</td></tr>");

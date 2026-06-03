@@ -36,6 +36,7 @@ public class DashboardNowColumnService {
     private static final int NARRATIVE_DISPLAY_LIMIT = 90;
 
     private final ProjectHealthPageService projectHealthPageService = new ProjectHealthPageService();
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     public DashboardNowColumnModel buildModel(AppReq appReq) {
         DashboardNowColumnModel model = new DashboardNowColumnModel();
@@ -54,8 +55,11 @@ public class DashboardNowColumnService {
         appReq.setProjectSelected(currentProject);
         appReq.setProjectActionSelected(currentAction);
 
+        ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext = projectDisplayLabelService
+                .buildDisplayContext(dataSession, currentProject);
+
         model.setCurrentAction(createCurrentActionModel(webUser, dataSession, currentAction));
-        model.setCurrentProject(createCurrentProjectModel(currentProject));
+        model.setCurrentProject(createCurrentProjectModel(currentProject, projectDisplayContext));
 
         if (currentProject != null) {
             List<ActionNext> openActions = loadOpenProjectActions(dataSession, currentProject);
@@ -68,7 +72,7 @@ public class DashboardNowColumnService {
             model.setOpenIssues(buildOpenIssueItems(webUser, dataSession, currentProject));
             model.setTakenToday(buildTakenToday(webUser, dataSession, currentProject));
             model.setTakenActions(buildTakenActions(webUser, dataSession, currentProject));
-            model.setProjectHealth(buildProjectHealthSection(appReq, currentProject));
+            model.setProjectHealth(buildProjectHealthSection(appReq, currentProject, projectDisplayContext));
             model.setProposalActions(buildProposalItems(webUser, dataSession, currentProject));
             model.setNarrativeItems(buildNarrativeItems(webUser, dataSession, currentProject));
             model.setNarrativeTotalCount(countNarratives(dataSession, currentProject));
@@ -103,7 +107,8 @@ public class DashboardNowColumnService {
         return model;
     }
 
-    private DashboardNowColumnModel.CurrentProject createCurrentProjectModel(Project currentProject) {
+    private DashboardNowColumnModel.CurrentProject createCurrentProjectModel(Project currentProject,
+            ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext) {
         DashboardNowColumnModel.CurrentProject model = new DashboardNowColumnModel.CurrentProject();
         if (currentProject == null) {
             return model;
@@ -111,9 +116,13 @@ public class DashboardNowColumnService {
 
         model.setAvailable(true);
         model.setProjectId(currentProject.getProjectId());
-        model.setName(n(currentProject.getProjectName(), "Unnamed project"));
+        model.setName(n(projectDisplayContext == null ? null : projectDisplayContext.getDisplayName(),
+                "Unnamed project"));
+        model.setRawName(n(currentProject.getProjectName(), "Unnamed project"));
         model.setHandle(n(currentProject.getProjectHandle(), ""));
         model.setDescription(n(currentProject.getDescription(), "No project description available yet."));
+        model.setLinkedSharedProjects(buildLinkedProjectItems(
+                projectDisplayContext == null ? null : projectDisplayContext.getLinkedPatchProjects()));
         return model;
     }
 
@@ -446,17 +455,21 @@ public class DashboardNowColumnService {
         return items;
     }
 
-    private DashboardNowColumnModel.ProjectHealthSection buildProjectHealthSection(AppReq appReq, Project project) {
+    private DashboardNowColumnModel.ProjectHealthSection buildProjectHealthSection(AppReq appReq, Project project,
+            ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext) {
         DashboardNowColumnModel.ProjectHealthSection section = new DashboardNowColumnModel.ProjectHealthSection();
         if (project == null) {
             return section;
         }
 
-        section.setProjectName(n(project.getProjectName(), ""));
+        section.setProjectName(n(projectDisplayContext == null ? null : projectDisplayContext.getDisplayName(), ""));
+        section.setPrivateProjectName(n(project.getProjectName(), ""));
         section.setProjectHandle(n(project.getProjectHandle(), ""));
         section.setProjectStatus(project.getProjectStatusEnum().getDatabaseValue());
         section.setDescription(n(project.getDescription(), ""));
         section.setOutcome(n(project.getOutcomeText(), ""));
+        section.setLinkedSharedProjects(buildLinkedProjectItems(
+                projectDisplayContext == null ? null : projectDisplayContext.getLinkedPatchProjects()));
         section.setSuccessCriteriaItems(parseSuccessCriteriaItems(project.getSuccessCriteriaText()));
 
         ProjectHealthPageService.ProjectHealthSnapshot snapshot = projectHealthPageService
@@ -474,6 +487,27 @@ public class DashboardNowColumnService {
         section.setIssues(issueItems);
 
         return section;
+    }
+
+    private List<DashboardNowColumnModel.LinkedProjectItem> buildLinkedProjectItems(List<Project> linkedProjects) {
+        List<DashboardNowColumnModel.LinkedProjectItem> items = new ArrayList<DashboardNowColumnModel.LinkedProjectItem>();
+        if (linkedProjects == null) {
+            return items;
+        }
+        for (Project linkedProject : linkedProjects) {
+            if (linkedProject == null) {
+                continue;
+            }
+            DashboardNowColumnModel.LinkedProjectItem item = new DashboardNowColumnModel.LinkedProjectItem();
+            item.setProjectId(linkedProject.getProjectId());
+            item.setProjectName(n(linkedProject.getProjectName(), ""));
+            item.setDescription(n(linkedProject.getDescription(), ""));
+            item.setProjectStatus(linkedProject.getProjectStatusEnum() == null
+                    ? ""
+                    : linkedProject.getProjectStatusEnum().getDatabaseValue());
+            items.add(item);
+        }
+        return items;
     }
 
     private List<String> parseSuccessCriteriaItems(String successCriteriaText) {

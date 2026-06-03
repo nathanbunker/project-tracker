@@ -406,7 +406,7 @@ public class TrackServlet extends ClientServlet {
         Project project = (Project) dataSession.get(Project.class, projectId);
         if (project != null) {
           timeEntryList.add(
-              new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId));
+              new TimeEntry(getProjectDisplayNameStatic(dataSession, project), projectMap.get(projectId), projectId));
         }
       }
       Collections.sort(timeEntryList);
@@ -435,10 +435,11 @@ public class TrackServlet extends ClientServlet {
     String link = "<a href=\"ProjectServlet?projectId="
         + project.getProjectId()
         + "\" class=\"button\">";
+    String projectDisplayName = getProjectDisplayNameStatic(dataSession, project);
     if (showLinks) {
-      out.println("    <td class=\"boxed\">" + link + project.getProjectName() + "</a></td>");
+      out.println("    <td class=\"boxed\">" + link + projectDisplayName + "</a></td>");
     } else {
-      out.println("    <td class=\"boxed\">" + project.getProjectName() + "</td>");
+      out.println("    <td class=\"boxed\">" + projectDisplayName + "</td>");
     }
     out.println("    <td class=\"boxed\">0:00</td>");
 
@@ -572,7 +573,8 @@ public class TrackServlet extends ClientServlet {
     for (Integer projectId : projectMap.keySet()) {
       Project project = (Project) dataSession.get(Project.class, projectId);
       if (isBillableProject(dataSession, project)) {
-        TimeEntry timeEntry = new TimeEntry(project.getProjectName(), projectMap.get(projectId), projectId);
+        TimeEntry timeEntry = new TimeEntry(getProjectDisplayNameStatic(dataSession, project),
+            projectMap.get(projectId), projectId);
         timeEntryList.add(timeEntry);
       }
     }

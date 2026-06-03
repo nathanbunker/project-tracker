@@ -21,8 +21,12 @@ public class ActionSetDao {
     }
 
     public ActionSet createStandardActionSet(WebUser webUser) {
+        return createActionSet(webUser, ActionSetType.STANDARD);
+    }
+
+    public ActionSet createActionSet(WebUser webUser, ActionSetType actionSetType) {
         ActionSet actionSet = new ActionSet();
-        actionSet.setActionSetType(ActionSetType.STANDARD);
+        actionSet.setActionSetType(actionSetType == null ? ActionSetType.STANDARD : actionSetType);
         actionSet.setCreatedByWebUserId(webUser.getWebUserId());
         actionSet.setCreatedByWebUser(webUser);
         actionSet.setCreatedDate(new Date());

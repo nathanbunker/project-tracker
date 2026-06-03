@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -30,6 +31,7 @@ import org.dandeliondaily.timereview.model.TimeSessionModel;
 public class TimeReviewService {
 
     private final TimeRegularizationService regularizationService = new TimeRegularizationService();
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     public TimeRegularizationService getRegularizationService() {
         return regularizationService;
@@ -200,6 +202,8 @@ public class TimeReviewService {
         dayModel.setHasEntries(!dayEntries.isEmpty());
 
         Map<Integer, Project> projectMap = loadProjectMap(webUser, dataSession);
+        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
+                new ArrayList<Project>(projectMap.values()));
         Map<String, ProjectTag> categoryMap = loadTagMap(webUser, dataSession);
         Map<String, BillCode> billCodeMap = loadBillCodeMap(webUser, dataSession);
 
@@ -225,7 +229,7 @@ public class TimeReviewService {
                 currentSession = nextSession;
             }
 
-            TimeEntryModel line = toEntryModel(entry, projectMap, categoryMap, billCodeMap);
+            TimeEntryModel line = toEntryModel(entry, projectMap, displayNameByProjectId, categoryMap, billCodeMap);
             currentSession.getEntries().add(line);
             currentSession.setEndTime(entry.getEndTime());
             currentSession.setTotalMinutes(currentSession.getTotalMinutes() + line.getDurationMinutes());
@@ -387,6 +391,7 @@ public class TimeReviewService {
     private TimeEntryModel toEntryModel(
             BillEntry billEntry,
             Map<Integer, Project> projectMap,
+            Map<Integer, String> displayNameByProjectId,
             Map<String, ProjectTag> categoryMap,
             Map<String, BillCode> billCodeMap) {
         TimeEntryModel model = new TimeEntryModel();
@@ -402,7 +407,9 @@ public class TimeReviewService {
         Project project = projectMap.get(billEntry.getProjectId());
         if (project != null) {
             model.setProjectId(project.getProjectId());
-            model.setProjectName(project.getProjectName());
+            String displayName = displayNameByProjectId == null ? null
+                    : displayNameByProjectId.get(project.getProjectId());
+            model.setProjectName(displayName == null ? project.getProjectName() : displayName);
         }
 
         ProjectTag category = categoryMap.get(billEntry.getCategoryCode());

@@ -153,7 +153,7 @@ public class TodoServlet extends MobileBaseServlet {
             // Overdue section (only on today)
             if (isToday && !overdueActions.isEmpty()) {
                 out.println("<h2>Overdue</h2>");
-                printActionList(out, overdueActions, true, selectedDate, webUser);
+                printActionList(out, overdueActions, true, selectedDate, webUser, dataSession);
             }
 
             // Organize today's actions into categories
@@ -179,10 +179,10 @@ public class TodoServlet extends MobileBaseServlet {
             }
 
             // Print tables for each category (only if there are items)
-            printActionTable(out, "Wake", wakeActions, selectedDate, webUser);
-            printActionTable(out, "Morning", morningActions, selectedDate, webUser);
-            printActionTable(out, "Afternoon", afternoonActions, selectedDate, webUser);
-            printActionTable(out, "Evening", eveningActions, selectedDate, webUser);
+            printActionTable(out, "Wake", wakeActions, selectedDate, webUser, dataSession);
+            printActionTable(out, "Morning", morningActions, selectedDate, webUser, dataSession);
+            printActionTable(out, "Afternoon", afternoonActions, selectedDate, webUser, dataSession);
+            printActionTable(out, "Evening", eveningActions, selectedDate, webUser, dataSession);
 
             // Date navigation
             printDateNavigation(out, selectedDate, today, webUser);
@@ -297,7 +297,7 @@ public class TodoServlet extends MobileBaseServlet {
     }
 
     private void printActionList(PrintWriter out, List<ActionNext> actions,
-            boolean isOverdue, Date selectedDate, WebUser webUser) {
+            boolean isOverdue, Date selectedDate, WebUser webUser, Session dataSession) {
         if (actions.isEmpty()) {
             out.println("<table class=\"boxed-mobile\">");
             out.println("  <tr class=\"boxed\">");
@@ -306,20 +306,20 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("</table>");
             return;
         }
-        printActionTableContent(out, actions, isOverdue, selectedDate, webUser);
+        printActionTableContent(out, actions, isOverdue, selectedDate, webUser, dataSession);
     }
 
     private void printActionTable(PrintWriter out, String title, List<ActionNext> actions,
-            Date selectedDate, WebUser webUser) {
+            Date selectedDate, WebUser webUser, Session dataSession) {
         if (actions.isEmpty()) {
             return; // Don't show header or table if no items
         }
         out.println("<h2>" + escapeHtml(title) + "</h2>");
-        printActionTableContent(out, actions, false, selectedDate, webUser);
+        printActionTableContent(out, actions, false, selectedDate, webUser, dataSession);
     }
 
     private void printActionTableContent(PrintWriter out, List<ActionNext> actions,
-            boolean isOverdue, Date selectedDate, WebUser webUser) {
+            boolean isOverdue, Date selectedDate, WebUser webUser, Session dataSession) {
 
         String dateParam = selectedDate != null
                 ? webUser.getDateFormatService().formatTransportDate(selectedDate, webUser.getTimeZone())
@@ -331,7 +331,8 @@ public class TodoServlet extends MobileBaseServlet {
         out.println("    <th class=\"boxed\" style=\"text-align:center;\">Action</th>");
         out.println("  </tr>");
         for (ActionNext action : actions) {
-            String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
+            String projectName = action.getProject() != null ? getProjectDisplayName(dataSession, action.getProject())
+                    : "";
             String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
             boolean hasProjectIcon = projectIcon != null && projectIcon.trim().length() > 0;
             String projectLabel = hasProjectIcon ? projectIcon.trim() : projectName;
@@ -386,7 +387,7 @@ public class TodoServlet extends MobileBaseServlet {
             out.println("      </span>");
 
             // Print the shared postpone menu
-            printPostponeMenu(out, action, dateParam, webUser);
+            printPostponeMenu(out, action, dateParam, webUser, dataSession);
 
             out.println("    </td>");
             out.println("  </tr>");

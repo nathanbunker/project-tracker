@@ -305,7 +305,7 @@ public class FocusedActionServlet extends ClientServlet {
             }
             cycleItems.add(new FocusedActionPageRenderer.CycleBarItem(
                     orderedAction.getActionNextId(),
-                    buildActionLabel(orderedAction)));
+                    buildActionLabel(appReq.getDataSession(), orderedAction)));
         }
         if (cycleItems.isEmpty()) {
             return null;
@@ -340,8 +340,8 @@ public class FocusedActionServlet extends ClientServlet {
         return -1;
     }
 
-    private String buildActionLabel(ActionNext action) {
-        String projectName = action.getProject() == null ? "" : n(action.getProject().getProjectName());
+    private String buildActionLabel(Session dataSession, ActionNext action) {
+        String projectName = getActionProjectDisplayName(dataSession, action);
         String description = n(action.getNextDescription());
         String estimate = action.getNextTimeEstimate() == null ? "" : " (" + action.getNextTimeEstimate() + "m)";
         String text = description;
@@ -499,7 +499,7 @@ public class FocusedActionServlet extends ClientServlet {
 
         List<FocusedActionPageRenderer.MeetingOption> options = new ArrayList<FocusedActionPageRenderer.MeetingOption>();
         for (ActionNext action : meetingActions) {
-            String projectName = action.getProject() == null ? "" : n(action.getProject().getProjectName());
+            String projectName = getActionProjectDisplayName(appReq.getDataSession(), action);
             String description = n(action.getNextDescription());
             String estimate = action.getNextTimeEstimate() == null ? "" : " (" + action.getNextTimeEstimate() + "m)";
             String title = (projectName.length() > 0 ? projectName + " - " : "")
@@ -528,7 +528,7 @@ public class FocusedActionServlet extends ClientServlet {
             if (item == null) {
                 continue;
             }
-            String projectName = item.getProject() == null ? "" : n(item.getProject().getProjectName());
+            String projectName = getActionProjectDisplayName(dataSession, item);
             String description = n(item.getNextDescription());
             String text = description;
             if (text.length() == 0) {

@@ -101,9 +101,10 @@ public class ProjectContactsServlet extends ClientServlet {
                 "    <td class=\"boxed\">" + projectContact.getOrganizationName() + "</td>");
             out.println("    <td class=\"boxed\">");
             if (project != null && !project.isAssigned(projectContact)) {
+              String projectDisplayName = getProjectDisplayName(dataSession, project);
               out.println(" <font size=\"-1\"><a href=\"ProjectServlet?action=AddContact&projectId="
                   + project.getProjectId() + "&contactId=" + projectContact.getContactId()
-                  + "\" class=\"box\">Assign to " + project.getProjectName() + " </a></font>");
+                  + "\" class=\"box\">Assign to " + projectDisplayName + " </a></font>");
             }
             out.println("</td>");
             out.println("  </tr>");

@@ -291,7 +291,7 @@ public class ProjectHealthServlet extends ClientServlet {
                 if (projectRow == null) {
                     projectRow = new LinkedHashMap<String, Object>();
                     projectRow.put("projectId", projectId);
-                    projectRow.put("projectName", action.getProject().getProjectName());
+                    projectRow.put("projectName", getProjectDisplayName(appReq.getDataSession(), action.getProject()));
                     projectRow.put("actions", new ArrayList<Map<String, Object>>());
                     grouped.put(projectId, projectRow);
                 }

@@ -178,9 +178,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             out.println("<h2>Template Scheduler</h2>");
-            printTemplateTable(out, dependentUser, schoolProjects, templateMap, templateConfigMap,
+            printTemplateTable(out, dependentUser, dataSession, schoolProjects, templateMap, templateConfigMap,
                     "School", "School", false);
-            printTemplateTable(out, dependentUser, choreProjects, templateMap, templateConfigMap,
+            printTemplateTable(out, dependentUser, dataSession, choreProjects, templateMap, templateConfigMap,
                     "Chores", "Chores", true);
 
             out.println("<br/>");
@@ -188,7 +188,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                     + "\" >");
             out.println("</form>");
 
-            printTemplateEditDialogs(out, dependentUser, dependency.getDependencyId(), templateMap);
+            printTemplateEditDialogs(out, dependentUser, dataSession, dependency.getDependencyId(), templateMap);
 
             out.println("<br/>");
             out.println("<h2>Daily Assignments</h2>");
@@ -632,7 +632,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("<br/>");
     }
 
-    private void printTemplateTable(PrintWriter out, WebUser dependentUser,
+    private void printTemplateTable(PrintWriter out, WebUser dependentUser, Session dataSession,
             List<Project> filteredProjectList,
             Map<Project, List<ActionNext>> templateMap,
             Map<Integer, ActionNextTemplateConfig> templateConfigMap,
@@ -736,7 +736,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
             out.println("  <tr class=\"boxed\">");
             out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + project.getProjectId()
-                    + "\" class=\"button\">" + escapeHtml(project.getProjectName()) + "</a></td>");
+                    + "\" class=\"button\">" + escapeHtml(getProjectDisplayName(dataSession, project))
+                    + "</a></td>");
             out.println("    <td class=\"boxed\">");
             out.println("      <input type=\"text\" name=\"" + NEXT_DESCRIPTION + id
                     + "\" value=\"" + escapeHtml(safe(templateAction.getNextDescription())) + "\" size=\"30\"/>");
@@ -861,7 +862,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("      <select name=\"" + PROJECT_ID + addFieldSuffix + "\">");
         for (Project project : orderedProjectList) {
             out.println("        <option value=\"" + project.getProjectId() + "\">"
-                    + escapeHtml(project.getProjectName()) + "</option>");
+                    + escapeHtml(getProjectDisplayName(dataSession, project)) + "</option>");
         }
         out.println("      </select>");
         out.println("    </td>");
@@ -951,14 +952,15 @@ public class ScheduleSchoolServlet extends ClientServlet {
         out.println("<br/>");
     }
 
-    private void printTemplateEditDialogs(PrintWriter out, WebUser dependentUser, int dependencyId,
+    private void printTemplateEditDialogs(PrintWriter out, WebUser dependentUser, Session dataSession,
+            int dependencyId,
             Map<Project, List<ActionNext>> templateMap) {
         for (List<ActionNext> templateList : templateMap.values()) {
             if (templateList == null) {
                 continue;
             }
             for (ActionNext templateAction : templateList) {
-                printScheduleActionEditDialog(out, dependentUser, dependencyId, templateAction);
+                printScheduleActionEditDialog(out, dependentUser, dataSession, dependencyId, templateAction);
             }
         }
     }
@@ -1148,15 +1150,17 @@ public class ScheduleSchoolServlet extends ClientServlet {
             out.println("  </tr>");
             out.println("</table>");
             for (ActionNext action : dialogActions) {
-                printScheduleActionEditDialog(out, dependentUser, dependencyId, action);
+                printScheduleActionEditDialog(out, dependentUser, dataSession, dependencyId, action);
             }
-            printScheduleActionAddDialog(out, dependentUser, dependencyId, dayDate, addDialogId, projectList,
+            printScheduleActionAddDialog(out, dependentUser, dataSession, dependencyId, dayDate, addDialogId,
+                    projectList,
                     projectBillableMap);
             out.println("<br/>");
         }
     }
 
-    private void printScheduleActionAddDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
+    private void printScheduleActionAddDialog(PrintWriter out, WebUser dependentUser, Session dataSession,
+            int dependencyId,
             Date dayDate, String dialogId, List<Project> projectList, Map<Integer, Boolean> projectBillableMap) {
         SimpleDateFormat dateFormat = dependentUser.getDateFormat();
         String dateString = dayDate == null ? "" : dateFormat.format(dayDate);
@@ -1184,7 +1188,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
                 boolean billable = Boolean.TRUE.equals(projectBillableMap.get(Integer.valueOf(project.getProjectId())));
                 out.println("          <option value=\"" + project.getProjectId() + "\" data-billable=\""
                         + (billable ? "Y" : "N") + "\">"
-                        + escapeHtml(safe(project.getProjectName())) + "</option>");
+                        + escapeHtml(getProjectDisplayName(dataSession, project)) + "</option>");
             }
         }
         out.println("        </select></td></tr>");
@@ -1267,7 +1271,8 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return earnedByDay;
     }
 
-    private void printScheduleActionEditDialog(PrintWriter out, WebUser dependentUser, int dependencyId,
+    private void printScheduleActionEditDialog(PrintWriter out, WebUser dependentUser, Session dataSession,
+            int dependencyId,
             ActionNext action) {
         SimpleDateFormat dateFormat = dependentUser.getDateFormat();
         String dateString = action.getNextActionDate() == null ? "" : dateFormat.format(action.getNextActionDate());
@@ -1289,7 +1294,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
 
         out.println("      <table class=\"boxed\" style=\"width:100%;\">");
         out.println("        <tr class=\"boxed\"><th class=\"boxed\">Project</th><td class=\"boxed\">"
-                + escapeHtml(action.getProject() == null ? "" : safe(action.getProject().getProjectName()))
+                + escapeHtml(action.getProject() == null ? "" : getProjectDisplayName(dataSession, action.getProject()))
                 + "</td></tr>");
         out.println("        <tr class=\"boxed\"><th class=\"boxed\">When</th><td class=\"boxed\">"
                 + "<input type=\"text\" name=\"" + PARAM_EDIT_NEXT_ACTION_DATE + "\" value=\""

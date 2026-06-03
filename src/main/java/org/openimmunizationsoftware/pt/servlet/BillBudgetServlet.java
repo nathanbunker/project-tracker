@@ -259,6 +259,7 @@ public class BillBudgetServlet extends ClientServlet {
       out.println("  </tr>");
 
       for (Project project : projectList) {
+        String projectDisplayName = getProjectDisplayNameStatic(dataSession, project);
 
         query = dataSession.createQuery(
             "select distinct pa from ActionTaken pa "
@@ -278,7 +279,7 @@ public class BillBudgetServlet extends ClientServlet {
           }
           out.println("  <tr class=\"boxed\">");
           if (projectList.size() > 1) {
-            out.println("    <td class=\"boxed\">" + project.getProjectName() + "</td>");
+            out.println("    <td class=\"boxed\">" + projectDisplayName + "</td>");
           }
           out.println(
               "    <td class=\"boxed\">" + sdf.format(projectAction.getActionDate()) + "</td>");

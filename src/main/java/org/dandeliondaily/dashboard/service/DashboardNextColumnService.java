@@ -18,6 +18,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -39,6 +40,7 @@ public class DashboardNextColumnService {
     private static final int BUCKET_OTHER = 11;
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     public DashboardNextColumnModel buildModel(AppReq appReq, DashboardTimeGaugeService gaugeService) {
         DashboardNextColumnModel model = new DashboardNextColumnModel();
@@ -121,7 +123,7 @@ public class DashboardNextColumnService {
             selectedDay.setHeaderGauge(gaugeService.buildPlannedDayGauge(selectedSummary.getPlannedMinutes(),
                     targetMinutes));
             List<ActionNext> selectedDayActions = planningBuckets.get(selectedSummary.getDayKey());
-            selectedDay.setSections(buildSelectedDaySections(webUser, selectedDayActions));
+            selectedDay.setSections(buildSelectedDaySections(webUser, dataSession, selectedDayActions));
             model.setSelectedDay(selectedDay);
         }
 
@@ -148,7 +150,7 @@ public class DashboardNextColumnService {
     }
 
     private List<DashboardNextColumnModel.SelectedDaySectionModel> buildSelectedDaySections(WebUser webUser,
-            List<ActionNext> selectedDayActions) {
+            Session dataSession, List<ActionNext> selectedDayActions) {
         List<DashboardNextColumnModel.SelectedDaySectionModel> sections = new ArrayList<DashboardNextColumnModel.SelectedDaySectionModel>();
         if (selectedDayActions == null || selectedDayActions.isEmpty()) {
             return sections;
@@ -171,16 +173,19 @@ public class DashboardNextColumnService {
             sortProjectActionListByCompletionOrder(bucketMap.get(bucket));
         }
 
-        addSection(sections, "Overdue", toSelectedDayItems(webUser, bucketMap.get(BUCKET_OVERDUE)));
-        addSection(sections, "Start of Work Day", toSelectedDayItems(webUser, bucketMap.get(BUCKET_START_OF_WORK_DAY)));
-        addSection(sections, "Committed", toSelectedDayItems(webUser, bucketMap.get(BUCKET_COMMITTED)));
-        addSection(sections, "Will", toSelectedDayItems(webUser, bucketMap.get(BUCKET_WILL)));
-        addSection(sections, "Personal (Morning)", toSelectedDayItems(webUser, bucketMap.get(BUCKET_PERSONAL_MORNING)));
-        addSection(sections, "Might", toSelectedDayItems(webUser, bucketMap.get(BUCKET_MIGHT)));
-        addSection(sections, "Waiting", toSelectedDayItems(webUser, bucketMap.get(BUCKET_WAITING)));
-        addSection(sections, "Will Meet", toSelectedDayItems(webUser, bucketMap.get(BUCKET_WILL_MEET)));
-        addSection(sections, "End of Work Day", toSelectedDayItems(webUser, bucketMap.get(BUCKET_END_OF_WORK_DAY)));
-        addSection(sections, "Other", toSelectedDayItems(webUser, bucketMap.get(BUCKET_OTHER)));
+        addSection(sections, "Overdue", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_OVERDUE)));
+        addSection(sections, "Start of Work Day",
+                toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_START_OF_WORK_DAY)));
+        addSection(sections, "Committed", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_COMMITTED)));
+        addSection(sections, "Will", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_WILL)));
+        addSection(sections, "Personal (Morning)",
+                toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_PERSONAL_MORNING)));
+        addSection(sections, "Might", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_MIGHT)));
+        addSection(sections, "Waiting", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_WAITING)));
+        addSection(sections, "Will Meet", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_WILL_MEET)));
+        addSection(sections, "End of Work Day",
+                toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_END_OF_WORK_DAY)));
+        addSection(sections, "Other", toSelectedDayItems(webUser, dataSession, bucketMap.get(BUCKET_OTHER)));
 
         // Future: selected-day section rendering can be reused in dedicated planning
         // pages.
@@ -196,12 +201,15 @@ public class DashboardNextColumnService {
     }
 
     private List<DashboardNextColumnModel.SelectedDayActionItemModel> toSelectedDayItems(WebUser webUser,
-            List<ActionNext> actions) {
+            Session dataSession, List<ActionNext> actions) {
         List<DashboardNextColumnModel.SelectedDayActionItemModel> items = new ArrayList<DashboardNextColumnModel.SelectedDayActionItemModel>();
+        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
+                extractProjects(actions));
         for (ActionNext action : actions) {
             DashboardNextColumnModel.SelectedDayActionItemModel item = new DashboardNextColumnModel.SelectedDayActionItemModel();
             item.setActionNextId(action.getActionNextId());
-            item.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName()));
+            item.setProjectName(action.getProject() == null ? ""
+                    : resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
             item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
             item.setDescriptionPlain(n(action.getNextDescription()));
             item.setEstimateDisplay(n(action.getNextTimeEstimateForDisplay()));
@@ -210,6 +218,27 @@ public class DashboardNextColumnService {
             items.add(item);
         }
         return items;
+    }
+
+    private List<Project> extractProjects(List<ActionNext> actions) {
+        List<Project> projects = new ArrayList<Project>();
+        if (actions == null) {
+            return projects;
+        }
+        for (ActionNext action : actions) {
+            if (action != null && action.getProject() != null) {
+                projects.add(action.getProject());
+            }
+        }
+        return projects;
+    }
+
+    private String resolveProjectDisplayName(Project project, Map<Integer, String> displayNameByProjectId) {
+        if (project == null) {
+            return "";
+        }
+        String displayName = displayNameByProjectId == null ? null : displayNameByProjectId.get(project.getProjectId());
+        return n(displayName != null ? displayName : project.getProjectName());
     }
 
     private Map<String, List<ActionNext>> bucketByDate(List<ActionNext> planningRangeList) {

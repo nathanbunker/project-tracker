@@ -1,5 +1,6 @@
 package org.dandeliondaily.dashboard.service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
@@ -11,6 +12,8 @@ import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionSet;
+import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
@@ -19,6 +22,8 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class ActionSentenceImportService {
+
+    private final QuickCaptureLinkedProjectService quickCaptureLinkedProjectService = new QuickCaptureLinkedProjectService();
 
     public int importActionsFromText(WebUser webUser, Session dataSession, Project defaultProject,
             List<Project> projectList, String bulkImportText) {
@@ -42,20 +47,78 @@ public class ActionSentenceImportService {
 
     public ActionNext saveNewActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput) {
-        ActionNext nextAction = buildActionFromSentence(webUser, dataSession, defaultProject, projectList,
-                sentenceInput, null);
-        if (nextAction == null) {
-            return null;
+        List<ActionNext> savedActions = saveNewActionsFromSentence(webUser, dataSession, defaultProject, projectList,
+                sentenceInput);
+        return savedActions.isEmpty() ? null : savedActions.get(0);
+    }
+
+    public List<ActionNext> saveNewActionsFromSentence(WebUser webUser, Session dataSession,
+            Project defaultProject, List<Project> projectList, String sentenceInput) {
+        List<ActionNext> savedActions = new ArrayList<ActionNext>();
+        if (sentenceInput == null || sentenceInput.trim().length() == 0) {
+            return savedActions;
+        }
+
+        String[] parts = sentenceInput.split(":", 2);
+        String projectToken = parts.length == 2 ? parts[0].trim() : "";
+        String actionPart = parts.length == 2 ? parts[1].trim() : sentenceInput.trim();
+
+        QuickCaptureLinkedProjectService.LinkedAliasResolution aliasResolution = null;
+        if (projectToken.length() > 0
+                && (projectToken.contains("/") || projectToken.contains("-"))
+                && projectList != null) {
+            aliasResolution = quickCaptureLinkedProjectService.resolveAliasLabel(dataSession, projectList,
+                    projectToken);
         }
 
         Transaction trans = dataSession.beginTransaction();
+        if (aliasResolution != null) {
+            ActionSet sharedActionSet = null;
+            for (Project targetProject : aliasResolution.getTargetProjects()) {
+                if (targetProject == null || targetProject.getWorkspaceId() == null) {
+                    continue;
+                }
+                ActionNext nextAction = buildActionFromSentence(webUser, dataSession, targetProject, null,
+                        actionPart, targetProject.getWorkspaceId(), false);
+                if (nextAction == null) {
+                    continue;
+                }
+                if (sharedActionSet == null) {
+                    sharedActionSet = new ActionSetDao(dataSession).createActionSet(webUser, ActionSetType.SHARED);
+                }
+                nextAction.setActionSet(sharedActionSet);
+                dataSession.saveOrUpdate(nextAction);
+                savedActions.add(nextAction);
+            }
+            if (savedActions.isEmpty()) {
+                trans.rollback();
+                return savedActions;
+            }
+            trans.commit();
+            return savedActions;
+        }
+
+        ActionNext nextAction = buildActionFromSentence(webUser, dataSession, defaultProject, projectList,
+                sentenceInput, null);
+        if (nextAction == null) {
+            trans.rollback();
+            return savedActions;
+        }
         dataSession.saveOrUpdate(nextAction);
         trans.commit();
-        return nextAction;
+        savedActions.add(nextAction);
+        return savedActions;
     }
 
     public ActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride) {
+        return buildActionFromSentence(webUser, dataSession, defaultProject, projectList, sentenceInput,
+                workspaceIdOverride, true);
+    }
+
+    private ActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
+            Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride,
+            boolean assignStandardActionSet) {
         if (sentenceInput == null || sentenceInput.trim().length() == 0) {
             return null;
         }
@@ -230,7 +293,9 @@ public class ActionSentenceImportService {
                 }
             }
         }
-        nextAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
+        if (assignStandardActionSet) {
+            nextAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
+        }
         return nextAction;
     }
 

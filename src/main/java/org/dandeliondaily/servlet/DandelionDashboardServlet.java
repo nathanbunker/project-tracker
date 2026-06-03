@@ -35,6 +35,7 @@ import org.dandeliondaily.dashboard.render.TimeGaugeRenderer;
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
 import org.dandeliondaily.dashboard.service.DashboardNowColumnService;
 import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
+import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.dashboard.service.DashboardTimeGaugeService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.dashboard.service.ProjectDashboardAiContextService;
@@ -51,6 +52,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
+import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ProjectTagMap;
 import org.openimmunizationsoftware.pt.model.ProjectIssueType;
@@ -76,6 +78,7 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
     private final DashboardTimeGaugeService dashboardTimeGaugeService = new DashboardTimeGaugeService();
     private final DashboardNextColumnService dashboardNextColumnService = new DashboardNextColumnService();
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
     private final ProjectHealthPageService projectHealthPageService = new ProjectHealthPageService();
@@ -259,12 +262,17 @@ public class DandelionDashboardServlet extends ClientServlet {
             return;
         }
         Map<String, Object> data = new LinkedHashMap<>();
+        Project actionProject = action.getProject();
         data.put("success", true);
         data.put("nextActionDate", formatUserDate(webUser, action.getNextActionDate()));
         data.put("nextActionType", action.getNextActionType() != null ? action.getNextActionType() : "");
         data.put("projectName", action.getProject() != null && action.getProject().getProjectName() != null
                 ? action.getProject().getProjectName()
                 : "");
+        data.put("displayProjectName", actionProject == null
+                ? ""
+                : projectDisplayLabelService.buildDisplayContext(appReq.getDataSession(), actionProject)
+                        .getDisplayName());
         Integer nextContactId = action.getNextContactId();
         data.put("nextContactId", nextContactId != null && nextContactId.intValue() > 0 ? nextContactId : "");
         data.put("nextDescription", action.getNextDescription() != null ? action.getNextDescription() : "");
@@ -275,7 +283,6 @@ public class DandelionDashboardServlet extends ClientServlet {
         data.put("linkUrl", action.getLinkUrl() != null ? action.getLinkUrl() : "");
         data.put("nextNote", action.getNextNotes() != null ? action.getNextNotes() : "");
         // Mode and time slot for mode-aware UI
-        Project actionProject = action.getProject();
         BillCode billCode = actionProject != null ? resolveBillCode(appReq.getDataSession(), actionProject) : null;
         boolean isPersonal = billCode == null || !"Y".equalsIgnoreCase(billCode.getBillable());
         data.put("isPersonal", isPersonal);
@@ -799,106 +806,137 @@ public class DandelionDashboardServlet extends ClientServlet {
             String nextTimeEstimateStr = appReq.getRequest().getParameter("nextTimeEstimate");
             String nextTargetDate = appReq.getRequest().getParameter("nextTargetDate");
             String nextDeadlineDate = appReq.getRequest().getParameter("nextDeadlineDate");
+            String timeSlotParam = appReq.getRequest().getParameter("timeSlot");
             String linkUrl = appReq.getRequest().getParameter("linkUrl");
             String nextNote = appReq.getRequest().getParameter("nextNote");
             String saveMode = appReq.getRequest().getParameter("saveMode");
             boolean saveAndStart = "saveAndStart".equals(saveMode);
 
-            Date originalNextActionDate = action.getNextActionDate();
-            boolean nextActionDateChanged = false;
-
             if (nextActionDate != null) {
                 nextActionDate = nextActionDate.trim();
             }
 
-            if (nextActionDate != null && nextActionDate.length() > 0) {
+            Date normalizedNextActionDate = null;
+            boolean hasNextActionDateValue = nextActionDate != null && nextActionDate.length() > 0;
+            if (hasNextActionDateValue) {
                 Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
                 if (parsedDate != null) {
-                    Date normalizedDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
-                    if (!sameDate(originalNextActionDate, normalizedDate)) {
-                        action.setNextActionDate(normalizedDate);
-                        nextActionDateChanged = true;
-                    }
+                    normalizedNextActionDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
                 }
-            } else if (nextActionDate != null && originalNextActionDate != null) {
-                action.setNextActionDate(null);
-                nextActionDateChanged = true;
             }
 
-            if (nextActionType != null && nextActionType.length() > 0) {
-                action.setNextActionType(nextActionType);
-            }
-
-            if (nextContactIdStr != null && nextContactIdStr.length() > 0) {
+            Integer parsedNextContactId = null;
+            boolean hasNextContactIdValue = nextContactIdStr != null && nextContactIdStr.length() > 0;
+            if (hasNextContactIdValue) {
                 try {
-                    action.setNextContactId(Integer.parseInt(nextContactIdStr));
+                    parsedNextContactId = Integer.valueOf(Integer.parseInt(nextContactIdStr));
                 } catch (Exception e) {
-                    // Ignore parse errors
+                    parsedNextContactId = null;
                 }
             }
 
-            if (nextDescription != null) {
-                action.setNextDescription(nextDescription);
-            }
-
-            if (nextTimeEstimateStr != null && nextTimeEstimateStr.length() > 0) {
+            Integer parsedNextTimeEstimate = null;
+            boolean hasNextTimeEstimateValue = nextTimeEstimateStr != null && nextTimeEstimateStr.length() > 0;
+            if (hasNextTimeEstimateValue) {
                 try {
-                    int mins = Integer.parseInt(nextTimeEstimateStr);
-                    action.setNextTimeEstimate(mins);
+                    parsedNextTimeEstimate = Integer.valueOf(Integer.parseInt(nextTimeEstimateStr));
                 } catch (Exception e) {
-                    // Ignore parse errors
+                    parsedNextTimeEstimate = null;
                 }
             }
 
+            Date normalizedNextTargetDate = null;
+            boolean clearNextTargetDate = nextTargetDate != null && nextTargetDate.length() == 0;
             if (nextTargetDate != null && nextTargetDate.length() > 0) {
                 Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextTargetDate);
                 if (parsedDate != null) {
-                    action.setNextTargetDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
+                    normalizedNextTargetDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
                 }
-            } else if (nextTargetDate != null && nextTargetDate.length() == 0) {
-                action.setNextTargetDate(null);
             }
 
+            Date normalizedNextDeadlineDate = null;
+            boolean clearNextDeadlineDate = nextDeadlineDate != null && nextDeadlineDate.length() == 0;
             if (nextDeadlineDate != null && nextDeadlineDate.length() > 0) {
                 Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextDeadlineDate);
                 if (parsedDate != null) {
-                    action.setNextDeadlineDate(normalizeUserDate(appReq.getWebUser(), parsedDate));
+                    normalizedNextDeadlineDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
                 }
-            } else if (nextDeadlineDate != null && nextDeadlineDate.length() == 0) {
-                action.setNextDeadlineDate(null);
             }
 
-            String timeSlotParam = appReq.getRequest().getParameter("timeSlot");
+            TimeSlot parsedTimeSlot = null;
             if (timeSlotParam != null && timeSlotParam.trim().length() > 0) {
-                TimeSlot ts = TimeSlot.getTimeSlot(timeSlotParam.trim());
-                if (ts != null) {
-                    action.setTimeSlot(ts);
+                parsedTimeSlot = TimeSlot.getTimeSlot(timeSlotParam.trim());
+            }
+
+            Date now = new Date();
+            List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, action);
+            for (ActionNext sibling : actionSiblings) {
+                Date siblingOriginalNextActionDate = sibling.getNextActionDate();
+                boolean nextActionDateChanged = false;
+
+                if (hasNextActionDateValue && normalizedNextActionDate != null) {
+                    if (!sameDate(siblingOriginalNextActionDate, normalizedNextActionDate)) {
+                        sibling.setNextActionDate(normalizedNextActionDate);
+                        nextActionDateChanged = true;
+                    }
+                } else if (nextActionDate != null && siblingOriginalNextActionDate != null) {
+                    sibling.setNextActionDate(null);
+                    nextActionDateChanged = true;
                 }
+
+                if (nextActionType != null && nextActionType.length() > 0) {
+                    sibling.setNextActionType(nextActionType);
+                }
+
+                if (hasNextContactIdValue && parsedNextContactId != null) {
+                    sibling.setNextContactId(parsedNextContactId.intValue());
+                }
+
+                if (nextDescription != null) {
+                    sibling.setNextDescription(nextDescription);
+                }
+
+                if (hasNextTimeEstimateValue && parsedNextTimeEstimate != null) {
+                    sibling.setNextTimeEstimate(parsedNextTimeEstimate.intValue());
+                }
+
+                if (normalizedNextTargetDate != null) {
+                    sibling.setNextTargetDate(normalizedNextTargetDate);
+                } else if (clearNextTargetDate) {
+                    sibling.setNextTargetDate(null);
+                }
+
+                if (normalizedNextDeadlineDate != null) {
+                    sibling.setNextDeadlineDate(normalizedNextDeadlineDate);
+                } else if (clearNextDeadlineDate) {
+                    sibling.setNextDeadlineDate(null);
+                }
+
+                if (parsedTimeSlot != null) {
+                    sibling.setTimeSlot(parsedTimeSlot);
+                }
+
+                if (linkUrl != null) {
+                    sibling.setLinkUrl(linkUrl);
+                }
+
+                if (nextNote != null) {
+                    sibling.setNextNotes(nextNote);
+                }
+
+                if (saveAndStart) {
+                    WebUser webUser = appReq.getWebUser();
+                    sibling.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
+                    nextActionDateChanged = !sameDate(siblingOriginalNextActionDate, sibling.getNextActionDate());
+                }
+
+                if (nextActionDateChanged) {
+                    sibling.setCompletionOrder(0);
+                }
+
+                sibling.setNextChangeDate(now);
+                dataSession.update(sibling);
             }
-
-            if (linkUrl != null) {
-                action.setLinkUrl(linkUrl);
-            }
-
-            if (nextNote != null) {
-                action.setNextNotes(nextNote);
-            }
-
-            if (saveAndStart) {
-                // When work starts now, schedule date is forced to the user's current day.
-                WebUser webUser = appReq.getWebUser();
-                action.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
-                nextActionDateChanged = !sameDate(originalNextActionDate, action.getNextActionDate());
-            }
-
-            if (nextActionDateChanged) {
-                action.setCompletionOrder(0);
-            }
-
-            action.setNextChangeDate(new Date());
-
-            // Save the updated action
-            dataSession.update(action);
             transaction.commit();
 
             boolean requiresActionRefresh = dashboardCurrentActionService
@@ -951,15 +989,41 @@ public class DandelionDashboardServlet extends ClientServlet {
                 sendJsonResponse(appReq, false, "Action is not available for this workspace", null);
                 return;
             }
-            action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
-            action.setNextChangeDate(new Date());
-            dataSession.update(action);
+            List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, action);
+            Date now = new Date();
+            for (ActionNext sibling : actionSiblings) {
+                sibling.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+                sibling.setNextChangeDate(now);
+                dataSession.update(sibling);
+            }
             transaction.commit();
             sendJsonResponse(appReq, true, "Action deleted", null);
         } catch (RuntimeException re) {
             transaction.rollback();
             throw re;
         }
+    }
+
+    private List<ActionNext> resolveSharedActionSiblings(Session dataSession, ActionNext selectedAction) {
+        List<ActionNext> singleAction = new ArrayList<ActionNext>();
+        if (selectedAction == null) {
+            return singleAction;
+        }
+        singleAction.add(selectedAction);
+        if (selectedAction.getActionSet() == null
+                || selectedAction.getActionSet().getActionSetType() != ActionSetType.SHARED) {
+            return singleAction;
+        }
+        int actionSetId = selectedAction.getActionSet().getActionSetId();
+        Query siblingQuery = dataSession.createQuery(
+                "from ActionNext an where an.actionSet.actionSetId = :actionSetId order by an.actionNextId");
+        siblingQuery.setParameter("actionSetId", actionSetId);
+        @SuppressWarnings("unchecked")
+        List<ActionNext> siblings = siblingQuery.list();
+        if (siblings == null || siblings.isEmpty()) {
+            return singleAction;
+        }
+        return siblings;
     }
 
     private void sendJsonResponse(AppReq appReq, boolean success, String message, Map<String, Object> data)

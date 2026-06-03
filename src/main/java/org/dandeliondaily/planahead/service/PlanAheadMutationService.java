@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
+import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
@@ -33,6 +34,7 @@ import org.openimmunizationsoftware.pt.model.TimeSlot;
 public class PlanAheadMutationService {
 
     static final String STATUS_ACTIVE = ProjectStatus.ACTIVE.getDatabaseValue();
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
     static final String BILLABLE_YES = "Y";
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
@@ -218,7 +220,8 @@ public class PlanAheadMutationService {
         data.put("nextActionDate", toDayKey(action.getNextActionDate()));
         data.put("nextActionType", n(action.getNextActionType()));
         data.put("timeSlot", action.getTimeSlot() == null ? TimeSlot.AFTERNOON.getId() : action.getTimeSlot().getId());
-        data.put("projectName", action.getProject() == null ? "" : n(action.getProject().getProjectName()));
+        data.put("projectName", action.getProject() == null ? ""
+                : n(projectDisplayLabelService.buildDisplayName(dataSession, action.getProject())));
         data.put("nextDescription", n(action.getNextDescription()));
         data.put("nextTimeEstimate", action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
         data.put("nextTargetDate", toDayKey(action.getNextTargetDate()));

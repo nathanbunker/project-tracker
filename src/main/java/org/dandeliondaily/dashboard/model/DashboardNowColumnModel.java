@@ -266,8 +266,10 @@ public class DashboardNowColumnModel {
         private boolean available;
         private int projectId;
         private String name = "";
+        private String rawName = "";
         private String handle = "";
         private String description = "";
+        private List<LinkedProjectItem> linkedSharedProjects = new ArrayList<LinkedProjectItem>();
         private String fallbackMessage = "No current project selected";
 
         public boolean isAvailable() {
@@ -294,6 +296,14 @@ public class DashboardNowColumnModel {
             this.name = name;
         }
 
+        public String getRawName() {
+            return rawName;
+        }
+
+        public void setRawName(String rawName) {
+            this.rawName = rawName;
+        }
+
         public String getHandle() {
             return handle;
         }
@@ -310,12 +320,59 @@ public class DashboardNowColumnModel {
             this.description = description;
         }
 
+        public List<LinkedProjectItem> getLinkedSharedProjects() {
+            return linkedSharedProjects;
+        }
+
+        public void setLinkedSharedProjects(List<LinkedProjectItem> linkedSharedProjects) {
+            this.linkedSharedProjects = linkedSharedProjects;
+        }
+
         public String getFallbackMessage() {
             return fallbackMessage;
         }
 
         public void setFallbackMessage(String fallbackMessage) {
             this.fallbackMessage = fallbackMessage;
+        }
+    }
+
+    public static class LinkedProjectItem {
+        private int projectId;
+        private String projectName = "";
+        private String description = "";
+        private String projectStatus = "";
+
+        public int getProjectId() {
+            return projectId;
+        }
+
+        public void setProjectId(int projectId) {
+            this.projectId = projectId;
+        }
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public void setProjectName(String projectName) {
+            this.projectName = projectName;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public String getProjectStatus() {
+            return projectStatus;
+        }
+
+        public void setProjectStatus(String projectStatus) {
+            this.projectStatus = projectStatus;
         }
     }
 
@@ -546,10 +603,12 @@ public class DashboardNowColumnModel {
 
     public static class ProjectHealthSection {
         private String projectName = "";
+        private String privateProjectName = "";
         private String projectHandle = "";
         private String projectStatus = "";
         private String description = "";
         private String outcome = "";
+        private List<LinkedProjectItem> linkedSharedProjects = new ArrayList<LinkedProjectItem>();
         private List<String> successCriteriaItems = new ArrayList<String>();
         private List<ProjectHealthIssueItem> issues = new ArrayList<ProjectHealthIssueItem>();
         private int actionableIssueCount;
@@ -560,6 +619,14 @@ public class DashboardNowColumnModel {
 
         public void setProjectName(String projectName) {
             this.projectName = projectName;
+        }
+
+        public String getPrivateProjectName() {
+            return privateProjectName;
+        }
+
+        public void setPrivateProjectName(String privateProjectName) {
+            this.privateProjectName = privateProjectName;
         }
 
         public String getProjectHandle() {
@@ -592,6 +659,14 @@ public class DashboardNowColumnModel {
 
         public void setOutcome(String outcome) {
             this.outcome = outcome;
+        }
+
+        public List<LinkedProjectItem> getLinkedSharedProjects() {
+            return linkedSharedProjects;
+        }
+
+        public void setLinkedSharedProjects(List<LinkedProjectItem> linkedSharedProjects) {
+            this.linkedSharedProjects = linkedSharedProjects;
         }
 
         public List<String> getSuccessCriteriaItems() {

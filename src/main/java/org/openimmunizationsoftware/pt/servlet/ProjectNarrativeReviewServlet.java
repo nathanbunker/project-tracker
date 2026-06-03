@@ -83,7 +83,8 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             long selectedProjectId = readLong(request.getParameter(PARAM_PROJECT_ID));
             ReviewItem selectedItem = selectReviewItem(reviewItems, selectedProjectId);
 
-            printReviewList(out, narrativeDao, reviewItems, selectedItem == null ? 0 : selectedItem.getProjectId(),
+            printReviewList(out, dataSession, narrativeDao, reviewItems,
+                    selectedItem == null ? 0 : selectedItem.getProjectId(),
                     reviewDate, webUser);
 
             out.println("<form action=\"ProjectNarrativeReviewServlet\" method=\"POST\">");
@@ -226,7 +227,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("  </tr>\n");
         out.println("  <tr class=\"boxed\">\n");
         out.println("    <th class=\"boxed\">Project</th>\n");
-        out.println("    <td class=\"boxed\">" + escapeHtml(project.getProjectName()) + "</td>\n");
+        out.println("    <td class=\"boxed\">" + escapeHtml(getProjectDisplayName(dataSession, project)) + "</td>\n");
         out.println("  </tr>\n");
         out.println("  <tr class=\"boxed\">\n");
         out.println("    <th class=\"boxed\">Minutes</th>\n");
@@ -323,7 +324,8 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         out.println("</table><br/>\n");
     }
 
-    private void printReviewList(PrintWriter out, ProjectNarrativeDao narrativeDao, List<ReviewItem> reviewItems,
+    private void printReviewList(PrintWriter out, Session dataSession, ProjectNarrativeDao narrativeDao,
+            List<ReviewItem> reviewItems,
             long selectedProjectId, LocalDate reviewDate, WebUser webUser) {
         LocalDate today = webUser.getLocalDateToday();
         LocalDate previousDate = getPreviousReviewDate(narrativeDao, reviewDate, webUser.getContactId());
@@ -361,11 +363,14 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             for (ReviewItem item : reviewItems) {
                 boolean selected = item.getProjectId() == selectedProjectId;
                 String rowClass = selected ? "inside-highlight" : "inside";
+                Project project = (Project) dataSession.get(Project.class, (int) item.getProjectId());
+                String projectName = project == null ? n(item.getProjectName())
+                        : getProjectDisplayName(dataSession, project);
                 out.println("  <tr>\n");
                 out.println("    <td class=\"" + rowClass + "\">\n");
                 out.println("      <a class=\"button\" href=\"ProjectNarrativeReviewServlet?" + PARAM_DATE
                         + "=" + reviewDate + "&" + PARAM_PROJECT_ID + "=" + item.getProjectId() + "\">"
-                        + escapeHtml(n(item.getProjectName())) + "</a>\n");
+                        + escapeHtml(projectName) + "</a>\n");
                 out.println("    </td>\n");
                 out.println("    <td class=\"" + rowClass + "\">" + TimeTracker.formatTime(item.getMinutesSpent())
                         + "</td>\n");

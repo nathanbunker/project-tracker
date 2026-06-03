@@ -1702,7 +1702,15 @@ public class DashboardPageRenderer {
                         out.println("    <div>");
                         out.println(
                                         "      <span class=\"dd-emphasis\">"
-                                                        + nowColumnModel.getCurrentProject().getName() + "</span>");
+                                                        + escapeHtml(nowColumnModel.getCurrentProject().getName())
+                                                        + "</span>");
+                        if (!nowColumnModel.getCurrentProject().getLinkedSharedProjects().isEmpty()) {
+                                out.println("      <div class=\"dd-subtle\">Shared patch project(s): "
+                                                + escapeHtml(joinLinkedProjectNames(
+                                                                nowColumnModel.getCurrentProject()
+                                                                                .getLinkedSharedProjects()))
+                                                + "</div>");
+                        }
                         out.println("      <p>" + escapeHtml(nowColumnModel.getCurrentProject().getDescription())
                                         + "</p>");
                         out.println("    </div>");
@@ -2220,9 +2228,33 @@ public class DashboardPageRenderer {
         private void printProjectHealthSection(PrintWriter out,
                         DashboardNowColumnModel.ProjectHealthSection healthSection) {
                 out.println("  <h3 class=\"dd-backlog-section-title\">Project Health</h3>");
+                if (!healthSection.getLinkedSharedProjects().isEmpty()) {
+                        out.println("  <div class=\"dd-health-meta\">");
+                        out.println("    <div class=\"dd-health-meta-row\"><strong>Shared Project Context:</strong></div>");
+                        for (DashboardNowColumnModel.LinkedProjectItem item : healthSection.getLinkedSharedProjects()) {
+                                out.println("    <div class=\"dd-health-meta-row\"><strong>Project:</strong> "
+                                                + escapeHtml(item.getProjectName()) + "</div>");
+                                if (item.getProjectStatus() != null && item.getProjectStatus().trim().length() > 0) {
+                                        out.println("    <div class=\"dd-health-meta-row\"><strong>Status:</strong> "
+                                                        + escapeHtml(item.getProjectStatus()) + "</div>");
+                                }
+                                if (item.getDescription() != null && item.getDescription().trim().length() > 0) {
+                                        out.println("    <div class=\"dd-health-meta-row\"><strong>Description:</strong> "
+                                                        + escapeHtml(item.getDescription()) + "</div>");
+                                }
+                        }
+                        out.println("  </div>");
+                }
                 out.println("  <div class=\"dd-health-meta\">");
-                out.println("    <div class=\"dd-health-meta-row\"><strong>Project Name:</strong> "
-                                + escapeHtml(healthSection.getProjectName()) + "</div>");
+                if (healthSection.getLinkedSharedProjects().isEmpty()) {
+                        out.println("    <div class=\"dd-health-meta-row\"><strong>Project Name:</strong> "
+                                        + escapeHtml(healthSection.getProjectName()) + "</div>");
+                } else {
+                        out.println("    <div class=\"dd-health-meta-row\"><strong>Private Project:</strong> "
+                                        + escapeHtml(healthSection.getPrivateProjectName()) + "</div>");
+                        out.println("    <div class=\"dd-health-meta-row\"><strong>Display Label:</strong> "
+                                        + escapeHtml(healthSection.getProjectName()) + "</div>");
+                }
                 out.println("    <div class=\"dd-health-meta-row\"><strong>Project Handle:</strong> "
                                 + escapeHtml(healthSection.getProjectHandle()) + "</div>");
                 out.println("    <div class=\"dd-health-meta-row\"><strong>Project Status:</strong> "
@@ -2271,6 +2303,20 @@ public class DashboardPageRenderer {
                         }
                 }
                 out.println("  </table>");
+        }
+
+        private String joinLinkedProjectNames(List<DashboardNowColumnModel.LinkedProjectItem> linkedProjects) {
+                StringBuilder builder = new StringBuilder();
+                for (DashboardNowColumnModel.LinkedProjectItem linkedProject : linkedProjects) {
+                        if (linkedProject == null || safe(linkedProject.getProjectName()).length() == 0) {
+                                continue;
+                        }
+                        if (builder.length() > 0) {
+                                builder.append(", ");
+                        }
+                        builder.append(linkedProject.getProjectName());
+                }
+                return builder.toString();
         }
 
         private void printBacklogProposals(PrintWriter out,

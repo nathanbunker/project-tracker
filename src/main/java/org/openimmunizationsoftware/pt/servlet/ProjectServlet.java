@@ -144,7 +144,7 @@ public class ProjectServlet extends ClientServlet {
         }
         out.println("  <tr class=\"boxed\">");
         out.println("    <td class=\"boxed\"><a href=\"ProjectServlet?projectId=" + p.getProjectId()
-            + "\" class=\"button\">" + p.getProjectName() + "</a></td>");
+            + "\" class=\"button\">" + getProjectDisplayName(dataSession, p) + "</a></td>");
         out.println("  </tr>");
       }
 
@@ -161,7 +161,7 @@ public class ProjectServlet extends ClientServlet {
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project Name</th>");
-      out.println("    <td class=\"boxed\">" + project.getProjectName() + "</td>");
+      out.println("    <td class=\"boxed\">" + getProjectDisplayName(dataSession, project) + "</td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Project Handle</th>");
@@ -231,7 +231,7 @@ public class ProjectServlet extends ClientServlet {
         if (projectContact.getEmailAddress() != null
             && !projectContact.getEmailAddress().equals("")) {
           // new URI("mailto", )
-          String projectName = project.getProjectName();
+          String projectName = getProjectDisplayName(dataSession, project);
           out.println(" <font size=\"-1\"><a href=\"mailto:" + projectContact.getEmailAddress()
               + "?subject=" + encode(projectName + " Project")
               + "\" class=\"box\">Email</a></font>");

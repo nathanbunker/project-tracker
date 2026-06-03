@@ -2,6 +2,7 @@ package org.dandeliondaily.dashboard.service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -29,7 +30,9 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 public class DashboardTodayColumnService {
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
+    private final QuickCaptureLinkedProjectService quickCaptureLinkedProjectService = new QuickCaptureLinkedProjectService();
     private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
+    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
@@ -65,8 +68,9 @@ public class DashboardTodayColumnService {
         Project selectedProject = selectedAction == null ? null : selectedAction.getProject();
 
         List<Project> projectList = loadProjectList(webUser, dataSession);
-        ActionNext nextAction = actionSentenceImportService.saveNewActionFromSentence(webUser, dataSession,
+        List<ActionNext> savedActions = actionSentenceImportService.saveNewActionsFromSentence(webUser, dataSession,
                 selectedProject, projectList, sentenceInput);
+        ActionNext nextAction = savedActions.isEmpty() ? null : savedActions.get(0);
         if (nextAction == null) {
             appReq.addErrorMessage("Unable to create action from quick capture sentence.");
             return;
@@ -76,7 +80,11 @@ public class DashboardTodayColumnService {
             appReq.setCompletingAction(nextAction);
             appReq.setProject(nextAction.getProject());
         }
-        appReq.addSuccessMessage("Saved quick capture action.");
+        if (savedActions.size() > 1) {
+            appReq.addSuccessMessage("Saved quick capture actions across " + savedActions.size() + " linked projects.");
+        } else {
+            appReq.addSuccessMessage("Saved quick capture action.");
+        }
     }
 
     public DashboardTodayColumnModel buildModel(AppReq appReq) {
@@ -91,12 +99,7 @@ public class DashboardTodayColumnService {
             model.getQuickCapture().setFocusRequested(true);
         }
         List<Project> quickCaptureProjects = loadProjectList(webUser, dataSession);
-        List<String> projectNames = new ArrayList<String>();
-        for (Project project : quickCaptureProjects) {
-            if (project != null && project.getProjectName() != null) {
-                projectNames.add(project.getProjectName());
-            }
-        }
+        List<String> projectNames = listQuickCaptureProjectNames(quickCaptureProjects, dataSession);
         model.getQuickCapture().setProjectNames(projectNames);
 
         // Real data wiring starts here for the middle Today column.
@@ -108,10 +111,10 @@ public class DashboardTodayColumnService {
         sortProjectActionListByCompletionOrder(dueTodayList, webUser);
         sortProjectActionListByCompletionOrder(overdueList, webUser);
 
-        model.setActionGroups(buildTodayGroups(webUser, dueTodayList, overdueList, ideasList));
+        model.setActionGroups(buildTodayGroups(webUser, dataSession, dueTodayList, overdueList, ideasList));
 
         List<ActionNext> completedToday = getProjectActionListClosedToday(webUser, dataSession);
-        model.setCompletedToday(toActionItems(webUser, completedToday, "Completed"));
+        model.setCompletedToday(toActionItems(webUser, dataSession, completedToday, "Completed"));
         model.setWorkdayReview(buildWorkdayReviewModel(webUser, dataSession, model.getActionGroups(), completedToday));
 
         List<ActionNext> todayAndOverdue = new ArrayList<ActionNext>();
@@ -126,12 +129,25 @@ public class DashboardTodayColumnService {
         WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
         List<Project> quickCaptureProjects = loadProjectList(webUser, dataSession);
-        List<String> projectNames = new ArrayList<String>();
+        return listQuickCaptureProjectNames(quickCaptureProjects, dataSession);
+    }
+
+    private List<String> listQuickCaptureProjectNames(List<Project> quickCaptureProjects, Session dataSession) {
+        LinkedHashSet<String> orderedNames = new LinkedHashSet<String>();
+        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
+                quickCaptureProjects);
         for (Project project : quickCaptureProjects) {
             if (project != null && project.getProjectName() != null) {
-                projectNames.add(project.getProjectName());
+                orderedNames.add(resolveProjectDisplayName(project, displayNameByProjectId));
             }
         }
+        List<String> aliasNames = quickCaptureLinkedProjectService.listAliasLabels(dataSession, quickCaptureProjects);
+        for (String aliasName : aliasNames) {
+            if (aliasName != null && aliasName.trim().length() > 0) {
+                orderedNames.add(aliasName.trim());
+            }
+        }
+        List<String> projectNames = new ArrayList<String>(orderedNames);
         return projectNames;
     }
 
@@ -270,7 +286,7 @@ public class DashboardTodayColumnService {
     }
 
     private List<DashboardTodayColumnModel.TodayActionGroupModel> buildTodayGroups(WebUser webUser,
-            List<ActionNext> dueTodayList, List<ActionNext> overdueList,
+            Session dataSession, List<ActionNext> dueTodayList, List<ActionNext> overdueList,
             List<ActionNext> ideasList) {
         Map<Integer, List<ActionNext>> bucketMap = new HashMap<Integer, List<ActionNext>>();
         for (int bucket = BUCKET_START_OF_WORK_DAY; bucket <= BUCKET_OTHER; bucket++) {
@@ -291,20 +307,23 @@ public class DashboardTodayColumnService {
         }
 
         List<DashboardTodayColumnModel.TodayActionGroupModel> groups = new ArrayList<DashboardTodayColumnModel.TodayActionGroupModel>();
-        addGroup(groups, "Overdue", toActionItems(webUser, bucketMap.get(BUCKET_OVERDUE), "Overdue"));
+        addGroup(groups, "Overdue", toActionItems(webUser, dataSession, bucketMap.get(BUCKET_OVERDUE), "Overdue"));
         addGroup(groups, "Start of Work Day",
-                toActionItems(webUser, bucketMap.get(BUCKET_START_OF_WORK_DAY), "Start of Work Day"));
-        addGroup(groups, "Committed", toActionItems(webUser, bucketMap.get(BUCKET_COMMITTED), "Committed"));
-        addGroup(groups, "Will", toActionItems(webUser, bucketMap.get(BUCKET_WILL), "Will"));
+                toActionItems(webUser, dataSession, bucketMap.get(BUCKET_START_OF_WORK_DAY), "Start of Work Day"));
+        addGroup(groups, "Committed",
+                toActionItems(webUser, dataSession, bucketMap.get(BUCKET_COMMITTED), "Committed"));
+        addGroup(groups, "Will", toActionItems(webUser, dataSession, bucketMap.get(BUCKET_WILL), "Will"));
         addGroup(groups, "Personal (Morning)",
-                toActionItems(webUser, bucketMap.get(BUCKET_PERSONAL_MORNING), TimeSlot.MORNING.getLabel()));
-        addGroup(groups, "Might", toActionItems(webUser, bucketMap.get(BUCKET_MIGHT), "Might"));
-        addGroup(groups, "Waiting", toActionItems(webUser, bucketMap.get(BUCKET_WAITING), "Waiting"));
-        addGroup(groups, "Will Meet", toActionItems(webUser, bucketMap.get(BUCKET_WILL_MEET), "Will Meet"));
+                toActionItems(webUser, dataSession, bucketMap.get(BUCKET_PERSONAL_MORNING),
+                        TimeSlot.MORNING.getLabel()));
+        addGroup(groups, "Might", toActionItems(webUser, dataSession, bucketMap.get(BUCKET_MIGHT), "Might"));
+        addGroup(groups, "Waiting", toActionItems(webUser, dataSession, bucketMap.get(BUCKET_WAITING), "Waiting"));
+        addGroup(groups, "Will Meet",
+                toActionItems(webUser, dataSession, bucketMap.get(BUCKET_WILL_MEET), "Will Meet"));
         addGroup(groups, "End of Work Day",
-                toActionItems(webUser, bucketMap.get(BUCKET_END_OF_WORK_DAY), "End of Work Day"));
-        addGroup(groups, "Ideas", toActionItems(webUser, ideasList, "Ideas"));
-        addGroup(groups, "Other", toActionItems(webUser, bucketMap.get(BUCKET_OTHER), "Other"));
+                toActionItems(webUser, dataSession, bucketMap.get(BUCKET_END_OF_WORK_DAY), "End of Work Day"));
+        addGroup(groups, "Ideas", toActionItems(webUser, dataSession, ideasList, "Ideas"));
+        addGroup(groups, "Other", toActionItems(webUser, dataSession, bucketMap.get(BUCKET_OTHER), "Other"));
         return groups;
     }
 
@@ -355,11 +374,14 @@ public class DashboardTodayColumnService {
     }
 
     private List<DashboardTodayColumnModel.TodayActionItemModel> toActionItems(WebUser webUser,
-            List<ActionNext> actions, String contextLabel) {
+            Session dataSession, List<ActionNext> actions, String contextLabel) {
         List<DashboardTodayColumnModel.TodayActionItemModel> items = new ArrayList<DashboardTodayColumnModel.TodayActionItemModel>();
+        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
+                extractProjects(actions));
         for (ActionNext action : actions) {
             DashboardTodayColumnModel.TodayActionItemModel item = new DashboardTodayColumnModel.TodayActionItemModel();
-            item.setProjectName(action.getProject() == null ? "" : n(action.getProject().getProjectName(), ""));
+            item.setProjectName(action.getProject() == null ? ""
+                    : resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
             item.setDescriptionText(n(action.getNextDescription(), ""));
             item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
             item.setActionNextId(action.getActionNextId());
@@ -377,6 +399,27 @@ public class DashboardTodayColumnService {
             items.add(item);
         }
         return items;
+    }
+
+    private List<Project> extractProjects(List<ActionNext> actions) {
+        List<Project> projects = new ArrayList<Project>();
+        if (actions == null) {
+            return projects;
+        }
+        for (ActionNext action : actions) {
+            if (action != null && action.getProject() != null) {
+                projects.add(action.getProject());
+            }
+        }
+        return projects;
+    }
+
+    private String resolveProjectDisplayName(Project project, Map<Integer, String> displayNameByProjectId) {
+        if (project == null) {
+            return "";
+        }
+        String displayName = displayNameByProjectId == null ? null : displayNameByProjectId.get(project.getProjectId());
+        return n(displayName != null ? displayName : project.getProjectName(), "");
     }
 
     private List<ActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {

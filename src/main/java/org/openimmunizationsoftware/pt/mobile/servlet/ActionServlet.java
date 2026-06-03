@@ -241,7 +241,9 @@ public class ActionServlet extends MobileBaseServlet {
         out.println(".mv-note{background:#444;} .mv-block{background:#7d4c00;} .mv-nav{background:#555;}");
         out.println("</style>");
 
-        String projectName = action.getProject() != null ? action.getProject().getProjectName() : "";
+        String projectName = action.getProject() != null
+                ? getProjectDisplayName(appReq.getDataSession(), action.getProject())
+                : "";
         String projectIcon = action.getProject() != null ? action.getProject().getProjectIcon() : "";
         String description = action.getNextDescriptionForDisplay(action.getContact());
 
@@ -323,7 +325,7 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("  <a href=\"" + todoUrl + "\" class=\"mv-btn mv-nav\">&#8592; Todo</a>");
         if (action.getProject() != null) {
             out.println("  <a href=\"project?projectId=" + action.getProject().getProjectId()
-                    + "\" class=\"mv-btn mv-nav\">" + escapeHtml(action.getProject().getProjectName()) + "</a>");
+                    + "\" class=\"mv-btn mv-nav\">" + escapeHtml(projectName) + "</a>");
         }
         out.println("</div>");
 
@@ -779,7 +781,8 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("  .mf-submit-delete{background:#8b2020;}");
         out.println("</style>");
         out.println("<div class=\"mf-form\">");
-        printEditNextAction(appReq.getRequest(), webUser, out, projectAction, project, formName, "",
+        printEditNextAction(appReq.getRequest(), webUser, appReq.getDataSession(), out, projectAction, project,
+                formName, "",
                 projectContactList, projectList);
         out.println("  <div class=\"mf-submit-row\">");
         out.println("    <button class=\"mf-submit\" type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
@@ -793,7 +796,7 @@ public class ActionServlet extends MobileBaseServlet {
 
     }
 
-    private void printEditNextAction(HttpServletRequest request, WebUser webUser, PrintWriter out,
+    private void printEditNextAction(HttpServletRequest request, WebUser webUser, Session dataSession, PrintWriter out,
             ActionNext projectAction, Project project, String formName, String disabled,
             List<ProjectContact> projectContactList,
             List<Project> projectList) {
@@ -809,17 +812,18 @@ public class ActionServlet extends MobileBaseServlet {
                 boolean selected = project != null && project.getProjectId() == p.getProjectId();
                 String icon = p.getProjectIcon();
                 String iconHtml = (icon != null && !icon.trim().isEmpty()) ? icon.trim() + " " : "";
+                String displayName = getProjectDisplayName(dataSession, p);
                 out.println("      <label class=\"mf-radio-label mf-proj-label\" onclick=\"enableForm" + formName
                         + "()\">"
                         + "<input type=\"radio\" name=\"" + PARAM_NEXT_PROJECT_ID + "\" value=\"" + p.getProjectId()
                         + "\""
-                        + (selected ? " checked" : "") + "> " + iconHtml + escapeHtml(p.getProjectName()) + "</label>");
+                        + (selected ? " checked" : "") + "> " + iconHtml + escapeHtml(displayName) + "</label>");
             }
             out.println("    </div>");
         } else {
             String icon = project.getProjectIcon();
             String iconHtml = (icon != null && !icon.trim().isEmpty()) ? icon.trim() + " " : "";
-            out.println("    <span>" + iconHtml + escapeHtml(project.getProjectName()) + "</span>");
+            out.println("    <span>" + iconHtml + escapeHtml(getProjectDisplayName(dataSession, project)) + "</span>");
             out.println("    <input type=\"hidden\" name=\"" + PARAM_NEXT_PROJECT_ID + "\" value=\""
                     + projectAction.getProjectId() + "\">");
         }
