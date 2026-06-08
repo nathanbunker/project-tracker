@@ -17,6 +17,7 @@ import org.dandeliondaily.patch.service.PatchSeedImportService.SeedImportExcepti
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.exception.ConstraintViolationException;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -49,6 +50,15 @@ public class DandelionPatchServlet extends ClientServlet {
                 appReq.setTitle("Dandelion Patches");
                 printHtmlHead(appReq);
                 renderPage(appReq, createdWorkspaceId);
+                printHtmlFoot(appReq);
+                return;
+            }
+
+            if ("addMemberByEmail".equals(action)) {
+                Integer workspaceId = handleAddMemberByEmail(appReq);
+                appReq.setTitle("Dandelion Patches");
+                printHtmlHead(appReq);
+                renderPage(appReq, workspaceId);
                 printHtmlFoot(appReq);
                 return;
             }
@@ -286,13 +296,55 @@ public class DandelionPatchServlet extends ClientServlet {
                 .setString("status", WorkspaceMember.STATUS_ACTIVE)
                 .list();
 
+        boolean canAdminister = WorkspaceRegistry.canAdministerWorkspace(dataSession, workspaceId.intValue(),
+                webUser.getWebUserId());
+
         out.println("<h2>Patch: " + escapeHtml(selectedWorkspace.getWorkspaceName()) + "</h2>");
-        out.println("<p><strong>Members:</strong> " + members.size()
-                + " &nbsp;&nbsp; <a href=\"DandelionPatchServlet?action=viewPatch&patchWorkspaceId=" + workspaceId
-                + "#members\">Manage Members</a> (coming soon)</p>");
+
+        out.println("<a name=\"members\"></a>");
+        out.println("<table class=\"boxed\" style=\"margin-bottom:15px;\">");
+        out.println("  <tr class=\"boxed\"><th class=\"title\" colspan=\"4\">Members</th></tr>");
+        out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"4\"><strong>Total Members:</strong> "
+                + members.size() + "</td></tr>");
+
+        if (canAdminister) {
+            out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"4\">");
+            out.println("    <form method=\"POST\" action=\"DandelionPatchServlet#members\">"
+                    + "<input type=\"hidden\" name=\"action\" value=\"addMemberByEmail\"/>"
+                    + "<input type=\"hidden\" name=\"patchWorkspaceId\" value=\"" + workspaceId + "\"/>"
+                    + "<label>Email</label> "
+                    + "<input type=\"text\" name=\"memberEmailAddress\" size=\"45\"/> "
+                    + "<input type=\"submit\" value=\"Add Member\"/>"
+                    + "<div><small>Adds an existing ACTIVE Dandelion user to this patch by email address.</small></div>"
+                    + "</form>");
+            out.println("  </td></tr>");
+        } else {
+            out.println(
+                    "  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"4\"><small>You have read-only membership access. Only OWNER or ADMIN users can add members.</small></td></tr>");
+        }
+
+        out.println(
+                "  <tr class=\"boxed\"><th class=\"title\">Email</th><th class=\"title\">Name</th><th class=\"title\">Role</th><th class=\"title\">Added Date</th></tr>");
+        if (members.isEmpty()) {
+            out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"4\">No members found.</td></tr>");
+        } else {
+            for (WorkspaceMember member : members) {
+                WebUser memberUser = (WebUser) dataSession.get(WebUser.class, Integer.valueOf(member.getWebUserId()));
+                String email = memberUser == null ? "" : valueOrEmpty(memberUser.getEmailAddress());
+                String fullName = memberUser == null ? "" : buildDisplayName(memberUser);
+                out.println("  <tr class=\"boxed\"><td class=\"boxed\">" + escapeHtml(email)
+                        + "</td><td class=\"boxed\">" + escapeHtml(fullName)
+                        + "</td><td class=\"boxed\">" + escapeHtml(member.getMemberRole())
+                        + "</td><td class=\"boxed\">" + escapeHtml(formatDate(webUser, member.getCreatedDate()))
+                        + "</td></tr>");
+            }
+        }
+        out.println("</table>");
 
         out.println("<table class=\"boxed\" style=\"margin-bottom:15px;\">");
         out.println("  <tr class=\"boxed\"><th class=\"title\" colspan=\"2\">Initial Tags</th></tr>");
+        out.println(
+                "  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\"><small>Default tags seeded for this patch workspace.</small></td></tr>");
         if (tags.isEmpty()) {
             out.println("  <tr class=\"boxed\"><td class=\"boxed\" colspan=\"2\">No tags found.</td></tr>");
         } else {
@@ -317,10 +369,101 @@ public class DandelionPatchServlet extends ClientServlet {
             }
         }
         out.println("</table>");
+    }
 
-        out.println("<a name=\"members\"></a>");
-        out.println(
-                "<p style=\"margin-top:15px;\"><strong>Membership/Invitations:</strong> Entry point is ready. Invitation workflow arrives in a later phase.</p>");
+    private Integer handleAddMemberByEmail(AppReq appReq) {
+        Session dataSession = appReq.getDataSession();
+        WebUser actingUser = appReq.getWebUser();
+        Integer workspaceId = parseInteger(appReq.getRequest().getParameter("patchWorkspaceId"));
+        String emailAddress = clip(appReq.getRequest().getParameter("memberEmailAddress"), 254).toLowerCase();
+
+        if (workspaceId == null) {
+            appReq.setMessageProblem("Patch workspace is required.");
+            return null;
+        }
+        if (emailAddress.length() == 0) {
+            appReq.setMessageProblem("Email address is required.");
+            return workspaceId;
+        }
+        if (!WorkspaceRegistry.hasActiveMembership(dataSession, workspaceId.intValue(), actingUser.getWebUserId())) {
+            appReq.setMessageProblem("Patch not available.");
+            return null;
+        }
+        if (!WorkspaceRegistry.canAdministerWorkspace(dataSession, workspaceId.intValue(), actingUser.getWebUserId())) {
+            appReq.setMessageProblem("Only workspace OWNER or ADMIN can add members.");
+            return workspaceId;
+        }
+
+        WebUser targetUser = (WebUser) dataSession
+                .createQuery(
+                        "from WebUser where lower(emailAddress) = :emailAddress and registrationStatus = :registrationStatus")
+                .setString("emailAddress", emailAddress)
+                .setString("registrationStatus", WebUser.REGISTRATION_STATUS_ACTIVE)
+                .uniqueResult();
+        if (targetUser == null) {
+            appReq.setMessageProblem("No ACTIVE Dandelion user found with that email address.");
+            return workspaceId;
+        }
+
+        Number existingCount = (Number) dataSession.createQuery(
+                "select count(*) from WorkspaceMember where workspaceId = :workspaceId and webUserId = :webUserId and membershipStatus = :membershipStatus")
+                .setInteger("workspaceId", workspaceId.intValue())
+                .setInteger("webUserId", targetUser.getWebUserId())
+                .setString("membershipStatus", WorkspaceMember.STATUS_ACTIVE)
+                .uniqueResult();
+        if (existingCount != null && existingCount.intValue() > 0) {
+            appReq.setMessageProblem("That user is already a member of this patch.");
+            return workspaceId;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            WorkspaceMember workspaceMember = new WorkspaceMember();
+            workspaceMember.setWorkspaceId(workspaceId.intValue());
+            workspaceMember.setWebUserId(targetUser.getWebUserId());
+            workspaceMember.setMemberRole(WorkspaceMember.ROLE_MEMBER);
+            workspaceMember.setMembershipStatus(WorkspaceMember.STATUS_ACTIVE);
+            workspaceMember.setCreatedDate(new Date());
+            dataSession.save(workspaceMember);
+            transaction.commit();
+            appReq.setMessageConfirmation("Member added: " + targetUser.getEmailAddress());
+        } catch (Exception e) {
+            transaction.rollback();
+            if (isUniqueMembershipViolation(e)) {
+                appReq.setMessageProblem("That user is already a member of this patch.");
+            } else {
+                appReq.setMessageProblem("Unable to add member: " + e.getMessage());
+            }
+        }
+        return workspaceId;
+    }
+
+    private boolean isUniqueMembershipViolation(Exception e) {
+        Throwable cursor = e;
+        while (cursor != null) {
+            if (cursor instanceof ConstraintViolationException) {
+                return true;
+            }
+            cursor = cursor.getCause();
+        }
+        return false;
+    }
+
+    private String buildDisplayName(WebUser webUser) {
+        String firstName = valueOrEmpty(webUser.getFirstName());
+        String lastName = valueOrEmpty(webUser.getLastName());
+        String fullName = (firstName + " " + lastName).trim();
+        if (fullName.length() > 0) {
+            return fullName;
+        }
+        return valueOrEmpty(webUser.getUsername());
+    }
+
+    private String formatDate(WebUser webUser, Date date) {
+        if (date == null) {
+            return "";
+        }
+        return webUser.getDateFormat().format(date);
     }
 
     private List<String> parseCommaSeparatedNames(String value, String fallback, int maxLen) {
