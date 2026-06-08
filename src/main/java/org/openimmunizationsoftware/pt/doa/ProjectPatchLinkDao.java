@@ -22,6 +22,16 @@ public class ProjectPatchLinkDao {
         return query.list();
     }
 
+    @SuppressWarnings("unchecked")
+    public List<ProjectPatchLink> listDirectLinksForPatchProject(int patchProjectId) {
+        Query query = session.createQuery(
+                "from ProjectPatchLink where linkType = :lt and linkedPatchProjectId = :ppid"
+                        + " order by privateProjectId, projectPatchLinkId");
+        query.setParameter("lt", ProjectPatchLink.LINK_TYPE_DIRECT_PROJECT);
+        query.setParameter("ppid", patchProjectId);
+        return query.list();
+    }
+
     public boolean hasLinksForProject(int privateProjectId) {
         Query query = session.createQuery(
                 "select count(*) from ProjectPatchLink where privateProjectId = :pid");

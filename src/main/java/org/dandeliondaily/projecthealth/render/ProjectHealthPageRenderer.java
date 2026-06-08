@@ -1,6 +1,7 @@
 package org.dandeliondaily.projecthealth.render;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Query;
@@ -19,6 +20,7 @@ import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssignedId;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
@@ -55,7 +57,7 @@ public class ProjectHealthPageRenderer {
                 if (model.isFactsMode()) {
                         printFactDefinitionsColumn(out, model);
                 } else {
-                        printReportColumn(out, model);
+                        printReportColumn(out, appReq, model);
                 }
                 out.println("    </div>");
 
@@ -135,7 +137,7 @@ public class ProjectHealthPageRenderer {
                         return;
                 }
 
-                out.println("  <p class=\"ph-subtle\"><a class=\"ph-project-link\" href=\"ProjectHealthServlet\">&larr; Back to tags</a></p>");
+                out.println("  <p class=\"ph-subtle\"><a class=\"ph-project-link\" href=\"ProjectHealthServlet?patchTag=\">&larr; Back to tags</a></p>");
                 printProjectCadenceGroups(out, model.getPatchTagProjectGroups(), "PATCH", model);
                 out.println("</div>");
         }
@@ -398,9 +400,32 @@ public class ProjectHealthPageRenderer {
                 out.println("</div>");
         }
 
-        private void printReportColumn(PrintWriter out, ProjectHealthPageModel model) {
+        private void printReportColumn(PrintWriter out, AppReq appReq, ProjectHealthPageModel model) {
                 out.println("<div class=\"ph-section ph-panel\">");
                 printDevLabel(out, "PROJECT REPORT");
+                boolean showPrivateActionAreas = model.getContextWorkspaceId() != null
+                                && model.isSelectedProjectAvailable()
+                                && model.getSelectedPrivateProject() != null;
+                if (model.getContextWorkspaceId() != null && model.isSelectedProjectAvailable()) {
+                        printPrivateWorkProjectSection(out, model);
+                }
+                if (showPrivateActionAreas) {
+                        printQuickCaptureSection(out, model);
+                }
+
+                if (model.getContextWorkspaceId() != null && model.isSelectedProjectAvailable()) {
+                        printOpenActionsSection(out, model);
+                }
+
+                Project project = loadSelectedProject(appReq, model);
+                if (project != null && showPrivateActionAreas) {
+                        printProjectDefinitionSection(out, model, project);
+                }
+
+                if (model.getContextWorkspaceId() != null && model.isSelectedProjectAvailable()) {
+                        printProjectFactsSection(out, model);
+                }
+
                 out.println("  <div class=\"ph-section-title-row\">");
                 out.println("    <h2>Project Report</h2>");
                 out.println(
@@ -453,6 +478,524 @@ public class ProjectHealthPageRenderer {
                 out.println("  <pre id=\"phReportText\" class=\"ph-report-block\">" + escapeHtml(report.getReportText())
                                 + "</pre>");
                 out.println("</div>");
+        }
+
+        private void printPrivateWorkProjectSection(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("  <div class=\"ph-private-context\">");
+
+                List<Project> linkedPrivateProjects = model.getLinkedPrivateProjects();
+                if (linkedPrivateProjects == null) {
+                        linkedPrivateProjects = new ArrayList<Project>();
+                }
+                List<Project> candidatePrivateProjects = model.getCandidatePrivateProjects();
+                if (candidatePrivateProjects == null) {
+                        candidatePrivateProjects = new ArrayList<Project>();
+                }
+                Project selectedPrivateProject = model.getSelectedPrivateProject();
+                boolean renderedInlineAddMore = false;
+
+                if (linkedPrivateProjects.isEmpty()) {
+                        out.println("    <div class=\"ph-context-row\">");
+                        out.println("      <span class=\"ph-context-label\">Current target</span>");
+                        out.println("      <span class=\"ph-context-empty\">none linked</span>");
+                        out.println("    </div>");
+                } else if (linkedPrivateProjects.size() == 1) {
+                        Project linkedProject = selectedPrivateProject == null ? linkedPrivateProjects.get(0)
+                                        : selectedPrivateProject;
+                        out.println("    <div class=\"ph-context-row\">");
+                        out.println("      <span class=\"ph-context-label\">Current target</span>");
+                        out.println("      <span class=\"ph-context-project\"><strong>"
+                                        + escapeHtml(linkedProject.getProjectName()) + "</strong></span>");
+                        printLinkPrivateProjectForm(out, model, linkedPrivateProjects, candidatePrivateProjects, true);
+                        renderedInlineAddMore = true;
+                        out.println("    </div>");
+                } else {
+                        out.println("    <form method=\"GET\" action=\"ProjectHealthServlet\" class=\"ph-inline-form ph-inline-form-row\">");
+                        out.println("      <input type=\"hidden\" name=\"projectId\" value=\""
+                                        + model.getSelectedProjectId() + "\" />");
+                        if (model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                                out.println("      <input type=\"hidden\" name=\"patchTag\" value=\""
+                                                + escapeHtml(model.getSelectedPatchTagKey()) + "\" />");
+                        }
+                        out.println("      <span class=\"ph-context-label\">Current target</span>");
+                        out.println("      <div class=\"ph-form-field ph-form-field-inline\">");
+                        out.println("        <select name=\"privateProjectId\">");
+                        for (Project privateProject : linkedPrivateProjects) {
+                                boolean selected = model.getSelectedPrivateProjectId() != null
+                                                && model.getSelectedPrivateProjectId().intValue() == privateProject
+                                                                .getProjectId();
+                                out.println("          <option value=\"" + privateProject.getProjectId() + "\""
+                                                + (selected ? " selected" : "") + ">"
+                                                + escapeHtml(privateProject.getProjectName()) + "</option>");
+                        }
+                        out.println("        </select></div>");
+                        out.println("      <div class=\"ph-form-actions ph-form-actions-inline\">");
+                        out.println("        <button type=\"submit\" class=\"ph-btn\">Use Target</button>");
+                        out.println("      </div>");
+                        out.println("    </form>");
+                }
+
+                if (!renderedInlineAddMore) {
+                        printLinkPrivateProjectForm(out, model, linkedPrivateProjects, candidatePrivateProjects, false);
+                }
+                out.println("  </div>");
+        }
+
+        private void printLinkPrivateProjectForm(PrintWriter out, ProjectHealthPageModel model,
+                        List<Project> linkedPrivateProjects, List<Project> candidatePrivateProjects,
+                        boolean inlineSummary) {
+                List<Project> availableToLink = new ArrayList<Project>();
+                for (Project candidateProject : candidatePrivateProjects) {
+                        if (candidateProject == null) {
+                                continue;
+                        }
+                        boolean alreadyLinked = false;
+                        for (Project linkedProject : linkedPrivateProjects) {
+                                if (linkedProject != null
+                                                && linkedProject.getProjectId() == candidateProject.getProjectId()) {
+                                        alreadyLinked = true;
+                                        break;
+                                }
+                        }
+                        if (!alreadyLinked) {
+                                availableToLink.add(candidateProject);
+                        }
+                }
+
+                if (availableToLink.isEmpty()) {
+                        return;
+                }
+
+                if (!linkedPrivateProjects.isEmpty()) {
+                        out.println("    <details class=\"ph-add-more" + (inlineSummary ? " ph-add-more-inline" : "")
+                                        + "\">");
+                        out.println("      <summary>Add more</summary>");
+                }
+                out.println("    <form method=\"POST\" action=\"ProjectHealthServlet\" class=\"ph-inline-form ph-inline-form-row\">");
+                out.println("      <input type=\"hidden\" name=\"action\" value=\"linkPrivateProjectToSharedProject\" />");
+                out.println("      <input type=\"hidden\" name=\"projectId\" value=\"" + model.getSelectedProjectId()
+                                + "\" />");
+                if (model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                        out.println("      <input type=\"hidden\" name=\"patchTag\" value=\""
+                                        + escapeHtml(model.getSelectedPatchTagKey()) + "\" />");
+                }
+                out.println("      <span class=\"ph-context-label\">Add target</span>");
+                out.println("      <div class=\"ph-form-field ph-form-field-inline\">");
+                out.println("        <select name=\"privateProjectId\">");
+                for (Project privateProject : availableToLink) {
+                        boolean selected = model.getSelectedPrivateProjectId() != null
+                                        && model.getSelectedPrivateProjectId().intValue() == privateProject
+                                                        .getProjectId();
+                        out.println("          <option value=\"" + privateProject.getProjectId() + "\""
+                                        + (selected ? " selected" : "") + ">"
+                                        + escapeHtml(privateProject.getProjectName()) + "</option>");
+                }
+                out.println("        </select></div>");
+                out.println("      <div class=\"ph-form-actions ph-form-actions-inline\">");
+                out.println("        <button type=\"submit\" class=\"ph-btn\">Link Project</button>");
+                out.println("      </div>");
+                out.println("    </form>");
+                if (!linkedPrivateProjects.isEmpty()) {
+                        out.println("    </details>");
+                }
+        }
+
+        private void printQuickCaptureSection(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("  <div class=\"ph-quick-capture\">");
+                out.println("    <form method=\"POST\" action=\"ProjectHealthServlet\" class=\"ph-quick-capture-form ph-inline-form-row\">");
+                out.println("      <input type=\"hidden\" name=\"action\" value=\"quickCapture\" />");
+                out.println("      <input type=\"hidden\" name=\"projectId\" value=\""
+                                + model.getSelectedProjectId() + "\" />");
+                if (model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                        out.println("      <input type=\"hidden\" name=\"patchTag\" value=\""
+                                        + escapeHtml(model.getSelectedPatchTagKey()) + "\" />");
+                }
+                if (model.getSelectedPrivateProjectId() != null && model.getSelectedPrivateProjectId().intValue() > 0) {
+                        out.println("      <input type=\"hidden\" name=\"privateProjectId\" value=\""
+                                        + model.getSelectedPrivateProjectId().intValue() + "\" />");
+                }
+                out.println("      <span class=\"ph-context-label\">Quick Capture</span>");
+                out.println("      <div class=\"ph-form-field ph-form-field-inline\">");
+                out.println("        <div class=\"ph-capture-input-container\">");
+                out.println("          <input type=\"text\" id=\"phQuickCaptureInput\" name=\"sentenceInput\" value=\"\" autocomplete=\"off\""
+                                + " placeholder=\"I will identify completed AART testing work next Tuesday for 20 minutes\" />");
+                out.println("          <div id=\"phQuickCaptureSuggestions\" class=\"ph-capture-suggestions\"></div>");
+                out.println("        </div>");
+                out.println("      </div>");
+                out.println("      <div class=\"ph-form-actions ph-form-actions-inline\">");
+                out.println("        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Save</button>");
+                out.println("      </div>");
+                out.println("    </form>");
+                out.println("  </div>");
+        }
+
+        private void printOpenActionsSection(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("  <div class=\"ph-open-actions\">");
+                out.println("    <h3>Open Actions</h3>");
+                if (model.isOpenActionsNeedsPrivateTargetSelection()) {
+                        out.println(
+                                        "    <p class=\"ph-subtle\">Link/select a private project before adopting actions.</p>");
+                }
+
+                printOpenActionBucket(out, model, "Scheduled", model.getOpenScheduledActions(), true);
+                printOpenActionBucket(out, model, "Unscheduled", model.getOpenUnscheduledActions(), false);
+                out.println("  </div>");
+        }
+
+        private void printOpenActionBucket(PrintWriter out, ProjectHealthPageModel model, String title,
+                        List<ProjectHealthPageModel.OpenActionItemModel> items, boolean scheduled) {
+                out.println("    <h4 class=\"ph-open-actions-bucket\">" + escapeHtml(title) + "</h4>");
+                if (items == null || items.isEmpty()) {
+                        out.println("    <p class=\"ph-subtle\">No " + (scheduled ? "scheduled" : "unscheduled")
+                                        + " open actions.</p>");
+                        return;
+                }
+
+                out.println("    <ul class=\"ph-open-actions-list\">");
+                for (ProjectHealthPageModel.OpenActionItemModel item : items) {
+                        out.println("      <li class=\"ph-open-action-item\">");
+                        out.println("        <div class=\"ph-open-action-main\">");
+                        out.println("          <span class=\"ph-open-action-check\">[ ]</span>");
+                        out.println("          <span class=\"ph-open-action-sentence\">" + n(item.getSentenceHtml())
+                                        + "</span>");
+                        String metadata = buildOpenActionMeta(item);
+                        if (metadata.length() > 0) {
+                                out.println("          <span class=\"ph-open-action-meta\">" + escapeHtml(metadata)
+                                                + "</span>");
+                        }
+                        out.println("        </div>");
+
+                        out.println("        <div class=\"ph-open-action-actions\">");
+                        if (item.isLinkedToSelectedPrivate()) {
+                                out.println("          <span class=\"ph-open-action-linked\">Linked</span>");
+                        } else if (model.getSelectedPrivateProjectId() != null
+                                        && model.getSelectedPrivateProjectId().intValue() > 0) {
+                                out.println("          <form method=\"POST\" action=\"ProjectHealthServlet\" class=\"ph-inline-form\">");
+                                out.println("            <input type=\"hidden\" name=\"action\" value=\"adoptSharedOpenAction\" />");
+                                out.println("            <input type=\"hidden\" name=\"projectId\" value=\""
+                                                + model.getSelectedProjectId() + "\" />");
+                                out.println("            <input type=\"hidden\" name=\"actionNextId\" value=\""
+                                                + item.getActionNextId() + "\" />");
+                                appendSharedCockpitHiddenContextFields(out, model);
+                                out.println("            <button type=\"submit\" class=\"ph-link-btn\">Adopt</button>");
+                                out.println("          </form>");
+                        } else {
+                                out.println("          <span class=\"ph-open-action-linked\">Adopt</span>");
+                        }
+
+                        out.println("          <a class=\"ph-link-btn\" href=\""
+                                        + openActionEditHref(model, item.getActionNextId()) + "\">Edit</a>");
+
+                        out.println("          <form method=\"POST\" action=\"ProjectHealthServlet\" class=\"ph-inline-form\">");
+                        out.println("            <input type=\"hidden\" name=\"action\" value=\"cancelSharedOpenAction\" />");
+                        out.println("            <input type=\"hidden\" name=\"projectId\" value=\""
+                                        + model.getSelectedProjectId() + "\" />");
+                        out.println("            <input type=\"hidden\" name=\"actionNextId\" value=\""
+                                        + item.getActionNextId() + "\" />");
+                        appendSharedCockpitHiddenContextFields(out, model);
+                        out.println(
+                                        "            <button type=\"submit\" class=\"ph-link-btn\" onclick=\"return confirm('Cancel this shared action?');\">Cancel</button>");
+                        out.println("          </form>");
+                        out.println("        </div>");
+
+                        if (model.getOpenActionEditActionNextId() != null
+                                        && model.getOpenActionEditActionNextId().intValue() == item
+                                                        .getActionNextId()) {
+                                printOpenActionEditForm(out, model, item);
+                        }
+                        out.println("      </li>");
+                }
+                out.println("    </ul>");
+        }
+
+        private void printOpenActionEditForm(PrintWriter out, ProjectHealthPageModel model,
+                        ProjectHealthPageModel.OpenActionItemModel item) {
+                out.println("        <form method=\"POST\" action=\"ProjectHealthServlet\" class=\"ph-open-action-edit\">");
+                out.println("          <input type=\"hidden\" name=\"action\" value=\"saveSharedOpenActionEdit\" />");
+                out.println("          <input type=\"hidden\" name=\"projectId\" value=\""
+                                + model.getSelectedProjectId() + "\" />");
+                out.println("          <input type=\"hidden\" name=\"actionNextId\" value=\""
+                                + item.getActionNextId() + "\" />");
+                appendSharedCockpitHiddenContextFields(out, model);
+
+                out.println("          <label>Who</label>");
+                out.println("          <select name=\"actorContactId\">");
+                for (ProjectHealthPageModel.OpenActionActorOptionModel option : model.getOpenActionActorOptions()) {
+                        boolean selected = (option.getContactId() == null && item.getActorContactId() == null)
+                                        || (option.getContactId() != null && item.getActorContactId() != null
+                                                        && option.getContactId().intValue() == item.getActorContactId()
+                                                                        .intValue());
+                        out.println("            <option value=\""
+                                        + (option.getContactId() == null ? "" : option.getContactId().intValue())
+                                        + "\"" + (selected ? " selected" : "") + ">"
+                                        + escapeHtml(option.getLabel()) + "</option>");
+                }
+                out.println("          </select>");
+
+                out.println("          <label>Action Type</label>");
+                out.println("          <select name=\"nextActionType\">");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WILL, "will");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.MIGHT, "might");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WOULD_LIKE_TO,
+                                "would like to");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WILL_CONTACT,
+                                "will contact");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WILL_MEET,
+                                "will meet");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WILL_REVIEW,
+                                "will review");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WILL_DOCUMENT,
+                                "will document");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WILL_FOLLOW_UP,
+                                "will follow up");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.COMMITTED_TO,
+                                "committed");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.GOAL, "goal");
+                printOpenActionTypeOption(out, item.getNextActionType(), ProjectNextActionType.WAITING, "waiting");
+                out.println("          </select>");
+
+                out.println("          <label>Description</label>");
+                out.println("          <input type=\"text\" name=\"nextDescription\" value=\""
+                                + escapeHtml(item.getNextDescription()) + "\" />");
+
+                out.println("          <div class=\"ph-open-action-edit-grid\">");
+                out.println("            <div><label>Date</label><input type=\"text\" name=\"nextActionDate\" value=\""
+                                + escapeHtml(item.getNextActionDateInput()) + "\" /></div>");
+                out.println(
+                                "            <div><label>Estimate (mins)</label><input type=\"number\" min=\"0\" step=\"1\" name=\"nextTimeEstimate\" value=\""
+                                                + (item.getNextTimeEstimate() == null ? ""
+                                                                : Integer.toString(item.getNextTimeEstimate()
+                                                                                .intValue()))
+                                                + "\" /></div>");
+                out.println("            <div><label>Priority</label><input type=\"number\" step=\"1\" name=\"priorityLevel\" value=\""
+                                + item.getPriorityLevel() + "\" /></div>");
+                out.println(
+                                "            <div><label>Order</label><input type=\"number\" step=\"1\" name=\"completionOrder\" value=\""
+                                                + item.getCompletionOrder() + "\" /></div>");
+                out.println("          </div>");
+
+                out.println("          <div class=\"ph-open-action-edit-actions\">");
+                out.println("            <button type=\"submit\" class=\"ph-btn ph-btn-primary ph-btn-small\">Save</button>");
+                out.println("            <a class=\"ph-btn ph-btn-small\" href=\""
+                                + openActionBaseHref(model) + "\">Cancel</a>");
+                out.println("          </div>");
+                out.println("        </form>");
+        }
+
+        private void printOpenActionTypeOption(PrintWriter out, String selectedType, String value, String label) {
+                boolean selected = value.equals(n(selectedType));
+                out.println("            <option value=\"" + value + "\"" + (selected ? " selected" : "")
+                                + ">" + escapeHtml(label) + "</option>");
+        }
+
+        private void printProjectFactsSection(PrintWriter out, ProjectHealthPageModel model) {
+                out.println("  <div class=\"ph-project-facts\">");
+                out.println("    <h3>Project Facts</h3>");
+
+                List<ProjectHealthPageModel.SharedProjectFactGroupModel> groups = model.getSharedProjectFactGroups();
+                if (groups == null || groups.isEmpty()) {
+                        out.println("    <p class=\"ph-subtle\">No active boolean facts for this workspace.</p>");
+                        out.println("  </div>");
+                        return;
+                }
+
+                List<ProjectHealthPageModel.SharedProjectFactGroupModel> nonEmptyGroups = new ArrayList<ProjectHealthPageModel.SharedProjectFactGroupModel>();
+                for (ProjectHealthPageModel.SharedProjectFactGroupModel group : groups) {
+                        if (group != null && group.getItems() != null && !group.getItems().isEmpty()) {
+                                nonEmptyGroups.add(group);
+                        }
+                }
+
+                if (nonEmptyGroups.isEmpty()) {
+                        out.println("    <p class=\"ph-subtle\">No active boolean facts for this workspace.</p>");
+                } else {
+                        out.println("    <div class=\"ph-project-fact-tabs\" role=\"tablist\">");
+                        for (int tabIndex = 0; tabIndex < nonEmptyGroups.size(); tabIndex++) {
+                                ProjectHealthPageModel.SharedProjectFactGroupModel group = nonEmptyGroups.get(tabIndex);
+                                String tabId = "phFactTab_" + tabIndex;
+                                String panelId = "phFactPanel_" + tabIndex;
+                                String factGroupName = n(group.getFactGroup()).trim();
+                                out.println("      <button type=\"button\" class=\"ph-project-fact-tab"
+                                                + (tabIndex == 0 ? " is-active" : "")
+                                                + "\" data-ph-fact-tab=\"" + panelId + "\" id=\"" + tabId
+                                                + "\" data-ph-fact-group=\"" + escapeHtml(factGroupName)
+                                                + "\" role=\"tab\" aria-controls=\"" + panelId + "\""
+                                                + (tabIndex == 0 ? " aria-selected=\"true\""
+                                                                : " aria-selected=\"false\"")
+                                                + ">"
+                                                + escapeHtml(group.getFactGroup()) + " (" + group.getCheckedCount()
+                                                + "/"
+                                                + group.getTotalCount() + ")</button>");
+                        }
+                        out.println("    </div>");
+
+                        out.println("    <div class=\"ph-project-fact-panels\">");
+                        for (int tabIndex = 0; tabIndex < nonEmptyGroups.size(); tabIndex++) {
+                                ProjectHealthPageModel.SharedProjectFactGroupModel group = nonEmptyGroups.get(tabIndex);
+                                String tabId = "phFactTab_" + tabIndex;
+                                String panelId = "phFactPanel_" + tabIndex;
+                                out.println("      <div class=\"ph-project-fact-group"
+                                                + (tabIndex == 0 ? " is-active" : "")
+                                                + "\" id=\"" + panelId + "\" role=\"tabpanel\" aria-labelledby=\""
+                                                + tabId + "\">");
+                                out.println("        <ul class=\"ph-project-fact-list\">");
+                                for (ProjectHealthPageModel.SharedProjectFactItemModel item : group.getItems()) {
+                                        String factCheckedId = "phFactChecked_" + item.getProjectFactDefinitionId();
+                                        out.println("          <li class=\"ph-project-fact-item\">");
+                                        out.println("            <form method=\"POST\" action=\"ProjectHealthServlet\" class=\"ph-project-fact-form\">");
+                                        out.println("              <input type=\"hidden\" name=\"action\" value=\"toggleSharedProjectFact\" />");
+                                        out.println("              <input type=\"hidden\" name=\"projectId\" value=\""
+                                                        + model.getSelectedProjectId() + "\" />");
+                                        out.println("              <input type=\"hidden\" name=\"factDefinitionId\" value=\""
+                                                        + item.getProjectFactDefinitionId() + "\" />");
+                                        out.println("              <input type=\"hidden\" id=\"" + factCheckedId
+                                                        + "\" name=\"factChecked\" value=\""
+                                                        + (item.isChecked() ? "Y" : "N") + "\" />");
+                                        appendSharedCockpitHiddenContextFields(out, model);
+                                        out.println("              <label class=\"ph-project-fact-label\">");
+                                        out.println("                <input type=\"checkbox\""
+                                                        + (item.isChecked() ? " checked" : "")
+                                                        + " onchange=\"document.getElementById('" + factCheckedId
+                                                        + "').value=this.checked?'Y':'N';this.form.submit();\" />");
+                                        out.println("                <span>" + escapeHtml(item.getFactLabel())
+                                                        + "</span>");
+                                        out.println("              </label>");
+                                        out.println("            </form>");
+                                        out.println("          </li>");
+                                }
+                                out.println("        </ul>");
+                                out.println("      </div>");
+                        }
+                        out.println("    </div>");
+                }
+                out.println("  </div>");
+        }
+
+        private String buildOpenActionMeta(ProjectHealthPageModel.OpenActionItemModel item) {
+                List<String> bits = new ArrayList<String>();
+                if (item.getNextActionDateLabel() != null && item.getNextActionDateLabel().trim().length() > 0) {
+                        bits.add(item.getNextActionDateLabel().trim());
+                }
+                if (item.getNextTimeEstimateLabel() != null && item.getNextTimeEstimateLabel().trim().length() > 0) {
+                        bits.add(item.getNextTimeEstimateLabel().trim());
+                }
+                if (item.getLinkedPrivateActionNextId() != null) {
+                        bits.add("linked");
+                }
+                if (item.getDeadlineDateLabel() != null && item.getDeadlineDateLabel().trim().length() > 0) {
+                        bits.add("deadline " + item.getDeadlineDateLabel().trim());
+                }
+                if (item.getTargetDateLabel() != null && item.getTargetDateLabel().trim().length() > 0) {
+                        bits.add("target " + item.getTargetDateLabel().trim());
+                }
+                if (bits.isEmpty()) {
+                        return "";
+                }
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < bits.size(); i++) {
+                        if (i > 0) {
+                                sb.append(" · ");
+                        }
+                        sb.append(bits.get(i));
+                }
+                return sb.toString();
+        }
+
+        private void appendSharedCockpitHiddenContextFields(PrintWriter out, ProjectHealthPageModel model) {
+                if (model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                        out.println("            <input type=\"hidden\" name=\"patchTag\" value=\""
+                                        + escapeHtml(model.getSelectedPatchTagKey()) + "\" />");
+                }
+                if (model.getSelectedPrivateProjectId() != null && model.getSelectedPrivateProjectId().intValue() > 0) {
+                        out.println("            <input type=\"hidden\" name=\"privateProjectId\" value=\""
+                                        + model.getSelectedPrivateProjectId().intValue() + "\" />");
+                }
+        }
+
+        private String openActionBaseHref(ProjectHealthPageModel model) {
+                StringBuilder href = new StringBuilder("ProjectHealthServlet?projectId=")
+                                .append(model.getSelectedProjectId());
+                if (model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                        href.append("&patchTag=").append(escapeUrl(model.getSelectedPatchTagKey()));
+                }
+                if (model.getSelectedPrivateProjectId() != null && model.getSelectedPrivateProjectId().intValue() > 0) {
+                        href.append("&privateProjectId=").append(model.getSelectedPrivateProjectId().intValue());
+                }
+                return href.toString();
+        }
+
+        private String openActionEditHref(ProjectHealthPageModel model, int actionNextId) {
+                return openActionBaseHref(model) + "&openActionEditId=" + actionNextId;
+        }
+
+        private void printProjectDefinitionSection(PrintWriter out, ProjectHealthPageModel model, Project project) {
+                out.println("  <div class=\"ph-project-definition\">");
+                out.println("    <h3>Project Definition</h3>");
+                printProjectDefinitionField(out, model, project, "Current Focus", "currentFocusText",
+                                n(project.getCurrentFocusText()), "Click to add current focus", 3, false);
+                printProjectDefinitionField(out, model, project, "Outcome", "outcomeText",
+                                n(project.getOutcomeText()), "Click to add outcome", 3, false);
+                printProjectDefinitionField(out, model, project, "Success Criteria", "successCriteriaText",
+                                n(project.getSuccessCriteriaText()), "Click to add success criteria", 5, true);
+                out.println("  </div>");
+        }
+
+        private void printProjectDefinitionField(PrintWriter out, ProjectHealthPageModel model, Project project,
+                        String label, String fieldName, String value, String placeholder, int rows,
+                        boolean checklist) {
+                boolean empty = value == null || value.trim().length() == 0;
+                String displayId = "phDefinitionDisplay_" + fieldName;
+                String editorId = "phDefinitionEditor_" + fieldName;
+                String inputId = "phDefinitionInput_" + fieldName;
+
+                out.println("    <div class=\"ph-definition-item\">");
+                out.println("      <div class=\"ph-definition-title\">" + escapeHtml(label) + "</div>");
+                out.println("      <div id=\"" + displayId + "\" class=\"ph-definition-display"
+                                + (empty ? " ph-definition-display-empty" : "")
+                                + "\" onclick=\"phOpenDefinitionEditor('" + fieldName
+                                + "', event)\" title=\"Click to edit\">");
+                if (empty) {
+                        out.println("        <span>" + escapeHtml(placeholder) + "</span>");
+                } else if (checklist) {
+                        List<String> lines = splitNonEmptyLines(value);
+                        if (lines.isEmpty()) {
+                                out.println("        <span>" + escapeHtml(placeholder) + "</span>");
+                        } else {
+                                out.println("        <ul class=\"ph-definition-checklist\">");
+                                for (String line : lines) {
+                                        out.println("          <li>" + escapeHtml(line) + "</li>");
+                                }
+                                out.println("        </ul>");
+                        }
+                } else {
+                        out.println("        <p class=\"ph-definition-text\">" + escapeHtmlWithBreaks(value)
+                                        + "</p>");
+                }
+                out.println("      </div>");
+                out.println("      <form id=\"" + editorId
+                                + "\" class=\"ph-definition-editor\" method=\"POST\" action=\"ProjectHealthServlet\">"
+                                + "<input type=\"hidden\" name=\"action\" value=\"saveProjectDefinitionField\" />"
+                                + "<input type=\"hidden\" name=\"projectId\" value=\"" + project.getProjectId()
+                                + "\" />"
+                                + "<input type=\"hidden\" name=\"fieldName\" value=\"" + fieldName
+                                + "\" />");
+                if (model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
+                        out.println("        <input type=\"hidden\" name=\"patchTag\" value=\""
+                                        + escapeHtml(model.getSelectedPatchTagKey()) + "\" />");
+                }
+                if (model.getSelectedPrivateProjectId() != null && model.getSelectedPrivateProjectId().intValue() > 0) {
+                        out.println("        <input type=\"hidden\" name=\"privateProjectId\" value=\""
+                                        + model.getSelectedPrivateProjectId().intValue() + "\" />");
+                }
+                out.println("        <textarea id=\"" + inputId + "\" name=\"fieldValue\" rows=\"" + rows
+                                + "\">" + escapeHtml(n(value)) + "</textarea>");
+                out.println("        <div class=\"ph-definition-actions\">");
+                out.println("          <button type=\"submit\" class=\"ph-btn ph-btn-primary ph-btn-small\">Save</button>");
+                out.println("          <button type=\"button\" class=\"ph-btn ph-btn-small\" onclick=\"phCloseDefinitionEditor('"
+                                + fieldName + "', event)\">Cancel</button>");
+                out.println("        </div>");
+                out.println("      </form>");
+                out.println("    </div>");
         }
 
         private void printReportActionList(PrintWriter out, List<ProjectReportModel.ReportActionLine> lines,
@@ -773,6 +1316,10 @@ public class ProjectHealthPageRenderer {
                 out.println("      <textarea id=\"phProjectDescription\" name=\"description\" rows=\"3\">"
                                 + escapeHtml(n(project.getDescription())) + "</textarea></div>");
 
+                out.println("      <div class=\"ph-form-field\"><label>Current Focus</label>");
+                out.println("      <textarea id=\"phProjectCurrentFocusText\" name=\"currentFocusText\" rows=\"3\">"
+                                + escapeHtml(n(project.getCurrentFocusText())) + "</textarea></div>");
+
                 out.println("      <div class=\"ph-form-field\"><label>Project Outcome</label>");
                 out.println("      <textarea id=\"phProjectOutcomeText\" name=\"outcomeText\" rows=\"4\">"
                                 + escapeHtml(n(project.getOutcomeText())) + "</textarea></div>");
@@ -871,6 +1418,7 @@ public class ProjectHealthPageRenderer {
                 out.println("  projectTagIds: '" + escapeJsString(joinIntegerList(selectedProjectTagIds)) + "',");
                 out.println("  projectIcon: '" + escapeJsString(n(project.getProjectIcon())) + "',");
                 out.println("  description: '" + escapeJsString(n(project.getDescription())) + "',");
+                out.println("  currentFocusText: '" + escapeJsString(n(project.getCurrentFocusText())) + "',");
                 out.println("  outcomeText: '" + escapeJsString(n(project.getOutcomeText())) + "',");
                 out.println("  successCriteriaText: '" + escapeJsString(n(project.getSuccessCriteriaText())) + "',");
                 out.println("  projectStatus: '" + escapeJsString(selectedProjectStatus) + "',");
@@ -957,13 +1505,13 @@ public class ProjectHealthPageRenderer {
                 out.println("  function phSetProjectDefaults() {");
                 out.println("    var d = window.phProjectDefaults || {}; ");
                 out.println(
-                                "    var map = [['phProjectName','projectName'],['phProjectHandle','projectHandle'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectStatus','projectStatus'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
+                                "    var map = [['phProjectName','projectName'],['phProjectHandle','projectHandle'],['phProjectIcon','projectIcon'],['phProjectDescription','description'],['phProjectCurrentFocusText','currentFocusText'],['phProjectOutcomeText','outcomeText'],['phProjectSuccessCriteriaText','successCriteriaText'],['phProjectStatus','projectStatus'],['phProjectBillCode','billCode'],['phProjectUpdateEvery','updateEvery'],['phProjectLinkedPatchWorkspaceId','linkedPatchWorkspaceId']];");
                 out.println(
                                 "    for (var i=0;i<map.length;i++){ var el=document.getElementById(map[i][0]); if (el) { el.value = d[map[i][1]] || ''; } }");
                 out.println("    phSetMultiSelectValues('phProjectTags', d.projectTagIds || '');");
                 out.println("  }");
                 out.println(
-                                "  function phClearProjectCreate() { var clearIds=['phProjectName','phProjectHandle','phProjectIcon','phProjectDescription','phProjectOutcomeText','phProjectSuccessCriteriaText']; for (var i=0;i<clearIds.length;i++){ var el=document.getElementById(clearIds[i]); if (el) { el.value=''; } } var s=document.getElementById('phProjectStatus'); if (s && s.options && s.options.length>0) { s.selectedIndex=0; } var b=document.getElementById('phProjectBillCode'); if (b) { b.value=''; } var u=document.getElementById('phProjectUpdateEvery'); if (u) { u.value='0'; } var lp=document.getElementById('phProjectLinkedPatchWorkspaceId'); if (lp) { lp.value=''; } var tags=document.getElementById('phProjectTags'); if (tags) { for (var j=0;j<tags.options.length;j++){ tags.options[j].selected=false; } } }");
+                                "  function phClearProjectCreate() { var clearIds=['phProjectName','phProjectHandle','phProjectIcon','phProjectDescription','phProjectCurrentFocusText','phProjectOutcomeText','phProjectSuccessCriteriaText']; for (var i=0;i<clearIds.length;i++){ var el=document.getElementById(clearIds[i]); if (el) { el.value=''; } } var s=document.getElementById('phProjectStatus'); if (s && s.options && s.options.length>0) { s.selectedIndex=0; } var b=document.getElementById('phProjectBillCode'); if (b) { b.value=''; } var u=document.getElementById('phProjectUpdateEvery'); if (u) { u.value='0'; } var lp=document.getElementById('phProjectLinkedPatchWorkspaceId'); if (lp) { lp.value=''; } var tags=document.getElementById('phProjectTags'); if (tags) { for (var j=0;j<tags.options.length;j++){ tags.options[j].selected=false; } } }");
                 out.println(
                                 "  function phSetMultiSelectValues(id, csvValues) { var select = document.getElementById(id); if (!select) { return; } var selected = {}; if (csvValues) { var parts = csvValues.split(','); for (var i=0;i<parts.length;i++) { var v = parts[i].trim(); if (v.length > 0) { selected[v] = true; } } } for (var j=0;j<select.options.length;j++) { var option = select.options[j]; option.selected = !!selected[option.value]; } }");
                 out.println("  function phSubmitProjectEditForm(evt) {");
@@ -1103,6 +1651,58 @@ public class ProjectHealthPageRenderer {
 
                 out.println(
                                 "  function phEscapeHtml(value) { return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;'); }");
+                out.println(
+                                "  function phShowProjectFactTab(panelId) { var tabs = document.querySelectorAll('.ph-project-fact-tab'); var panels = document.querySelectorAll('.ph-project-fact-group'); var activeGroup = null; for (var i=0;i<tabs.length;i++) { var tab = tabs[i]; var isActive = tab.getAttribute('data-ph-fact-tab') === panelId; if (isActive) { tab.classList.add('is-active'); tab.setAttribute('aria-selected','true'); activeGroup = tab.getAttribute('data-ph-fact-group') || ''; } else { tab.classList.remove('is-active'); tab.setAttribute('aria-selected','false'); } } for (var j=0;j<panels.length;j++) { var panel = panels[j]; if (panel.id === panelId) { panel.classList.add('is-active'); } else { panel.classList.remove('is-active'); } } if (activeGroup) { try { localStorage.setItem('ph.projectFacts.selectedGroup', activeGroup); } catch (e) { } } }");
+                out.println(
+                                "  function phInitProjectFactTabs() { var tabs = document.querySelectorAll('.ph-project-fact-tab'); if (!tabs || tabs.length === 0) { return; } for (var i=0;i<tabs.length;i++) { (function(tab){ tab.addEventListener('click', function(){ phShowProjectFactTab(tab.getAttribute('data-ph-fact-tab')); }); })(tabs[i]); } var savedGroup = null; try { savedGroup = localStorage.getItem('ph.projectFacts.selectedGroup'); } catch (e) { savedGroup = null; } if (savedGroup) { for (var j=0;j<tabs.length;j++) { var tab = tabs[j]; if ((tab.getAttribute('data-ph-fact-group') || '') === savedGroup) { phShowProjectFactTab(tab.getAttribute('data-ph-fact-tab')); return; } } } var active = document.querySelector('.ph-project-fact-tab.is-active'); if (active) { phShowProjectFactTab(active.getAttribute('data-ph-fact-tab')); } else { phShowProjectFactTab(tabs[0].getAttribute('data-ph-fact-tab')); } }");
+                out.println(
+                                "  function phCloseAllDefinitionEditors() { var editors = document.querySelectorAll('.ph-definition-editor'); for (var i = 0; i < editors.length; i++) { editors[i].style.display = 'none'; } var displays = document.querySelectorAll('.ph-definition-display'); for (var j = 0; j < displays.length; j++) { displays[j].style.display = ''; } }");
+                out.println(
+                                "  function phOpenDefinitionEditor(fieldName, evt) { if (evt) { evt.preventDefault(); } phCloseAllDefinitionEditors(); var display = document.getElementById('phDefinitionDisplay_' + fieldName); var editor = document.getElementById('phDefinitionEditor_' + fieldName); if (display) { display.style.display = 'none'; } if (editor) { editor.style.display = 'block'; var input = document.getElementById('phDefinitionInput_' + fieldName); if (input) { input.focus(); input.select(); } } return false; }");
+                out.println(
+                                "  function phCloseDefinitionEditor(fieldName, evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var display = document.getElementById('phDefinitionDisplay_' + fieldName); var editor = document.getElementById('phDefinitionEditor_' + fieldName); if (editor) { editor.style.display = 'none'; } if (display) { display.style.display = ''; } return false; }");
+                out.println("  function phInitQuickCaptureSuggestions() {");
+                out.println("    var actionVerbs = ['I will', 'I have committed', 'I might', 'I would like to', 'I will meet', 'I have set goal to', 'I am waiting', 'Someone will', 'Someone has committed', 'Someone might', 'Someone would like to', 'Someone will meet', 'Someone has set goal to', 'Someone is waiting'];");
+                out.println("    var input = document.getElementById('phQuickCaptureInput');");
+                out.println("    var suggestionsBox = document.getElementById('phQuickCaptureSuggestions');");
+                out.println("    if (!input || !suggestionsBox) { return; }");
+                out.println("    var currentSuggestions = []; var selectedIndex = -1;");
+                out.println("    function showSuggestions(suggestions) {");
+                out.println("      suggestionsBox.innerHTML = ''; suggestionsBox.style.display = suggestions.length ? 'block' : 'none';");
+                out.println("      for (var i = 0; i < suggestions.length; i++) {");
+                out.println("        var suggestion = suggestions[i]; var div = document.createElement('div'); div.textContent = suggestion;");
+                out.println("        if (i === selectedIndex) { div.style.backgroundColor = '#e0e0e0'; }");
+                out.println("        div.addEventListener('click', function(evt) { var text = evt.target.textContent || ''; input.value = text + ' '; suggestionsBox.style.display = 'none'; selectedIndex = -1; input.focus(); });");
+                out.println("        suggestionsBox.appendChild(div);");
+                out.println("      }");
+                out.println("    }");
+                out.println("    input.addEventListener('input', function() {");
+                out.println("      var text = (input.value || '').trim();");
+                out.println("      if (text.length === 0) { currentSuggestions = actionVerbs.slice(0); selectedIndex = -1; showSuggestions(currentSuggestions); return; }");
+                out.println("      currentSuggestions = actionVerbs.filter(function(verb) { return verb.toLowerCase().startsWith(text.toLowerCase()); });");
+                out.println("      selectedIndex = -1; showSuggestions(currentSuggestions);");
+                out.println("    });");
+                out.println("    input.addEventListener('focus', function() {");
+                out.println("      var text = (input.value || '').trim();");
+                out.println("      if (text.length === 0) { currentSuggestions = actionVerbs.slice(0); selectedIndex = -1; showSuggestions(currentSuggestions); }");
+                out.println("    });");
+                out.println("    input.addEventListener('keydown', function(e) {");
+                out.println("      var visible = suggestionsBox.style.display === 'block';");
+                out.println("      if (visible && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {");
+                out.println("        e.preventDefault(); var count = currentSuggestions.length; if (count === 0) { return; }");
+                out.println("        if (e.key === 'ArrowDown') { selectedIndex = (selectedIndex + 1) % count; } else { selectedIndex = (selectedIndex - 1 + count) % count; }");
+                out.println("        showSuggestions(currentSuggestions);");
+                out.println("      }");
+                out.println("      if (visible && (e.key === 'Enter' || e.key === 'Tab')) {");
+                out.println("        if (selectedIndex < 0) { selectedIndex = 0; }");
+                out.println("        if (selectedIndex < currentSuggestions.length) { e.preventDefault(); input.value = currentSuggestions[selectedIndex] + ' '; suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
+                out.println("      }");
+                out.println("      if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
+                out.println("    });");
+                out.println("    input.addEventListener('blur', function() { setTimeout(function() { suggestionsBox.style.display = 'none'; }, 150); });");
+                out.println("  }");
+                out.println("  phInitQuickCaptureSuggestions();");
+                out.println("  phInitProjectFactTabs();");
                 out.println("</script>");
         }
 
@@ -1175,12 +1775,78 @@ public class ProjectHealthPageRenderer {
 
                 out.println("  .ph-divider { height: 1px; background: #ddd3c4; margin: 12px 0; }");
                 out.println("  .ph-quick-actions { display: flex; flex-direction: column; gap: 8px; }");
+                out.println("  .ph-capture-input-container { position: relative; }");
+                out.println("  .ph-open-actions { margin: 8px 0 10px 0; padding: 0; border: none; background: transparent; }");
+                out.println("  .ph-open-actions h3 { margin: 0 0 8px 0; font-size: 15px; color: #334033; }");
+                out.println("  .ph-open-actions-bucket { margin: 8px 0 4px 0; font-size: 11px; color: #6a6053; text-transform: uppercase; letter-spacing: 0.04em; }");
+                out.println("  .ph-open-actions-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }");
+                out.println("  .ph-open-action-item { border: none; border-radius: 0; background: transparent; padding: 2px 0; }");
+                out.println("  .ph-open-action-main { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }");
+                out.println("  .ph-open-action-check { color: #6a6053; font-size: 12px; }");
+                out.println("  .ph-open-action-sentence { color: #2f3a2f; font-size: 12px; }");
+                out.println("  .ph-open-action-meta { color: #756c5f; font-size: 11px; margin-left: auto; }");
+                out.println("  .ph-open-action-actions { margin-top: 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }");
+                out.println("  .ph-link-btn { border: none; background: none; color: #2f5a33; text-decoration: none; padding: 0; font-size: 12px; cursor: pointer; }");
+                out.println("  .ph-link-btn:hover { text-decoration: underline; }");
+                out.println("  .ph-open-action-linked { color: #7a715f; font-size: 12px; }");
+                out.println("  .ph-open-action-edit { margin-top: 6px; border-top: 1px dashed #ddd2c2; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }");
+                out.println("  .ph-open-action-edit label { font-size: 11px; color: #5f685d; text-transform: uppercase; letter-spacing: 0.03em; }");
+                out.println("  .ph-open-action-edit input, .ph-open-action-edit select { border: 1px solid #d2c8ba; border-radius: 4px; padding: 5px 6px; font-size: 12px; background: #fffdfa; }");
+                out.println("  .ph-open-action-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }");
+                out.println("  .ph-open-action-edit-actions { display: flex; gap: 6px; align-items: center; }");
+                out.println("  .ph-project-facts { margin: 8px 0 10px 0; display: flex; flex-direction: column; gap: 8px; }");
+                out.println("  .ph-project-facts h3 { margin: 0; font-size: 15px; color: #334033; }");
+                out.println("  .ph-project-fact-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid #ddd3c4; padding-bottom: 6px; }");
+                out.println("  .ph-project-fact-tab { border: 1px solid #d2c2ab; background: #efe8dc; color: #334233; border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: 12px; }");
+                out.println("  .ph-project-fact-tab:hover { background: #e6ddcf; border-color: #bfa982; }");
+                out.println("  .ph-project-fact-tab.is-active { background: #dcebd8; border-color: #a9c9a7; color: #2c4a2e; }");
+                out.println("  .ph-project-fact-panels { display: block; }");
+                out.println("  .ph-project-fact-group { display: none; flex-direction: column; gap: 4px; }");
+                out.println("  .ph-project-fact-group.is-active { display: flex; }");
+                out.println("  .ph-project-fact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }");
+                out.println("  .ph-project-fact-item { margin: 0; padding: 0; }");
+                out.println("  .ph-project-fact-form { margin: 0; }");
+                out.println("  .ph-project-fact-label { display: inline-flex; align-items: center; gap: 6px; color: #2f3a2f; font-size: 12px; cursor: pointer; }");
+                out.println("  .ph-project-fact-label input { margin: 0; }");
+                out.println("  .ph-capture-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; display: none; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }");
+                out.println("  .ph-capture-suggestions div { padding: 6px 8px; cursor: pointer; }");
+                out.println("  .ph-capture-suggestions div:hover { background: #efe7db; }");
                 out.println(
                                 "  .ph-btn { background: #efe8dc; border: 1px solid #d2c2ab; color: #334233; border-radius: 4px; padding: 7px 10px; cursor: pointer; text-align: left; }");
                 out.println("  .ph-btn:hover { background: #e6ddcf; border-color: #bfa982; }");
                 out.println("  .ph-btn-primary { background: #dcebd8; border-color: #a9c9a7; }");
                 out.println("  .ph-btn-primary:hover { background: #d2e4cf; border-color: #92b990; }");
                 out.println("  .ph-btn-block { width: 100%; text-align: left; margin-bottom: 6px; }");
+                out.println("  .ph-quick-capture-form { margin: 2px 0 8px 0; }");
+                out.println("  .ph-private-context { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }");
+                out.println("  .ph-context-row { display: flex; align-items: center; gap: 8px; }");
+                out.println("  .ph-context-label { font-size: 12px; color: #4f4b43; white-space: nowrap; min-width: 92px; }");
+                out.println("  .ph-context-project { border: 1px solid #d9ccb8; border-radius: 6px; background: #fffdfa; padding: 5px 8px; color: #364033; display: inline-block; }");
+                out.println("  .ph-context-empty { color: #807667; font-size: 12px; }");
+                out.println("  .ph-inline-form { display: flex; flex-direction: column; gap: 6px; }");
+                out.println("  .ph-inline-form-row { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-wrap: nowrap; }");
+                out.println("  .ph-form-field-inline { margin-bottom: 0; flex: 1; min-width: 0; }");
+                out.println("  .ph-form-field-inline label { display: none; }");
+                out.println("  .ph-form-actions-inline { margin-top: 0; flex-shrink: 0; }");
+                out.println("  .ph-add-more { margin: 0; }");
+                out.println("  .ph-add-more summary { cursor: pointer; color: #2e4a30; font-size: 12px; user-select: none; }");
+                out.println("  .ph-add-more[open] { margin-top: 2px; }");
+                out.println("  .ph-add-more-inline { margin-left: auto; }");
+                out.println("  .ph-project-definition { display: flex; flex-direction: column; gap: 10px; }");
+                out.println("  .ph-project-definition h3 { margin: 0; font-size: 15px; color: #2f3a2f; }");
+                out.println("  .ph-definition-item { display: flex; flex-direction: column; gap: 4px; }");
+                out.println("  .ph-definition-title { font-size: 11px; font-weight: 700; color: #5b6558; text-transform: uppercase; letter-spacing: 0.04em; }");
+                out.println("  .ph-definition-display { border: 1px solid #d9ccb8; border-radius: 6px; background: #fffdfa; padding: 8px 9px; cursor: pointer; color: #364033; }");
+                out.println("  .ph-definition-display:hover { background: #f8f2e8; border-color: #cdbba0; }");
+                out.println("  .ph-definition-display-empty { color: #807667; font-style: italic; }");
+                out.println("  .ph-definition-text { margin: 0; line-height: 1.45; }");
+                out.println("  .ph-definition-checklist { list-style: none; margin: 0; padding: 0; }");
+                out.println("  .ph-definition-checklist li { position: relative; padding-left: 16px; margin-bottom: 4px; line-height: 1.4; }");
+                out.println("  .ph-definition-checklist li:last-child { margin-bottom: 0; }");
+                out.println("  .ph-definition-checklist li:before { content: '\\2713'; position: absolute; left: 0; top: 0; color: #486448; }");
+                out.println("  .ph-definition-editor { display: none; }");
+                out.println("  .ph-definition-actions { display: flex; gap: 6px; margin-top: 6px; }");
+                out.println("  .ph-btn-small { padding: 5px 8px; font-size: 12px; }");
 
                 out.println(
                                 "  .ph-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 12000; }");
@@ -1225,11 +1891,20 @@ public class ProjectHealthPageRenderer {
                                 "  .ph-patch-link-form { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }");
                 out.println(
                                 "  .ph-patch-link-form select { flex: 1; padding: 5px 6px; border: 1px solid #d2c8ba; border-radius: 4px; font-size: 12px; }");
+                out.println(
+                                "  @media (max-width: 700px) { .ph-inline-form-row { flex-wrap: wrap; } .ph-context-label { min-width: 0; } .ph-form-actions-inline { width: 100%; } }");
                 out.println("</style>");
         }
 
         private void printDevLabel(PrintWriter out, String label) {
                 out.println("<div class=\"ph-dev-label\">" + escapeHtml(label) + "</div>");
+        }
+
+        private Project loadSelectedProject(AppReq appReq, ProjectHealthPageModel model) {
+                if (appReq == null || model == null || !model.isSelectedProjectAvailable()) {
+                        return null;
+                }
+                return (Project) appReq.getDataSession().get(Project.class, model.getSelectedProjectId());
         }
 
         private String escapeHtml(String value) {
@@ -1243,11 +1918,22 @@ public class ProjectHealthPageRenderer {
                                 .replace("'", "&#39;");
         }
 
+        private String escapeHtmlWithBreaks(String value) {
+                if (value == null) {
+                        return "";
+                }
+                return escapeHtml(value).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br/>");
+        }
+
         private String projectSelectHref(ProjectHealthPageModel model, int projectId) {
                 StringBuilder href = new StringBuilder("ProjectHealthServlet?projectId=")
                                 .append(projectId);
                 if (model != null && model.isPatchTagMode() && model.getSelectedPatchTagKey() != null) {
                         href.append("&patchTag=").append(escapeUrl(model.getSelectedPatchTagKey()));
+                }
+                if (model != null && model.getSelectedPrivateProjectId() != null
+                                && model.getSelectedPrivateProjectId().intValue() > 0) {
+                        href.append("&privateProjectId=").append(model.getSelectedPrivateProjectId().intValue());
                 }
                 return href.toString();
         }
@@ -1294,6 +1980,30 @@ public class ProjectHealthPageRenderer {
 
         private String n(String value) {
                 return value == null ? "" : value;
+        }
+
+        private List<String> splitNonEmptyLines(String value) {
+                List<String> lines = new ArrayList<String>();
+                if (value == null || value.trim().length() == 0) {
+                        return lines;
+                }
+                String[] parts = value.split("\\r?\\n");
+                for (String part : parts) {
+                        if (part == null) {
+                                continue;
+                        }
+                        String trimmed = part.trim();
+                        if (trimmed.length() == 0) {
+                                continue;
+                        }
+                        if (trimmed.startsWith("- ")) {
+                                trimmed = trimmed.substring(2).trim();
+                        }
+                        if (trimmed.length() > 0) {
+                                lines.add(trimmed);
+                        }
+                }
+                return lines;
         }
 
         private String joinIntegerList(List<Integer> values) {

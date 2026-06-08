@@ -1691,6 +1691,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                     appReq.getRequest().getParameter("projectHandle"), projectName, 60);
             String projectIcon = clip(appReq.getRequest().getParameter("projectIcon"), 8);
             String description = clip(appReq.getRequest().getParameter("description"), 1200);
+            String currentFocusText = clip(appReq.getRequest().getParameter("currentFocusText"), 12000);
             String outcomeText = clip(appReq.getRequest().getParameter("outcomeText"), 12000);
             String successCriteriaText = clip(appReq.getRequest().getParameter("successCriteriaText"), 12000);
             String projectStatus = clip(appReq.getRequest().getParameter("projectStatus"), 20);
@@ -1792,6 +1793,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             project.setProjectIcon(projectIcon);
             project.setDescription(description);
+            project.setCurrentFocusText(currentFocusText.length() > 0 ? currentFocusText : null);
             // Collected now for future Project Health reporting and project briefing use.
             project.setOutcomeText(outcomeText.length() > 0 ? outcomeText : null);
             // Intentionally store raw newline-separated criteria text for now.

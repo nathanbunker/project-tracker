@@ -1847,6 +1847,13 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
 
                 out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Current Focus:</label>");
+                out.println(
+                                "        <textarea id=\"ddCurrentProjectCurrentFocusText\" name=\"currentFocusText\" class=\"dd-form-textarea\" rows=\"3\">"
+                                                + escapeHtml(safe(project.getCurrentFocusText())) + "</textarea>");
+                out.println("      </div>");
+
+                out.println("      <div class=\"dd-form-field\">");
                 out.println("        <label class=\"dd-form-label\">Project Outcome:</label>");
                 out.println(
                                 "        <textarea id=\"ddCurrentProjectOutcomeText\" name=\"outcomeText\" class=\"dd-form-textarea\" rows=\"4\">"
@@ -1939,6 +1946,7 @@ public class DashboardPageRenderer {
                 out.println("    priorityLevel: '" + project.getPriorityLevel() + "',");
                 out.println("    projectIcon: '" + escapeJsString(safe(project.getProjectIcon())) + "',");
                 out.println("    description: '" + escapeJsString(safe(project.getDescription())) + "',");
+                out.println("    currentFocusText: '" + escapeJsString(safe(project.getCurrentFocusText())) + "',");
                 out.println("    outcomeText: '" + escapeJsString(safe(project.getOutcomeText())) + "',");
                 out.println(
                                 "    successCriteriaText: '" + escapeJsString(safe(project.getSuccessCriteriaText()))
@@ -1973,6 +1981,8 @@ public class DashboardPageRenderer {
                                 "    document.getElementById('ddCurrentProjectIcon').value = ddCurrentProjectDefaults.projectIcon;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectDescription').value = ddCurrentProjectDefaults.description;");
+                out.println(
+                                "    document.getElementById('ddCurrentProjectCurrentFocusText').value = ddCurrentProjectDefaults.currentFocusText;");
                 out.println(
                                 "    document.getElementById('ddCurrentProjectOutcomeText').value = ddCurrentProjectDefaults.outcomeText;");
                 out.println(

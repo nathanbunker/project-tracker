@@ -6,11 +6,13 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionSet;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
@@ -116,9 +118,34 @@ public class ActionSentenceImportService {
                 workspaceIdOverride, true);
     }
 
+    public ActionNext buildActionFromSentenceForProject(WebUser webUser, Session dataSession,
+            Project defaultProject, String sentenceInput, Integer workspaceIdOverride) {
+        return buildActionFromSentence(webUser, dataSession, defaultProject, null, sentenceInput,
+                workspaceIdOverride, true, true);
+    }
+
+    public ActionNext buildActionFromSentenceForProject(WebUser webUser, Session dataSession,
+            Project defaultProject, String sentenceInput, Integer workspaceIdOverride,
+            boolean assignStandardActionSet) {
+        return buildActionFromSentence(webUser, dataSession, defaultProject, null, sentenceInput,
+                workspaceIdOverride, assignStandardActionSet, true);
+    }
+
+    public QuickCaptureActorResolution resolveProjectScopedActorForQuickCapture(WebUser webUser, Session dataSession,
+            Project project, String actionPart) {
+        return resolveProjectScopedActor(webUser, dataSession, project, actionPart);
+    }
+
     private ActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride,
             boolean assignStandardActionSet) {
+        return buildActionFromSentence(webUser, dataSession, defaultProject, projectList, sentenceInput,
+                workspaceIdOverride, assignStandardActionSet, false);
+    }
+
+    private ActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
+            Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride,
+            boolean assignStandardActionSet, boolean projectScoped) {
         if (sentenceInput == null || sentenceInput.trim().length() == 0) {
             return null;
         }
@@ -128,14 +155,16 @@ public class ActionSentenceImportService {
 
         String projectName = "";
         String actionPart = sentenceInput;
-        String[] parts = sentenceInput.split(":", 2);
-        if (parts.length == 2) {
-            projectName = parts[0].trim();
-            actionPart = parts[1].trim();
+        if (!projectScoped) {
+            String[] parts = sentenceInput.split(":", 2);
+            if (parts.length == 2) {
+                projectName = parts[0].trim();
+                actionPart = parts[1].trim();
+            }
         }
 
         Project foundProject = null;
-        if (projectName.length() > 0 && projectList != null) {
+        if (!projectScoped && projectName.length() > 0 && projectList != null) {
             for (Project project : projectList) {
                 if (project != null && project.getProjectName() != null
                         && project.getProjectName().equalsIgnoreCase(projectName)) {
@@ -149,8 +178,22 @@ public class ActionSentenceImportService {
                 return null;
             }
             foundProject = defaultProject;
-            if (projectName.length() > 0) {
+            if (!projectScoped && projectName.length() > 0) {
                 actionPart = projectName + " " + actionPart;
+            }
+        }
+
+        ProjectContact actorContact = webUser.getProjectContact();
+        if (projectScoped) {
+            QuickCaptureActorResolution actorResolution = resolveProjectScopedActor(webUser, dataSession,
+                    foundProject, actionPart);
+            if (actorResolution != null) {
+                if (actorResolution.isUnknownNamedContact()) {
+                    throw new IllegalArgumentException("Unknown workspace contact: "
+                            + actorResolution.getUnknownNamedContact());
+                }
+                actionPart = actorResolution.getNormalizedActionPart();
+                actorContact = actorResolution.getContact();
             }
         }
 
@@ -248,7 +291,10 @@ public class ActionSentenceImportService {
         ActionNext nextAction = new ActionNext();
         nextAction.setProject(foundProject);
         nextAction.setProjectId(foundProject.getProjectId());
-        nextAction.setContactId(webUser.getContactId());
+        nextAction.setContact(actorContact);
+        if (actorContact == null) {
+            nextAction.setContactId(null);
+        }
         Date actionDate = parseWhenToTakeAction(webUser, whenToTakeAction);
         if (actionVerb.equals("I will")) {
             nextAction.setNextActionType(ProjectNextActionType.WILL);
@@ -278,7 +324,7 @@ public class ActionSentenceImportService {
         Integer workspaceId = workspaceIdOverride != null ? workspaceIdOverride
                 : WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
         nextAction.setWorkspaceId(workspaceId);
-        nextAction.setContact(webUser.getProjectContact());
+        nextAction.setContact(actorContact);
         nextAction.setBillable(resolveBillable(dataSession, foundProject));
         if (extractedUrl != null && extractedUrl.length() > 0) {
             nextAction.setLinkUrl(extractedUrl);
@@ -297,6 +343,141 @@ public class ActionSentenceImportService {
             nextAction.setActionSet(new ActionSetDao(dataSession).createStandardActionSet(webUser));
         }
         return nextAction;
+    }
+
+    private QuickCaptureActorResolution resolveProjectScopedActor(WebUser webUser, Session dataSession,
+            Project project, String actionPart) {
+        if (webUser == null || dataSession == null || project == null || project.getWorkspaceId() == null
+                || actionPart == null) {
+            return null;
+        }
+
+        String trimmed = actionPart.trim();
+        if (trimmed.length() == 0) {
+            return null;
+        }
+
+        if (trimmed.equalsIgnoreCase("I") || trimmed.toLowerCase().startsWith("i ")) {
+            return new QuickCaptureActorResolution(QuickCaptureActorKind.CURRENT_USER,
+                    webUser.getProjectContact(), trimmed, null);
+        }
+
+        String[] tokens = trimmed.split("\\s+", 3);
+        if (tokens.length < 2) {
+            return new QuickCaptureActorResolution(QuickCaptureActorKind.IMPLICIT_CURRENT_USER,
+                    webUser.getProjectContact(), trimmed, null);
+        }
+
+        String actorToken = tokens[0].trim();
+        String verbToken = tokens[1].trim();
+        if (!verbToken.equalsIgnoreCase("will") && !verbToken.equalsIgnoreCase("have")
+                && !verbToken.equalsIgnoreCase("has") && !verbToken.equalsIgnoreCase("am")
+                && !verbToken.equalsIgnoreCase("is") && !verbToken.equalsIgnoreCase("might")
+                && !verbToken.equalsIgnoreCase("would")) {
+            return new QuickCaptureActorResolution(QuickCaptureActorKind.IMPLICIT_CURRENT_USER,
+                    webUser.getProjectContact(), trimmed, null);
+        }
+
+        if (actorToken.equalsIgnoreCase("Someone")) {
+            String normalized = normalizeActorPrefixedAction(actorToken, trimmed);
+            return new QuickCaptureActorResolution(QuickCaptureActorKind.SOMEONE,
+                    null, normalized, null);
+        }
+
+        Query query = dataSession.createQuery(
+                "from ProjectContact where workspaceId = :workspaceId and contactStatus = :contactStatus order by nameFirst, nameLast");
+        query.setParameter("workspaceId", project.getWorkspaceId());
+        query.setParameter("contactStatus", ProjectContact.STATUS_ACTIVE);
+        @SuppressWarnings("unchecked")
+        List<ProjectContact> contacts = query.list();
+        for (ProjectContact contact : contacts) {
+            if (contact != null && contact.getNameFirst() != null
+                    && contact.getNameFirst().trim().equalsIgnoreCase(actorToken)) {
+                String normalized = normalizeActorPrefixedAction(actorToken, trimmed);
+                return new QuickCaptureActorResolution(QuickCaptureActorKind.NAMED_CONTACT,
+                        contact, normalized, null);
+            }
+        }
+
+        return new QuickCaptureActorResolution(QuickCaptureActorKind.UNKNOWN_NAMED_CONTACT,
+                null, trimmed, actorToken);
+    }
+
+    private String normalizeActorPrefixedAction(String actorToken, String trimmed) {
+        String afterActor = trimmed.substring(actorToken.length()).trim();
+        String lowerAfterActor = afterActor.toLowerCase();
+        if (lowerAfterActor.startsWith("has committed ")) {
+            return "I have committed " + afterActor.substring("has committed ".length()).trim();
+        }
+        if (lowerAfterActor.startsWith("have committed ")) {
+            return "I have committed " + afterActor.substring("have committed ".length()).trim();
+        }
+        if (lowerAfterActor.startsWith("has set goal to ")) {
+            return "I have set goal to " + afterActor.substring("has set goal to ".length()).trim();
+        }
+        if (lowerAfterActor.startsWith("have set goal to ")) {
+            return "I have set goal to " + afterActor.substring("have set goal to ".length()).trim();
+        }
+        if (lowerAfterActor.startsWith("is waiting")) {
+            return "I am waiting" + afterActor.substring("is waiting".length());
+        }
+        if (lowerAfterActor.startsWith("am waiting")) {
+            return "I am waiting" + afterActor.substring("am waiting".length());
+        }
+        if (lowerAfterActor.startsWith("would like to")) {
+            return "I would like to" + afterActor.substring("would like to".length());
+        }
+        if (lowerAfterActor.startsWith("will ")) {
+            return "I will " + afterActor.substring("will ".length()).trim();
+        }
+        if (lowerAfterActor.startsWith("might ")) {
+            return "I might " + afterActor.substring("might ".length()).trim();
+        }
+        return "I " + afterActor;
+    }
+
+    public static enum QuickCaptureActorKind {
+        IMPLICIT_CURRENT_USER,
+        CURRENT_USER,
+        SOMEONE,
+        NAMED_CONTACT,
+        UNKNOWN_NAMED_CONTACT
+    }
+
+    public static class QuickCaptureActorResolution {
+        private final QuickCaptureActorKind actorKind;
+        private final ProjectContact contact;
+        private final String normalizedActionPart;
+        private final String unknownNamedContact;
+
+        public QuickCaptureActorResolution(QuickCaptureActorKind actorKind, ProjectContact contact,
+                String normalizedActionPart,
+                String unknownNamedContact) {
+            this.actorKind = actorKind;
+            this.contact = contact;
+            this.normalizedActionPart = normalizedActionPart;
+            this.unknownNamedContact = unknownNamedContact;
+        }
+
+        public QuickCaptureActorKind getActorKind() {
+            return actorKind;
+        }
+
+        public ProjectContact getContact() {
+            return contact;
+        }
+
+        public String getNormalizedActionPart() {
+            return normalizedActionPart;
+        }
+
+        public boolean isUnknownNamedContact() {
+            return unknownNamedContact != null && unknownNamedContact.trim().length() > 0;
+        }
+
+        public String getUnknownNamedContact() {
+            return unknownNamedContact;
+        }
     }
 
     private boolean resolveBillable(Session dataSession, Project project) {

@@ -10,6 +10,243 @@ import org.openimmunizationsoftware.pt.model.ProjectTag;
 
 public class ProjectHealthPageModel {
 
+    public static class SharedProjectFactItemModel {
+        private int projectFactDefinitionId;
+        private String factLabel = "";
+        private boolean checked;
+
+        public int getProjectFactDefinitionId() {
+            return projectFactDefinitionId;
+        }
+
+        public void setProjectFactDefinitionId(int projectFactDefinitionId) {
+            this.projectFactDefinitionId = projectFactDefinitionId;
+        }
+
+        public String getFactLabel() {
+            return factLabel;
+        }
+
+        public void setFactLabel(String factLabel) {
+            this.factLabel = factLabel;
+        }
+
+        public boolean isChecked() {
+            return checked;
+        }
+
+        public void setChecked(boolean checked) {
+            this.checked = checked;
+        }
+    }
+
+    public static class SharedProjectFactGroupModel {
+        private String factGroup = "";
+        private int checkedCount;
+        private int totalCount;
+        private List<SharedProjectFactItemModel> items = new ArrayList<SharedProjectFactItemModel>();
+
+        public String getFactGroup() {
+            return factGroup;
+        }
+
+        public void setFactGroup(String factGroup) {
+            this.factGroup = factGroup;
+        }
+
+        public int getCheckedCount() {
+            return checkedCount;
+        }
+
+        public void setCheckedCount(int checkedCount) {
+            this.checkedCount = checkedCount;
+        }
+
+        public int getTotalCount() {
+            return totalCount;
+        }
+
+        public void setTotalCount(int totalCount) {
+            this.totalCount = totalCount;
+        }
+
+        public List<SharedProjectFactItemModel> getItems() {
+            return items;
+        }
+
+        public void setItems(List<SharedProjectFactItemModel> items) {
+            this.items = items;
+        }
+    }
+
+    public static class OpenActionActorOptionModel {
+        private Integer contactId;
+        private String label = "";
+
+        public Integer getContactId() {
+            return contactId;
+        }
+
+        public void setContactId(Integer contactId) {
+            this.contactId = contactId;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public void setLabel(String label) {
+            this.label = label;
+        }
+    }
+
+    public static class OpenActionItemModel {
+        private int actionNextId;
+        private Integer actorContactId;
+        private String actorDisplay = "";
+        private String sentenceHtml = "";
+        private String nextActionType = "";
+        private String nextDescription = "";
+        private String nextActionDateLabel = "";
+        private String nextActionDateInput = "";
+        private Integer nextTimeEstimate;
+        private String nextTimeEstimateLabel = "";
+        private String targetDateLabel = "";
+        private String deadlineDateLabel = "";
+        private int priorityLevel;
+        private int completionOrder;
+        private boolean linkedToSelectedPrivate;
+        private Integer linkedPrivateActionNextId;
+
+        public int getActionNextId() {
+            return actionNextId;
+        }
+
+        public void setActionNextId(int actionNextId) {
+            this.actionNextId = actionNextId;
+        }
+
+        public Integer getActorContactId() {
+            return actorContactId;
+        }
+
+        public void setActorContactId(Integer actorContactId) {
+            this.actorContactId = actorContactId;
+        }
+
+        public String getActorDisplay() {
+            return actorDisplay;
+        }
+
+        public void setActorDisplay(String actorDisplay) {
+            this.actorDisplay = actorDisplay;
+        }
+
+        public String getSentenceHtml() {
+            return sentenceHtml;
+        }
+
+        public void setSentenceHtml(String sentenceHtml) {
+            this.sentenceHtml = sentenceHtml;
+        }
+
+        public String getNextActionType() {
+            return nextActionType;
+        }
+
+        public void setNextActionType(String nextActionType) {
+            this.nextActionType = nextActionType;
+        }
+
+        public String getNextDescription() {
+            return nextDescription;
+        }
+
+        public void setNextDescription(String nextDescription) {
+            this.nextDescription = nextDescription;
+        }
+
+        public String getNextActionDateLabel() {
+            return nextActionDateLabel;
+        }
+
+        public void setNextActionDateLabel(String nextActionDateLabel) {
+            this.nextActionDateLabel = nextActionDateLabel;
+        }
+
+        public String getNextActionDateInput() {
+            return nextActionDateInput;
+        }
+
+        public void setNextActionDateInput(String nextActionDateInput) {
+            this.nextActionDateInput = nextActionDateInput;
+        }
+
+        public Integer getNextTimeEstimate() {
+            return nextTimeEstimate;
+        }
+
+        public void setNextTimeEstimate(Integer nextTimeEstimate) {
+            this.nextTimeEstimate = nextTimeEstimate;
+        }
+
+        public String getNextTimeEstimateLabel() {
+            return nextTimeEstimateLabel;
+        }
+
+        public void setNextTimeEstimateLabel(String nextTimeEstimateLabel) {
+            this.nextTimeEstimateLabel = nextTimeEstimateLabel;
+        }
+
+        public String getTargetDateLabel() {
+            return targetDateLabel;
+        }
+
+        public void setTargetDateLabel(String targetDateLabel) {
+            this.targetDateLabel = targetDateLabel;
+        }
+
+        public String getDeadlineDateLabel() {
+            return deadlineDateLabel;
+        }
+
+        public void setDeadlineDateLabel(String deadlineDateLabel) {
+            this.deadlineDateLabel = deadlineDateLabel;
+        }
+
+        public int getPriorityLevel() {
+            return priorityLevel;
+        }
+
+        public void setPriorityLevel(int priorityLevel) {
+            this.priorityLevel = priorityLevel;
+        }
+
+        public int getCompletionOrder() {
+            return completionOrder;
+        }
+
+        public void setCompletionOrder(int completionOrder) {
+            this.completionOrder = completionOrder;
+        }
+
+        public boolean isLinkedToSelectedPrivate() {
+            return linkedToSelectedPrivate;
+        }
+
+        public void setLinkedToSelectedPrivate(boolean linkedToSelectedPrivate) {
+            this.linkedToSelectedPrivate = linkedToSelectedPrivate;
+        }
+
+        public Integer getLinkedPrivateActionNextId() {
+            return linkedPrivateActionNextId;
+        }
+
+        public void setLinkedPrivateActionNextId(Integer linkedPrivateActionNextId) {
+            this.linkedPrivateActionNextId = linkedPrivateActionNextId;
+        }
+    }
+
     public static final String LEFT_PANEL_MODE_PRIVATE = "PRIVATE";
     public static final String LEFT_PANEL_MODE_PATCH_SUMMARY = "PATCH_SUMMARY";
     public static final String LEFT_PANEL_MODE_PATCH_TAG = "PATCH_TAG";
@@ -28,6 +265,16 @@ public class ProjectHealthPageModel {
     private List<ProjectPatchLinkDisplayModel> projectPatchLinks = new ArrayList<ProjectPatchLinkDisplayModel>();
     private List<Project> availablePatchProjects = new ArrayList<Project>();
     private List<ProjectTag> availablePatchTags = new ArrayList<ProjectTag>();
+    private List<Project> linkedPrivateProjects = new ArrayList<Project>();
+    private List<Project> candidatePrivateProjects = new ArrayList<Project>();
+    private Integer selectedPrivateProjectId;
+    private Project selectedPrivateProject;
+    private Integer openActionEditActionNextId;
+    private boolean openActionsNeedsPrivateTargetSelection;
+    private List<OpenActionActorOptionModel> openActionActorOptions = new ArrayList<OpenActionActorOptionModel>();
+    private List<OpenActionItemModel> openScheduledActions = new ArrayList<OpenActionItemModel>();
+    private List<OpenActionItemModel> openUnscheduledActions = new ArrayList<OpenActionItemModel>();
+    private List<SharedProjectFactGroupModel> sharedProjectFactGroups = new ArrayList<SharedProjectFactGroupModel>();
 
     private List<ProjectCadenceGroupModel> workProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
     private List<ProjectCadenceGroupModel> personalProjectGroups = new ArrayList<ProjectCadenceGroupModel>();
@@ -236,6 +483,86 @@ public class ProjectHealthPageModel {
 
     public void setAvailablePatchTags(List<ProjectTag> availablePatchTags) {
         this.availablePatchTags = availablePatchTags;
+    }
+
+    public List<Project> getLinkedPrivateProjects() {
+        return linkedPrivateProjects;
+    }
+
+    public void setLinkedPrivateProjects(List<Project> linkedPrivateProjects) {
+        this.linkedPrivateProjects = linkedPrivateProjects;
+    }
+
+    public List<Project> getCandidatePrivateProjects() {
+        return candidatePrivateProjects;
+    }
+
+    public void setCandidatePrivateProjects(List<Project> candidatePrivateProjects) {
+        this.candidatePrivateProjects = candidatePrivateProjects;
+    }
+
+    public Integer getSelectedPrivateProjectId() {
+        return selectedPrivateProjectId;
+    }
+
+    public void setSelectedPrivateProjectId(Integer selectedPrivateProjectId) {
+        this.selectedPrivateProjectId = selectedPrivateProjectId;
+    }
+
+    public Project getSelectedPrivateProject() {
+        return selectedPrivateProject;
+    }
+
+    public void setSelectedPrivateProject(Project selectedPrivateProject) {
+        this.selectedPrivateProject = selectedPrivateProject;
+    }
+
+    public Integer getOpenActionEditActionNextId() {
+        return openActionEditActionNextId;
+    }
+
+    public void setOpenActionEditActionNextId(Integer openActionEditActionNextId) {
+        this.openActionEditActionNextId = openActionEditActionNextId;
+    }
+
+    public boolean isOpenActionsNeedsPrivateTargetSelection() {
+        return openActionsNeedsPrivateTargetSelection;
+    }
+
+    public void setOpenActionsNeedsPrivateTargetSelection(boolean openActionsNeedsPrivateTargetSelection) {
+        this.openActionsNeedsPrivateTargetSelection = openActionsNeedsPrivateTargetSelection;
+    }
+
+    public List<OpenActionActorOptionModel> getOpenActionActorOptions() {
+        return openActionActorOptions;
+    }
+
+    public void setOpenActionActorOptions(List<OpenActionActorOptionModel> openActionActorOptions) {
+        this.openActionActorOptions = openActionActorOptions;
+    }
+
+    public List<OpenActionItemModel> getOpenScheduledActions() {
+        return openScheduledActions;
+    }
+
+    public void setOpenScheduledActions(List<OpenActionItemModel> openScheduledActions) {
+        this.openScheduledActions = openScheduledActions;
+    }
+
+    public List<OpenActionItemModel> getOpenUnscheduledActions() {
+        return openUnscheduledActions;
+    }
+
+    public void setOpenUnscheduledActions(List<OpenActionItemModel> openUnscheduledActions) {
+        this.openUnscheduledActions = openUnscheduledActions;
+    }
+
+    public List<SharedProjectFactGroupModel> getSharedProjectFactGroups() {
+        return sharedProjectFactGroups;
+    }
+
+    public void setSharedProjectFactGroups(List<SharedProjectFactGroupModel> sharedProjectFactGroups) {
+        this.sharedProjectFactGroups = sharedProjectFactGroups;
     }
 
     public String getLeftPanelMode() {

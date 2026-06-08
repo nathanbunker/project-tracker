@@ -1,5 +1,8 @@
 ALTER TABLE action_next MODIFY contact_id INT NULL;
 
+ALTER TABLE project
+  ADD COLUMN current_focus_text TEXT NULL;
+
 CREATE TABLE `project_fact_definition` (
   `project_fact_definition_id` int NOT NULL AUTO_INCREMENT,
   `workspace_id` int NOT NULL,

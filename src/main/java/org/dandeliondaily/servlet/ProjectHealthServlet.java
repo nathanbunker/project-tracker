@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Date;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -24,6 +25,7 @@ import javax.servlet.http.Part;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.render.ProjectHealthPageRenderer;
+import org.dandeliondaily.projecthealth.service.ProjectFactValueService;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.ActionNext;
@@ -34,7 +36,9 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectFactDefinitionDao;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
+import org.openimmunizationsoftware.pt.model.ProjectFactValue;
 import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.Workspace;
@@ -47,6 +51,7 @@ public class ProjectHealthServlet extends ClientServlet {
     private static final String SESSION_PROJECT_HEALTH_CONTEXT_WORKSPACE_ID = "projectHealthContextWorkspaceId";
 
     private final ProjectHealthPageService pageService = new ProjectHealthPageService();
+    private final ProjectFactValueService projectFactValueService = new ProjectFactValueService();
     private final ProjectHealthPageRenderer pageRenderer = new ProjectHealthPageRenderer();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -112,6 +117,39 @@ public class ProjectHealthServlet extends ClientServlet {
                 handleRemoveProjectPatchLink(appReq);
                 return;
             }
+            if ("linkPrivateProjectToSharedProject".equals(action)) {
+                handleLinkPrivateProjectToSharedProject(appReq,
+                        normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
+            if ("quickCapture".equals(action)) {
+                handleQuickCapture(appReq, contextWorkspaceId, normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
+            if ("saveSharedOpenActionEdit".equals(action)) {
+                handleSaveSharedOpenActionEdit(appReq, contextWorkspaceId,
+                        normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
+            if ("adoptSharedOpenAction".equals(action)) {
+                handleAdoptSharedOpenAction(appReq, contextWorkspaceId,
+                        normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
+            if ("cancelSharedOpenAction".equals(action)) {
+                handleCancelSharedOpenAction(appReq, contextWorkspaceId,
+                        normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
+            if ("saveProjectDefinitionField".equals(action)) {
+                handleSaveProjectDefinitionField(appReq, normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
+            if ("toggleSharedProjectFact".equals(action)) {
+                handleToggleSharedProjectFact(appReq, contextWorkspaceId,
+                        normalizePatchTagKey(request.getParameter("patchTag")));
+                return;
+            }
             if ("saveFactDefinition".equals(action)) {
                 handleSaveFactDefinition(appReq);
                 return;
@@ -133,6 +171,7 @@ public class ProjectHealthServlet extends ClientServlet {
             String selectedPatchTagKey = normalizePatchTagKey(request.getParameter("patchTag"));
             ProjectHealthPageModel model = pageService.buildModel(appReq, contextWorkspaceId, patchWorkspaces,
                     selectedPatchTagKey);
+            applyQuickCaptureFlashMessages(appReq, request);
             boolean factsMode = "editFacts".equals(action);
             if (factsMode) {
                 Integer selectedFactDefinitionId = parseInteger(request.getParameter("factDefinitionId"));
@@ -967,6 +1006,395 @@ public class ProjectHealthServlet extends ClientServlet {
                 Integer.valueOf(factDefinition.getProjectFactDefinitionId()), factDefinition.getFactGroup());
     }
 
+    private void handleQuickCapture(AppReq appReq, Integer contextWorkspaceId, String patchTagKey) throws IOException {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        Integer projectId = parseInteger(projectIdStr);
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        String sentenceInput = safeText(appReq.getRequest().getParameter("sentenceInput"));
+
+        if (contextWorkspaceId == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Quick capture is only available for shared patch projects.", true);
+            return;
+        }
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project is required for quick capture.", true);
+            return;
+        }
+
+        try {
+            String message = pageService.saveQuickCaptureForSelectedProject(appReq, projectId.intValue(),
+                    privateProjectId, sentenceInput);
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, message, false);
+        } catch (IllegalArgumentException iae) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, iae.getMessage(), true);
+        } catch (Exception e) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to save quick capture: " + e.getMessage(), true);
+        }
+    }
+
+    private void handleSaveSharedOpenActionEdit(AppReq appReq, Integer contextWorkspaceId, String patchTagKey)
+            throws IOException {
+        Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
+        Integer actionNextId = parseInteger(appReq.getRequest().getParameter("actionNextId"));
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        if (contextWorkspaceId == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Open Actions are only available for shared patch projects.", true);
+            return;
+        }
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project is required.", true);
+            return;
+        }
+        if (actionNextId == null || actionNextId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Action is required.", true);
+            return;
+        }
+
+        String actorContactId = appReq.getRequest().getParameter("actorContactId");
+        String nextActionType = safeText(appReq.getRequest().getParameter("nextActionType"));
+        String nextDescription = safeText(appReq.getRequest().getParameter("nextDescription"));
+        String nextActionDate = safeText(appReq.getRequest().getParameter("nextActionDate"));
+        String nextTimeEstimate = safeText(appReq.getRequest().getParameter("nextTimeEstimate"));
+        String priorityLevel = safeText(appReq.getRequest().getParameter("priorityLevel"));
+        String completionOrder = safeText(appReq.getRequest().getParameter("completionOrder"));
+
+        try {
+            String message = pageService.updateSharedOpenAction(appReq, projectId.intValue(), actionNextId.intValue(),
+                    actorContactId, nextActionType, nextDescription, nextActionDate, nextTimeEstimate,
+                    priorityLevel, completionOrder);
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, message, false);
+        } catch (IllegalArgumentException iae) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, iae.getMessage(), true);
+        } catch (Exception e) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to update shared action: " + safeText(e.getMessage()), true);
+        }
+    }
+
+    private void handleAdoptSharedOpenAction(AppReq appReq, Integer contextWorkspaceId, String patchTagKey)
+            throws IOException {
+        Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
+        Integer actionNextId = parseInteger(appReq.getRequest().getParameter("actionNextId"));
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        if (contextWorkspaceId == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Open Actions are only available for shared patch projects.", true);
+            return;
+        }
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project is required.", true);
+            return;
+        }
+        if (actionNextId == null || actionNextId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Action is required.", true);
+            return;
+        }
+
+        try {
+            String message = pageService.adoptSharedOpenAction(appReq, projectId.intValue(), actionNextId.intValue(),
+                    privateProjectId);
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, message, false);
+        } catch (IllegalArgumentException iae) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, iae.getMessage(), true);
+        } catch (Exception e) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to adopt shared action: " + safeText(e.getMessage()), true);
+        }
+    }
+
+    private void handleCancelSharedOpenAction(AppReq appReq, Integer contextWorkspaceId, String patchTagKey)
+            throws IOException {
+        Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
+        Integer actionNextId = parseInteger(appReq.getRequest().getParameter("actionNextId"));
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        if (contextWorkspaceId == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Open Actions are only available for shared patch projects.", true);
+            return;
+        }
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project is required.", true);
+            return;
+        }
+        if (actionNextId == null || actionNextId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Action is required.", true);
+            return;
+        }
+
+        try {
+            String message = pageService.cancelSharedOpenAction(appReq, projectId.intValue(), actionNextId.intValue());
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, message, false);
+        } catch (IllegalArgumentException iae) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, iae.getMessage(), true);
+        } catch (Exception e) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to cancel shared action: " + safeText(e.getMessage()), true);
+        }
+    }
+
+    private void handleLinkPrivateProjectToSharedProject(AppReq appReq, String patchTagKey) throws IOException {
+        Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Project is required.",
+                    true);
+            return;
+        }
+        if (privateProjectId == null || privateProjectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Choose a private project to link.", true);
+            return;
+        }
+        if (appReq.getActiveWorkspaceId() == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Workspace is required.",
+                    true);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project sharedProject = (Project) dataSession.get(Project.class, projectId.intValue());
+        if (sharedProject == null || sharedProject.getWorkspaceId() == null
+                || !sharedProject.getWorkspaceId().equals(appReq.getActiveWorkspaceId())) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Shared project was not found.", true);
+            return;
+        }
+
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession,
+                webUser.getWebUserId());
+        Project privateProject = (Project) dataSession.get(Project.class, privateProjectId.intValue());
+        if (privateWorkspaceId == null || privateProject == null || privateProject.getWorkspaceId() == null
+                || !privateProject.getWorkspaceId().equals(privateWorkspaceId)) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Private project was not found.", true);
+            return;
+        }
+        if (privateProject.getLinkedPatchWorkspaceId() != null
+                && !privateProject.getLinkedPatchWorkspaceId().equals(appReq.getActiveWorkspaceId())) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Private project is already linked to a different patch workspace.", true);
+            return;
+        }
+
+        ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.directLinkExists(privateProjectId.intValue(), projectId.intValue())) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Private project already linked.", false);
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            if (privateProject.getLinkedPatchWorkspaceId() == null) {
+                privateProject.setLinkedPatchWorkspaceId(appReq.getActiveWorkspaceId());
+            }
+            if (webUser != null) {
+                privateProject.setLastModifiedByWebUserId(Integer.valueOf(webUser.getWebUserId()));
+            }
+            dataSession.saveOrUpdate(privateProject);
+
+            ProjectPatchLink link = new ProjectPatchLink();
+            link.setPrivateProjectId(privateProjectId.intValue());
+            link.setPatchWorkspaceId(appReq.getActiveWorkspaceId().intValue());
+            link.setLinkType(ProjectPatchLink.LINK_TYPE_DIRECT_PROJECT);
+            link.setLinkedPatchProjectId(projectId.intValue());
+            link.setCreatedByWebUserId(webUser.getWebUserId());
+            link.setCreatedDate(new java.util.Date());
+            dao.save(link);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to link private project: " + safeText(e.getMessage()), true);
+            return;
+        }
+
+        redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Private project linked.", false);
+    }
+
+    private void handleSaveProjectDefinitionField(AppReq appReq, String patchTagKey) throws IOException {
+        Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        String fieldName = normalizeProjectDefinitionField(appReq.getRequest().getParameter("fieldName"));
+        String fieldValue = clipAllowNull(appReq.getRequest().getParameter("fieldValue"), 12000);
+
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Project is required.", true);
+            return;
+        }
+        if (fieldName == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project definition field is invalid.", true);
+            return;
+        }
+        if (appReq.getActiveWorkspaceId() == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Workspace is required.", true);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Project project = (Project) dataSession.get(Project.class, projectId.intValue());
+        if (project == null || project.getWorkspaceId() == null
+                || !project.getWorkspaceId().equals(appReq.getActiveWorkspaceId())) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Project was not found.", true);
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            applyProjectDefinitionField(project, fieldName, fieldValue);
+            if (appReq.getWebUser() != null) {
+                project.setLastModifiedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+            }
+            dataSession.saveOrUpdate(project);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to save project definition: " + safeText(e.getMessage()), true);
+            return;
+        }
+
+        redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Project definition saved.", false);
+    }
+
+    private void handleToggleSharedProjectFact(AppReq appReq, Integer contextWorkspaceId, String patchTagKey)
+            throws IOException {
+        Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
+        Integer privateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        Integer factDefinitionId = parseInteger(appReq.getRequest().getParameter("factDefinitionId"));
+        boolean checked = "Y".equalsIgnoreCase(safeText(appReq.getRequest().getParameter("factChecked")))
+                || "true".equalsIgnoreCase(safeText(appReq.getRequest().getParameter("factChecked")));
+
+        if (contextWorkspaceId == null) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project Facts are only available for shared patch projects.", true);
+            return;
+        }
+        if (projectId == null || projectId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Project is required.", true);
+            return;
+        }
+        if (factDefinitionId == null || factDefinitionId.intValue() <= 0) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Fact definition is required.", true);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Project project = (Project) dataSession.get(Project.class, projectId.intValue());
+        if (project == null || project.getWorkspaceId() == null
+                || !project.getWorkspaceId().equals(contextWorkspaceId)) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Shared project was not found.", true);
+            return;
+        }
+
+        ProjectFactDefinitionDao definitionDao = new ProjectFactDefinitionDao(dataSession);
+        ProjectFactDefinition definition = definitionDao.getById(factDefinitionId.intValue());
+        if (definition == null
+                || definition.getWorkspaceId() != contextWorkspaceId.intValue()) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Fact definition was not found in this workspace.", true);
+            return;
+        }
+        if (!ProjectFactDefinition.ACTIVE_YES.equalsIgnoreCase(safeText(definition.getActive()))) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Only active fact definitions can be edited.", true);
+            return;
+        }
+        if (!ProjectFactDefinition.INPUT_TYPE_BOOLEAN.equalsIgnoreCase(safeText(definition.getFactInputType()))) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Only boolean facts can be edited in this checklist.", true);
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            if (checked) {
+                ProjectFactValueService.ProjectFactValueUpdate update = new ProjectFactValueService.ProjectFactValueUpdate();
+                update.setValueBoolean(ProjectFactValue.BOOLEAN_YES);
+                projectFactValueService.setFactValue(dataSession, projectId.intValue(), factDefinitionId.intValue(),
+                        update, Integer.valueOf(appReq.getWebUser().getWebUserId()), new java.util.Date());
+
+                Project currentTargetProject = resolveCurrentTargetProjectForFactLog(dataSession, appReq.getWebUser(),
+                        privateProjectId);
+                Date now = new java.util.Date();
+                saveFactCheckedActionTaken(dataSession, appReq.getWebUser(), project, definition, now);
+                if (currentTargetProject != null) {
+                    saveFactCheckedActionTaken(dataSession, appReq.getWebUser(), currentTargetProject, definition,
+                            now);
+                }
+            } else {
+                projectFactValueService.clearFactValue(dataSession, projectId.intValue(), factDefinitionId.intValue());
+            }
+            transaction.commit();
+        } catch (IllegalArgumentException iae) {
+            transaction.rollback();
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, safeText(iae.getMessage()),
+                    true);
+            return;
+        } catch (Exception e) {
+            transaction.rollback();
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Unable to update project fact: " + safeText(e.getMessage()), true);
+            return;
+        }
+
+        redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, null, false);
+    }
+
+    private Project resolveCurrentTargetProjectForFactLog(Session dataSession, WebUser webUser,
+            Integer privateProjectId) {
+        if (dataSession == null || webUser == null || privateProjectId == null || privateProjectId.intValue() <= 0) {
+            return null;
+        }
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
+        if (privateWorkspaceId == null) {
+            return null;
+        }
+        Project privateProject = (Project) dataSession.get(Project.class, privateProjectId.intValue());
+        if (privateProject == null || privateProject.getWorkspaceId() == null
+                || !privateProject.getWorkspaceId().equals(privateWorkspaceId)) {
+            return null;
+        }
+        return privateProject;
+    }
+
+    private void saveFactCheckedActionTaken(Session dataSession, WebUser webUser, Project project,
+            ProjectFactDefinition definition, Date now) {
+        if (dataSession == null || webUser == null || project == null || definition == null
+                || project.getWorkspaceId() == null) {
+            return;
+        }
+        String description = safeText(definition.getFactLabel()).trim();
+        if (description.length() == 0) {
+            return;
+        }
+
+        ActionTaken actionTaken = new ActionTaken();
+        actionTaken.setProject(project);
+        actionTaken.setProjectId(project.getProjectId());
+        actionTaken.setActionDate(now == null ? new Date() : now);
+        actionTaken.setActionDescription(description);
+        actionTaken.setWorkspaceId(project.getWorkspaceId());
+        actionTaken.setContact(webUser.getProjectContact());
+        actionTaken.setContactId(webUser.getContactId());
+        dataSession.save(actionTaken);
+    }
+
     private void redirectToFacts(AppReq appReq, String message, boolean error, Integer factDefinitionId,
             String factGroup) throws IOException {
         StringBuilder url = new StringBuilder("ProjectHealthServlet?action=editFacts");
@@ -981,6 +1409,47 @@ public class ProjectHealthServlet extends ClientServlet {
             url.append("&factGroup=").append(urlEncode(factGroup.trim()));
         }
         appReq.getResponse().sendRedirect(url.toString());
+    }
+
+    private void redirectToProjectHealth(AppReq appReq, Integer projectId, String patchTagKey,
+            Integer privateProjectId, String message, boolean error) throws IOException {
+        StringBuilder url = new StringBuilder("ProjectHealthServlet");
+        if (projectId != null && projectId.intValue() > 0) {
+            url.append("?projectId=").append(projectId.intValue());
+        }
+        if (patchTagKey != null && patchTagKey.trim().length() > 0) {
+            url.append(projectId != null && projectId.intValue() > 0 ? "&" : "?");
+            url.append("patchTag=").append(urlEncode(patchTagKey.trim()));
+        }
+        if (privateProjectId != null && privateProjectId.intValue() > 0) {
+            url.append(projectId != null && projectId.intValue() > 0
+                    || (patchTagKey != null && patchTagKey.trim().length() > 0)
+                            ? "&"
+                            : "?");
+            url.append("privateProjectId=").append(privateProjectId.intValue());
+        }
+        if (message != null && message.trim().length() > 0) {
+            url.append(projectId != null && projectId.intValue() > 0
+                    || (patchTagKey != null && patchTagKey.trim().length() > 0)
+                    || (privateProjectId != null && privateProjectId.intValue() > 0)
+                            ? "&"
+                            : "?");
+            url.append("quickCaptureMessage=").append(urlEncode(message.trim()));
+            url.append("&quickCaptureError=").append(error ? "Y" : "N");
+        }
+        appReq.getResponse().sendRedirect(url.toString());
+    }
+
+    private void applyQuickCaptureFlashMessages(AppReq appReq, HttpServletRequest request) {
+        String message = safeText(request.getParameter("quickCaptureMessage"));
+        if (message.length() == 0) {
+            return;
+        }
+        if ("Y".equalsIgnoreCase(request.getParameter("quickCaptureError"))) {
+            appReq.addErrorMessage(message);
+        } else {
+            appReq.addSuccessMessage(message);
+        }
     }
 
     private void sendJson(AppReq appReq, boolean success, String message, Map<String, Object> data) throws Exception {
@@ -1223,6 +1692,32 @@ public class ProjectHealthServlet extends ClientServlet {
             return normalized;
         }
         return null;
+    }
+
+    private String normalizeProjectDefinitionField(String value) {
+        String normalized = safeText(value).trim();
+        if ("currentFocusText".equals(normalized)
+                || "outcomeText".equals(normalized)
+                || "successCriteriaText".equals(normalized)) {
+            return normalized;
+        }
+        return null;
+    }
+
+    private void applyProjectDefinitionField(Project project, String fieldName, String fieldValue) {
+        if ("currentFocusText".equals(fieldName)) {
+            project.setCurrentFocusText(fieldValue);
+            return;
+        }
+        if ("outcomeText".equals(fieldName)) {
+            project.setOutcomeText(fieldValue);
+            return;
+        }
+        if ("successCriteriaText".equals(fieldName)) {
+            project.setSuccessCriteriaText(fieldValue);
+            return;
+        }
+        throw new IllegalArgumentException("Unknown project definition field");
     }
 
     private String clip(String value, int maxLength) {

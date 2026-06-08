@@ -15,6 +15,7 @@ public class Project implements java.io.Serializable {
   private String projectName;
   private String projectHandle;
   private String description;
+  private String currentFocusText;
   private String outcomeText;
   private String successCriteriaText;
   private String projectStatus;
@@ -90,6 +91,14 @@ public class Project implements java.io.Serializable {
 
   public void setDescription(String description) {
     this.description = description;
+  }
+
+  public String getCurrentFocusText() {
+    return this.currentFocusText;
+  }
+
+  public void setCurrentFocusText(String currentFocusText) {
+    this.currentFocusText = currentFocusText;
   }
 
   public String getOutcomeText() {

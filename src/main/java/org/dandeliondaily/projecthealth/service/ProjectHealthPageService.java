@@ -12,24 +12,37 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.dashboard.service.ActionSentenceImportService;
+import org.dandeliondaily.dashboard.service.ActionSentenceImportService.QuickCaptureActorKind;
+import org.dandeliondaily.dashboard.service.ActionSentenceImportService.QuickCaptureActorResolution;
 import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectCadenceGroupModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.model.ProjectTagSummaryRowModel;
 import org.dandeliondaily.projecthealth.model.ProjectReportModel;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 import org.openimmunizationsoftware.pt.doa.ProjectFactDefinitionDao;
+import org.openimmunizationsoftware.pt.doa.ProjectFactValueDao;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.ActionSet;
+import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.ProjectFactDefinition;
+import org.openimmunizationsoftware.pt.model.ProjectFactValue;
+import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
@@ -40,6 +53,7 @@ import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ReviewInterval;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -48,6 +62,10 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 public class ProjectHealthPageService {
 
     public static final String PARAM_PROJECT_ID = "projectId";
+    private static final String SESSION_PRIVATE_SELECTED_PROJECT_ID = "projectHealthPrivateSelectedProjectId";
+    private static final String SESSION_PATCH_SELECTED_TAG_PREFIX = "projectHealthPatchSelectedTag.";
+    private static final String SESSION_PATCH_SELECTED_PROJECT_PREFIX = "projectHealthPatchSelectedProject.";
+    private static final String SESSION_SHARED_COCKPIT_PRIVATE_PROJECT_PREFIX = "projectHealthSharedCockpitPrivateProject.";
     private static final String BUCKET_NONE = "NONE";
     private static final String STATUS_ACTIVE = ProjectStatus.ACTIVE.getDatabaseValue();
     private static final String STATUS_PAUSED = ProjectStatus.PAUSED.getDatabaseValue();
@@ -138,6 +156,7 @@ public class ProjectHealthPageService {
     public ProjectHealthPageModel buildModel(AppReq appReq, Integer contextWorkspaceId,
             List<Workspace> accessiblePatchWorkspaces, String selectedPatchTagKey) {
         ProjectHealthPageModel model = new ProjectHealthPageModel();
+        model.setOpenActionEditActionNextId(parseInteger(appReq.getRequest().getParameter("openActionEditId")));
         model.setContextWorkspaceId(contextWorkspaceId);
         model.setAccessiblePatchWorkspaces(accessiblePatchWorkspaces);
         model.setShowContextSelector(accessiblePatchWorkspaces != null && !accessiblePatchWorkspaces.isEmpty());
@@ -154,8 +173,17 @@ public class ProjectHealthPageService {
             selectedProject = buildPrivateLeftPanel(model, appReq, projects, displayNameByProjectId,
                     updateDueByProject, statsMap, dataSession, webUser);
         } else {
+            String effectivePatchTagKey = selectedPatchTagKey;
+            boolean patchTagParamPresent = appReq.getRequest() != null
+                    && appReq.getRequest().getParameterMap() != null
+                    && appReq.getRequest().getParameterMap().containsKey("patchTag");
+            if (patchTagParamPresent && (effectivePatchTagKey == null || effectivePatchTagKey.trim().length() == 0)) {
+                clearPatchSelectionState(appReq, contextWorkspaceId.intValue());
+            } else if (effectivePatchTagKey == null || effectivePatchTagKey.trim().length() == 0) {
+                effectivePatchTagKey = readPatchSelectedTag(appReq, contextWorkspaceId.intValue());
+            }
             selectedProject = buildPatchLeftPanel(model, appReq, projects, displayNameByProjectId,
-                    updateDueByProject, statsMap, dataSession, selectedPatchTagKey);
+                    updateDueByProject, statsMap, dataSession, effectivePatchTagKey);
         }
 
         populateSelectedProjectData(model, appReq, selectedProject, statsMap, displayNameByProjectId,
@@ -254,6 +282,7 @@ public class ProjectHealthPageService {
 
         String resolvedTagKey = resolvePatchTagSelection(summaryRows, selectedPatchTagKey);
         if (resolvedTagKey == null) {
+            clearPatchSelectionState(appReq, model.getContextWorkspaceId().intValue());
             model.setLeftPanelMode(ProjectHealthPageModel.LEFT_PANEL_MODE_PATCH_SUMMARY);
             model.setSelectedPatchTagKey(null);
             model.setSelectedPatchTagLabel(null);
@@ -272,10 +301,12 @@ public class ProjectHealthPageService {
         model.setLeftPanelMode(ProjectHealthPageModel.LEFT_PANEL_MODE_PATCH_TAG);
         model.setSelectedPatchTagKey(resolvedTagKey);
         model.setSelectedPatchTagLabel(selectedTagLabel);
+        writePatchSelectedTag(appReq, model.getContextWorkspaceId().intValue(), resolvedTagKey);
 
         List<Project> filteredProjects = filterProjectsForPatchTag(projects, dataSession,
                 model.getContextWorkspaceId().intValue(), resolvedTagKey);
-        int selectedProjectId = resolveSelectedProjectIdFromRequest(appReq, filteredProjects);
+        int selectedProjectId = resolveSelectedPatchProjectId(appReq, filteredProjects,
+                model.getContextWorkspaceId().intValue());
         model.setSelectedProjectId(selectedProjectId);
 
         List<ProjectCadenceGroupModel> groups = createCadenceGroups();
@@ -295,6 +326,11 @@ public class ProjectHealthPageService {
             }
         }
         model.setPatchTagProjectGroups(groups);
+        if (selectedProjectId > 0) {
+            writePatchSelectedProjectId(appReq, model.getContextWorkspaceId().intValue(), selectedProjectId);
+        } else {
+            clearPatchSelectedProjectId(appReq, model.getContextWorkspaceId().intValue());
+        }
         return selectedProject;
     }
 
@@ -321,6 +357,9 @@ public class ProjectHealthPageService {
 
         boolean isPersonal = isPersonalProject(selectedProject, dataSession);
         model.setSelectedProjectIsPersonal(isPersonal);
+        populateSharedProjectCockpitContext(model, appReq, selectedProject, dataSession);
+        populateSharedOpenActions(model, appReq, selectedProject, dataSession);
+        populateSharedProjectFacts(model, appReq, selectedProject, dataSession);
         boolean isInPrivateWorkspace = isProjectInPrivateWorkspace(selectedProject, dataSession);
         boolean patchLinksVisible = isInPrivateWorkspace
                 && accessiblePatchWorkspaces != null && !accessiblePatchWorkspaces.isEmpty();
@@ -373,6 +412,563 @@ public class ProjectHealthPageService {
             }
         }
         model.setAvailablePatchTags(patchTags);
+    }
+
+    private void populateSharedProjectCockpitContext(ProjectHealthPageModel model, AppReq appReq,
+            Project selectedProject, Session dataSession) {
+        if (model == null || appReq == null || appReq.getWebUser() == null || selectedProject == null
+                || !model.isPatchContext() || model.isPatchSummaryMode()) {
+            return;
+        }
+        if (selectedProject.getWorkspaceId() == null
+                || !selectedProject.getWorkspaceId().equals(model.getContextWorkspaceId())) {
+            return;
+        }
+
+        WebUser webUser = appReq.getWebUser();
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession,
+                webUser.getWebUserId());
+        if (privateWorkspaceId == null) {
+            return;
+        }
+
+        List<Project> candidatePrivateProjects = loadProjects(webUser, dataSession, privateWorkspaceId);
+        model.setCandidatePrivateProjects(candidatePrivateProjects);
+        Map<Integer, Project> candidateById = indexProjectsById(candidatePrivateProjects);
+
+        List<Project> linkedPrivateProjects = loadLinkedPrivateProjectsForSharedProject(dataSession,
+                selectedProject.getProjectId(), candidateById);
+        model.setLinkedPrivateProjects(linkedPrivateProjects);
+
+        Integer requestedPrivateProjectId = parseInteger(appReq.getRequest().getParameter("privateProjectId"));
+        if (requestedPrivateProjectId == null) {
+            requestedPrivateProjectId = readSharedCockpitSelectedPrivateProjectId(appReq,
+                    selectedProject.getProjectId());
+        }
+        Project selectedPrivateProject = resolveSelectedPrivateProject(linkedPrivateProjects, candidateById,
+                requestedPrivateProjectId);
+        if (selectedPrivateProject != null) {
+            model.setSelectedPrivateProject(selectedPrivateProject);
+            model.setSelectedPrivateProjectId(Integer.valueOf(selectedPrivateProject.getProjectId()));
+            writeSharedCockpitSelectedPrivateProjectId(appReq, selectedProject.getProjectId(),
+                    selectedPrivateProject.getProjectId());
+        } else if (requestedPrivateProjectId != null && candidateById.containsKey(requestedPrivateProjectId)) {
+            model.setSelectedPrivateProjectId(requestedPrivateProjectId);
+            writeSharedCockpitSelectedPrivateProjectId(appReq, selectedProject.getProjectId(),
+                    requestedPrivateProjectId.intValue());
+        } else {
+            clearSharedCockpitSelectedPrivateProjectId(appReq, selectedProject.getProjectId());
+        }
+    }
+
+    private void populateSharedOpenActions(ProjectHealthPageModel model, AppReq appReq,
+            Project selectedProject, Session dataSession) {
+        model.setOpenScheduledActions(new ArrayList<ProjectHealthPageModel.OpenActionItemModel>());
+        model.setOpenUnscheduledActions(new ArrayList<ProjectHealthPageModel.OpenActionItemModel>());
+        model.setOpenActionActorOptions(new ArrayList<ProjectHealthPageModel.OpenActionActorOptionModel>());
+        model.setOpenActionsNeedsPrivateTargetSelection(false);
+
+        if (model == null || appReq == null || appReq.getWebUser() == null || selectedProject == null
+                || !model.isPatchContext() || model.isPatchSummaryMode()) {
+            return;
+        }
+        if (selectedProject.getWorkspaceId() == null
+                || !selectedProject.getWorkspaceId().equals(model.getContextWorkspaceId())) {
+            return;
+        }
+
+        WebUser webUser = appReq.getWebUser();
+        List<ActionNext> scheduledRows = listOpenActionsForSharedProject(dataSession, selectedProject.getProjectId(),
+                true);
+        List<ActionNext> unscheduledRows = listOpenActionsForSharedProject(dataSession, selectedProject.getProjectId(),
+                false);
+
+        Set<Integer> actionSetIds = new HashSet<Integer>();
+        for (ActionNext row : scheduledRows) {
+            if (row.getActionSet() != null) {
+                actionSetIds.add(Integer.valueOf(row.getActionSet().getActionSetId()));
+            }
+        }
+        for (ActionNext row : unscheduledRows) {
+            if (row.getActionSet() != null) {
+                actionSetIds.add(Integer.valueOf(row.getActionSet().getActionSetId()));
+            }
+        }
+
+        Map<Integer, Integer> linkedPrivateByActionSetId = loadLinkedPrivateActionIdsForActionSets(dataSession,
+                model.getSelectedPrivateProject(), actionSetIds);
+
+        List<ProjectHealthPageModel.OpenActionItemModel> scheduledItems = new ArrayList<ProjectHealthPageModel.OpenActionItemModel>();
+        List<ProjectHealthPageModel.OpenActionItemModel> unscheduledItems = new ArrayList<ProjectHealthPageModel.OpenActionItemModel>();
+        for (ActionNext row : scheduledRows) {
+            scheduledItems.add(toOpenActionItem(webUser, row, linkedPrivateByActionSetId));
+        }
+        for (ActionNext row : unscheduledRows) {
+            unscheduledItems.add(toOpenActionItem(webUser, row, linkedPrivateByActionSetId));
+        }
+        model.setOpenScheduledActions(scheduledItems);
+        model.setOpenUnscheduledActions(unscheduledItems);
+
+        if (model.getOpenActionEditActionNextId() != null && model.getOpenActionEditActionNextId().intValue() > 0) {
+            int editingActionId = model.getOpenActionEditActionNextId().intValue();
+            boolean found = false;
+            for (ProjectHealthPageModel.OpenActionItemModel item : scheduledItems) {
+                if (item.getActionNextId() == editingActionId) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                for (ProjectHealthPageModel.OpenActionItemModel item : unscheduledItems) {
+                    if (item.getActionNextId() == editingActionId) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                model.setOpenActionEditActionNextId(null);
+            }
+        }
+
+        model.setOpenActionActorOptions(loadOpenActionActorOptions(dataSession, selectedProject));
+        model.setOpenActionsNeedsPrivateTargetSelection(model.getSelectedPrivateProject() == null);
+    }
+
+    private void populateSharedProjectFacts(ProjectHealthPageModel model, AppReq appReq,
+            Project selectedProject, Session dataSession) {
+        model.setSharedProjectFactGroups(new ArrayList<ProjectHealthPageModel.SharedProjectFactGroupModel>());
+
+        if (model == null || appReq == null || selectedProject == null
+                || !model.isPatchContext() || model.isPatchSummaryMode()) {
+            return;
+        }
+        if (selectedProject.getWorkspaceId() == null
+                || !selectedProject.getWorkspaceId().equals(model.getContextWorkspaceId())) {
+            return;
+        }
+
+        ProjectFactDefinitionDao definitionDao = new ProjectFactDefinitionDao(dataSession);
+        List<ProjectFactDefinition> definitions = definitionDao
+                .listByWorkspaceId(selectedProject.getWorkspaceId().intValue(), false);
+        if (definitions == null || definitions.isEmpty()) {
+            return;
+        }
+
+        ProjectFactValueDao valueDao = new ProjectFactValueDao(dataSession);
+        List<ProjectFactValue> values = valueDao.listByProjectId(selectedProject.getProjectId());
+        Map<Integer, ProjectFactValue> valueByDefinitionId = new HashMap<Integer, ProjectFactValue>();
+        for (ProjectFactValue value : values) {
+            if (value == null) {
+                continue;
+            }
+            valueByDefinitionId.put(Integer.valueOf(value.getProjectFactDefinitionId()), value);
+        }
+
+        List<ProjectHealthPageModel.SharedProjectFactGroupModel> groups = new ArrayList<ProjectHealthPageModel.SharedProjectFactGroupModel>();
+        Map<String, ProjectHealthPageModel.SharedProjectFactGroupModel> groupByName = new LinkedHashMap<String, ProjectHealthPageModel.SharedProjectFactGroupModel>();
+
+        for (ProjectFactDefinition definition : definitions) {
+            if (definition == null) {
+                continue;
+            }
+            if (!ProjectFactDefinition.INPUT_TYPE_BOOLEAN.equalsIgnoreCase(n(definition.getFactInputType()))) {
+                continue;
+            }
+
+            String groupName = n(definition.getFactGroup()).trim();
+            if (groupName.length() == 0) {
+                groupName = "General";
+            }
+
+            ProjectHealthPageModel.SharedProjectFactGroupModel group = groupByName.get(groupName);
+            if (group == null) {
+                group = new ProjectHealthPageModel.SharedProjectFactGroupModel();
+                group.setFactGroup(groupName);
+                groupByName.put(groupName, group);
+                groups.add(group);
+            }
+
+            ProjectFactValue value = valueByDefinitionId.get(Integer.valueOf(definition.getProjectFactDefinitionId()));
+            boolean checked = value != null
+                    && ProjectFactValue.BOOLEAN_YES.equalsIgnoreCase(n(value.getValueBoolean()));
+
+            ProjectHealthPageModel.SharedProjectFactItemModel item = new ProjectHealthPageModel.SharedProjectFactItemModel();
+            item.setProjectFactDefinitionId(definition.getProjectFactDefinitionId());
+            item.setFactLabel(n(definition.getFactLabel()));
+            item.setChecked(checked);
+            group.getItems().add(item);
+            group.setTotalCount(group.getTotalCount() + 1);
+            if (checked) {
+                group.setCheckedCount(group.getCheckedCount() + 1);
+            }
+        }
+
+        model.setSharedProjectFactGroups(groups);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ActionNext> listOpenActionsForSharedProject(Session dataSession, int sharedProjectId,
+            boolean scheduled) {
+        StringBuilder hql = new StringBuilder();
+        hql.append("select distinct an from ActionNext an ")
+                .append("left join fetch an.contact ")
+                .append("left join fetch an.nextProjectContact ")
+                .append("where an.projectId = :projectId ")
+                .append("and an.nextActionStatusString = :status ")
+                .append("and an.nextDescription <> '' ");
+        if (scheduled) {
+            hql.append("and an.nextActionDate is not null ")
+                    .append("order by an.nextActionDate, an.priorityLevel desc, an.completionOrder, an.nextChangeDate");
+        } else {
+            hql.append("and an.nextActionDate is null ")
+                    .append("order by an.priorityLevel desc, an.completionOrder, an.nextChangeDate");
+        }
+        Query query = dataSession.createQuery(hql.toString());
+        query.setParameter("projectId", sharedProjectId);
+        query.setParameter("status", ProjectNextActionStatus.READY.getId());
+        return query.list();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Integer, Integer> loadLinkedPrivateActionIdsForActionSets(Session dataSession,
+            Project selectedPrivateProject, Set<Integer> actionSetIds) {
+        Map<Integer, Integer> linkedByActionSet = new HashMap<Integer, Integer>();
+        if (selectedPrivateProject == null || actionSetIds == null || actionSetIds.isEmpty()) {
+            return linkedByActionSet;
+        }
+        Query query = dataSession.createQuery(
+                "from ActionNext an where an.projectId = :projectId and an.actionSet.actionSetId in (:actionSetIds) "
+                        + "order by an.nextChangeDate desc, an.actionNextId desc");
+        query.setParameter("projectId", selectedPrivateProject.getProjectId());
+        query.setParameterList("actionSetIds", actionSetIds);
+        List<ActionNext> linkedRows = query.list();
+        for (ActionNext linked : linkedRows) {
+            if (linked == null || linked.getActionSet() == null) {
+                continue;
+            }
+            Integer actionSetId = Integer.valueOf(linked.getActionSet().getActionSetId());
+            if (!linkedByActionSet.containsKey(actionSetId)) {
+                linkedByActionSet.put(actionSetId, Integer.valueOf(linked.getActionNextId()));
+            }
+        }
+        return linkedByActionSet;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ProjectHealthPageModel.OpenActionActorOptionModel> loadOpenActionActorOptions(Session dataSession,
+            Project selectedSharedProject) {
+        List<ProjectHealthPageModel.OpenActionActorOptionModel> options = new ArrayList<ProjectHealthPageModel.OpenActionActorOptionModel>();
+        ProjectHealthPageModel.OpenActionActorOptionModel someone = new ProjectHealthPageModel.OpenActionActorOptionModel();
+        someone.setContactId(null);
+        someone.setLabel("Someone");
+        options.add(someone);
+
+        if (selectedSharedProject == null || selectedSharedProject.getWorkspaceId() == null) {
+            return options;
+        }
+
+        Query query = dataSession.createQuery(
+                "from ProjectContact pc where pc.workspaceId = :workspaceId "
+                        + "and pc.contactStatus = :contactStatus "
+                        + "and exists (select wu.webUserId from WebUser wu "
+                        + "where wu.contactId = pc.contactId and wu.registrationStatus = :registrationStatus) "
+                        + "order by pc.nameLast, pc.nameFirst");
+        query.setParameter("workspaceId", selectedSharedProject.getWorkspaceId());
+        query.setParameter("contactStatus", ProjectContact.STATUS_ACTIVE);
+        query.setParameter("registrationStatus", WebUser.REGISTRATION_STATUS_ACTIVE);
+        List<ProjectContact> contacts = query.list();
+        for (ProjectContact contact : contacts) {
+            if (contact == null) {
+                continue;
+            }
+            ProjectHealthPageModel.OpenActionActorOptionModel option = new ProjectHealthPageModel.OpenActionActorOptionModel();
+            option.setContactId(Integer.valueOf(contact.getContactId()));
+            option.setLabel(n(contact.getName(), "(unnamed contact)"));
+            options.add(option);
+        }
+        return options;
+    }
+
+    private ProjectHealthPageModel.OpenActionItemModel toOpenActionItem(WebUser webUser, ActionNext row,
+            Map<Integer, Integer> linkedPrivateByActionSetId) {
+        ProjectHealthPageModel.OpenActionItemModel item = new ProjectHealthPageModel.OpenActionItemModel();
+        item.setActionNextId(row.getActionNextId());
+        item.setActorContactId(row.getContactId());
+        item.setActorDisplay(row.getContact() == null ? "Someone" : n(row.getContact().getName(), "Someone"));
+        item.setSentenceHtml(n(row.getNextDescriptionForDisplay(webUser.getProjectContact())));
+        item.setNextActionType(n(row.getNextActionType()));
+        item.setNextDescription(n(row.getNextDescription()));
+        item.setNextActionDateLabel(formatDate(webUser, row.getNextActionDate()));
+        if (row.getNextActionDate() != null) {
+            SimpleDateFormat sdf = new SimpleDateFormat(webUser.getDateEntryPattern());
+            item.setNextActionDateInput(sdf.format(row.getNextActionDate()));
+        } else {
+            item.setNextActionDateInput("");
+        }
+        item.setNextTimeEstimate(row.getNextTimeEstimate());
+        item.setNextTimeEstimateLabel(
+                row.getNextTimeEstimate() == null ? "" : ActionNext.getTimeForDisplay(row.getNextTimeEstimate()));
+        item.setTargetDateLabel(formatDate(webUser, row.getNextTargetDate()));
+        item.setDeadlineDateLabel(formatDate(webUser, row.getNextDeadlineDate()));
+        item.setPriorityLevel(row.getPriorityLevel());
+        item.setCompletionOrder(row.getCompletionOrder());
+        if (row.getActionSet() != null && linkedPrivateByActionSetId != null) {
+            Integer linkedActionId = linkedPrivateByActionSetId
+                    .get(Integer.valueOf(row.getActionSet().getActionSetId()));
+            item.setLinkedPrivateActionNextId(linkedActionId);
+            item.setLinkedToSelectedPrivate(linkedActionId != null);
+        }
+        return item;
+    }
+
+    public String updateSharedOpenAction(AppReq appReq, int sharedProjectId, int actionNextId,
+            String actorContactIdValue, String nextActionType, String nextDescription,
+            String nextActionDateValue, String nextTimeEstimateValue,
+            String priorityLevelValue, String completionOrderValue) {
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project sharedProject = resolveSharedProjectForActionMutation(appReq, sharedProjectId);
+        ActionNext selectedAction = resolveSharedActionForActionMutation(appReq, sharedProject, actionNextId);
+
+        Integer actorContactId = parseInteger(actorContactIdValue);
+        ProjectContact actorContact = null;
+        if (actorContactId != null) {
+            actorContact = (ProjectContact) dataSession.get(ProjectContact.class, actorContactId.intValue());
+            if (actorContact == null || actorContact.getWorkspaceId() == null
+                    || !actorContact.getWorkspaceId().equals(sharedProject.getWorkspaceId())) {
+                throw new IllegalArgumentException("Selected actor is not available in this shared workspace.");
+            }
+        }
+
+        Date nextActionDate = null;
+        String trimmedDate = n(nextActionDateValue).trim();
+        if (trimmedDate.length() > 0) {
+            nextActionDate = webUser.parseDate(trimmedDate);
+            if (nextActionDate == null) {
+                throw new IllegalArgumentException("Action date must match your date format.");
+            }
+        }
+
+        Integer nextTimeEstimate = null;
+        String trimmedEstimate = n(nextTimeEstimateValue).trim();
+        if (trimmedEstimate.length() > 0) {
+            nextTimeEstimate = parseInteger(trimmedEstimate);
+            if (nextTimeEstimate == null || nextTimeEstimate.intValue() < 0) {
+                throw new IllegalArgumentException("Time estimate must be 0 or greater.");
+            }
+        }
+
+        Integer priorityLevel = null;
+        String trimmedPriority = n(priorityLevelValue).trim();
+        if (trimmedPriority.length() > 0) {
+            priorityLevel = parseInteger(trimmedPriority);
+        }
+
+        Integer completionOrder = null;
+        String trimmedOrder = n(completionOrderValue).trim();
+        if (trimmedOrder.length() > 0) {
+            completionOrder = parseInteger(trimmedOrder);
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            Date now = new Date();
+            List<ActionNext> siblings = resolveSharedActionSiblings(dataSession, selectedAction);
+            for (ActionNext sibling : siblings) {
+                if (actorContact == null) {
+                    sibling.setContact(null);
+                    sibling.setContactId(null);
+                } else {
+                    sibling.setContact(actorContact);
+                }
+                if (nextActionType != null && nextActionType.trim().length() > 0) {
+                    sibling.setNextActionType(nextActionType.trim());
+                }
+                sibling.setNextDescription(n(nextDescription).trim());
+                sibling.setNextActionDate(nextActionDate);
+                sibling.setNextTimeEstimate(nextTimeEstimate);
+                if (priorityLevel != null) {
+                    sibling.setPriorityLevel(priorityLevel.intValue());
+                }
+                if (completionOrder != null) {
+                    sibling.setCompletionOrder(completionOrder.intValue());
+                }
+                sibling.setNextChangeDate(now);
+                dataSession.saveOrUpdate(sibling);
+            }
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            throw new IllegalArgumentException("Unable to save shared action: " + e.getMessage());
+        }
+
+        return "Shared action updated.";
+    }
+
+    public String adoptSharedOpenAction(AppReq appReq, int sharedProjectId, int actionNextId,
+            Integer requestedPrivateProjectId) {
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project sharedProject = resolveSharedProjectForActionMutation(appReq, sharedProjectId);
+        ActionNext sharedAction = resolveSharedActionForActionMutation(appReq, sharedProject, actionNextId);
+        Project privateProject = resolveLinkedPrivateProject(webUser, dataSession, sharedProject,
+                requestedPrivateProjectId);
+        if (privateProject == null) {
+            throw new IllegalArgumentException("Link/select a private project before adopting actions.");
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            ActionSet actionSet = sharedAction.getActionSet();
+            if (actionSet == null || actionSet.getActionSetType() != ActionSetType.SHARED) {
+                actionSet = new ActionSetDao(dataSession).createActionSet(webUser, ActionSetType.SHARED);
+                sharedAction.setActionSet(actionSet);
+                sharedAction.setNextChangeDate(new Date());
+                dataSession.update(sharedAction);
+            }
+
+            if (sharedAction.getContactId() == null) {
+                sharedAction.setContact(webUser.getProjectContact());
+                sharedAction.setNextChangeDate(new Date());
+                dataSession.update(sharedAction);
+            }
+
+            Query existingQuery = dataSession.createQuery(
+                    "from ActionNext an where an.projectId = :projectId and an.actionSet.actionSetId = :actionSetId order by an.actionNextId");
+            existingQuery.setParameter("projectId", privateProject.getProjectId());
+            existingQuery.setParameter("actionSetId", actionSet.getActionSetId());
+            @SuppressWarnings("unchecked")
+            List<ActionNext> existingLinks = existingQuery.list();
+            if (existingLinks != null && !existingLinks.isEmpty()) {
+                Date now = new Date();
+                boolean privateBillable = isWorkProject(privateProject, dataSession);
+                for (ActionNext existing : existingLinks) {
+                    existing.setWorkspaceId(privateProject.getWorkspaceId());
+                    existing.setProject(privateProject);
+                    existing.setProjectId(privateProject.getProjectId());
+                    existing.setContact(webUser.getProjectContact());
+                    existing.setContactId(Integer.valueOf(webUser.getContactId()));
+                    existing.setNextActionType(sharedAction.getNextActionType());
+                    existing.setNextDescription(sharedAction.getNextDescription());
+                    existing.setNextActionDate(sharedAction.getNextActionDate());
+                    existing.setNextTimeEstimate(sharedAction.getNextTimeEstimate());
+                    existing.setNextContactId(sharedAction.getNextContactId());
+                    existing.setPriorityLevel(sharedAction.getPriorityLevel());
+                    existing.setCompletionOrder(sharedAction.getCompletionOrder());
+                    existing.setNextActionStatus(ProjectNextActionStatus.READY);
+                    existing.setNextChangeDate(now);
+                    existing.setNextDeadlineDate(sharedAction.getNextDeadlineDate());
+                    existing.setNextTargetDate(sharedAction.getNextTargetDate());
+                    existing.setLinkUrl(sharedAction.getLinkUrl());
+                    existing.setTimeSlot(sharedAction.getTimeSlot());
+                    existing.setBillable(privateBillable);
+                    existing.setActionSet(actionSet);
+                    dataSession.saveOrUpdate(existing);
+                }
+                transaction.commit();
+                return "Shared action linked and refreshed in private project.";
+            }
+
+            ActionNext privateAction = new ActionNext();
+            privateAction.setWorkspaceId(privateProject.getWorkspaceId());
+            privateAction.setProject(privateProject);
+            privateAction.setProjectId(privateProject.getProjectId());
+            privateAction.setContact(webUser.getProjectContact());
+            privateAction.setContactId(Integer.valueOf(webUser.getContactId()));
+            privateAction.setNextActionType(sharedAction.getNextActionType());
+            privateAction.setNextDescription(sharedAction.getNextDescription());
+            privateAction.setNextActionDate(sharedAction.getNextActionDate());
+            privateAction.setNextTimeEstimate(sharedAction.getNextTimeEstimate());
+            privateAction.setNextContactId(sharedAction.getNextContactId());
+            privateAction.setPriorityLevel(sharedAction.getPriorityLevel());
+            privateAction.setCompletionOrder(sharedAction.getCompletionOrder());
+            privateAction.setNextActionStatus(ProjectNextActionStatus.READY);
+            privateAction.setNextChangeDate(new Date());
+            privateAction.setNextDeadlineDate(sharedAction.getNextDeadlineDate());
+            privateAction.setNextTargetDate(sharedAction.getNextTargetDate());
+            privateAction.setLinkUrl(sharedAction.getLinkUrl());
+            privateAction.setTimeSlot(sharedAction.getTimeSlot());
+            privateAction.setBillable(isWorkProject(privateProject, dataSession));
+            privateAction.setActionSet(actionSet);
+            dataSession.save(privateAction);
+
+            transaction.commit();
+            return "Shared action adopted into private project.";
+        } catch (Exception e) {
+            transaction.rollback();
+            throw new IllegalArgumentException("Unable to adopt shared action: " + e.getMessage());
+        }
+    }
+
+    public String cancelSharedOpenAction(AppReq appReq, int sharedProjectId, int actionNextId) {
+        Session dataSession = appReq.getDataSession();
+        Project sharedProject = resolveSharedProjectForActionMutation(appReq, sharedProjectId);
+        ActionNext selectedAction = resolveSharedActionForActionMutation(appReq, sharedProject, actionNextId);
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            Date now = new Date();
+            List<ActionNext> siblings = resolveSharedActionSiblings(dataSession, selectedAction);
+            for (ActionNext sibling : siblings) {
+                sibling.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
+                sibling.setNextChangeDate(now);
+                dataSession.saveOrUpdate(sibling);
+            }
+            transaction.commit();
+            return "Shared action cancelled.";
+        } catch (Exception e) {
+            transaction.rollback();
+            throw new IllegalArgumentException("Unable to cancel shared action: " + e.getMessage());
+        }
+    }
+
+    private Project resolveSharedProjectForActionMutation(AppReq appReq, int sharedProjectId) {
+        Session dataSession = appReq.getDataSession();
+        if (!isPatchContextWorkspace(appReq, dataSession)) {
+            throw new IllegalArgumentException("Open Actions are only available for shared patch projects.");
+        }
+        Project sharedProject = (Project) dataSession.get(Project.class, sharedProjectId);
+        if (sharedProject == null || sharedProject.getWorkspaceId() == null
+                || appReq.getActiveWorkspaceId() == null
+                || !sharedProject.getWorkspaceId().equals(appReq.getActiveWorkspaceId())) {
+            throw new IllegalArgumentException("Shared project was not found.");
+        }
+        return sharedProject;
+    }
+
+    private ActionNext resolveSharedActionForActionMutation(AppReq appReq, Project sharedProject, int actionNextId) {
+        Session dataSession = appReq.getDataSession();
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
+        if (action == null || action.getProjectId() != sharedProject.getProjectId()) {
+            throw new IllegalArgumentException("Action was not found on the selected shared project.");
+        }
+        if (action.getWorkspaceId() == null || !action.getWorkspaceId().equals(sharedProject.getWorkspaceId())) {
+            throw new IllegalArgumentException("Action is not available in this shared workspace.");
+        }
+        return action;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ActionNext> resolveSharedActionSiblings(Session dataSession, ActionNext selectedAction) {
+        List<ActionNext> singleAction = new ArrayList<ActionNext>();
+        if (selectedAction == null) {
+            return singleAction;
+        }
+        singleAction.add(selectedAction);
+        if (selectedAction.getActionSet() == null
+                || selectedAction.getActionSet().getActionSetType() != ActionSetType.SHARED) {
+            return singleAction;
+        }
+        int actionSetId = selectedAction.getActionSet().getActionSetId();
+        Query siblingQuery = dataSession.createQuery(
+                "from ActionNext an where an.actionSet.actionSetId = :actionSetId order by an.actionNextId");
+        siblingQuery.setParameter("actionSetId", actionSetId);
+        List<ActionNext> siblings = siblingQuery.list();
+        if (siblings == null || siblings.isEmpty()) {
+            return singleAction;
+        }
+        return siblings;
     }
 
     public ProjectHealthSnapshot buildProjectHealthSnapshot(AppReq appReq, Project project) {
@@ -653,6 +1249,188 @@ public class ProjectHealthPageService {
             transaction.rollback();
             return "Unable to schedule project review: " + e.getMessage();
         }
+    }
+
+    public String saveQuickCaptureForSelectedProject(AppReq appReq, int projectId, Integer privateProjectId,
+            String sentenceInput) {
+        WebUser webUser = appReq.getWebUser();
+        Session dataSession = appReq.getDataSession();
+
+        if (webUser == null || dataSession == null) {
+            throw new IllegalArgumentException("Quick capture is not available.");
+        }
+        if (!isPatchContextWorkspace(appReq, dataSession)) {
+            throw new IllegalArgumentException("Quick capture is only available for shared patch projects.");
+        }
+        if (sentenceInput == null || sentenceInput.trim().length() == 0) {
+            throw new IllegalArgumentException("Quick capture requires text.");
+        }
+
+        List<Project> projects = loadProjectsForCurrentWorkspace(appReq, webUser, dataSession);
+        Project selectedProject = null;
+        for (Project project : projects) {
+            if (project != null && project.getProjectId() == projectId) {
+                selectedProject = project;
+                break;
+            }
+        }
+        if (selectedProject == null || selectedProject.getWorkspaceId() == null) {
+            throw new IllegalArgumentException("Project is not available.");
+        }
+
+        QuickCaptureActorResolution actorResolution = actionSentenceImportService
+                .resolveProjectScopedActorForQuickCapture(webUser, dataSession, selectedProject, sentenceInput);
+        if (actorResolution != null && actorResolution.isUnknownNamedContact()) {
+            throw new IllegalArgumentException("Unknown workspace contact: "
+                    + actorResolution.getUnknownNamedContact());
+        }
+        QuickCaptureActorKind actorKind = actorResolution == null ? QuickCaptureActorKind.IMPLICIT_CURRENT_USER
+                : actorResolution.getActorKind();
+        String normalizedSentenceInput = actorResolution == null ? sentenceInput
+                : actorResolution.getNormalizedActionPart();
+        boolean currentUserActor = QuickCaptureActorKind.CURRENT_USER.equals(actorKind)
+                || QuickCaptureActorKind.IMPLICIT_CURRENT_USER.equals(actorKind)
+                || isCurrentUserContact(webUser, actorResolution == null ? null : actorResolution.getContact());
+
+        Project linkedPrivateProject = resolveLinkedPrivateProject(webUser, dataSession, selectedProject,
+                privateProjectId);
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            if (currentUserActor) {
+                if (linkedPrivateProject == null) {
+                    transaction.rollback();
+                    throw new IllegalArgumentException(
+                            "Link a private project before adding personal cockpit actions.");
+                }
+                ActionSet sharedActionSet = new ActionSetDao(dataSession).createActionSet(webUser,
+                        ActionSetType.SHARED);
+                ActionNext sharedAction = actionSentenceImportService.buildActionFromSentenceForProject(webUser,
+                        dataSession, selectedProject, normalizedSentenceInput, selectedProject.getWorkspaceId(), false);
+                ActionNext privateAction = actionSentenceImportService.buildActionFromSentenceForProject(webUser,
+                        dataSession, linkedPrivateProject, normalizedSentenceInput,
+                        linkedPrivateProject.getWorkspaceId(), false);
+                if (sharedAction == null || privateAction == null) {
+                    transaction.rollback();
+                    throw new IllegalArgumentException("Unable to create action from quick capture sentence.");
+                }
+                prepareQuickCaptureAction(sharedAction, selectedProject, sharedActionSet);
+                prepareQuickCaptureAction(privateAction, linkedPrivateProject, sharedActionSet);
+                dataSession.save(sharedAction);
+                dataSession.save(privateAction);
+                transaction.commit();
+                return "Quick capture saved.";
+            }
+
+            // Preserve the original actor token (for example "Someone will") so actor
+            // assignment is
+            // resolved correctly instead of being normalized back to current user phrasing.
+            String sharedSentenceInput = sentenceInput;
+            ActionNext action = actionSentenceImportService.buildActionFromSentenceForProject(webUser, dataSession,
+                    selectedProject, sharedSentenceInput, selectedProject.getWorkspaceId(), false);
+            if (action == null) {
+                transaction.rollback();
+                throw new IllegalArgumentException("Unable to create action from quick capture sentence.");
+            }
+            prepareQuickCaptureAction(action, selectedProject, action.getActionSet());
+            dataSession.save(action);
+            transaction.commit();
+            return "Quick capture saved.";
+        } catch (IllegalArgumentException iae) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw iae;
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw new IllegalArgumentException("Unable to save quick capture: " + e.getMessage());
+        }
+    }
+
+    private void prepareQuickCaptureAction(ActionNext action, Project project, ActionSet actionSet) {
+        action.setWorkspaceId(project.getWorkspaceId());
+        action.setProject(project);
+        action.setProjectId(project.getProjectId());
+        action.setActionSet(actionSet);
+    }
+
+    private boolean isCurrentUserContact(WebUser webUser,
+            org.openimmunizationsoftware.pt.model.ProjectContact contact) {
+        return webUser != null && contact != null && contact.getContactId() == webUser.getContactId();
+    }
+
+    private Project resolveLinkedPrivateProject(WebUser webUser, Session dataSession, Project sharedProject,
+            Integer requestedPrivateProjectId) {
+        if (webUser == null || dataSession == null || sharedProject == null) {
+            return null;
+        }
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession,
+                webUser.getWebUserId());
+        if (privateWorkspaceId == null) {
+            return null;
+        }
+        List<Project> candidatePrivateProjects = loadProjects(webUser, dataSession, privateWorkspaceId);
+        Map<Integer, Project> candidateById = indexProjectsById(candidatePrivateProjects);
+        List<Project> linkedPrivateProjects = loadLinkedPrivateProjectsForSharedProject(dataSession,
+                sharedProject.getProjectId(), candidateById);
+        return resolveSelectedPrivateProject(linkedPrivateProjects, candidateById, requestedPrivateProjectId);
+    }
+
+    private Project resolveSelectedPrivateProject(List<Project> linkedPrivateProjects,
+            Map<Integer, Project> candidateById,
+            Integer requestedPrivateProjectId) {
+        if (requestedPrivateProjectId != null) {
+            for (Project linkedProject : linkedPrivateProjects) {
+                if (linkedProject != null && linkedProject.getProjectId() == requestedPrivateProjectId.intValue()) {
+                    return linkedProject;
+                }
+            }
+        }
+        if (linkedPrivateProjects.size() == 1) {
+            return linkedPrivateProjects.get(0);
+        }
+        if (linkedPrivateProjects.size() > 1) {
+            return linkedPrivateProjects.get(0);
+        }
+        if (requestedPrivateProjectId != null && candidateById.containsKey(requestedPrivateProjectId)) {
+            return null;
+        }
+        return null;
+    }
+
+    private Map<Integer, Project> indexProjectsById(List<Project> projects) {
+        Map<Integer, Project> projectsById = new LinkedHashMap<Integer, Project>();
+        for (Project project : projects) {
+            if (project != null) {
+                projectsById.put(Integer.valueOf(project.getProjectId()), project);
+            }
+        }
+        return projectsById;
+    }
+
+    private List<Project> loadLinkedPrivateProjectsForSharedProject(Session dataSession, int sharedProjectId,
+            Map<Integer, Project> candidateById) {
+        List<Project> linkedProjects = new ArrayList<Project>();
+        if (candidateById == null || candidateById.isEmpty()) {
+            return linkedProjects;
+        }
+
+        ProjectPatchLinkDao patchLinkDao = new ProjectPatchLinkDao(dataSession);
+        List<ProjectPatchLink> links = patchLinkDao.listDirectLinksForPatchProject(sharedProjectId);
+        Map<Integer, Project> linkedById = new LinkedHashMap<Integer, Project>();
+        for (ProjectPatchLink link : links) {
+            if (link == null) {
+                continue;
+            }
+            Project privateProject = candidateById.get(Integer.valueOf(link.getPrivateProjectId()));
+            if (privateProject != null) {
+                linkedById.put(Integer.valueOf(privateProject.getProjectId()), privateProject);
+            }
+        }
+        linkedProjects.addAll(linkedById.values());
+        return linkedProjects;
     }
 
     public String updateLastReviewNow(AppReq appReq, int projectId) {
@@ -942,6 +1720,22 @@ public class ProjectHealthPageService {
         return 0;
     }
 
+    private int resolveSelectedPatchProjectId(AppReq appReq, List<Project> projects, int contextWorkspaceId) {
+        int selectedFromRequest = resolveSelectedProjectIdFromRequest(appReq, projects);
+        if (selectedFromRequest > 0) {
+            return selectedFromRequest;
+        }
+        Integer selectedFromSession = readPatchSelectedProjectId(appReq, contextWorkspaceId);
+        if (selectedFromSession != null) {
+            for (Project project : projects) {
+                if (project != null && project.getProjectId() == selectedFromSession.intValue()) {
+                    return selectedFromSession.intValue();
+                }
+            }
+        }
+        return 0;
+    }
+
     private boolean isPatchContextWorkspace(AppReq appReq, Session dataSession) {
         if (appReq == null || appReq.getActiveWorkspaceId() == null) {
             return false;
@@ -969,6 +1763,7 @@ public class ProjectHealthPageService {
                 int selectedProjectId = Integer.parseInt(selectedProjectIdStr.trim());
                 for (Project project : projects) {
                     if (project.getProjectId() == selectedProjectId) {
+                        writePrivateSelectedProjectId(appReq, selectedProjectId);
                         return selectedProjectId;
                     }
                 }
@@ -977,12 +1772,138 @@ public class ProjectHealthPageService {
             }
         }
 
+        Integer selectedFromSession = readPrivateSelectedProjectId(appReq);
+        if (selectedFromSession != null) {
+            for (Project project : projects) {
+                if (project != null && project.getProjectId() == selectedFromSession.intValue()) {
+                    return selectedFromSession.intValue();
+                }
+            }
+        }
+
         for (Project project : projects) {
             if (!isPersonalProject(project, dataSession)) {
+                writePrivateSelectedProjectId(appReq, project.getProjectId());
                 return project.getProjectId();
             }
         }
-        return projects.isEmpty() ? 0 : projects.get(0).getProjectId();
+        int fallbackProjectId = projects.isEmpty() ? 0 : projects.get(0).getProjectId();
+        if (fallbackProjectId > 0) {
+            writePrivateSelectedProjectId(appReq, fallbackProjectId);
+        }
+        return fallbackProjectId;
+    }
+
+    private String patchTagSessionKey(int contextWorkspaceId) {
+        return SESSION_PATCH_SELECTED_TAG_PREFIX + contextWorkspaceId;
+    }
+
+    private String patchProjectSessionKey(int contextWorkspaceId) {
+        return SESSION_PATCH_SELECTED_PROJECT_PREFIX + contextWorkspaceId;
+    }
+
+    private String sharedCockpitPrivateProjectSessionKey(int sharedProjectId) {
+        return SESSION_SHARED_COCKPIT_PRIVATE_PROJECT_PREFIX + sharedProjectId;
+    }
+
+    private HttpSession getHttpSession(AppReq appReq) {
+        if (appReq == null || appReq.getRequest() == null) {
+            return null;
+        }
+        return appReq.getRequest().getSession(true);
+    }
+
+    private String readPatchSelectedTag(AppReq appReq, int contextWorkspaceId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return null;
+        }
+        Object value = session.getAttribute(patchTagSessionKey(contextWorkspaceId));
+        return value instanceof String ? (String) value : null;
+    }
+
+    private void writePatchSelectedTag(AppReq appReq, int contextWorkspaceId, String selectedTagKey) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return;
+        }
+        if (selectedTagKey == null || selectedTagKey.trim().length() == 0) {
+            session.removeAttribute(patchTagSessionKey(contextWorkspaceId));
+            return;
+        }
+        session.setAttribute(patchTagSessionKey(contextWorkspaceId), selectedTagKey.trim());
+    }
+
+    private Integer readPatchSelectedProjectId(AppReq appReq, int contextWorkspaceId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return null;
+        }
+        Object value = session.getAttribute(patchProjectSessionKey(contextWorkspaceId));
+        return value instanceof Integer ? (Integer) value : null;
+    }
+
+    private void writePatchSelectedProjectId(AppReq appReq, int contextWorkspaceId, int projectId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return;
+        }
+        session.setAttribute(patchProjectSessionKey(contextWorkspaceId), Integer.valueOf(projectId));
+    }
+
+    private void clearPatchSelectedProjectId(AppReq appReq, int contextWorkspaceId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return;
+        }
+        session.removeAttribute(patchProjectSessionKey(contextWorkspaceId));
+    }
+
+    private Integer readPrivateSelectedProjectId(AppReq appReq) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return null;
+        }
+        Object value = session.getAttribute(SESSION_PRIVATE_SELECTED_PROJECT_ID);
+        return value instanceof Integer ? (Integer) value : null;
+    }
+
+    private void writePrivateSelectedProjectId(AppReq appReq, int projectId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return;
+        }
+        session.setAttribute(SESSION_PRIVATE_SELECTED_PROJECT_ID, Integer.valueOf(projectId));
+    }
+
+    private void clearPatchSelectionState(AppReq appReq, int contextWorkspaceId) {
+        writePatchSelectedTag(appReq, contextWorkspaceId, null);
+        clearPatchSelectedProjectId(appReq, contextWorkspaceId);
+    }
+
+    private Integer readSharedCockpitSelectedPrivateProjectId(AppReq appReq, int sharedProjectId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return null;
+        }
+        Object value = session.getAttribute(sharedCockpitPrivateProjectSessionKey(sharedProjectId));
+        return value instanceof Integer ? (Integer) value : null;
+    }
+
+    private void writeSharedCockpitSelectedPrivateProjectId(AppReq appReq, int sharedProjectId, int privateProjectId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return;
+        }
+        session.setAttribute(sharedCockpitPrivateProjectSessionKey(sharedProjectId), Integer.valueOf(privateProjectId));
+    }
+
+    private void clearSharedCockpitSelectedPrivateProjectId(AppReq appReq, int sharedProjectId) {
+        HttpSession session = getHttpSession(appReq);
+        if (session == null) {
+            return;
+        }
+        session.removeAttribute(sharedCockpitPrivateProjectSessionKey(sharedProjectId));
     }
 
     private Map<Integer, ProjectStats> buildStatsByProject(List<Project> projects, WebUser webUser,
