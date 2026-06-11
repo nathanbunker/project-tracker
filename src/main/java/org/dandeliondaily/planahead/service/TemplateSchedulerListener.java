@@ -102,7 +102,7 @@ public class TemplateSchedulerListener implements ServletContextListener {
     }
 
     private void runGeneration() {
-        LOGGER.info("[TemplateScheduler] Running template generation.");
+        LOGGER.fine("[TemplateScheduler] Running template generation.");
         SchedulerRunRecord record = new SchedulerRunRecord();
         SchedulerStatusHolder.beginRun(record);
         SessionFactory factory = CentralControl.getSessionFactory();
@@ -113,7 +113,7 @@ public class TemplateSchedulerListener implements ServletContextListener {
 
             List<Object[]> pairs = loadWorkspaceContactPairs(session);
             record.setPairsProcessed(pairs.size());
-            LOGGER.info("[TemplateScheduler] Processing " + pairs.size() + " workspace/contact pairs.");
+            LOGGER.fine("[TemplateScheduler] Processing " + pairs.size() + " workspace/contact pairs.");
 
             for (Object[] pair : pairs) {
                 int workspaceId = ((Number) pair[0]).intValue();
@@ -124,7 +124,7 @@ public class TemplateSchedulerListener implements ServletContextListener {
                 try {
                     int created = processUser(factory, workspaceId, contactId, advanceDays);
                     record.addInstancesGenerated(created);
-                    LOGGER.info("[TemplateScheduler] workspace=" + workspaceId
+                    LOGGER.fine("[TemplateScheduler] workspace=" + workspaceId
                             + " contact=" + contactId
                             + " created=" + created
                             + " advanceDays=" + advanceDays);

@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.hibernate.Query;
@@ -44,7 +45,7 @@ public class TemplateGenerationService {
             LocalDate today, int advanceDays) {
         LocalDate windowEnd = today.plusDays(advanceDays);
         List<ActionNext> templates = loadTemplateRoots(session, workspaceId, contactId);
-        LOGGER.info("[TemplateGeneration] Begin workspace=" + workspaceId
+        LOGGER.fine("[TemplateGeneration] Begin workspace=" + workspaceId
                 + " contact=" + contactId
                 + " today=" + today
                 + " windowEnd=" + windowEnd
@@ -54,14 +55,13 @@ public class TemplateGenerationService {
             try {
                 int created = generateForTemplate(session, template, today, windowEnd);
                 total += created;
-                LOGGER.info("[TemplateGeneration] Template " + template.getActionNextId()
+                LOGGER.fine("[TemplateGeneration] Template " + template.getActionNextId()
                         + " created=" + created);
             } catch (Exception e) {
-                LOGGER.severe("[TemplateGeneration] Error template=" + template.getActionNextId()
-                        + " message=" + e.getMessage());
+                LOGGER.log(Level.SEVERE, "[TemplateGeneration] Error template=" + template.getActionNextId(), e);
             }
         }
-        LOGGER.info("[TemplateGeneration] End workspace=" + workspaceId
+        LOGGER.fine("[TemplateGeneration] End workspace=" + workspaceId
                 + " contact=" + contactId
                 + " totalCreated=" + total);
         return total;
@@ -269,16 +269,16 @@ public class TemplateGenerationService {
         ActionNextTemplateConfig config = (ActionNextTemplateConfig) session.get(
                 ActionNextTemplateConfig.class, template.getActionNextId());
         if (config == null) {
-            LOGGER.info("[TemplateGeneration] Skip template=" + templateId + " reason=no_config");
+            LOGGER.fine("[TemplateGeneration] Skip template=" + templateId + " reason=no_config");
             return 0;
         }
         if (!config.isAutoGenerate()) {
-            LOGGER.info("[TemplateGeneration] Skip template=" + templateId + " reason=auto_generate_off");
+            LOGGER.fine("[TemplateGeneration] Skip template=" + templateId + " reason=auto_generate_off");
             return 0;
         }
         TemplateType type = template.getTemplateType();
         if (type == null) {
-            LOGGER.info("[TemplateGeneration] Skip template=" + templateId + " reason=no_template_type");
+            LOGGER.fine("[TemplateGeneration] Skip template=" + templateId + " reason=no_template_type");
             return 0;
         }
 
@@ -292,7 +292,7 @@ public class TemplateGenerationService {
             }
         }
         if (generationFrom.isAfter(windowEnd)) {
-            LOGGER.info("[TemplateGeneration] Skip template=" + templateId
+            LOGGER.fine("[TemplateGeneration] Skip template=" + templateId
                     + " reason=window_already_generated"
                     + " generationFrom=" + generationFrom
                     + " windowEnd=" + windowEnd
@@ -317,7 +317,7 @@ public class TemplateGenerationService {
             }
         }
 
-        LOGGER.info("[TemplateGeneration] Evaluate template=" + templateId
+        LOGGER.fine("[TemplateGeneration] Evaluate template=" + templateId
                 + " type=" + type
                 + " pattern=" + n(pattern)
                 + " from=" + generationFrom
