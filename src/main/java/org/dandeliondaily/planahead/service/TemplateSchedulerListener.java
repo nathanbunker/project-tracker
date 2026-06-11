@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -29,8 +31,25 @@ import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
  */
 public class TemplateSchedulerListener implements ServletContextListener {
 
+    private static final Logger LOGGER = Logger.getLogger(TemplateSchedulerListener.class.getName());
+
+    /** Held so that {@link #triggerNow()} can submit an on-demand run. */
+    private static volatile TemplateSchedulerListener instance;
+
     private ScheduledExecutorService scheduler;
     private final TemplateGenerationService generationService = new TemplateGenerationService();
+
+    /**
+     * Submits an immediate on-demand generation run (e.g. from the admin status
+     * page).
+     * No-ops silently if the listener has not yet started or has been destroyed.
+     */
+    public static void triggerNow() {
+        TemplateSchedulerListener ref = instance;
+        if (ref != null && ref.scheduler != null && !ref.scheduler.isShutdown()) {
+            ref.scheduler.submit(() -> ref.runGenerationSafely("manual"));
+        }
+    }
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -43,21 +62,26 @@ public class TemplateSchedulerListener implements ServletContextListener {
             }
         });
 
+        instance = this;
+
         // Immediate catch-up run
-        scheduler.submit(this::runGeneration);
+        scheduler.submit(() -> runGenerationSafely("startup"));
 
         // Schedule to run every hour, aligned to :15 past the hour
         ZonedDateTime now = ZonedDateTime.now();
         int minuteNow = now.getMinute();
         long delayMinutes = (minuteNow < 15) ? (15 - minuteNow) : (60 - minuteNow + 15);
         long initialDelaySec = delayMinutes * 60L - now.getSecond();
-        scheduler.scheduleAtFixedRate(this::runGeneration, initialDelaySec, 3600L, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(() -> runGenerationSafely("hourly"), initialDelaySec, 3600L,
+                TimeUnit.SECONDS);
 
-        System.out.println("[TemplateScheduler] Scheduled. First hourly run in " + delayMinutes + " min.");
+        LOGGER.log(Level.INFO, "[TemplateScheduler] Scheduled. First hourly run in {0} min.",
+                Long.valueOf(delayMinutes));
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
+        instance = null;
         if (scheduler != null) {
             scheduler.shutdownNow();
         }
@@ -67,17 +91,29 @@ public class TemplateSchedulerListener implements ServletContextListener {
     // Core generation run
     // =========================================================================
 
-    private void runGeneration() {
-        System.out.println("[TemplateScheduler] Running template generation.");
-        SessionFactory factory = CentralControl.getSessionFactory();
-        Session session = factory.openSession();
+    private void runGenerationSafely(String trigger) {
         try {
-            // Look up global advance-days setting once per run
+            runGeneration();
+        } catch (Throwable t) {
+            // Prevent ScheduledExecutorService from suppressing future runs
+            // when a task throws.
+            LOGGER.log(Level.SEVERE, "[TemplateScheduler] Unhandled error in " + trigger + " run", t);
+        }
+    }
+
+    private void runGeneration() {
+        LOGGER.info("[TemplateScheduler] Running template generation.");
+        SchedulerRunRecord record = new SchedulerRunRecord();
+        SchedulerStatusHolder.beginRun(record);
+        SessionFactory factory = CentralControl.getSessionFactory();
+        Session session = null;
+        try {
+            session = factory.openSession();
             int advanceDays = resolveAdvanceDays(session);
 
-            // Find all distinct (workspaceId, contactId) pairs that own active templates
             List<Object[]> pairs = loadWorkspaceContactPairs(session);
-            System.out.println("[TemplateScheduler] Processing " + pairs.size() + " workspace/contact pairs.");
+            record.setPairsProcessed(pairs.size());
+            LOGGER.info("[TemplateScheduler] Processing " + pairs.size() + " workspace/contact pairs.");
 
             for (Object[] pair : pairs) {
                 int workspaceId = ((Number) pair[0]).intValue();
@@ -86,16 +122,35 @@ public class TemplateSchedulerListener implements ServletContextListener {
                 }
                 int contactId = ((Number) pair[1]).intValue();
                 try {
-                    processUser(factory, workspaceId, contactId, advanceDays);
+                    int created = processUser(factory, workspaceId, contactId, advanceDays);
+                    record.addInstancesGenerated(created);
+                    LOGGER.info("[TemplateScheduler] workspace=" + workspaceId
+                            + " contact=" + contactId
+                            + " created=" + created
+                            + " advanceDays=" + advanceDays);
                 } catch (Exception e) {
-                    System.err.println("[TemplateScheduler] Error processing workspace=" + workspaceId
-                            + " contact=" + contactId + ": " + e.getMessage());
+                    record.recordError(e);
+                    LOGGER.log(Level.SEVERE,
+                            "[TemplateScheduler] Error processing workspace=" + workspaceId
+                                    + " contact=" + contactId,
+                            e);
                 }
             }
+
+            SchedulerRunRecord.Outcome outcome = record.getPairsWithErrors() > 0
+                    ? SchedulerRunRecord.Outcome.PARTIAL_ERRORS
+                    : (pairs.isEmpty() ? SchedulerRunRecord.Outcome.NO_TEMPLATES : SchedulerRunRecord.Outcome.OK);
+            record.finish(outcome);
+
         } catch (Exception e) {
-            System.err.println("[TemplateScheduler] Fatal error during generation run: " + e.getMessage());
+            record.recordError(e);
+            record.finish(SchedulerRunRecord.Outcome.FATAL);
+            LOGGER.log(Level.SEVERE, "[TemplateScheduler] Fatal error during generation run", e);
         } finally {
-            session.close();
+            if (session != null) {
+                session.close();
+            }
+            SchedulerStatusHolder.completeRun(record);
         }
     }
 
@@ -103,7 +158,7 @@ public class TemplateSchedulerListener implements ServletContextListener {
      * Runs missed-action behavior + forward generation for one workspace/contact
      * pair.
      */
-    private void processUser(SessionFactory factory, int workspaceId, int contactId, int advanceDays) {
+    private int processUser(SessionFactory factory, int workspaceId, int contactId, int advanceDays) {
         Session session = factory.openSession();
         Transaction transaction = null;
         try {
@@ -113,16 +168,19 @@ public class TemplateSchedulerListener implements ServletContextListener {
 
             transaction = session.beginTransaction();
             generationService.applyMissedActionBehavior(session, workspaceId, contactId, today);
-            generationService.generateForwardWindow(session, workspaceId, contactId, today, advanceDays);
+            int created = generationService.generateForwardWindow(session, workspaceId, contactId, today, advanceDays);
             generationService.cleanupPastActualTimes(session, workspaceId, contactId, today);
             transaction.commit();
+            return created;
         } catch (RuntimeException re) {
             if (transaction != null) {
                 transaction.rollback();
             }
             throw re;
         } finally {
-            session.close();
+            if (session != null) {
+                session.close();
+            }
         }
     }
 
@@ -133,10 +191,10 @@ public class TemplateSchedulerListener implements ServletContextListener {
     @SuppressWarnings("unchecked")
     private List<Object[]> loadWorkspaceContactPairs(Session session) {
         Query query = session.createQuery(
-                "select distinct an.workspaceId, an.contactId from ActionNext an "
+                "select distinct an.workspaceId, coalesce(an.contactId, an.nextContactId) from ActionNext an "
                         + "where an.templateTypeString is not null and an.templateTypeString <> '' "
-                        + "and an.contactId is not null "
-                        + "and an.templateActionNextId is null "
+                        + "and (an.contactId is not null or an.nextContactId is not null) "
+                        + "and (an.templateActionNextId is null or an.templateActionNextId = 0) "
                         + "and an.nextActionStatusString <> :cancelled");
         query.setParameter("cancelled", "X");
         return query.list();

@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -23,6 +24,8 @@ import org.openimmunizationsoftware.pt.model.TemplateType;
  */
 public class TemplateGenerationService {
 
+    private static final Logger LOGGER = Logger.getLogger(TemplateGenerationService.class.getName());
+
     private static final String STATUS_READY = ProjectNextActionStatus.READY.getId();
     private static final String STATUS_CANCELLED = ProjectNextActionStatus.CANCELLED.getId();
 
@@ -37,18 +40,31 @@ public class TemplateGenerationService {
      * active template owned by the given workspace/contact. Idempotent: dates that
      * already have an instance (any status) are skipped.
      */
-    public void generateForwardWindow(Session session, int workspaceId, int contactId,
+    public int generateForwardWindow(Session session, int workspaceId, int contactId,
             LocalDate today, int advanceDays) {
         LocalDate windowEnd = today.plusDays(advanceDays);
         List<ActionNext> templates = loadTemplateRoots(session, workspaceId, contactId);
+        LOGGER.info("[TemplateGeneration] Begin workspace=" + workspaceId
+                + " contact=" + contactId
+                + " today=" + today
+                + " windowEnd=" + windowEnd
+                + " templates=" + templates.size());
+        int total = 0;
         for (ActionNext template : templates) {
             try {
-                generateForTemplate(session, template, today, windowEnd);
+                int created = generateForTemplate(session, template, today, windowEnd);
+                total += created;
+                LOGGER.info("[TemplateGeneration] Template " + template.getActionNextId()
+                        + " created=" + created);
             } catch (Exception e) {
-                System.err.println("[TemplateGenerationService] Error generating for template "
-                        + template.getActionNextId() + ": " + e.getMessage());
+                LOGGER.severe("[TemplateGeneration] Error template=" + template.getActionNextId()
+                        + " message=" + e.getMessage());
             }
         }
+        LOGGER.info("[TemplateGeneration] End workspace=" + workspaceId
+                + " contact=" + contactId
+                + " totalCreated=" + total);
+        return total;
     }
 
     /**
@@ -239,7 +255,7 @@ public class TemplateGenerationService {
                 "from ActionNext an where an.workspaceId = :workspaceId "
                         + "and (an.contactId = :contactId or an.nextContactId = :contactId) "
                         + "and an.templateTypeString is not null and an.templateTypeString <> '' "
-                        + "and an.templateActionNextId is null "
+                        + "and (an.templateActionNextId is null or an.templateActionNextId = 0) "
                         + "and an.nextActionStatusString <> :cancelled");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", contactId);
@@ -247,16 +263,23 @@ public class TemplateGenerationService {
         return query.list();
     }
 
-    private void generateForTemplate(Session session, ActionNext template,
+    private int generateForTemplate(Session session, ActionNext template,
             LocalDate today, LocalDate windowEnd) {
+        int templateId = template.getActionNextId();
         ActionNextTemplateConfig config = (ActionNextTemplateConfig) session.get(
                 ActionNextTemplateConfig.class, template.getActionNextId());
-        if (config == null || !config.isAutoGenerate()) {
-            return;
+        if (config == null) {
+            LOGGER.info("[TemplateGeneration] Skip template=" + templateId + " reason=no_config");
+            return 0;
+        }
+        if (!config.isAutoGenerate()) {
+            LOGGER.info("[TemplateGeneration] Skip template=" + templateId + " reason=auto_generate_off");
+            return 0;
         }
         TemplateType type = template.getTemplateType();
         if (type == null) {
-            return;
+            LOGGER.info("[TemplateGeneration] Skip template=" + templateId + " reason=no_template_type");
+            return 0;
         }
 
         // Start from today or from the day after the last generated date
@@ -269,7 +292,12 @@ public class TemplateGenerationService {
             }
         }
         if (generationFrom.isAfter(windowEnd)) {
-            return; // nothing new to generate
+            LOGGER.info("[TemplateGeneration] Skip template=" + templateId
+                    + " reason=window_already_generated"
+                    + " generationFrom=" + generationFrom
+                    + " windowEnd=" + windowEnd
+                    + " lastGeneratedDate=" + config.getLastGeneratedDate());
+            return 0; // nothing new to generate
         }
 
         String pattern = resolvePattern(type, config);
@@ -281,14 +309,26 @@ public class TemplateGenerationService {
                 generationFrom, windowEnd);
 
         boolean rescheduleLocked = isRescheduleLocked(config);
+        int count = 0;
         for (LocalDate date : scheduledDates) {
             if (!existingDates.contains(date)) {
                 session.save(createInstance(template, date, rescheduleLocked));
+                count++;
             }
         }
 
+        LOGGER.info("[TemplateGeneration] Evaluate template=" + templateId
+                + " type=" + type
+                + " pattern=" + n(pattern)
+                + " from=" + generationFrom
+                + " to=" + windowEnd
+                + " scheduledDates=" + scheduledDates.size()
+                + " existingDates=" + existingDates.size()
+                + " created=" + count);
+
         config.setLastGeneratedDate(toUtcDate(windowEnd));
         session.update(config);
+        return count;
     }
 
     private Set<LocalDate> loadExistingInstanceDates(Session session, int templateActionNextId,

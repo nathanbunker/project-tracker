@@ -53,6 +53,10 @@
     <servlet-class>org.dandeliondaily.servlet.TemplateManagementServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>TemplateSchedulerStatusServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.TemplateSchedulerStatusServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>CssServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.CssServlet</servlet-class>
   </servlet>
@@ -299,6 +303,10 @@
   <servlet-mapping>
     <servlet-name>TemplateManagementServlet</servlet-name>
     <url-pattern>/TemplateManagementServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>TemplateSchedulerStatusServlet</servlet-name>
+    <url-pattern>/TemplateSchedulerStatusServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>CssServlet</servlet-name>
