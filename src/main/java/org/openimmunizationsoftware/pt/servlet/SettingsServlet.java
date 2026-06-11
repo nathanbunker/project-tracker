@@ -251,6 +251,10 @@ public class SettingsServlet extends ClientServlet {
 
       boolean userDailyReportsEnabled = TrackerKeysManager.getUserKeyValueBooleanNoFallback(
           TrackerKeysManager.KEY_REPORT_DAILY_ENABLED, false, webUser, dataSession);
+      String selectedDisplayColor = valueOrEmpty(appReq.getDisplayColor());
+      if (selectedDisplayColor.length() == 0) {
+        selectedDisplayColor = CssServlet.DisplayColor.DEFAULT.getLabel();
+      }
 
       out.println("<br/>");
       out.println("<form action=\"SettingsServlet\" method=\"POST\">");
@@ -279,6 +283,20 @@ public class SettingsServlet extends ClientServlet {
       out.println("      <option value=\"" + WORKFLOW_TYPE_STUDENT + "\""
           + (WORKFLOW_TYPE_STUDENT.equals(selectedWorkflowType) ? " selected" : "")
           + ">School</option>");
+      out.println("    </select></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Display Color</th>");
+      out.println("    <td class=\"boxed\"><select name=\"" + PARAM_DISPLAY_COLOR + "\">");
+      for (CssServlet.DisplayColor displayColor : CssServlet.DisplayColor.values()) {
+        out.println("      <option value=\"" + h(displayColor.getLabel()) + "\""
+            + (displayColor.getLabel().equals(selectedDisplayColor) ? " selected" : "")
+            + ">" + h(displayColor.getLabel()) + "</option>");
+      }
+      if (selectedDisplayColor.startsWith("#")) {
+        out.println("      <option value=\"" + h(selectedDisplayColor) + "\" selected>Custom ("
+            + h(selectedDisplayColor) + ")</option>");
+      }
       out.println("    </select></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");

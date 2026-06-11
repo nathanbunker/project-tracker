@@ -30,7 +30,7 @@ VALUES ('system.smtp.address', 1, 'APPLICATION', 'sandbox.smtp.mailtrap.io')
 ON DUPLICATE KEY UPDATE key_value = VALUES(key_value);
 
 INSERT INTO tracker_keys (key_name, key_type, key_id, key_value)
-VALUES ('system.external.url', 1, 'APPLICATION', 'http://localhost:8080/dandelion')
+VALUES ('system.external.url', 1, 'APPLICATION', 'http://localhost:8089/dandelion')
 ON DUPLICATE KEY UPDATE key_value = VALUES(key_value);
 
 -- Local Windows development: point image uploads to a writable folder.

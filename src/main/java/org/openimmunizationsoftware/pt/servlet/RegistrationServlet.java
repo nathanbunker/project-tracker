@@ -206,6 +206,7 @@ public class RegistrationServlet extends ClientServlet {
             webUser.setMagicLinkExpiry(expiry);
             dataSession.save(webUser);
             saveUserKeyValue(dataSession, webUser, TrackerKeysManager.KEY_DISPLAY_SIZE, "large");
+            saveUserKeyValue(dataSession, webUser, TrackerKeysManager.KEY_DISPLAY_COLOR, "dark-green");
 
             trans.commit();
         } catch (Exception e) {
