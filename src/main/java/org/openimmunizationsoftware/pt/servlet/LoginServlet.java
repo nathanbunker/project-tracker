@@ -123,6 +123,10 @@ public class LoginServlet extends ClientServlet {
         }
       } else {
         WebUser webUser = appReq.getWebUser();
+        if (webUser != null && !WebUser.REGISTRATION_STATUS_ACTIVE.equals(webUser.getRegistrationStatus())) {
+          response.sendRedirect("RegistrationServlet?status=setup");
+          return;
+        }
         if (webUser != null && !hasWorkspace(dataSession, webUser)) {
           appReq.logout();
           appReq.setMessageProblem("Account setup is incomplete. Please complete registration or contact support.");

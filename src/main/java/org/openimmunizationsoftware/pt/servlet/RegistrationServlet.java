@@ -98,9 +98,9 @@ public class RegistrationServlet extends ClientServlet {
             String action = appReq.getAction();
             PrintWriter out = appReq.getOut();
             WebUser sessionWebUser = appReq.getWebUser();
-            boolean onboardingMode = sessionWebUser != null && !hasProvider(sessionWebUser);
+            boolean onboardingMode = sessionWebUser != null && !hasProvider(dataSession, sessionWebUser);
 
-            if (sessionWebUser != null && hasProvider(sessionWebUser)) {
+            if (sessionWebUser != null && hasProvider(dataSession, sessionWebUser)) {
                 response.sendRedirect("HomeServlet");
                 return;
             }
@@ -998,8 +998,9 @@ public class RegistrationServlet extends ClientServlet {
         return false;
     }
 
-    private boolean hasProvider(WebUser webUser) {
-        return webUser != null && WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()) != null;
+    private boolean hasProvider(Session dataSession, WebUser webUser) {
+        return webUser != null
+                && WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()) != null;
     }
 
     private String firstNonEmpty(String primary, String fallback) {
