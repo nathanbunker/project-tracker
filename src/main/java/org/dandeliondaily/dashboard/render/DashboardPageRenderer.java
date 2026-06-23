@@ -877,6 +877,16 @@ public class DashboardPageRenderer {
                 out.println("  .dd-today-cell-action-main {");
                 out.println("    width: 42%;");
                 out.println("  }");
+                out.println("  .dd-bill-code-dot {");
+                out.println("    display: inline-block;");
+                out.println("    width: 9px;");
+                out.println("    height: 9px;");
+                out.println("    border-radius: 50%;");
+                out.println("    border: 1px solid #000;");
+                out.println("    vertical-align: baseline;");
+                out.println("    margin-right: 6px;");
+                out.println("    box-sizing: border-box;");
+                out.println("  }");
                 out.println("  .dd-today-cell-project {");
                 out.println("    width: 20%;");
                 out.println("    color: #756b5e;");
@@ -2686,6 +2696,7 @@ public class DashboardPageRenderer {
                                                         + item.getActionNextId() + "'\"";
                                         out.println("      <tr class=\"dd-row-clickable\"" + todayRowOnclick + ">");
                                         out.println("        <td class=\"dd-today-cell-action-main\">"
+                                                        + buildBillCodeDotHtml(item)
                                                         + escapeHtml(item.getDescriptionText()) + "</td>");
                                         out.println("        <td class=\"dd-today-cell-project\">"
                                                         + escapeHtml(item.getProjectName())
@@ -3693,6 +3704,19 @@ public class DashboardPageRenderer {
                 int hours = actualMinutes / 60;
                 int minutes = actualMinutes % 60;
                 return hours + ":" + String.format("%02d", minutes);
+        }
+
+        private String buildBillCodeDotHtml(DashboardTodayColumnModel.TodayActionItemModel item) {
+                if (item == null || !isSafeDisplayColor(item.getDisplayColor())) {
+                        return "";
+                }
+                return "<span class=\"dd-bill-code-dot\" title=\""
+                                + escapeHtmlAttribute(item.getDisplayDotLabel())
+                                + "\" style=\"background-color:" + item.getDisplayColor() + ";\"></span>";
+        }
+
+        private boolean isSafeDisplayColor(String color) {
+                return color != null && color.matches("^#[0-9A-Fa-f]{6}$");
         }
 
         private String escapeHtml(String value) {

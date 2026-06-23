@@ -518,6 +518,33 @@ public class ClientServlet extends HttpServlet {
     return s;
   }
 
+  protected static String escapeHtml(String value) {
+    if (value == null) {
+      return "";
+    }
+    return value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;");
+  }
+
+  protected static String escapeHtmlAttribute(String value) {
+    return escapeHtml(value);
+  }
+
+  protected static String urlEncode(String value) {
+    if (value == null) {
+      return "";
+    }
+    try {
+      return java.net.URLEncoder.encode(value, "UTF-8");
+    } catch (java.io.UnsupportedEncodingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   protected static String trim(String s, int length) {
     if (s == null) {
       return "";

@@ -21,6 +21,8 @@ import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.BillCodeDisplay;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
@@ -400,6 +402,7 @@ public class DashboardTodayColumnService {
             item.setActualDisplay(displayTime(action.getNextTimeActualForDisplay()));
             item.setEstimateMinutes(action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
             item.setActualMinutes(action.getNextTimeActual() == null ? 0 : action.getNextTimeActual());
+            applyBillCodeDisplay(item, action, dataSession);
             if (action.getTimeSlot() != null && action.getTimeSlot().getLabel() != null
                     && action.getTimeSlot().getLabel().trim().length() > 0) {
                 item.setContextLabel(action.getTimeSlot().getLabel());
@@ -410,6 +413,32 @@ public class DashboardTodayColumnService {
             items.add(item);
         }
         return items;
+    }
+
+    private void applyBillCodeDisplay(DashboardTodayColumnModel.TodayActionItemModel item, ActionNext action,
+            Session dataSession) {
+        BillCode billCode = resolveBillCode(dataSession, action == null ? null : action.getProject());
+        String displayColor = billCode == null ? null
+                : BillCodeDisplay.normalizeDisplayColorOrNull(billCode.getDisplayColor());
+        if (displayColor == null) {
+            return;
+        }
+        item.setDisplayColor(displayColor);
+        item.setDisplayDotLabel(BillCodeDisplay.getDisplayDotLabel(billCode));
+    }
+
+    private BillCode resolveBillCode(Session dataSession, Project project) {
+        if (dataSession == null || project == null || project.getWorkspaceId() == null
+                || project.getBillCode() == null || project.getBillCode().trim().length() == 0) {
+            return null;
+        }
+        Query query = dataSession.createQuery(
+                "from BillCode where workspaceId = :workspaceId and id.billCode = :billCode");
+        query.setParameter("workspaceId", project.getWorkspaceId());
+        query.setParameter("billCode", project.getBillCode());
+        @SuppressWarnings("unchecked")
+        List<BillCode> billCodes = query.list();
+        return billCodes.isEmpty() ? null : billCodes.get(0);
     }
 
     private String resolveProjectDisplayName(ActionNext action, Map<Integer, String> displayNameByActionId) {

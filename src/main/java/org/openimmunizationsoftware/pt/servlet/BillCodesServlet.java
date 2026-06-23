@@ -16,6 +16,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
+import org.openimmunizationsoftware.pt.model.BillCodeDisplay;
 
 /**
  * 
@@ -66,7 +67,7 @@ public class BillCodesServlet extends ClientServlet {
       List<BillCode> billCodeList = query.list();
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
-      out.println("    <th class=\"title\" colspan=\"7\">Bill Codes</th>");
+      out.println("    <th class=\"title\" colspan=\"9\">Bill Codes</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Bill Code</th>");
@@ -76,21 +77,35 @@ public class BillCodesServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Estimate Min</th>");
       out.println("    <th class=\"boxed\">Rate</th>");
       out.println("    <th class=\"boxed\">Round</th>");
+      out.println("    <th class=\"boxed\">Display Color</th>");
+      out.println("    <th class=\"boxed\">Display Label</th>");
       out.println("  </tr>");
 
       for (BillCode billCode : billCodeList) {
+        String displayColor = BillCodeDisplay.normalizeDisplayColorOrNull(billCode.getDisplayColor());
+        String billCodeHref = "BillCodeServlet?billCode=" + escapeHtmlAttribute(urlEncode(billCode.getBillCode()));
         out.println("  <tr class=\"boxed\">");
         out.println(
-            "    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode()
-                + "\" class=\"button\">" + billCode.getBillCode() + "</a></td>");
+            "    <td class=\"boxed\"><a href=\"" + billCodeHref
+                + "\" class=\"button\">" + escapeHtml(billCode.getBillCode()) + "</a></td>");
         out.println(
-            "    <td class=\"boxed\"><a href=\"BillCodeServlet?billCode=" + billCode.getBillCode()
-                + "\" class=\"button\">" + billCode.getBillLabel() + "</a></td>");
-        out.println("    <td class=\"boxed\">" + billCode.getBillable() + "</td>");
-        out.println("    <td class=\"boxed\">" + billCode.getVisible() + "</td>");
+            "    <td class=\"boxed\"><a href=\"" + billCodeHref
+                + "\" class=\"button\">" + escapeHtml(billCode.getBillLabel()) + "</a></td>");
+        out.println("    <td class=\"boxed\">" + escapeHtml(billCode.getBillable()) + "</td>");
+        out.println("    <td class=\"boxed\">" + escapeHtml(billCode.getVisible()) + "</td>");
         out.println("    <td class=\"boxed\">" + billCode.getEstimateMin() + "</td>");
         out.println("    <td class=\"boxed\">" + billCode.getBillRate() + "</td>");
         out.println("    <td class=\"boxed\">" + billCode.getBillRound() + "</td>");
+        if (displayColor == null) {
+          out.println("    <td class=\"boxed\"></td>");
+        } else {
+          out.println("    <td class=\"boxed\"><span title=\""
+              + escapeHtmlAttribute(BillCodeDisplay.getDisplayDotLabel(billCode))
+              + "\" style=\"display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid #000;background-color:"
+              + displayColor + ";vertical-align:middle;margin-right:5px;\"></span>"
+              + escapeHtml(displayColor) + "</td>");
+        }
+        out.println("    <td class=\"boxed\">" + escapeHtml(billCode.getDisplayLabel()) + "</td>");
         out.println("  </tr>");
       }
       out.println("</table> ");

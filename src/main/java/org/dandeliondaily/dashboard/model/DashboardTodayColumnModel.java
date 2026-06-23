@@ -244,6 +244,8 @@ public class DashboardTodayColumnModel {
         private int actualMinutes;
         private String contextLabel = "";
         private String statusLabel = "";
+        private String displayColor = "";
+        private String displayDotLabel = "";
 
         public String getProjectName() {
             return projectName;
@@ -315,6 +317,22 @@ public class DashboardTodayColumnModel {
 
         public void setStatusLabel(String statusLabel) {
             this.statusLabel = statusLabel;
+        }
+
+        public String getDisplayColor() {
+            return displayColor;
+        }
+
+        public void setDisplayColor(String displayColor) {
+            this.displayColor = displayColor;
+        }
+
+        public String getDisplayDotLabel() {
+            return displayDotLabel;
+        }
+
+        public void setDisplayDotLabel(String displayDotLabel) {
+            this.displayDotLabel = displayDotLabel;
         }
 
         public int getActionNextId() {
