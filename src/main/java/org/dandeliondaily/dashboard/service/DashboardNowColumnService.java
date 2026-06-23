@@ -59,15 +59,15 @@ public class DashboardNowColumnService {
 
         Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         String currentProjectDisplayName = currentAction == null
-            ? ""
-            : projectDisplayLabelService.buildActionDisplayName(dataSession, currentAction, privateWorkspaceId);
+                ? ""
+                : projectDisplayLabelService.buildActionDisplayName(dataSession, currentAction, privateWorkspaceId);
 
         ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext = projectDisplayLabelService
                 .buildDisplayContext(dataSession, currentProject);
 
         model.setCurrentAction(createCurrentActionModel(webUser, dataSession, currentAction));
         model.setCurrentProject(createCurrentProjectModel(currentProject, projectDisplayContext,
-            currentProjectDisplayName));
+                currentProjectDisplayName));
 
         if (currentProject != null) {
             List<ActionNext> openActions = loadOpenProjectActions(dataSession, currentProject);
