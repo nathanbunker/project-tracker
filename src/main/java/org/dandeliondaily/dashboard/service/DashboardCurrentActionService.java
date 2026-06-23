@@ -286,7 +286,7 @@ public class DashboardCurrentActionService {
         actionTaken.setProjectId(project.getProjectId());
         actionTaken.setActionDate(new Date());
         actionTaken.setActionDescription(actionTakenText);
-        actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        actionTaken.setWorkspaceId(WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
         actionTaken.setContact(webUser.getProjectContact());
         actionTaken.setContactId(webUser.getContactId());
         actionTaken.setActionSet(actionSet);
@@ -419,7 +419,7 @@ public class DashboardCurrentActionService {
 
     private List<ActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
         LocalDate today = webUser.getLocalDateToday();
-        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         Query query;
         if (dayOffset < 0) {
             LocalDate oldestDate = today.minusYears(1);
@@ -470,7 +470,7 @@ public class DashboardCurrentActionService {
                         + "and an.nextDescription <> '' "
                         + "and an.nextActionStatusString = :nextActionStatus "
                         + "and an.nextActionDate is not null and an.nextActionDate < :tomorrow ");
-        query.setParameter("workspaceId", WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        query.setParameter("workspaceId", WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
@@ -539,7 +539,7 @@ public class DashboardCurrentActionService {
         Query query = dataSession
                 .createQuery(
                         "from Project where workspaceId = ? and (projectStatus is null or projectStatus = :activeStatus) order by projectName");
-        query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
         query.setParameter("activeStatus", ProjectStatus.ACTIVE.getDatabaseValue());
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();

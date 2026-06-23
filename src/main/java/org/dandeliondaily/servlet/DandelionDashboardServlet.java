@@ -263,6 +263,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         }
         Map<String, Object> data = new LinkedHashMap<>();
         Project actionProject = action.getProject();
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(appReq.getDataSession(),
+                webUser.getWebUserId());
         data.put("success", true);
         data.put("nextActionDate", formatUserDate(webUser, action.getNextActionDate()));
         data.put("nextActionType", action.getNextActionType() != null ? action.getNextActionType() : "");
@@ -271,8 +273,8 @@ public class DandelionDashboardServlet extends ClientServlet {
                 : "");
         data.put("displayProjectName", actionProject == null
                 ? ""
-                : projectDisplayLabelService.buildDisplayContext(appReq.getDataSession(), actionProject)
-                        .getDisplayName());
+                : projectDisplayLabelService.buildActionDisplayName(appReq.getDataSession(), action,
+                        privateWorkspaceId));
         Integer nextContactId = action.getNextContactId();
         data.put("nextContactId", nextContactId != null && nextContactId.intValue() > 0 ? nextContactId : "");
         data.put("nextDescription", action.getNextDescription() != null ? action.getNextDescription() : "");

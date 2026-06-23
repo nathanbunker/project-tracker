@@ -77,21 +77,29 @@ public class QuickCaptureLinkedProjectService {
                 continue;
             }
 
-            List<Project> targetProjects = new ArrayList<Project>();
-            targetProjects.add(privateProject);
-            targetProjects.addAll(linkedPatchProjects);
-
             for (Project linkedPatchProject : linkedPatchProjects) {
-                String aliasLabel = projectDisplayLabelService.buildCompositeDisplayName(privateProject,
-                        linkedPatchProject);
+                LinkedAliasResolution aliasResolution = createAliasResolution(privateProject, linkedPatchProject);
+                String aliasLabel = aliasResolution.getAliasLabel();
                 String aliasKey = aliasLabel.toLowerCase();
                 if (!byLabel.containsKey(aliasKey)) {
-                    byLabel.put(aliasKey, new LinkedAliasResolution(aliasLabel, privateProject, targetProjects));
+                    byLabel.put(aliasKey, aliasResolution);
                 }
             }
         }
 
         aliases.addAll(byLabel.values());
         return aliases;
+    }
+
+    LinkedAliasResolution createAliasResolution(Project privateProject, Project linkedPatchProject) {
+        List<Project> targetProjects = new ArrayList<Project>();
+        if (privateProject != null) {
+            targetProjects.add(privateProject);
+        }
+        if (linkedPatchProject != null) {
+            targetProjects.add(linkedPatchProject);
+        }
+        String aliasLabel = projectDisplayLabelService.buildCompositeDisplayName(privateProject, linkedPatchProject);
+        return new LinkedAliasResolution(aliasLabel, privateProject, targetProjects);
     }
 }

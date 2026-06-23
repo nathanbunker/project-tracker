@@ -27,13 +27,13 @@ public class ProjectDisplayLabelServiceTest {
     }
 
     @Test
-    public void buildDisplayName_returnsSlashSeparatedNameWhenSharedProjectExists() {
+    public void buildDisplayName_returnsPrivateNameWhenSharedProjectExists() {
         Project privateProject = project(1, "Country Interview");
         Project sharedProject = project(2, "NHS England");
 
         String displayName = service.buildDisplayName(privateProject, Arrays.asList(sharedProject));
 
-        Assert.assertEquals("Country Interview / NHS England", displayName);
+        Assert.assertEquals("Country Interview", displayName);
     }
 
     @Test

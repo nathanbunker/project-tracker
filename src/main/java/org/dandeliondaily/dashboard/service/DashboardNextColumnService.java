@@ -18,7 +18,6 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.ActionNext;
-import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -203,13 +202,15 @@ public class DashboardNextColumnService {
     private List<DashboardNextColumnModel.SelectedDayActionItemModel> toSelectedDayItems(WebUser webUser,
             Session dataSession, List<ActionNext> actions) {
         List<DashboardNextColumnModel.SelectedDayActionItemModel> items = new ArrayList<DashboardNextColumnModel.SelectedDayActionItemModel>();
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
-                extractProjects(actions));
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
+        Map<Integer, String> displayNameByActionId = projectDisplayLabelService.buildActionDisplayNameMap(dataSession,
+                actions,
+                privateWorkspaceId);
         for (ActionNext action : actions) {
             DashboardNextColumnModel.SelectedDayActionItemModel item = new DashboardNextColumnModel.SelectedDayActionItemModel();
             item.setActionNextId(action.getActionNextId());
             item.setProjectName(action.getProject() == null ? ""
-                    : resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
+                    : resolveProjectDisplayName(action, displayNameByActionId));
             item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
             item.setDescriptionPlain(n(action.getNextDescription()));
             item.setEstimateDisplay(n(action.getNextTimeEstimateForDisplay()));
@@ -220,25 +221,12 @@ public class DashboardNextColumnService {
         return items;
     }
 
-    private List<Project> extractProjects(List<ActionNext> actions) {
-        List<Project> projects = new ArrayList<Project>();
-        if (actions == null) {
-            return projects;
-        }
-        for (ActionNext action : actions) {
-            if (action != null && action.getProject() != null) {
-                projects.add(action.getProject());
-            }
-        }
-        return projects;
-    }
-
-    private String resolveProjectDisplayName(Project project, Map<Integer, String> displayNameByProjectId) {
-        if (project == null) {
+    private String resolveProjectDisplayName(ActionNext action, Map<Integer, String> displayNameByActionId) {
+        if (action == null || action.getProject() == null) {
             return "";
         }
-        String displayName = displayNameByProjectId == null ? null : displayNameByProjectId.get(project.getProjectId());
-        return n(displayName != null ? displayName : project.getProjectName());
+        String displayName = displayNameByActionId == null ? null : displayNameByActionId.get(action.getActionNextId());
+        return n(displayName != null ? displayName : action.getProject().getProjectName());
     }
 
     private Map<String, List<ActionNext>> bucketByDate(List<ActionNext> planningRangeList) {
@@ -257,7 +245,7 @@ public class DashboardNextColumnService {
 
     private List<ActionNext> getProjectActionListForPlanningRange(WebUser webUser, Session dataSession,
             Date startDate, Date endDate) {
-        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         Query query = dataSession.createQuery(
                 "select distinct an from ActionNext an "
                         + "left join fetch an.project "

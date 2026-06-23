@@ -322,7 +322,7 @@ public class ActionSentenceImportService {
         nextAction.setNextTimeEstimate(nextTimeEstimate);
         nextAction.setNextChangeDate(new Date());
         Integer workspaceId = workspaceIdOverride != null ? workspaceIdOverride
-                : WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+            : WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         nextAction.setWorkspaceId(workspaceId);
         nextAction.setContact(actorContact);
         nextAction.setBillable(resolveBillable(dataSession, foundProject));

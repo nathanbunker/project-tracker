@@ -133,22 +133,31 @@ public class DashboardTodayColumnService {
     }
 
     private List<String> listQuickCaptureProjectNames(List<Project> quickCaptureProjects, Session dataSession) {
-        LinkedHashSet<String> orderedNames = new LinkedHashSet<String>();
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
-                quickCaptureProjects);
-        for (Project project : quickCaptureProjects) {
-            if (project != null && project.getProjectName() != null) {
-                orderedNames.add(resolveProjectDisplayName(project, displayNameByProjectId));
-            }
-        }
         List<String> aliasNames = quickCaptureLinkedProjectService.listAliasLabels(dataSession, quickCaptureProjects);
-        for (String aliasName : aliasNames) {
-            if (aliasName != null && aliasName.trim().length() > 0) {
-                orderedNames.add(aliasName.trim());
+        LinkedHashSet<String> orderedNames = buildOrderedQuickCaptureNames(quickCaptureProjects, aliasNames);
+        return new ArrayList<String>(orderedNames);
+    }
+
+    LinkedHashSet<String> buildOrderedQuickCaptureNames(List<Project> quickCaptureProjects, List<String> aliasNames) {
+        LinkedHashSet<String> orderedNames = new LinkedHashSet<String>();
+        if (quickCaptureProjects != null) {
+            for (Project project : quickCaptureProjects) {
+                if (project != null && project.getProjectName() != null) {
+                    String projectName = project.getProjectName().trim();
+                    if (projectName.length() > 0) {
+                        orderedNames.add(projectName);
+                    }
+                }
             }
         }
-        List<String> projectNames = new ArrayList<String>(orderedNames);
-        return projectNames;
+        if (aliasNames != null) {
+            for (String aliasName : aliasNames) {
+                if (aliasName != null && aliasName.trim().length() > 0) {
+                    orderedNames.add(aliasName.trim());
+                }
+            }
+        }
+        return orderedNames;
     }
 
     private DashboardTodayColumnModel.WorkdayReviewModel buildWorkdayReviewModel(WebUser webUser, Session dataSession,
@@ -328,7 +337,7 @@ public class DashboardTodayColumnService {
     }
 
     private List<ActionNext> getWouldLikeToIdeasList(WebUser webUser, Session dataSession) {
-        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         Query query = dataSession.createQuery(
                 "select distinct an from ActionNext an "
                         + "left join fetch an.project "
@@ -376,12 +385,14 @@ public class DashboardTodayColumnService {
     private List<DashboardTodayColumnModel.TodayActionItemModel> toActionItems(WebUser webUser,
             Session dataSession, List<ActionNext> actions, String contextLabel) {
         List<DashboardTodayColumnModel.TodayActionItemModel> items = new ArrayList<DashboardTodayColumnModel.TodayActionItemModel>();
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(dataSession,
-                extractProjects(actions));
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
+        Map<Integer, String> displayNameByActionId = projectDisplayLabelService.buildActionDisplayNameMap(dataSession,
+                actions,
+                privateWorkspaceId);
         for (ActionNext action : actions) {
             DashboardTodayColumnModel.TodayActionItemModel item = new DashboardTodayColumnModel.TodayActionItemModel();
             item.setProjectName(action.getProject() == null ? ""
-                    : resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
+                    : resolveProjectDisplayName(action, displayNameByActionId));
             item.setDescriptionText(n(action.getNextDescription(), ""));
             item.setDescriptionHtml(action.getNextDescriptionForDisplay(webUser.getProjectContact()));
             item.setActionNextId(action.getActionNextId());
@@ -401,29 +412,16 @@ public class DashboardTodayColumnService {
         return items;
     }
 
-    private List<Project> extractProjects(List<ActionNext> actions) {
-        List<Project> projects = new ArrayList<Project>();
-        if (actions == null) {
-            return projects;
-        }
-        for (ActionNext action : actions) {
-            if (action != null && action.getProject() != null) {
-                projects.add(action.getProject());
-            }
-        }
-        return projects;
-    }
-
-    private String resolveProjectDisplayName(Project project, Map<Integer, String> displayNameByProjectId) {
-        if (project == null) {
+    private String resolveProjectDisplayName(ActionNext action, Map<Integer, String> displayNameByActionId) {
+        if (action == null || action.getProject() == null) {
             return "";
         }
-        String displayName = displayNameByProjectId == null ? null : displayNameByProjectId.get(project.getProjectId());
-        return n(displayName != null ? displayName : project.getProjectName(), "");
+        String displayName = displayNameByActionId == null ? null : displayNameByActionId.get(action.getActionNextId());
+        return n(displayName != null ? displayName : action.getProject().getProjectName(), "");
     }
 
     private List<ActionNext> getProjectActionListForToday(WebUser webUser, Session dataSession, int dayOffset) {
-        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         LocalDate today = webUser.getLocalDateToday();
         Query query;
         if (dayOffset < 0) {
@@ -465,7 +463,7 @@ public class DashboardTodayColumnService {
     }
 
     private List<ActionNext> getProjectActionListClosedToday(WebUser webUser, Session dataSession) {
-        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         Date today = TimeTracker.createToday(webUser).getTime();
         Date tomorrow = TimeTracker.createTomorrow(webUser).getTime();
         Query query = dataSession.createQuery(
@@ -492,7 +490,7 @@ public class DashboardTodayColumnService {
         Query query = dataSession
                 .createQuery(
                         "from Project where workspaceId = ? and (projectStatus is null or projectStatus = :activeStatus) order by projectName");
-        query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId()));
+        query.setParameter(0, WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
         query.setParameter("activeStatus", ProjectStatus.ACTIVE.getDatabaseValue());
         @SuppressWarnings("unchecked")
         List<Project> projectList = query.list();

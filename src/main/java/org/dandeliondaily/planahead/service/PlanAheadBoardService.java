@@ -21,11 +21,11 @@ import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.PageMessageSeverity;
 import org.openimmunizationsoftware.pt.model.ActionNext;
-import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
@@ -288,8 +288,10 @@ public class PlanAheadBoardService {
                     .comparing((ActionNext pa) -> n(pa.getNextTimeEstimate())).reversed()
                     .thenComparing(ActionNext::getPriorityLevel, Comparator.reverseOrder())
                     .thenComparing(ActionNext::getActionNextId));
-            Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(
-                    appReq.getDataSession(), extractProjects(actions));
+            Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(appReq.getDataSession(),
+                    appReq.getWebUser().getWebUserId());
+            Map<Integer, String> displayNameByActionId = projectDisplayLabelService.buildActionDisplayNameMap(
+                    appReq.getDataSession(), actions, privateWorkspaceId);
 
             List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
             for (ActionNext action : actions) {
@@ -298,7 +300,7 @@ public class PlanAheadBoardService {
                 int remainingMins = Math.max(totalEstimateMins - spentTodayMins, 0);
                 PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
                 card.setActionNextId(action.getActionNextId());
-                card.setProjectName(resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
+                card.setProjectName(resolveProjectDisplayName(action, displayNameByActionId));
                 card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
                 card.setRawDescription(n(action.getNextDescription()));
                 card.setEstimateMins(totalEstimateMins);
@@ -469,8 +471,10 @@ public class PlanAheadBoardService {
             String todayKey, List<ActionNext> overdueActions, Map<Integer, Integer> spentTodayByActionId) {
         PlanAheadBoardModel.OverdueRowModel row = new PlanAheadBoardModel.OverdueRowModel();
         row.setTodayKey(todayKey);
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(
-                appReq.getDataSession(), extractProjects(overdueActions));
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(appReq.getDataSession(),
+                appReq.getWebUser().getWebUserId());
+        Map<Integer, String> displayNameByActionId = projectDisplayLabelService.buildActionDisplayNameMap(
+                appReq.getDataSession(), overdueActions, privateWorkspaceId);
         List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
         for (ActionNext action : overdueActions) {
             int spentTodayMins = n(spentTodayByActionId.get(action.getActionNextId()));
@@ -478,7 +482,7 @@ public class PlanAheadBoardService {
             int remainingMins = Math.max(totalEstimateMins - spentTodayMins, 0);
             PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
             card.setActionNextId(action.getActionNextId());
-            card.setProjectName(resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
+            card.setProjectName(resolveProjectDisplayName(action, displayNameByActionId));
             card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
             card.setRawDescription(n(action.getNextDescription()));
             card.setEstimateMins(totalEstimateMins);
@@ -505,8 +509,10 @@ public class PlanAheadBoardService {
             return row;
         }
 
-        Map<Integer, String> displayNameByProjectId = projectDisplayLabelService.buildDisplayNameMap(
-                appReq.getDataSession(), extractProjects(timeSpentActions));
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(appReq.getDataSession(),
+                appReq.getWebUser().getWebUserId());
+        Map<Integer, String> displayNameByActionId = projectDisplayLabelService.buildActionDisplayNameMap(
+                appReq.getDataSession(), timeSpentActions, privateWorkspaceId);
         List<PlanAheadBoardModel.CardModel> cards = new ArrayList<PlanAheadBoardModel.CardModel>();
         for (ActionNext action : timeSpentActions) {
             int spentMins = n(spentTodayByActionId.get(action.getActionNextId()));
@@ -515,7 +521,7 @@ public class PlanAheadBoardService {
             }
             PlanAheadBoardModel.CardModel card = new PlanAheadBoardModel.CardModel();
             card.setActionNextId(action.getActionNextId());
-            card.setProjectName(resolveProjectDisplayName(action.getProject(), displayNameByProjectId));
+            card.setProjectName(resolveProjectDisplayName(action, displayNameByActionId));
             card.setDescription(n(action.getNextDescriptionForDisplay(appReq.getWebUser().getProjectContact())));
             card.setRawDescription(n(action.getNextDescription()));
             card.setEstimateMins(spentMins);
@@ -534,25 +540,12 @@ public class PlanAheadBoardService {
         return row;
     }
 
-    private List<Project> extractProjects(List<ActionNext> actions) {
-        List<Project> projects = new ArrayList<Project>();
-        if (actions == null) {
-            return projects;
-        }
-        for (ActionNext action : actions) {
-            if (action != null && action.getProject() != null) {
-                projects.add(action.getProject());
-            }
-        }
-        return projects;
-    }
-
-    private String resolveProjectDisplayName(Project project, Map<Integer, String> displayNameByProjectId) {
-        if (project == null) {
+    private String resolveProjectDisplayName(ActionNext action, Map<Integer, String> displayNameByActionId) {
+        if (action == null || action.getProject() == null) {
             return "";
         }
-        String displayName = displayNameByProjectId == null ? null : displayNameByProjectId.get(project.getProjectId());
-        return n(displayName != null ? displayName : project.getProjectName());
+        String displayName = displayNameByActionId == null ? null : displayNameByActionId.get(action.getActionNextId());
+        return n(displayName != null ? displayName : action.getProject().getProjectName());
     }
 
     private Map<String, List<ActionNext>> bucketMovableByDayRow(List<ActionNext> actions, String mode) {

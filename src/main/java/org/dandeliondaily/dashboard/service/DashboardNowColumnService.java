@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
@@ -17,6 +18,7 @@ import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
@@ -55,11 +57,17 @@ public class DashboardNowColumnService {
         appReq.setProjectSelected(currentProject);
         appReq.setProjectActionSelected(currentAction);
 
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
+        String currentProjectDisplayName = currentAction == null
+            ? ""
+            : projectDisplayLabelService.buildActionDisplayName(dataSession, currentAction, privateWorkspaceId);
+
         ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext = projectDisplayLabelService
                 .buildDisplayContext(dataSession, currentProject);
 
         model.setCurrentAction(createCurrentActionModel(webUser, dataSession, currentAction));
-        model.setCurrentProject(createCurrentProjectModel(currentProject, projectDisplayContext));
+        model.setCurrentProject(createCurrentProjectModel(currentProject, projectDisplayContext,
+            currentProjectDisplayName));
 
         if (currentProject != null) {
             List<ActionNext> openActions = loadOpenProjectActions(dataSession, currentProject);
@@ -108,7 +116,8 @@ public class DashboardNowColumnService {
     }
 
     private DashboardNowColumnModel.CurrentProject createCurrentProjectModel(Project currentProject,
-            ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext) {
+            ProjectDisplayLabelService.ProjectDisplayContext projectDisplayContext,
+            String currentProjectDisplayName) {
         DashboardNowColumnModel.CurrentProject model = new DashboardNowColumnModel.CurrentProject();
         if (currentProject == null) {
             return model;
@@ -116,8 +125,11 @@ public class DashboardNowColumnService {
 
         model.setAvailable(true);
         model.setProjectId(currentProject.getProjectId());
-        model.setName(n(projectDisplayContext == null ? null : projectDisplayContext.getDisplayName(),
-                "Unnamed project"));
+        String resolvedDisplayName = currentProjectDisplayName;
+        if (resolvedDisplayName == null || resolvedDisplayName.trim().length() == 0) {
+            resolvedDisplayName = projectDisplayContext == null ? null : projectDisplayContext.getDisplayName();
+        }
+        model.setName(n(resolvedDisplayName, "Unnamed project"));
         model.setRawName(n(currentProject.getProjectName(), "Unnamed project"));
         model.setHandle(n(currentProject.getProjectHandle(), ""));
         model.setDescription(n(currentProject.getDescription(), "No project description available yet."));
@@ -415,7 +427,7 @@ public class DashboardNowColumnService {
         query.setParameter("tomorrowStart", tomorrowStart);
         @SuppressWarnings("unchecked")
         List<ActionTaken> rows = query.list();
-        return buildTakenItemList(webUser, rows);
+        return buildTakenItemList(webUser, dataSession, rows);
     }
 
     private List<DashboardNowColumnModel.TakenActionItem> buildTakenActions(WebUser webUser, Session dataSession,
@@ -433,15 +445,19 @@ public class DashboardNowColumnService {
         query.setParameter("cutoff", cutoff.getTime());
         @SuppressWarnings("unchecked")
         List<ActionTaken> rows = query.list();
-        return buildTakenItemList(webUser, rows);
+        return buildTakenItemList(webUser, dataSession, rows);
     }
 
     private List<DashboardNowColumnModel.TakenActionItem> buildTakenItemList(WebUser webUser,
-            List<ActionTaken> rows) {
+            Session dataSession, List<ActionTaken> rows) {
         List<DashboardNowColumnModel.TakenActionItem> items = new ArrayList<>();
+        Integer privateWorkspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
+        Map<Integer, String> displayNameByActionTakenId = projectDisplayLabelService
+                .buildActionTakenDisplayNameMap(dataSession, rows, privateWorkspaceId);
         for (ActionTaken at : rows) {
             DashboardNowColumnModel.TakenActionItem item = new DashboardNowColumnModel.TakenActionItem();
             item.setActionTakenId(at.getActionTakenId());
+            item.setProjectName(resolveTakenProjectDisplayName(at, displayNameByActionTakenId));
             item.setDescription(n(at.getActionDescription(), "-"));
             item.setDateLabel(webUser.getDateFormatService().formatPattern(at.getActionDate(),
                     webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
@@ -453,6 +469,22 @@ public class DashboardNowColumnService {
             items.add(item);
         }
         return items;
+    }
+
+    private String resolveTakenProjectDisplayName(ActionTaken actionTaken,
+            Map<Integer, String> displayNameByActionTakenId) {
+        if (actionTaken == null) {
+            return "";
+        }
+        String displayName = displayNameByActionTakenId == null ? null
+                : displayNameByActionTakenId.get(Integer.valueOf(actionTaken.getActionTakenId()));
+        if (displayName != null) {
+            return displayName;
+        }
+        if (actionTaken.getProject() != null) {
+            return n(actionTaken.getProject().getProjectName(), "");
+        }
+        return "";
     }
 
     private DashboardNowColumnModel.ProjectHealthSection buildProjectHealthSection(AppReq appReq, Project project,

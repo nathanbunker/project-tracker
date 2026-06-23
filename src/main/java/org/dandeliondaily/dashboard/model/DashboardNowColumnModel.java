@@ -564,6 +564,7 @@ public class DashboardNowColumnModel {
 
     public static class TakenActionItem {
         private int actionTakenId;
+        private String projectName = "";
         private String dateLabel = "";
         private String description = "";
         private String whoLabel = "";
@@ -574,6 +575,14 @@ public class DashboardNowColumnModel {
 
         public void setActionTakenId(int actionTakenId) {
             this.actionTakenId = actionTakenId;
+        }
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public void setProjectName(String projectName) {
+            this.projectName = projectName;
         }
 
         public String getDateLabel() {
