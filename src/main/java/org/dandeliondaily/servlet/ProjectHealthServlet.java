@@ -28,6 +28,7 @@ import org.dandeliondaily.projecthealth.render.ProjectHealthPageRenderer;
 import org.dandeliondaily.projecthealth.service.ProjectFactValueService;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
+import org.openimmunizationsoftware.pt.util.WebEscaper;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -1855,11 +1856,7 @@ public class ProjectHealthServlet extends ClientServlet {
     }
 
     private String urlEncode(String value) {
-        try {
-            return java.net.URLEncoder.encode(safeText(value), "UTF-8");
-        } catch (Exception e) {
-            return safeText(value);
-        }
+        return WebEscaper.urlEncode(safeText(value));
     }
 
     private String safeText(String value) {

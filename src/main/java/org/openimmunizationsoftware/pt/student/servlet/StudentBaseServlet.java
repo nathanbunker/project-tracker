@@ -1,8 +1,6 @@
 package org.openimmunizationsoftware.pt.student.servlet;
 
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -16,6 +14,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
+import org.openimmunizationsoftware.pt.util.WebEscaper;
 
 public abstract class StudentBaseServlet extends ClientServlet {
 
@@ -35,12 +34,8 @@ public abstract class StudentBaseServlet extends ClientServlet {
         out.println("    <title>Dandelion Daily</title>");
         String displayColor = appReq.getDisplayColor();
         String displaySize = appReq.getDisplaySize();
-        try {
-            out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"../CssServlet?displaySize="
-                    + displaySize + "&displayColor=" + URLEncoder.encode(displayColor, "UTF-8") + "\" />");
-        } catch (UnsupportedEncodingException uex) {
-            uex.printStackTrace();
-        }
+        out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"../CssServlet?displaySize="
+                + displaySize + "&displayColor=" + WebEscaper.urlEncode(displayColor) + "\" />");
         out.println("    <link rel=\"icon\" href=\"../favicon.ico\" sizes=\"any\">\n"
                 + "    <link rel=\"shortcut icon\" href=\"../favicon.ico\">\n"
                 + "    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"../favicon-32x32.png\">\n"

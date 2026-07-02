@@ -6,8 +6,6 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -23,6 +21,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.util.WebEscaper;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
@@ -338,8 +337,8 @@ public class ProjectServlet extends ClientServlet {
     return projectContactAssignedForThisUser;
   }
 
-  private String encode(String s) throws UnsupportedEncodingException {
-    s = URLEncoder.encode(s, "UTF-8");
+  private String encode(String s) {
+    s = WebEscaper.urlEncode(s);
     StringBuilder sb = new StringBuilder();
     for (char c : s.toCharArray()) {
       if (c == '+') {

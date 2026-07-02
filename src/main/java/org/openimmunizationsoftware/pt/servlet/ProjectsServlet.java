@@ -6,8 +6,6 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import javax.servlet.ServletException;
@@ -20,6 +18,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.util.WebEscaper;
 
 /**
  * 
@@ -184,7 +183,7 @@ public class ProjectsServlet extends ClientServlet {
 
   private void printProjectSearchResults(PrintWriter out, Session dataSession, String projectStatus,
       String searchField, boolean showPriority, List<Project> projectList,
-      List<Integer> projectIdList) throws UnsupportedEncodingException {
+      List<Integer> projectIdList) {
     out.println("<table class=\"boxed\">");
     out.println("  <tr class=\"boxed\">");
     out.println("    <th class=\"boxed\">Project</th>");
@@ -207,7 +206,7 @@ public class ProjectsServlet extends ClientServlet {
       out.println("    <td class=\"boxed\">" + n(project.getProjectStatus()) + "</td>");
       out.println("    <td>");
       String link = "ProjectsServlet?" + PARAM_SEARCH_FIELD + "="
-          + URLEncoder.encode(searchField, "UTF-8") + "&" + PARAM_PROJECT_STATUS + "=" + projectStatus + "&"
+          + WebEscaper.urlEncode(searchField) + "&" + PARAM_PROJECT_STATUS + "=" + projectStatus + "&"
           + PARAM_PROJECT_ID + "="
           + project.getProjectId() + "&" + PARAM_ACTION + "=";
       if (position < projectList.size()) {

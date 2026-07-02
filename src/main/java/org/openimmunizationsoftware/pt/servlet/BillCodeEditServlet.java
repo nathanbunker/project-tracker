@@ -4,6 +4,8 @@
  */
 package org.openimmunizationsoftware.pt.servlet;
 
+import static org.openimmunizationsoftware.pt.util.WebEscaper.urlEncode;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
@@ -100,16 +102,16 @@ public class BillCodeEditServlet extends ClientServlet {
           if (action == null) {
             // Render the form with the submitted values and validation message.
           } else {
-          Transaction trans = dataSession.beginTransaction();
-          try {
-            dataSession.saveOrUpdate(billCode);
-            trans.commit();
-            response.sendRedirect("BillCodeServlet?billCode=" + urlEncode(billCode.getBillCode()));
-            return;
-          } catch (Exception e) {
-            appReq.setMessageProblem("Unable to save bill code: " + e.getMessage());
-            trans.rollback();
-          }
+            Transaction trans = dataSession.beginTransaction();
+            try {
+              dataSession.saveOrUpdate(billCode);
+              trans.commit();
+              response.sendRedirect("BillCodeServlet?billCode=" + urlEncode(billCode.getBillCode()));
+              return;
+            } catch (Exception e) {
+              appReq.setMessageProblem("Unable to save bill code: " + e.getMessage());
+              trans.rollback();
+            }
           }
         } else if (action.equals("Save Budget")) {
           Transaction trans = dataSession.beginTransaction();
@@ -237,7 +239,8 @@ public class BillCodeEditServlet extends ClientServlet {
         for (BillBudget billBudget : billBudgetList) {
           out.println("<form method=\"POST\" action=\"BillCodeEditServlet\">");
           out.println(
-              "<input type=\"hidden\" name=\"billCode\" value=\"" + escapeHtmlAttribute(billCode.getBillCode()) + "\">");
+              "<input type=\"hidden\" name=\"billCode\" value=\"" + escapeHtmlAttribute(billCode.getBillCode())
+                  + "\">");
           out.println("<input type=\"hidden\" name=\"billBudgetId\" value=\""
               + billBudget.getBillBudgetId() + "\">");
           out.println("<table class=\"boxed\">");
@@ -252,7 +255,7 @@ public class BillCodeEditServlet extends ClientServlet {
           out.println("  <tr class=\"boxed\">");
           out.println("    <th class=\"boxed\">Budget Code</th>");
           out.println(
-                  "    <td class=\"boxed\"><input type=\"text\" name=\"billBudgetCode\" value=\""
+              "    <td class=\"boxed\"><input type=\"text\" name=\"billBudgetCode\" value=\""
                   + escapeHtmlAttribute(n(billBudget.getBillBudgetCode())) + "\" size=\"30\"></td>");
           out.println("  </tr>");
           out.println("  <tr class=\"boxed\">");

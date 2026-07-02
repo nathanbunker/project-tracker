@@ -23,6 +23,7 @@ import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.focus.render.FocusedActionPageRenderer;
 import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.hibernate.Query;
+import org.openimmunizationsoftware.pt.util.WebEscaper;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -713,7 +714,7 @@ public class FocusedActionServlet extends ClientServlet {
         String displayColor = appReq.getDisplayColor();
         String displaySize = appReq.getDisplaySize();
         out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"CssServlet?displaySize=" + displaySize
-                + "&displayColor=" + java.net.URLEncoder.encode(displayColor, "UTF-8") + "\" />");
+                + "&displayColor=" + WebEscaper.urlEncode(displayColor) + "\" />");
         out.println("  </head>");
         out.println("  <body>");
         renderPageMessages(out, appReq);

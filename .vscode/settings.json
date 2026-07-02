@@ -1,0 +1,5 @@
+{
+  "java.jdt.ls.java.home": "C:/Program Files/Java/jdk-17",
+  "maven.executable.path": "C:/Program Files/Apache Software Foundation/apache-maven-3.9.4/bin/mvn.cmd",
+  "java.import.maven.enabled": true
+}

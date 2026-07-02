@@ -4,6 +4,9 @@
  */
 package org.openimmunizationsoftware.pt.servlet;
 
+import static org.openimmunizationsoftware.pt.util.WebEscaper.escapeHtml;
+import static org.openimmunizationsoftware.pt.util.WebEscaper.urlEncode;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;

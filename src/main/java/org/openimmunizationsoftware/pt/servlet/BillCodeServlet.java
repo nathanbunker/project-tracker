@@ -4,6 +4,9 @@
  */
 package org.openimmunizationsoftware.pt.servlet;
 
+import static org.openimmunizationsoftware.pt.util.WebEscaper.escapeHtml;
+import static org.openimmunizationsoftware.pt.util.WebEscaper.urlEncode;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
@@ -75,7 +78,8 @@ public class BillCodeServlet extends ClientServlet {
       out.println("  <tr>");
       out.println(
           "    <th class=\"title\" colspan=\"2\"><span class=\"right\"><font size=\"-1\"><a href=\"BillCodeEditServlet?billCode="
-              + escapeHtmlAttribute(urlEncode(billCode.getBillCode())) + "\" class=\"box\">Edit</a></font></span>Bill Code</th>");
+              + escapeHtmlAttribute(urlEncode(billCode.getBillCode()))
+              + "\" class=\"box\">Edit</a></font></span>Bill Code</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Bill Code</th>");

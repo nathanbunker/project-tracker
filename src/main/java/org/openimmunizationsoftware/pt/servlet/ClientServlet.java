@@ -6,8 +6,6 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -32,6 +30,7 @@ import org.openimmunizationsoftware.pt.model.PageMessage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.util.WebEscaper;
 
 /**
  * 
@@ -97,12 +96,8 @@ public class ClientServlet extends HttpServlet {
     String displayColor = appReq.getDisplayColor();
     String displaySize = appReq.getDisplaySize();
 
-    try {
-      out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"CssServlet?displaySize="
-          + displaySize + "&displayColor=" + URLEncoder.encode(displayColor, "UTF-8") + "\" />");
-    } catch (UnsupportedEncodingException uex) {
-      uex.printStackTrace();
-    }
+    out.println("    <link rel=\"stylesheet\" type=\"text/css\" href=\"CssServlet?displaySize="
+        + displaySize + "&displayColor=" + WebEscaper.urlEncode(displayColor) + "\" />");
     out.println("    <link rel=\"icon\" href=\"favicon.ico\" sizes=\"any\">\n"
         + "    <link rel=\"shortcut icon\" href=\"favicon.ico\">\n"
         + "    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"favicon-32x32.png\">\n"
@@ -518,31 +513,8 @@ public class ClientServlet extends HttpServlet {
     return s;
   }
 
-  protected static String escapeHtml(String value) {
-    if (value == null) {
-      return "";
-    }
-    return value
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&#39;");
-  }
-
   protected static String escapeHtmlAttribute(String value) {
-    return escapeHtml(value);
-  }
-
-  protected static String urlEncode(String value) {
-    if (value == null) {
-      return "";
-    }
-    try {
-      return java.net.URLEncoder.encode(value, "UTF-8");
-    } catch (java.io.UnsupportedEncodingException e) {
-      throw new IllegalStateException(e);
-    }
+    return WebEscaper.escapeHtml(value);
   }
 
   protected static String trim(String s, int length) {
