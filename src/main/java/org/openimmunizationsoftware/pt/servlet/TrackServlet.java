@@ -11,6 +11,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -499,47 +500,58 @@ public class TrackServlet extends ClientServlet {
     }
     out.println("    <td class=\"boxed\">" + TimeTracker.formatTime(timeInMinutes) + "</td>");
 
-    List<ActionTaken> projectActionList = timeEntry.getProjectActionList();
     int projectId = Integer.parseInt(timeEntry.getId());
-    boolean hasCompletedNext = false;
-    for (ActionNext actionNext : projectActionCompletedList) {
-      if (actionNext.getProjectId() == projectId) {
-        hasCompletedNext = true;
-        break;
+    List<ProjectActionEvent> projectActionEventList = new ArrayList<ProjectActionEvent>();
+    for (Iterator<ActionTaken> it = projectActionTakenList.iterator(); it.hasNext();) {
+      ActionTaken actionTaken = it.next();
+      if (actionTaken.getProjectId() == projectId) {
+        it.remove();
+        projectActionEventList
+            .add(new ProjectActionEvent(actionTaken.getActionDate(), actionTaken.getActionDescription(), 0));
       }
     }
-    if ((projectActionList != null && projectActionList.size() > 0) || hasCompletedNext) {
+    for (Iterator<ActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
+      ActionNext actionNext = it.next();
+      if (actionNext.getProjectId() == projectId) {
+        it.remove();
+        projectActionEventList
+            .add(new ProjectActionEvent(actionNext.getNextChangeDate(), "Completed " + actionNext.getNextDescription(),
+                1));
+      }
+    }
+    Collections.sort(projectActionEventList, new Comparator<ProjectActionEvent>() {
+      @Override
+      public int compare(ProjectActionEvent left, ProjectActionEvent right) {
+        if (left.getActionDate() == null && right.getActionDate() == null) {
+          return left.getSortOrder() - right.getSortOrder();
+        }
+        if (left.getActionDate() == null) {
+          return 1;
+        }
+        if (right.getActionDate() == null) {
+          return -1;
+        }
+        int dateCompare = left.getActionDate().compareTo(right.getActionDate());
+        if (dateCompare != 0) {
+          return dateCompare;
+        }
+        return left.getSortOrder() - right.getSortOrder();
+      }
+    });
+
+    if (!projectActionEventList.isEmpty()) {
       out.println("    <td class=\"boxed\">");
       String actionDatePattern = type.equals(TYPE_WEEK) ? "EEE" : webUser.getTimeDisplayPattern();
       boolean first = true;
-      if (projectActionList != null) {
-        for (ActionTaken projectAction : projectActionList) {
-          projectActionTakenList.remove(projectAction);
-          if (!first) {
-            out.println("    <br/>");
-          }
-          first = false;
-          String dateLabel = projectAction.getActionDate() == null ? ""
-              : webUser.getDateFormatService().formatPattern(projectAction.getActionDate(), actionDatePattern,
-                  webUser.getTimeZone());
-          out.println(
-              "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + projectAction.getActionDescription());
+      for (ProjectActionEvent projectActionEvent : projectActionEventList) {
+        if (!first) {
+          out.println("    <br/>");
         }
-      }
-      for (Iterator<ActionNext> it = projectActionCompletedList.iterator(); it.hasNext();) {
-        ActionNext actionNext = it.next();
-        if (actionNext.getProjectId() == projectId) {
-          it.remove();
-          if (!first) {
-            out.println("    <br/>");
-          }
-          first = false;
-          String dateLabel = actionNext.getNextChangeDate() == null ? ""
-              : webUser.getDateFormatService().formatPattern(actionNext.getNextChangeDate(), actionDatePattern,
-                  webUser.getTimeZone());
-          out.println(
-              "    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + "Completed " + actionNext.getNextDescription());
-        }
+        first = false;
+        String dateLabel = projectActionEvent.getActionDate() == null ? ""
+            : webUser.getDateFormatService().formatPattern(projectActionEvent.getActionDate(), actionDatePattern,
+                webUser.getTimeZone());
+        out.println("    " + (dateLabel.isEmpty() ? "" : dateLabel + ": ") + projectActionEvent.getDisplayText());
       }
       out.println("    </td>");
     } else {
@@ -550,6 +562,30 @@ public class TrackServlet extends ClientServlet {
       }
     }
     out.println("  </tr>");
+  }
+
+  private static final class ProjectActionEvent {
+    private final Date actionDate;
+    private final String displayText;
+    private final int sortOrder;
+
+    private ProjectActionEvent(Date actionDate, String displayText, int sortOrder) {
+      this.actionDate = actionDate;
+      this.displayText = displayText;
+      this.sortOrder = sortOrder;
+    }
+
+    private Date getActionDate() {
+      return actionDate;
+    }
+
+    private String getDisplayText() {
+      return displayText;
+    }
+
+    private int getSortOrder() {
+      return sortOrder;
+    }
   }
 
   private static void printProjectLineWithTimeEntrySummaryOnly(WebUser webUser, PrintWriter out, Session dataSession,
