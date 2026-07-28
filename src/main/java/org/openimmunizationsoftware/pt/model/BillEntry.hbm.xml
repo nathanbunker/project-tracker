@@ -30,6 +30,9 @@
         <property name="billCode" type="string">
             <column name="bill_code" length="15" />
         </property>
+        <property name="billBudgetId" type="java.lang.Integer">
+            <column name="bill_budget_id" />
+        </property>
         <property name="workspaceId" type="java.lang.Integer">
             <column name="workspace_id" />
         </property>

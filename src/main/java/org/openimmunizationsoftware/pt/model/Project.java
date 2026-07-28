@@ -20,6 +20,7 @@ public class Project implements java.io.Serializable {
   private String successCriteriaText;
   private String projectStatus;
   private String billCode;
+  private Integer billBudgetId;
   private String projectIcon;
   private Integer workspaceId;
   private Integer createdByWebUserId;
@@ -139,6 +140,14 @@ public class Project implements java.io.Serializable {
 
   public void setBillCode(String billCode) {
     this.billCode = billCode;
+  }
+
+  public Integer getBillBudgetId() {
+    return billBudgetId;
+  }
+
+  public void setBillBudgetId(Integer billBudgetId) {
+    this.billBudgetId = billBudgetId;
   }
 
   public String getProjectIcon() {

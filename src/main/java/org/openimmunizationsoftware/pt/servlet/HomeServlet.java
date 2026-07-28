@@ -98,10 +98,19 @@ public class HomeServlet extends ClientServlet {
         if (webUser.isUserTypeAdmin()) {
           out.println("  <li><a href=\"AdminSettingsServlet\">Admin Settings</a></li>");
           out.println("  <li><a href=\"AdminUserRegistrationStatusServlet\">Registered and Pending Users</a></li>");
-          out.println("  <li><a href=\"BillCodesServlet\">Bill Codes</a></li>");
           out.println("  <li><a href=\"TemplateSchedulerStatusServlet\">Template Scheduler Status</a></li>");
         }
         out.println("</ul>");
+
+        if (webUser.isUserTypeAdmin()) {
+          out.println("<h2>Billing</h2>");
+          out.println("<ul>");
+          out.println("  <li><a href=\"BillFundingSourcesServlet\">Funding Sources</a></li>");
+          out.println("  <li><a href=\"BillCodesServlet\">Bill Codes</a></li>");
+          out.println("  <li><a href=\"BillBudgetsServlet\">Contract Budgets</a></li>");
+          out.println("  <li><a href=\"BillPlansServlet\">Allocation Plans</a></li>");
+          out.println("</ul>");
+        }
 
         out.println("<h2>Mobile</h2>");
         out.println("<p><a href=\"m/todo?filterSubmitted=Y&showPersonal=Y\">Open Mobile View</a></p>");

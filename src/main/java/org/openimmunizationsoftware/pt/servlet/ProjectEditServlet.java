@@ -16,6 +16,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectContactAssigned;
@@ -118,6 +119,23 @@ public class ProjectEditServlet extends ClientServlet {
           project.setProjectIcon(projectIcon);
           if (webUser.isTrackTime()) {
             project.setBillCode(request.getParameter("billCode"));
+            String billBudgetId = trim(request.getParameter("billBudgetId"), 12);
+            if (billBudgetId.length() == 0) {
+              project.setBillBudgetId(null);
+            } else {
+              BillBudget selectedBudget = (BillBudget) dataSession.get(BillBudget.class,
+                  Integer.parseInt(billBudgetId));
+              if (selectedBudget == null || selectedBudget.getWorkspaceId() == null
+                  || !activeWorkspaceId.equals(selectedBudget.getWorkspaceId())) {
+                message = "Selected contract budget was not found in this workspace";
+              } else if (selectedBudget.getBillCode() == null
+                  || selectedBudget.getBillCode().getBillCode() == null
+                  || !selectedBudget.getBillCode().getBillCode().equals(project.getBillCode())) {
+                message = "Selected contract budget must use the same bill code as the project";
+              } else {
+                project.setBillBudgetId(Integer.valueOf(selectedBudget.getBillBudgetId()));
+              }
+            }
           }
           if (project.getProjectName().equals("")) {
             message = "Project name is required";
@@ -257,6 +275,29 @@ public class ProjectEditServlet extends ClientServlet {
           }
         }
         out.println("      </select>");
+        out.println("    </td>");
+        out.println("  </tr>");
+
+        out.println("  <tr class=\"boxed\">");
+        out.println("    <th class=\"boxed\">Contract Budget</th>");
+        out.println("    <td class=\"boxed\"><select name=\"billBudgetId\">");
+        out.println("      <option value=\"\"></option>");
+        Query budgetQuery = dataSession.createQuery(
+            "from BillBudget where workspaceId = :workspaceId order by billBudgetCode");
+        budgetQuery.setParameter("workspaceId", activeWorkspaceId);
+        @SuppressWarnings("unchecked")
+        List<BillBudget> billBudgetList = budgetQuery.list();
+        for (BillBudget billBudget : billBudgetList) {
+          String budgetBillCode = billBudget.getBillCode() == null ? "" : n(billBudget.getBillCode().getBillCode());
+          boolean selected = project.getBillBudgetId() != null
+              && project.getBillBudgetId().intValue() == billBudget.getBillBudgetId();
+          out.println("      <option value=\"" + billBudget.getBillBudgetId() + "\""
+              + (selected ? " selected" : "") + ">"
+              + n(billBudget.getBillBudgetCode()) + " (" + budgetBillCode + ")</option>");
+        }
+        out.println("      </select>");
+        out.println(
+            "      <br/><small>Historical time entries are unchanged when project billing settings are updated.</small>");
         out.println("    </td>");
         out.println("  </tr>");
       }

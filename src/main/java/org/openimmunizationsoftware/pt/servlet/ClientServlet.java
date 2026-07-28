@@ -379,6 +379,31 @@ public class ClientServlet extends HttpServlet {
     out.println("</table><br/>");
   }
 
+  protected void printBillingAdminNav(PrintWriter out, String currentPageLabel) {
+    out.println("<table class=\"boxed\">");
+    out.println("  <tr class=\"boxed\">");
+    out.println("    <td class=\"boxed\">"
+        + createBillingNavItem("Billing Home", "HomeServlet", currentPageLabel)
+        + " | "
+        + createBillingNavItem("Funding Sources", "BillFundingSourcesServlet", currentPageLabel)
+        + " | "
+        + createBillingNavItem("Bill Codes", "BillCodesServlet", currentPageLabel)
+        + " | "
+        + createBillingNavItem("Contract Budgets", "BillBudgetsServlet", currentPageLabel)
+        + " | "
+        + createBillingNavItem("Allocation Plans", "BillPlansServlet", currentPageLabel)
+        + "</td>");
+    out.println("  </tr>");
+    out.println("</table><br/>");
+  }
+
+  private String createBillingNavItem(String label, String href, String currentPageLabel) {
+    if (label.equals(currentPageLabel)) {
+      return "<strong>" + label + "</strong>";
+    }
+    return "<a href=\"" + href + "\">" + label + "</a>";
+  }
+
   public static void printFooter(PrintWriter out) {
     out.println("    <p>Open Immunization Software - Dandelion - Version "
         + SoftwareVersion.VERSION + "</p>");

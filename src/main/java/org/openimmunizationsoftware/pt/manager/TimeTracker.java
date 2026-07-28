@@ -339,17 +339,7 @@ public class TimeTracker {
         if (workspaceId == null) {
           workspaceId = project.getWorkspaceId();
         }
-        BillEntry billEntry = new BillEntry();
-        billEntry.setProjectId(project.getProjectId());
-        billEntry.setCategoryCode(null);
-        billEntry.setAction(action);
-        billEntry.setWebUser(webUser);
-        billEntry.setStartTime(new Date());
-        billEntry.setEndTime(new Date());
-        billEntry.setBillMins(0);
-        billEntry.setBillable(billCode.getBillable());
-        billEntry.setBillCode(billCode.getBillCode());
-        billEntry.setWorkspaceId(workspaceId);
+        BillEntry billEntry = createBillEntry(project, action, billCode, workspaceId, webUser, new Date());
         Transaction trans = dataSession.beginTransaction();
         try {
           dataSession.save(billEntry);
@@ -379,6 +369,23 @@ public class TimeTracker {
         billEntryBillMins = billEntry.getBillMins();
       }
     }
+  }
+
+  public static BillEntry createBillEntry(Project project, ActionNext action, BillCode billCode,
+      Integer workspaceId, WebUser webUser, Date now) {
+    BillEntry billEntry = new BillEntry();
+    billEntry.setProjectId(project.getProjectId());
+    billEntry.setCategoryCode(null);
+    billEntry.setAction(action);
+    billEntry.setWebUser(webUser);
+    billEntry.setStartTime(now);
+    billEntry.setEndTime(now);
+    billEntry.setBillMins(0);
+    billEntry.setBillable(billCode.getBillable());
+    billEntry.setBillCode(billCode.getBillCode());
+    billEntry.setBillBudgetId(project.getBillBudgetId());
+    billEntry.setWorkspaceId(workspaceId);
+    return billEntry;
   }
 
   private void saveTime(Session dataSession) {

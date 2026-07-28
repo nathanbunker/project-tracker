@@ -27,6 +27,9 @@
         <property name="clientBillDescription" type="string">
             <column name="client_bill_description" length="120" />
         </property>
+        <property name="fundingSourceId" type="java.lang.Integer">
+            <column name="funding_source_id" />
+        </property>
         <property name="displayColor" type="string">
             <column name="display_color" length="7" />
         </property>

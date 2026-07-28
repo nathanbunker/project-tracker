@@ -20,6 +20,7 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillCodeDisplay;
+import org.openimmunizationsoftware.pt.model.BillFundingSource;
 
 /**
  * 
@@ -61,20 +62,28 @@ public class BillCodesServlet extends ClientServlet {
 
       appReq.setTitle("Bill Codes");
       printHtmlHead(appReq);
-      printDandelionLocation(out, "Additional / Bill Codes");
+      printDandelionLocation(out, "Billing / Bill Codes");
+      printBillingAdminNav(out, "Bill Codes");
 
       query = dataSession.createQuery(
           "from BillCode where workspaceId = :workspaceId and visible = 'Y' order by id.billCode");
       query.setParameter("workspaceId", activeWorkspaceId);
       @SuppressWarnings("unchecked")
       List<BillCode> billCodeList = query.list();
+
+      query = dataSession.createQuery(
+          "from BillFundingSource where workspaceId = :workspaceId order by fundingSourceCode");
+      query.setParameter("workspaceId", activeWorkspaceId);
+      @SuppressWarnings("unchecked")
+      List<BillFundingSource> fundingSourceList = query.list();
       out.println("<table class=\"boxed\">");
       out.println("  <tr>");
-      out.println("    <th class=\"title\" colspan=\"9\">Bill Codes</th>");
+      out.println("    <th class=\"title\" colspan=\"10\">Bill Codes</th>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Bill Code</th>");
       out.println("    <th class=\"boxed\">Bill Label</th>");
+      out.println("    <th class=\"boxed\">Funding Source</th>");
       out.println("    <th class=\"boxed\">Billable</th>");
       out.println("    <th class=\"boxed\">Visible</th>");
       out.println("    <th class=\"boxed\">Estimate Min</th>");
@@ -94,6 +103,8 @@ public class BillCodesServlet extends ClientServlet {
         out.println(
             "    <td class=\"boxed\"><a href=\"" + billCodeHref
                 + "\" class=\"button\">" + escapeHtml(billCode.getBillLabel()) + "</a></td>");
+        out.println(
+            "    <td class=\"boxed\">" + escapeHtml(resolveFundingSourceCode(billCode, fundingSourceList)) + "</td>");
         out.println("    <td class=\"boxed\">" + escapeHtml(billCode.getBillable()) + "</td>");
         out.println("    <td class=\"boxed\">" + escapeHtml(billCode.getVisible()) + "</td>");
         out.println("    <td class=\"boxed\">" + billCode.getEstimateMin() + "</td>");
@@ -125,7 +136,8 @@ public class BillCodesServlet extends ClientServlet {
           appReq.setTitle("Bill Codes");
           printHtmlHead(appReq);
           PrintWriter out = appReq.getOut();
-          printDandelionLocation(out, "Additional / Bill Codes");
+          printDandelionLocation(out, "Billing / Bill Codes");
+          printBillingAdminNav(out, "Bill Codes");
           out.println("<p class=\"fail\">Unable to load Bill Codes: " + n(e.getMessage()) + "</p>");
           printHtmlFoot(appReq);
         } else {
@@ -178,6 +190,18 @@ public class BillCodesServlet extends ClientServlet {
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     processRequest(request, response);
+  }
+
+  private String resolveFundingSourceCode(BillCode billCode, List<BillFundingSource> fundingSourceList) {
+    if (billCode == null || billCode.getFundingSourceId() == null || fundingSourceList == null) {
+      return "";
+    }
+    for (BillFundingSource fundingSource : fundingSourceList) {
+      if (fundingSource != null && fundingSource.getFundingSourceId() == billCode.getFundingSourceId().intValue()) {
+        return n(fundingSource.getFundingSourceCode());
+      }
+    }
+    return "";
   }
 
 }

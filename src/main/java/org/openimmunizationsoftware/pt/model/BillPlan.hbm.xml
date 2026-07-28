@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="BillPlan" table="bill_plan">
+        <id name="billPlanId" type="int">
+            <column name="bill_plan_id" />
+            <generator class="native" />
+        </id>
+        <property name="workspaceId" type="int">
+            <column name="workspace_id" not-null="true" />
+        </property>
+        <property name="webUserId" type="int">
+            <column name="web_user_id" not-null="true" />
+        </property>
+        <property name="billPlanCode" type="string">
+            <column name="bill_plan_code" length="30" not-null="true" />
+        </property>
+        <property name="planLabel" type="string">
+            <column name="plan_label" length="150" not-null="true" />
+        </property>
+        <property name="fiscalStartDate" type="date">
+            <column name="fiscal_start_date" not-null="true" />
+        </property>
+        <property name="fiscalEndDate" type="date">
+            <column name="fiscal_end_date" not-null="true" />
+        </property>
+        <property name="versionNum" type="int">
+            <column name="version_num" not-null="true" />
+        </property>
+        <property name="effectiveDate" type="date">
+            <column name="effective_date" not-null="true" />
+        </property>
+        <property name="percentBasis" type="string">
+            <column name="percent_basis" length="30" not-null="true" />
+        </property>
+        <property name="planStatus" type="string">
+            <column name="plan_status" length="15" not-null="true" />
+        </property>
+        <property name="supersedesBillPlanId" type="java.lang.Integer">
+            <column name="supersedes_bill_plan_id" />
+        </property>
+        <property name="changeNote" type="string">
+            <column name="change_note" length="1000" />
+        </property>
+        <property name="createdAt" type="timestamp" insert="false" update="false">
+            <column name="created_at" not-null="true" />
+        </property>
+        <bag name="targets" inverse="true" cascade="all-delete-orphan" lazy="true">
+            <key column="bill_plan_id" />
+            <one-to-many class="BillPlanTarget" />
+        </bag>
+    </class>
+</hibernate-mapping>

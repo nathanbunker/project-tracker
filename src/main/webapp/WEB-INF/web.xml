@@ -210,6 +210,30 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillCodesServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>BillFundingSourcesServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillFundingSourcesServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>BillFundingSourceEditServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillFundingSourceEditServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>BillBudgetsServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillBudgetsServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>BillBudgetEditServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillBudgetEditServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>BillPlansServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillPlansServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>BillPlanEditServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillPlanEditServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>ApiServlet</servlet-name>
     <servlet-class>org.glassfish.jersey.servlet.ServletContainer</servlet-class>
     <init-param>
@@ -423,6 +447,30 @@
   <servlet-mapping>
     <servlet-name>BillCodesServlet</servlet-name>
     <url-pattern>/BillCodesServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillFundingSourcesServlet</servlet-name>
+    <url-pattern>/BillFundingSourcesServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillFundingSourceEditServlet</servlet-name>
+    <url-pattern>/BillFundingSourceEditServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillBudgetsServlet</servlet-name>
+    <url-pattern>/BillBudgetsServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillBudgetEditServlet</servlet-name>
+    <url-pattern>/BillBudgetEditServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillPlansServlet</servlet-name>
+    <url-pattern>/BillPlansServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillPlanEditServlet</servlet-name>
+    <url-pattern>/BillPlanEditServlet</url-pattern>
   </servlet-mapping>
   <filter-mapping>
     <filter-name>CharacterEncodingFilter</filter-name>

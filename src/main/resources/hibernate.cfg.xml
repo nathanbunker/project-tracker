@@ -16,8 +16,11 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/StudentOfferTemplate.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/StudentOffer.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/GamePointLedger.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/BillFundingSource.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillCode.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillBudget.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/BillPlan.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/BillPlanTarget.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillDay.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillEntry.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillExpected.hbm.xml"/>

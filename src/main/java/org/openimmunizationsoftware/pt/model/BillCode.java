@@ -15,6 +15,7 @@ public class BillCode implements java.io.Serializable {
   private String visible;
   private String clientBillCode;
   private String clientBillDescription;
+  private Integer fundingSourceId;
   private Integer workspaceId;
   private int estimateMin;
   private int billRate;
@@ -108,6 +109,14 @@ public class BillCode implements java.io.Serializable {
 
   public void setClientBillDescription(String clientBillDescription) {
     this.clientBillDescription = clientBillDescription;
+  }
+
+  public Integer getFundingSourceId() {
+    return fundingSourceId;
+  }
+
+  public void setFundingSourceId(Integer fundingSourceId) {
+    this.fundingSourceId = fundingSourceId;
   }
 
   public String getDisplayColor() {

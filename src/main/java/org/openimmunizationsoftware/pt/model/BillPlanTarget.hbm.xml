@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="BillPlanTarget" table="bill_plan_target">
+        <id name="billPlanTargetId" type="int">
+            <column name="bill_plan_target_id" />
+            <generator class="native" />
+        </id>
+        <many-to-one name="billPlan" column="bill_plan_id" class="BillPlan" not-null="true" />
+        <property name="billCode" type="string">
+            <column name="bill_code" length="15" not-null="true" />
+        </property>
+        <property name="targetMode" type="string">
+            <column name="target_mode" length="15" not-null="true" />
+        </property>
+        <property name="annualTargetBps" type="java.lang.Integer">
+            <column name="annual_target_bps" />
+        </property>
+        <property name="steeringTargetBps" type="java.lang.Integer">
+            <column name="steering_target_bps" />
+        </property>
+        <property name="billBudgetId" type="java.lang.Integer">
+            <column name="bill_budget_id" />
+        </property>
+        <property name="variancePolicy" type="string">
+            <column name="variance_policy" length="20" not-null="true" />
+        </property>
+        <property name="displayOrder" type="int">
+            <column name="display_order" not-null="true" />
+        </property>
+        <property name="targetNote" type="string">
+            <column name="target_note" length="500" />
+        </property>
+    </class>
+</hibernate-mapping>

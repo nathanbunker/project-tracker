@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillCodeDisplay;
 import org.openimmunizationsoftware.pt.model.BillDay;
+import org.openimmunizationsoftware.pt.model.BillFundingSource;
 import org.openimmunizationsoftware.pt.model.BillMonth;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -68,6 +69,11 @@ public class BillCodeEditServlet extends ClientServlet {
 
       SimpleDateFormat sdf = webUser.getDateFormat();
       Query query;
+      query = dataSession.createQuery(
+          "from BillFundingSource where workspaceId = :workspaceId and visible = 'Y' order by fundingSourceCode");
+      query.setParameter("workspaceId", activeWorkspaceId);
+      @SuppressWarnings("unchecked")
+      List<BillFundingSource> fundingSourceList = query.list();
       BillCode billCode = null;
       String billCodeString = request.getParameter("billCode");
       if (billCodeString == null) {
@@ -92,6 +98,12 @@ public class BillCodeEditServlet extends ClientServlet {
           billCode.setBillRate(Integer.parseInt(request.getParameter("billRate")));
           billCode.setBillRound(Integer.parseInt(request.getParameter("billRound")));
           billCode.setWorkspaceId(activeWorkspaceId);
+          String fundingSourceId = request.getParameter("fundingSourceId");
+          if (fundingSourceId == null || fundingSourceId.trim().equals("")) {
+            billCode.setFundingSourceId(null);
+          } else {
+            billCode.setFundingSourceId(Integer.valueOf(Integer.parseInt(fundingSourceId)));
+          }
           try {
             billCode.setDisplayColor(BillCodeDisplay.normalizeDisplayColor(request.getParameter("displayColor")));
           } catch (IllegalArgumentException e) {
@@ -170,6 +182,8 @@ public class BillCodeEditServlet extends ClientServlet {
 
       appReq.setTitle("Track");
       printHtmlHead(appReq);
+      printDandelionLocation(out, "Billing / Bill Codes");
+      printBillingAdminNav(out, "Bill Codes");
 
       out.println("<form method=\"POST\" action=\"BillCodeEditServlet\">");
       out.println("<table class=\"boxed\">");
@@ -185,6 +199,21 @@ public class BillCodeEditServlet extends ClientServlet {
       out.println("    <th class=\"boxed\">Bill Label</th>");
       out.println("    <td class=\"boxed\"><input type=\"text\" name=\"billLabel\" value=\""
           + escapeHtmlAttribute(n(billCode.getBillLabel())) + "\" size=\"\"></td>");
+      out.println("  </tr>");
+      out.println("  <tr class=\"boxed\">");
+      out.println("    <th class=\"boxed\">Funding Source</th>");
+      out.println("    <td class=\"boxed\"><select name=\"fundingSourceId\">");
+      out.println("      <option value=\"\"></option>");
+      for (BillFundingSource fundingSource : fundingSourceList) {
+        boolean selected = billCode.getFundingSourceId() != null
+            && billCode.getFundingSourceId().intValue() == fundingSource.getFundingSourceId();
+        out.println("      <option value=\"" + fundingSource.getFundingSourceId() + "\""
+            + (selected ? " selected" : "") + ">"
+            + escapeHtmlAttribute(n(fundingSource.getFundingSourceCode()) + " - "
+                + n(fundingSource.getFundingSourceLabel()))
+            + "</option>");
+      }
+      out.println("      </select></td>");
       out.println("  </tr>");
       out.println("  <tr class=\"boxed\">");
       out.println("    <th class=\"boxed\">Display Color</th>");

@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="BillFundingSource" table="bill_funding_source">
+        <id name="fundingSourceId" type="int">
+            <column name="funding_source_id" />
+            <generator class="native" />
+        </id>
+        <property name="workspaceId" type="int">
+            <column name="workspace_id" not-null="true" />
+        </property>
+        <property name="fundingSourceCode" type="string">
+            <column name="funding_source_code" length="30" not-null="true" />
+        </property>
+        <property name="fundingSourceLabel" type="string">
+            <column name="funding_source_label" length="150" not-null="true" />
+        </property>
+        <property name="fundingSourceType" type="string">
+            <column name="funding_source_type" length="20" not-null="true" />
+        </property>
+        <property name="startDate" type="date">
+            <column name="start_date" />
+        </property>
+        <property name="endDate" type="date">
+            <column name="end_date" />
+        </property>
+        <property name="visible" type="string">
+            <column name="visible" length="1" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>
