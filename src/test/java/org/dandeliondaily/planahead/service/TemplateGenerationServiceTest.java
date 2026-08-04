@@ -15,6 +15,21 @@ import org.junit.Test;
 public class TemplateGenerationServiceTest {
 
     @Test
+    public void billedReadyInstanceTodayIsPreserved() {
+        Assert.assertTrue(TemplateGenerationService.shouldPreserveBilledToday(true, true));
+    }
+
+    @Test
+    public void unbilledInstanceTodayCanBeReconciled() {
+        Assert.assertFalse(TemplateGenerationService.shouldPreserveBilledToday(true, false));
+    }
+
+    @Test
+    public void futureInstanceCanBeReconciled() {
+        Assert.assertFalse(TemplateGenerationService.shouldPreserveBilledToday(false, true));
+    }
+
+    @Test
     public void cleanupPastActualTimesBuildsExpectedBulkUpdate() {
         TemplateGenerationService service = new TemplateGenerationService();
         RecordingSessionHandler sessionHandler = new RecordingSessionHandler();

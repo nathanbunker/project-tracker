@@ -619,7 +619,7 @@ public class PlanAheadPageRenderer {
                 out.println("        var headerEl = document.getElementById('pa-day-header-' + d.dayKey);");
                 out.println("        if (headerEl) { headerEl.outerHTML = d.dayHeaderHtml; }");
                 out.println("      }");
-                out.println("      paRecalculateTotals();");
+                out.println("      paApplyMutationPayload(d);");
                 out.println("      return d;");
                 out.println("    });");
                 out.println("  }");

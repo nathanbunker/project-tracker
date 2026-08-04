@@ -109,6 +109,7 @@ public class HomeServlet extends ClientServlet {
           out.println("  <li><a href=\"BillCodesServlet\">Bill Codes</a></li>");
           out.println("  <li><a href=\"BillBudgetsServlet\">Contract Budgets</a></li>");
           out.println("  <li><a href=\"BillPlansServlet\">Allocation Plans</a></li>");
+          out.println("  <li><a href=\"BillingProjectReportServlet\">Project Report</a></li>");
           out.println("</ul>");
         }
 

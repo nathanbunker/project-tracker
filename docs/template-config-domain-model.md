@@ -65,10 +65,10 @@ The `action_next` table also has a new column added by this migration:
 These fields control **which days within the recurrence period** a generated instance should be created.
 They are only relevant when `auto_generate = Y`.
 
-A `NULL` or empty value means **every applicable day** within the period fires (subject to working-day rules).
+A `NULL` or empty value means **every applicable day** within the period fires. Billable templates are additionally restricted to dates whose availability status is `Working` and whose available hours are greater than zero. Non-billable personal templates are not restricted by work availability.
 
 The `template_type` on `action_next` (`D`/`W`/`M`/`Q`/`Y`) determines which schedule field is active.
-Daily templates (`D`) have no schedule field — generation fires on every working day by definition.
+Daily templates (`D`) have no schedule field. Billable daily templates fire on every eligible working day; non-billable personal daily templates fire every calendar day.
 
 ### Weekly (`schedule_days_of_week`)
 

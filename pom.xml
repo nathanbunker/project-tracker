@@ -3,7 +3,7 @@
   <groupId>org.immunizationsoftware.pt</groupId>
   <artifactId>dandelion</artifactId>
   <packaging>war</packaging>
-  <version>5.6.1</version>
+  <version>5.7.1</version>
   <!-- TODO project name -->
   <name>Dandelion</name>
   <description></description>
@@ -112,7 +112,7 @@
     <dependency>
       <groupId>org.commonmark</groupId>
       <artifactId>commonmark</artifactId>
-      <version>0.22.0</version>
+      <version>0.21.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->

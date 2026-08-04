@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="NathanAccessEvent" table="nathan_access_event">
+        <id name="nathanAccessEventId" type="int">
+            <column name="nathan_access_event_id" />
+            <generator class="native" />
+        </id>
+        <property name="nathanAccessId" type="int"><column name="nathan_access_id" not-null="true" /></property>
+        <property name="createdAt" type="timestamp"><column name="created_at" not-null="true" /></property>
+        <property name="eventType" type="string"><column name="event_type" length="30" not-null="true" /></property>
+        <property name="contentKey" type="string"><column name="content_key" length="80" /></property>
+    </class>
+</hibernate-mapping>

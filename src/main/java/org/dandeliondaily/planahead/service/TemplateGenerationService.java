@@ -2,6 +2,7 @@ package org.dandeliondaily.planahead.service;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionNextTemplateConfig;
+import org.openimmunizationsoftware.pt.model.BillExpected;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.TemplateType;
 
@@ -37,14 +39,16 @@ public class TemplateGenerationService {
     // =========================================================================
 
     /**
-     * Generate template instances from today through today+advanceDays for every
-     * active template owned by the given workspace/contact. Idempotent: dates that
-     * already have an instance (any status) are skipped.
+     * Reconcile template instances from today through today+advanceDays for every
+     * active template owned by the given workspace/contact. Billable templates are
+     * restricted to working days; personal templates use calendar days.
      */
     public int generateForwardWindow(Session session, int workspaceId, int contactId,
             LocalDate today, int advanceDays) {
         LocalDate windowEnd = today.plusDays(advanceDays);
         List<ActionNext> templates = loadTemplateRoots(session, workspaceId, contactId);
+        TemplateWorkdayCalendar workdayCalendar = loadWorkdayCalendar(
+                session, contactId, today, windowEnd);
         LOGGER.fine("[TemplateGeneration] Begin workspace=" + workspaceId
                 + " contact=" + contactId
                 + " today=" + today
@@ -53,7 +57,7 @@ public class TemplateGenerationService {
         int total = 0;
         for (ActionNext template : templates) {
             try {
-                int created = generateForTemplate(session, template, today, windowEnd);
+                int created = generateForTemplate(session, template, today, windowEnd, workdayCalendar);
                 total += created;
                 LOGGER.fine("[TemplateGeneration] Template " + template.getActionNextId()
                         + " created=" + created);
@@ -104,7 +108,8 @@ public class TemplateGenerationService {
 
         for (ActionNext instance : instances) {
             boolean isToday = isSameDay(instance.getNextActionDate(), todayDate);
-            if (isToday && hasBillEntries(session, instance.getActionNextId())) {
+            if (shouldPreserveBilledToday(isToday,
+                    isToday && hasBillEntries(session, instance.getActionNextId()))) {
                 continue; // protect billed work
             }
             copyTemplateFieldsToInstance(template, instance, rescheduleLocked);
@@ -117,8 +122,8 @@ public class TemplateGenerationService {
      * templates owned by the given workspace/contact.
      *
      * AUTO_CANCEL: cancel the instance.
-     * CARRY_FORWARD: move to today if no instance already exists for this template
-     * today; otherwise cancel.
+     * CARRY_FORWARD: move to the next eligible working date if no instance already
+     * exists for this template on that date; otherwise cancel.
      * IGNORE: leave as-is.
      *
      * Should be called before generateForwardWindow so that carry-forward logic
@@ -127,6 +132,9 @@ public class TemplateGenerationService {
     public void applyMissedActionBehavior(Session session, int workspaceId, int contactId,
             LocalDate today) {
         Date todayDate = toUtcDate(today);
+        LocalDate carrySearchEnd = today.plusDays(366);
+        TemplateWorkdayCalendar workdayCalendar = loadWorkdayCalendar(
+                session, contactId, today, carrySearchEnd);
         Query query = session.createQuery(
                 "from ActionNext an where an.workspaceId = :workspaceId "
                         + "and (an.contactId = :contactId or an.nextContactId = :contactId) "
@@ -157,12 +165,18 @@ public class TemplateGenerationService {
                 instance.setNextChangeDate(new Date());
                 session.update(instance);
             } else if ("CARRY_FORWARD".equals(behavior)) {
-                boolean todayAlreadyHasInstance = todayHasActiveInstance(session,
-                        template.getActionNextId(), workspaceId, contactId, todayDate);
-                if (todayAlreadyHasInstance) {
+                LocalDate carryDate = findNextEligibleDate(
+                        workdayCalendar, template.isBillable(), today, carrySearchEnd);
+                if (carryDate == null) {
+                    continue;
+                }
+                Date carryDateValue = toUtcDate(carryDate);
+                boolean carryDateAlreadyHasInstance = dateHasActiveInstance(session,
+                        template.getActionNextId(), workspaceId, contactId, carryDateValue);
+                if (carryDateAlreadyHasInstance) {
                     instance.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
                 } else {
-                    instance.setNextActionDate(todayDate);
+                    instance.setNextActionDate(carryDateValue);
                     instance.setRescheduleLocked(false);
                 }
                 instance.setNextChangeDate(new Date());
@@ -222,27 +236,10 @@ public class TemplateGenerationService {
             return;
         }
 
-        String pattern = resolvePattern(type, config);
-
-        // Step 2 — cancel future READY instances whose dates no longer match the
-        // (possibly changed) schedule pattern
-        cancelInstancesNotMatchingSchedule(session, template.getActionNextId(),
-                workspaceId, contactId, today, type, pattern);
-
-        // Step 3 — generate new instances for matching dates that don't have one yet.
-        // Reset lastGeneratedDate first so generateForTemplate always covers the full
-        // [today, today+advanceDays] window even if it was already set to a future
-        // date.
-        // Without this, lastGeneratedDate causes generateForTemplate to skip the window
-        // entirely after cancellations from a schedule change.
-        ActionNextTemplateConfig configForReset = (ActionNextTemplateConfig) session.get(
-                ActionNextTemplateConfig.class, template.getActionNextId());
-        if (configForReset != null) {
-            configForReset.setLastGeneratedDate(null);
-            session.update(configForReset);
-            session.flush();
-        }
-        generateForTemplate(session, template, today, today.plusDays(advanceDays));
+        LocalDate windowEnd = today.plusDays(advanceDays);
+        TemplateWorkdayCalendar workdayCalendar = loadWorkdayCalendar(
+                session, contactId, today, windowEnd);
+        generateForTemplate(session, template, today, windowEnd, workdayCalendar);
     }
 
     // =========================================================================
@@ -264,7 +261,7 @@ public class TemplateGenerationService {
     }
 
     private int generateForTemplate(Session session, ActionNext template,
-            LocalDate today, LocalDate windowEnd) {
+            LocalDate today, LocalDate windowEnd, TemplateWorkdayCalendar workdayCalendar) {
         int templateId = template.getActionNextId();
         ActionNextTemplateConfig config = (ActionNextTemplateConfig) session.get(
                 ActionNextTemplateConfig.class, template.getActionNextId());
@@ -282,31 +279,22 @@ public class TemplateGenerationService {
             return 0;
         }
 
-        // Start from today or from the day after the last generated date
-        LocalDate generationFrom = today;
-        if (config.getLastGeneratedDate() != null) {
-            LocalDate lastGen = toLocalDate(config.getLastGeneratedDate());
-            if (lastGen.isAfter(today)) {
-                // Already generated up through some future date; extend from there
-                generationFrom = lastGen.plusDays(1);
+        String pattern = resolvePattern(type, config);
+        List<LocalDate> recurrenceDates = patternEvaluator.matchingDates(
+                type, pattern, today, windowEnd);
+        Set<LocalDate> scheduledDates = new HashSet<LocalDate>();
+        for (LocalDate date : recurrenceDates) {
+            if (workdayCalendar.isEligible(template.isBillable(), date)) {
+                scheduledDates.add(date);
             }
         }
-        if (generationFrom.isAfter(windowEnd)) {
-            LOGGER.fine("[TemplateGeneration] Skip template=" + templateId
-                    + " reason=window_already_generated"
-                    + " generationFrom=" + generationFrom
-                    + " windowEnd=" + windowEnd
-                    + " lastGeneratedDate=" + config.getLastGeneratedDate());
-            return 0; // nothing new to generate
-        }
 
-        String pattern = resolvePattern(type, config);
-        List<LocalDate> scheduledDates = patternEvaluator.matchingDates(
-                type, pattern, generationFrom, windowEnd);
+        cancelIneligibleReadyInstances(session, template.getActionNextId(),
+                workspaceId(template), contactId(template), today, windowEnd, scheduledDates);
 
         Set<LocalDate> existingDates = loadExistingInstanceDates(session,
                 template.getActionNextId(), workspaceId(template), contactId(template),
-                generationFrom, windowEnd);
+                today, windowEnd);
 
         boolean rescheduleLocked = isRescheduleLocked(config);
         int count = 0;
@@ -320,7 +308,7 @@ public class TemplateGenerationService {
         LOGGER.fine("[TemplateGeneration] Evaluate template=" + templateId
                 + " type=" + type
                 + " pattern=" + n(pattern)
-                + " from=" + generationFrom
+                + " from=" + today
                 + " to=" + windowEnd
                 + " scheduledDates=" + scheduledDates.size()
                 + " existingDates=" + existingDates.size()
@@ -404,6 +392,11 @@ public class TemplateGenerationService {
         @SuppressWarnings("unchecked")
         List<ActionNext> instances = query.list();
         for (ActionNext instance : instances) {
+            boolean isToday = isSameDay(instance.getNextActionDate(), fromDate);
+            if (shouldPreserveBilledToday(isToday,
+                    isToday && hasBillEntries(session, instance.getActionNextId()))) {
+                continue;
+            }
             instance.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
             instance.setNextChangeDate(new Date());
             session.update(instance);
@@ -411,19 +404,23 @@ public class TemplateGenerationService {
     }
 
     @SuppressWarnings("unchecked")
-    private void cancelInstancesNotMatchingSchedule(Session session, int templateActionNextId,
-            int workspaceId, int contactId, LocalDate today, TemplateType type, String pattern) {
+    private void cancelIneligibleReadyInstances(Session session, int templateActionNextId,
+            int workspaceId, int contactId, LocalDate today, LocalDate windowEnd,
+            Set<LocalDate> eligibleDates) {
         Date todayDate = toUtcDate(today);
+        Date windowEndDate = toUtcDate(windowEnd);
         Query query = session.createQuery(
                 "from ActionNext an where an.workspaceId = :workspaceId "
                         + "and (an.contactId = :contactId or an.nextContactId = :contactId) "
                         + "and an.templateActionNextId = :templateId "
                         + "and an.nextActionDate is not null and an.nextActionDate >= :today "
+                        + "and an.nextActionDate <= :windowEnd "
                         + "and an.nextActionStatusString = :ready");
         query.setParameter("workspaceId", workspaceId);
         query.setParameter("contactId", contactId);
         query.setParameter("templateId", templateActionNextId);
         query.setParameter("today", todayDate);
+        query.setParameter("windowEnd", windowEndDate);
         query.setParameter("ready", STATUS_READY);
         List<ActionNext> instances = query.list();
         for (ActionNext instance : instances) {
@@ -431,7 +428,12 @@ public class TemplateGenerationService {
                 continue;
             }
             LocalDate instanceDate = toLocalDate(instance.getNextActionDate());
-            if (patternEvaluator.matchingDates(type, pattern, instanceDate, instanceDate).isEmpty()) {
+            if (!eligibleDates.contains(instanceDate)) {
+                boolean isToday = instanceDate.equals(today);
+                if (shouldPreserveBilledToday(isToday,
+                        isToday && hasBillEntries(session, instance.getActionNextId()))) {
+                    continue;
+                }
                 instance.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
                 instance.setNextChangeDate(new Date());
                 session.update(instance);
@@ -465,8 +467,8 @@ public class TemplateGenerationService {
         return count != null && count > 0;
     }
 
-    private boolean todayHasActiveInstance(Session session, int templateActionNextId,
-            int workspaceId, int contactId, Date todayDate) {
+    private boolean dateHasActiveInstance(Session session, int templateActionNextId,
+            int workspaceId, int contactId, Date actionDate) {
         Long count = (Long) session.createQuery(
                 "select count(*) from ActionNext an "
                         + "where an.workspaceId = :workspaceId "
@@ -477,10 +479,41 @@ public class TemplateGenerationService {
                 .setParameter("workspaceId", workspaceId)
                 .setParameter("contactId", contactId)
                 .setParameter("templateId", templateActionNextId)
-                .setParameter("today", todayDate)
+                .setParameter("today", actionDate)
                 .setParameter("cancelled", STATUS_CANCELLED)
                 .uniqueResult();
         return count != null && count > 0;
+    }
+
+    private LocalDate findNextEligibleDate(TemplateWorkdayCalendar workdayCalendar,
+            boolean billable, LocalDate from, LocalDate to) {
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            if (workdayCalendar.isEligible(billable, date)) {
+                return date;
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private TemplateWorkdayCalendar loadWorkdayCalendar(Session session, int contactId,
+            LocalDate from, LocalDate to) {
+        Query userQuery = session.createQuery(
+                "select wu.webUserId from WebUser wu where wu.contactId = :contactId");
+        userQuery.setParameter("contactId", contactId);
+        userQuery.setMaxResults(1);
+        Integer webUserId = (Integer) userQuery.uniqueResult();
+        if (webUserId == null) {
+            return new TemplateWorkdayCalendar(Collections.<BillExpected>emptyList());
+        }
+
+        Query availabilityQuery = session.createQuery(
+                "from BillExpected be where be.id.webUserId = :webUserId "
+                        + "and be.id.billDate >= :fromDate and be.id.billDate <= :toDate");
+        availabilityQuery.setParameter("webUserId", webUserId);
+        availabilityQuery.setParameter("fromDate", toUtcDate(from));
+        availabilityQuery.setParameter("toDate", toUtcDate(to));
+        return new TemplateWorkdayCalendar((List<BillExpected>) availabilityQuery.list());
     }
 
     private String resolvePattern(TemplateType type, ActionNextTemplateConfig config) {
@@ -507,6 +540,10 @@ public class TemplateGenerationService {
             return false;
         }
         return toLocalDate(a).equals(toLocalDate(b));
+    }
+
+    static boolean shouldPreserveBilledToday(boolean isToday, boolean hasBillEntries) {
+        return isToday && hasBillEntries;
     }
 
     private int workspaceId(ActionNext template) {

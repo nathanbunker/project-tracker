@@ -57,6 +57,14 @@
     <servlet-class>org.dandeliondaily.servlet.TemplateSchedulerStatusServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>NathanServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.NathanServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>NathanResumeServlet</servlet-name>
+    <servlet-class>org.dandeliondaily.servlet.NathanResumeServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>CssServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.CssServlet</servlet-class>
   </servlet>
@@ -230,6 +238,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillPlansServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>BillingProjectReportServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillingProjectReportServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>BillPlanEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillPlanEditServlet</servlet-class>
   </servlet>
@@ -335,6 +347,14 @@
   <servlet-mapping>
     <servlet-name>TemplateSchedulerStatusServlet</servlet-name>
     <url-pattern>/TemplateSchedulerStatusServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>NathanServlet</servlet-name>
+    <url-pattern>/nathan</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>NathanResumeServlet</servlet-name>
+    <url-pattern>/nathan/resume</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>CssServlet</servlet-name>
@@ -467,6 +487,10 @@
   <servlet-mapping>
     <servlet-name>BillPlansServlet</servlet-name>
     <url-pattern>/BillPlansServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillingProjectReportServlet</servlet-name>
+    <url-pattern>/BillingProjectReportServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>BillPlanEditServlet</servlet-name>

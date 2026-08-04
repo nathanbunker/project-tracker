@@ -392,6 +392,8 @@ public class ClientServlet extends HttpServlet {
         + createBillingNavItem("Contract Budgets", "BillBudgetsServlet", currentPageLabel)
         + " | "
         + createBillingNavItem("Allocation Plans", "BillPlansServlet", currentPageLabel)
+        + " | "
+        + createBillingNavItem("Project Report", "BillingProjectReportServlet", currentPageLabel)
         + "</td>");
     out.println("  </tr>");
     out.println("</table><br/>");

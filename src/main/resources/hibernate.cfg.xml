@@ -64,6 +64,8 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/MeetingSession.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/MeetingSessionTopic.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/MeetingNoteLine.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/NathanAccess.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/NathanAccessEvent.hbm.xml"/>
     
   </session-factory>
 </hibernate-configuration>

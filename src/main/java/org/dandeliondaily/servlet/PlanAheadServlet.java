@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Array;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -24,7 +25,10 @@ import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
 import org.dandeliondaily.planahead.service.PlanAheadBoardService;
 import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.dandeliondaily.planahead.service.PlanAheadMutationService;
+import org.dandeliondaily.planahead.service.TemplateGenerationService;
+import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 
 public class PlanAheadServlet extends ClientServlet {
@@ -254,6 +258,10 @@ public class PlanAheadServlet extends ClientServlet {
             return;
         }
 
+        if (!syncTemplatesAfterCapacityChange(appReq, LocalDate.parse(billDate.trim()))) {
+            return;
+        }
+
         Date windowStart = boardService.resolveWindowStart(appReq);
         PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
         String dayKey = toDayKey(parsedDay);
@@ -277,7 +285,53 @@ public class PlanAheadServlet extends ClientServlet {
         data.put("dayHeaderHtml", pageRenderer.renderDayHeader(targetDay));
         data.put("dayAvailableMinutes", targetDay.getAvailableMins());
         data.put("dayPlannedMinutes", targetDay.getPlannedMins());
+        Map<String, String> affectedCellsHtml = new LinkedHashMap<String, String>();
+        for (PlanAheadBoardModel.RowModel row : boardModel.getRows()) {
+            for (PlanAheadBoardModel.CellModel cell : row.getCells()) {
+                String cellId = PlanAheadPageRenderer.kanbanCellDomId(cell.getDayKey(), cell.getRowKey());
+                affectedCellsHtml.put(cellId,
+                        pageRenderer.renderKanbanCellHtml(cell, boardModel.isWorkMode()));
+            }
+        }
+        data.put("affectedCellsHtml", affectedCellsHtml);
         sendJsonResponse(appReq, true, "Day capacity updated", data);
+    }
+
+    private boolean syncTemplatesAfterCapacityChange(AppReq appReq, LocalDate changedDate) throws Exception {
+        LocalDate today = LocalDate.now(appReq.getWebUser().getTimeZone().toZoneId());
+        int advanceDays;
+        try {
+            advanceDays = Integer.parseInt(TrackerKeysManager.getKeyValue(
+                    TrackerKeysManager.KEY_TEMPLATE_ADVANCE_DAYS,
+                    TrackerKeysManager.KEY_TYPE_GLOBAL,
+                    TrackerKeysManager.KEY_ID_GLOBAL,
+                    "14", appReq.getDataSession()).trim());
+        } catch (NumberFormatException e) {
+            advanceDays = 14;
+        }
+        long daysUntilChange = ChronoUnit.DAYS.between(today, changedDate);
+        if (daysUntilChange > advanceDays) {
+            advanceDays = daysUntilChange > Integer.MAX_VALUE
+                    ? Integer.MAX_VALUE
+                    : (int) daysUntilChange;
+        }
+
+        Transaction transaction = appReq.getDataSession().beginTransaction();
+        try {
+            new TemplateGenerationService().generateForwardWindow(
+                    appReq.getDataSession(),
+                    appReq.getActiveWorkspaceId(),
+                    appReq.getWebUser().getContactId(),
+                    today,
+                    Math.max(advanceDays, 0));
+            transaction.commit();
+            return true;
+        } catch (RuntimeException e) {
+            transaction.rollback();
+            sendJsonResponse(appReq, false,
+                    "Availability was saved, but recurring actions could not be rescheduled", null);
+            return false;
+        }
     }
 
     private Integer parseMinutesInput(String value) {
