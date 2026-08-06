@@ -45,6 +45,24 @@ public class DashboardCurrentActionServiceTest {
     }
 
     @Test
+    public void shouldHandoffCurrentAction_usesCapturedCurrentActionIdForFutureEdit() {
+        Assert.assertTrue(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(101),
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 6)));
+    }
+
+    @Test
+    public void shouldHandoffCurrentAction_doesNotHandoffNonCurrentEdit() {
+        Assert.assertFalse(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(202),
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 6)));
+    }
+
+    @Test
+    public void shouldHandoffCurrentAction_doesNotHandoffWhenCurrentActionStaysToday() {
+        Assert.assertFalse(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(101),
+                LocalDate.of(2026, 8, 6), LocalDate.of(2026, 8, 6)));
+    }
+
+    @Test
     public void syncTimerWithCurrentAction_startsReplacementWhenTimerWasRunning() {
         RecordingTimerHandoff timerHandoff = new RecordingTimerHandoff();
         ActionNext replacementAction = actionWithProject(303);

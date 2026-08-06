@@ -800,6 +800,11 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
 
+            ActionNext currentAction = appReq.getCompletingAction();
+            Integer currentActionId = currentAction == null
+                    ? null
+                    : Integer.valueOf(currentAction.getActionNextId());
+
             // Update action fields from request
             String nextActionDate = appReq.getRequest().getParameter("nextActionDate");
             String nextActionType = appReq.getRequest().getParameter("nextActionType");
@@ -941,8 +946,11 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             transaction.commit();
 
-            boolean requiresActionRefresh = dashboardCurrentActionService
-                    .handoffCurrentActionIfMovedOffToday(appReq, action);
+            LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
+            boolean requiresActionRefresh = dashboardCurrentActionService.shouldHandoffCurrentAction(
+                    currentActionId, Integer.valueOf(actionNextId), savedActionDate,
+                    appReq.getWebUser().getLocalDateToday())
+                    && dashboardCurrentActionService.handoffCurrentAction(appReq);
 
             if (saveAndStart) {
                 appReq.setCompletingAction(action);
@@ -984,6 +992,9 @@ public class DandelionDashboardServlet extends ClientServlet {
                 sendJsonResponse(appReq, false, "Action not found", null);
                 return;
             }
+            ActionNext currentAction = appReq.getCompletingAction();
+            boolean deletingCurrentAction = currentAction != null
+                    && currentAction.getActionNextId() == actionNextId;
             Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
             if (activeWorkspaceId != null && action.getWorkspaceId() != null
                     && activeWorkspaceId.intValue() != action.getWorkspaceId().intValue()) {
@@ -999,7 +1010,11 @@ public class DandelionDashboardServlet extends ClientServlet {
                 dataSession.update(sibling);
             }
             transaction.commit();
-            sendJsonResponse(appReq, true, "Action deleted", null);
+            boolean requiresActionRefresh = deletingCurrentAction
+                    && dashboardCurrentActionService.handoffCurrentAction(appReq);
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("requiresActionRefresh", Boolean.valueOf(requiresActionRefresh));
+            sendJsonResponse(appReq, true, "Action deleted", data);
         } catch (RuntimeException re) {
             transaction.rollback();
             throw re;
@@ -1416,6 +1431,11 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
 
+            ActionNext currentAction = appReq.getCompletingAction();
+            Integer currentActionId = currentAction == null
+                    ? null
+                    : Integer.valueOf(currentAction.getActionNextId());
+
             if (nextActionDateStr != null && nextActionDateStr.length() > 0) {
                 Date parsedDate = appReq.getWebUser().parseDate(nextActionDateStr);
                 if (parsedDate == null) {
@@ -1431,16 +1451,23 @@ public class DandelionDashboardServlet extends ClientServlet {
                     return;
                 }
 
-                action.setNextActionDate(java.sql.Date.valueOf(newDate));
-                action.setNextChangeDate(new Date());
+                Date updatedDate = java.sql.Date.valueOf(newDate);
+                if (!sameDate(action.getNextActionDate(), updatedDate)) {
+                    action.setNextActionDate(updatedDate);
+                    action.setCompletionOrder(0);
+                    action.setNextChangeDate(new Date());
+                }
             }
 
             // Save the updated action
             dataSession.update(action);
             transaction.commit();
 
-            boolean requiresActionRefresh = dashboardCurrentActionService
-                    .handoffCurrentActionIfMovedOffToday(appReq, action);
+            LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
+            boolean requiresActionRefresh = dashboardCurrentActionService.shouldHandoffCurrentAction(
+                    currentActionId, Integer.valueOf(actionNextId), savedActionDate,
+                    appReq.getWebUser().getLocalDateToday())
+                    && dashboardCurrentActionService.handoffCurrentAction(appReq);
 
             Map<String, Object> data = new LinkedHashMap<String, Object>();
             data.put("requiresActionRefresh", Boolean.valueOf(requiresActionRefresh));

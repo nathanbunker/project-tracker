@@ -3351,7 +3351,11 @@ public class DashboardPageRenderer {
                 out.println("        .then(data => {");
                 out.println("          if (data.success) {");
                 out.println("            ddCloseActionModal('rescheduleModal');");
-                out.println("            window.location.reload();");
+                out.println("            if (data.requiresActionRefresh) {");
+                out.println("              window.location.href = '" + dashboardPath + "';");
+                out.println("            } else {");
+                out.println("              window.location.reload();");
+                out.println("            }");
                 out.println("          } else {");
                 out.println("            alert('Error: ' + (data.message || 'Could not reschedule action'));");
                 out.println("          }");
@@ -3470,7 +3474,11 @@ public class DashboardPageRenderer {
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
                 out.println("          ddCloseActionModal('editActionModal');");
-                out.println("          window.location.reload();");
+                out.println("          if (data.requiresActionRefresh) {");
+                out.println("            window.location.href = '" + dashboardPath + "';");
+                out.println("          } else {");
+                out.println("            window.location.reload();");
+                out.println("          }");
                 out.println("        } else {");
                 out.println("          alert('Error deleting action: ' + (data.message || 'Unknown error')); ");
                 out.println("        }");
@@ -3504,7 +3512,11 @@ public class DashboardPageRenderer {
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
                 out.println("          ddCloseActionModal('editActionModal');");
-                out.println("          window.location.reload();");
+                out.println("          if (data.requiresActionRefresh) {");
+                out.println("            window.location.href = '" + dashboardPath + "';");
+                out.println("          } else {");
+                out.println("            window.location.reload();");
+                out.println("          }");
                 out.println("        } else {");
                 out.println("          alert('Error saving action: ' + (data.message || 'Unknown error')); ");
                 out.println("        }");

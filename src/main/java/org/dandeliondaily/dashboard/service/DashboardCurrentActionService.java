@@ -100,6 +100,14 @@ public class DashboardCurrentActionService {
             return false;
         }
 
+        return handoffCurrentAction(appReq);
+    }
+
+    public boolean handoffCurrentAction(AppReq appReq) {
+        if (appReq == null || appReq.getCompletingAction() == null) {
+            return false;
+        }
+
         TimeTracker timeTracker = appReq.getTimeTracker();
         boolean timerWasRunning = timeTracker != null && timeTracker.isRunningClock();
 
@@ -124,10 +132,17 @@ public class DashboardCurrentActionService {
 
     boolean shouldRefreshCurrentAction(ActionNext currentAction, ActionNext movedAction, LocalDate movedDate,
             LocalDate today) {
-        if (currentAction == null || movedAction == null || movedDate == null || today == null) {
+        Integer currentActionId = currentAction == null ? null : Integer.valueOf(currentAction.getActionNextId());
+        Integer movedActionId = movedAction == null ? null : Integer.valueOf(movedAction.getActionNextId());
+        return shouldHandoffCurrentAction(currentActionId, movedActionId, movedDate, today);
+    }
+
+    public boolean shouldHandoffCurrentAction(Integer currentActionId, Integer movedActionId, LocalDate movedDate,
+            LocalDate today) {
+        if (currentActionId == null || movedActionId == null || movedDate == null || today == null) {
             return false;
         }
-        if (currentAction.getActionNextId() != movedAction.getActionNextId()) {
+        if (!currentActionId.equals(movedActionId)) {
             return false;
         }
         return movedDate.isAfter(today);
@@ -470,7 +485,8 @@ public class DashboardCurrentActionService {
                         + "and an.nextDescription <> '' "
                         + "and an.nextActionStatusString = :nextActionStatus "
                         + "and an.nextActionDate is not null and an.nextActionDate < :tomorrow ");
-        query.setParameter("workspaceId", WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
+        query.setParameter("workspaceId",
+                WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId()));
         query.setParameter("contactId", webUser.getContactId());
         query.setParameter("nextContactId", webUser.getContactId());
         query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
