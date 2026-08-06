@@ -31,6 +31,7 @@ import org.openimmunizationsoftware.pt.model.ActionSet;
 public class DashboardCurrentActionService {
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
+    private final ActionRecoveryService actionRecoveryService = new ActionRecoveryService();
 
     private static final String PARAM_ACTION = "action";
     private static final String ACTION_WORK_NEXT = "WorkNext";
@@ -364,6 +365,7 @@ public class DashboardCurrentActionService {
             }
         }
         trans.commit();
+        actionRecoveryService.remember(appReq, projectAction, nextActionStatus);
         return unblockedAction;
     }
 

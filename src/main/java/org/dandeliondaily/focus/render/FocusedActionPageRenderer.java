@@ -5,12 +5,14 @@ import java.util.Collections;
 import java.util.List;
 import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.shared.render.EditActionModalRenderer;
+import org.dandeliondaily.shared.render.ActionRecoveryRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 
 public class FocusedActionPageRenderer {
 
         private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
         public static class CycleBarItem {
@@ -107,6 +109,7 @@ public class FocusedActionPageRenderer {
                         boolean quickCaptureFocusRequested) {
                 PrintWriter out = appReq.getOut();
                 printStyles(out);
+                actionRecoveryRenderer.render(appReq);
                 String closeTarget = action == null
                                 ? "DandelionDashboardServlet"
                                 : "DandelionDashboardServlet?action=SelectAction&completingActionNextId="
@@ -474,7 +477,6 @@ public class FocusedActionPageRenderer {
                 out.println("    }");
                 out.println("  }");
                 out.println("  function faDeleteAction() {");
-                out.println("    if (!confirm('Delete this action? This cannot be undone.')) { return; }");
                 out.println("    var formData = faCreateDashboardParams();");
                 out.println("    formData.append('action', 'deleteAction');");
                 out.println("    formData.append('actionNextId', String(faState.actionNextId));");

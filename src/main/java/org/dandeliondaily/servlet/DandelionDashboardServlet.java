@@ -33,6 +33,7 @@ import org.dandeliondaily.dashboard.render.DashboardPageRenderer.DashboardLayout
 import org.dandeliondaily.dashboard.render.DashboardPageRenderer;
 import org.dandeliondaily.dashboard.render.TimeGaugeRenderer;
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
+import org.dandeliondaily.dashboard.service.ActionRecoveryService;
 import org.dandeliondaily.dashboard.service.DashboardNowColumnService;
 import org.dandeliondaily.dashboard.service.DashboardNextColumnService;
 import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
@@ -76,6 +77,7 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final DashboardNowColumnService dashboardNowColumnService = new DashboardNowColumnService();
     private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
+    private final ActionRecoveryService actionRecoveryService = new ActionRecoveryService();
     private final DashboardTimeGaugeService dashboardTimeGaugeService = new DashboardTimeGaugeService();
     private final DashboardNextColumnService dashboardNextColumnService = new DashboardNextColumnService();
     private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
@@ -124,6 +126,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             if ("deleteAction".equals(action)) {
                 handleDeleteAction(appReq);
+                return;
+            }
+            if ("restoreRecentAction".equals(action)) {
+                handleRestoreRecentAction(appReq);
                 return;
             }
             if ("loadReprioritizeData".equals(action)) {
@@ -1010,6 +1016,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 dataSession.update(sibling);
             }
             transaction.commit();
+            actionRecoveryService.remember(appReq, action, ProjectNextActionStatus.CANCELLED);
             boolean requiresActionRefresh = deletingCurrentAction
                     && dashboardCurrentActionService.handoffCurrentAction(appReq);
             Map<String, Object> data = new LinkedHashMap<String, Object>();
@@ -1018,6 +1025,23 @@ public class DandelionDashboardServlet extends ClientServlet {
         } catch (RuntimeException re) {
             transaction.rollback();
             throw re;
+        }
+    }
+
+    private void handleRestoreRecentAction(AppReq appReq) throws Exception {
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid action", null);
+            return;
+        }
+        try {
+            actionRecoveryService.restore(appReq, actionNextId);
+            sendJsonResponse(appReq, true, "Action restored for today", null);
+        } catch (IllegalArgumentException iae) {
+            sendJsonResponse(appReq, false, iae.getMessage(), null);
         }
     }
 

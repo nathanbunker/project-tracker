@@ -4,13 +4,18 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.junit.Assert;
 import org.junit.Test;
+import org.openimmunizationsoftware.pt.model.BillExpected;
+import org.openimmunizationsoftware.pt.model.BillExpectedId;
 
 public class TemplateGenerationServiceTest {
 
@@ -53,6 +58,79 @@ public class TemplateGenerationServiceTest {
         Assert.assertEquals("X", sessionHandler.parameters.get("cancelled"));
         Assert.assertEquals("C", sessionHandler.parameters.get("completed"));
         Assert.assertEquals(1, sessionHandler.executeUpdateCount);
+    }
+
+    @Test
+    public void autoCancelDoesNotGenerateOnNonWorkingDay() {
+        TemplateGenerationService service = new TemplateGenerationService();
+        LocalDate fridayOff = LocalDate.of(2026, 8, 7);
+        TemplateWorkdayCalendar calendar = calendar(
+                availability(fridayOff, 0, "N"));
+
+        Set<LocalDate> dates = service.resolveScheduledDates(
+                Collections.singletonList(fridayOff), calendar, true,
+                "AUTO_CANCEL", fridayOff, fridayOff.plusDays(10));
+
+        Assert.assertTrue(dates.isEmpty());
+    }
+
+    @Test
+    public void ignoreGeneratesOnScheduledNonWorkingDay() {
+        TemplateGenerationService service = new TemplateGenerationService();
+        LocalDate fridayOff = LocalDate.of(2026, 8, 7);
+        TemplateWorkdayCalendar calendar = calendar(
+                availability(fridayOff, 0, "N"));
+
+        Set<LocalDate> dates = service.resolveScheduledDates(
+                Collections.singletonList(fridayOff), calendar, true,
+                "IGNORE", fridayOff, fridayOff.plusDays(10));
+
+        Assert.assertEquals(Collections.singleton(fridayOff), dates);
+    }
+
+    @Test
+    public void carryForwardUsesNextWorkingDayBeyondNominalWindow() {
+        TemplateGenerationService service = new TemplateGenerationService();
+        LocalDate fridayOff = LocalDate.of(2026, 8, 7);
+        LocalDate mondayWorking = LocalDate.of(2026, 8, 10);
+        TemplateWorkdayCalendar calendar = calendar(
+                availability(fridayOff, 0, "N"),
+                availability(LocalDate.of(2026, 8, 8), 0, "N"),
+                availability(LocalDate.of(2026, 8, 9), 0, "N"),
+                availability(mondayWorking, 480, "W"));
+
+        Set<LocalDate> dates = service.resolveScheduledDates(
+                Collections.singletonList(fridayOff), calendar, true,
+                "CARRY_FORWARD", fridayOff, mondayWorking.plusDays(10));
+
+        Assert.assertEquals(Collections.singleton(mondayWorking), dates);
+    }
+
+    @Test
+    public void carryForwardRetainsEffectiveDateOnLaterSchedulerRun() {
+        TemplateGenerationService service = new TemplateGenerationService();
+        LocalDate fridayOff = LocalDate.of(2026, 8, 7);
+        LocalDate sundayRun = LocalDate.of(2026, 8, 9);
+        LocalDate mondayWorking = LocalDate.of(2026, 8, 10);
+        TemplateWorkdayCalendar calendar = calendar(
+                availability(fridayOff, 0, "N"),
+                availability(LocalDate.of(2026, 8, 8), 0, "N"),
+                availability(sundayRun, 0, "N"),
+                availability(mondayWorking, 480, "W"));
+
+        Set<LocalDate> dates = service.resolveScheduledDates(
+                Collections.singletonList(fridayOff), calendar, true,
+                "CARRY_FORWARD", sundayRun, mondayWorking.plusDays(10));
+
+        Assert.assertEquals(Collections.singleton(mondayWorking), dates);
+    }
+
+    private TemplateWorkdayCalendar calendar(BillExpected... availability) {
+        return new TemplateWorkdayCalendar(Arrays.asList(availability));
+    }
+
+    private BillExpected availability(LocalDate date, int minutes, String status) {
+        return new BillExpected(new BillExpectedId(7, java.sql.Date.valueOf(date)), minutes, 0, status);
     }
 
     private static final class RecordingSessionHandler implements InvocationHandler {

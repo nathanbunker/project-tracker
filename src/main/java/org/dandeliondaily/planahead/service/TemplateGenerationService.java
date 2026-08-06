@@ -31,6 +31,7 @@ public class TemplateGenerationService {
 
     private static final String STATUS_READY = ProjectNextActionStatus.READY.getId();
     private static final String STATUS_CANCELLED = ProjectNextActionStatus.CANCELLED.getId();
+    private static final int CARRY_SEARCH_DAYS = 366;
 
     private final SchedulePatternEvaluator patternEvaluator = new SchedulePatternEvaluator();
 
@@ -48,7 +49,8 @@ public class TemplateGenerationService {
         LocalDate windowEnd = today.plusDays(advanceDays);
         List<ActionNext> templates = loadTemplateRoots(session, workspaceId, contactId);
         TemplateWorkdayCalendar workdayCalendar = loadWorkdayCalendar(
-                session, contactId, today, windowEnd);
+                session, contactId, today.minusDays(CARRY_SEARCH_DAYS),
+                windowEnd.plusDays(CARRY_SEARCH_DAYS));
         LOGGER.fine("[TemplateGeneration] Begin workspace=" + workspaceId
                 + " contact=" + contactId
                 + " today=" + today
@@ -126,8 +128,8 @@ public class TemplateGenerationService {
      * exists for this template on that date; otherwise cancel.
      * IGNORE: leave as-is.
      *
-     * Should be called before generateForwardWindow so that carry-forward logic
-     * can detect whether today already has an instance.
+     * Should be called after generateForwardWindow so schedule reconciliation does
+     * not cancel an instance moved to a non-recurrence date in the same run.
      */
     public void applyMissedActionBehavior(Session session, int workspaceId, int contactId,
             LocalDate today) {
@@ -238,7 +240,8 @@ public class TemplateGenerationService {
 
         LocalDate windowEnd = today.plusDays(advanceDays);
         TemplateWorkdayCalendar workdayCalendar = loadWorkdayCalendar(
-                session, contactId, today, windowEnd);
+                session, contactId, today.minusDays(CARRY_SEARCH_DAYS),
+                windowEnd.plusDays(CARRY_SEARCH_DAYS));
         generateForTemplate(session, template, today, windowEnd, workdayCalendar);
     }
 
@@ -279,22 +282,28 @@ public class TemplateGenerationService {
             return 0;
         }
 
+        String missedActionBehavior = n(config.getMissedActionBehavior());
+        boolean carryForward = template.isBillable() && "CARRY_FORWARD".equals(missedActionBehavior);
+        LocalDate recurrenceStart = carryForward ? today.minusDays(CARRY_SEARCH_DAYS) : today;
+        LocalDate carrySearchEnd = windowEnd.plusDays(CARRY_SEARCH_DAYS);
         String pattern = resolvePattern(type, config);
         List<LocalDate> recurrenceDates = patternEvaluator.matchingDates(
-                type, pattern, today, windowEnd);
-        Set<LocalDate> scheduledDates = new HashSet<LocalDate>();
-        for (LocalDate date : recurrenceDates) {
-            if (workdayCalendar.isEligible(template.isBillable(), date)) {
-                scheduledDates.add(date);
+                type, pattern, recurrenceStart, windowEnd);
+        Set<LocalDate> scheduledDates = resolveScheduledDates(recurrenceDates, workdayCalendar,
+                template.isBillable(), missedActionBehavior, today, carrySearchEnd);
+        LocalDate reconciliationEnd = windowEnd;
+        for (LocalDate scheduledDate : scheduledDates) {
+            if (scheduledDate.isAfter(reconciliationEnd)) {
+                reconciliationEnd = scheduledDate;
             }
         }
 
         cancelIneligibleReadyInstances(session, template.getActionNextId(),
-                workspaceId(template), contactId(template), today, windowEnd, scheduledDates);
+                workspaceId(template), contactId(template), today, reconciliationEnd, scheduledDates);
 
         Set<LocalDate> existingDates = loadExistingInstanceDates(session,
                 template.getActionNextId(), workspaceId(template), contactId(template),
-                today, windowEnd);
+                today, reconciliationEnd);
 
         boolean rescheduleLocked = isRescheduleLocked(config);
         int count = 0;
@@ -317,6 +326,30 @@ public class TemplateGenerationService {
         config.setLastGeneratedDate(toUtcDate(windowEnd));
         session.update(config);
         return count;
+    }
+
+    Set<LocalDate> resolveScheduledDates(List<LocalDate> recurrenceDates,
+            TemplateWorkdayCalendar workdayCalendar, boolean billable,
+            String missedActionBehavior, LocalDate earliestDate, LocalDate carrySearchEnd) {
+        Set<LocalDate> scheduledDates = new HashSet<LocalDate>();
+        String behavior = n(missedActionBehavior);
+        for (LocalDate recurrenceDate : recurrenceDates) {
+            LocalDate scheduledDate = recurrenceDate;
+            if (billable && !workdayCalendar.isEligible(true, recurrenceDate)) {
+                if ("IGNORE".equals(behavior)) {
+                    scheduledDate = recurrenceDate;
+                } else if ("CARRY_FORWARD".equals(behavior)) {
+                    scheduledDate = findNextEligibleDate(workdayCalendar, true,
+                            recurrenceDate.plusDays(1), carrySearchEnd);
+                } else {
+                    scheduledDate = null;
+                }
+            }
+            if (scheduledDate != null && !scheduledDate.isBefore(earliestDate)) {
+                scheduledDates.add(scheduledDate);
+            }
+        }
+        return scheduledDates;
     }
 
     private Set<LocalDate> loadExistingInstanceDates(Session session, int templateActionNextId,

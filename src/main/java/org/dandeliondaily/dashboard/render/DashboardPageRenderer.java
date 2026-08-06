@@ -20,6 +20,7 @@ import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeState;
 import org.dandeliondaily.dashboard.model.TimeGaugeVariant;
 import org.dandeliondaily.shared.render.EditActionModalRenderer;
+import org.dandeliondaily.shared.render.ActionRecoveryRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -50,6 +51,7 @@ public class DashboardPageRenderer {
 
         private final TimeGaugeRenderer timeGaugeRenderer = new TimeGaugeRenderer();
         private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private String dashboardPath = "DandelionDashboardServlet";
         private DashboardLayoutMode layoutMode = DashboardLayoutMode.DEFAULT;
 
@@ -193,6 +195,7 @@ public class DashboardPageRenderer {
                 out.println("      </div>");
                 out.println("    </div>");
                 out.println("  </div>");
+                actionRecoveryRenderer.render(appReq);
                 printHeaderGaugeAutoRefreshScript(out, nowColumnModel);
                 out.println("</div>");
         }
@@ -3464,7 +3467,6 @@ public class DashboardPageRenderer {
                 out.println("  }");
                 out.println("  function ddDeleteAction(evt) {");
                 out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
-                out.println("    if (!confirm('Delete this action? This cannot be undone.')) { return; }");
                 out.println("    var actionId = document.getElementById('eaEditActionId').value;");
                 out.println("    if (!actionId) { return; }");
                 out.println("    var formData = ddCreateDashboardParams();");
