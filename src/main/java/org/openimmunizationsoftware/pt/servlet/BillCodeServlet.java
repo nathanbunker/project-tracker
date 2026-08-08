@@ -64,6 +64,9 @@ public class BillCodeServlet extends ClientServlet {
       Query query;
       appReq.setTitle("Track");
       printHtmlHead(appReq);
+      printDandelionLocation(out, "Billing / Bill Codes");
+      printBillingAdminNav(out, "Bill Codes");
+      out.println("<p><a href=\"BillCodesServlet\">Back to all bill codes</a></p>");
 
       BillCode billCode = null;
       String billCodeString = request.getParameter("billCode");

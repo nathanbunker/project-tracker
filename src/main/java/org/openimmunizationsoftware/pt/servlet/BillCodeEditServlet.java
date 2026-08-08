@@ -118,7 +118,7 @@ public class BillCodeEditServlet extends ClientServlet {
             try {
               dataSession.saveOrUpdate(billCode);
               trans.commit();
-              response.sendRedirect("BillCodeServlet?billCode=" + urlEncode(billCode.getBillCode()));
+              response.sendRedirect("BillCodesServlet");
               return;
             } catch (Exception e) {
               appReq.setMessageProblem("Unable to save bill code: " + e.getMessage());
