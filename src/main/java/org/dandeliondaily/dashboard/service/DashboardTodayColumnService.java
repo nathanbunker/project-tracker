@@ -33,6 +33,7 @@ public class DashboardTodayColumnService {
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
     private final QuickCaptureLinkedProjectService quickCaptureLinkedProjectService = new QuickCaptureLinkedProjectService();
+    private final QuickCaptureProjectTokenService projectTokenService = new QuickCaptureProjectTokenService();
     private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
     private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
@@ -144,11 +145,9 @@ public class DashboardTodayColumnService {
         LinkedHashSet<String> orderedNames = new LinkedHashSet<String>();
         if (quickCaptureProjects != null) {
             for (Project project : quickCaptureProjects) {
-                if (project != null && project.getProjectName() != null) {
-                    String projectName = project.getProjectName().trim();
-                    if (projectName.length() > 0) {
-                        orderedNames.add(projectName);
-                    }
+                String projectToken = projectTokenService.getToken(project);
+                if (projectToken.length() > 0) {
+                    orderedNames.add(projectToken);
                 }
             }
         }

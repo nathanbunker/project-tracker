@@ -170,7 +170,7 @@ public class PlanAheadPageRenderer {
                 out.println("          <div class=\"pa-quick-capture-input-wrap\">");
                 out.println("            <input type=\"text\" id=\"paSentenceInput\" name=\"sentenceInput\" value=\""
                                 + escapeHtml(boardModel.getQuickCaptureSentenceValue())
-                                + "\" placeholder=\"Project Name: I will action details\" autocomplete=\"off\""
+                                + "\" placeholder=\"Project Handle: I will action details\" autocomplete=\"off\""
                                 + (boardModel.isQuickCaptureFocusRequested() ? " autofocus=\"autofocus\"" : "")
                                 + " />");
                 out.println("            <div id=\"paSuggestions\" class=\"pa-capture-suggestions\"></div>");

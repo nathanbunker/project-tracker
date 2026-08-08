@@ -58,8 +58,8 @@ public class DashboardTodayColumnModel {
         private String scheduleActionValue = "Schedule";
         private String scheduleAndStartActionValue = "Schedule and Start";
         private String sentenceValue = "";
-        private String placeholder = "Project Name: I will action details";
-        private String hintText = "Example: Client Project: I will review deployment plan tomorrow";
+        private String placeholder = "Project Handle: I will action details";
+        private String hintText = "Example: Client: I will review deployment plan tomorrow";
         private List<String> projectNames = new ArrayList<String>();
         private boolean focusRequested = false;
 

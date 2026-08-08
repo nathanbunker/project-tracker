@@ -180,7 +180,7 @@ public class TemplateManagementServlet extends ClientServlet {
                 out.println("        <div class='pa-quick-capture-row'>");
                 out.println("          <div class='pa-quick-capture-input-wrap'>");
                 out.println("            <input type='text' id='paSentenceInput' name='sentenceInput' value=''");
-                out.println("              placeholder='Project Name: I will action details' autocomplete='off' />");
+                out.println("              placeholder='Project Handle: I will action details' autocomplete='off' />");
                 out.println("            <div id='paSuggestions' class='pa-capture-suggestions'></div>");
                 out.println("          </div>");
                 out.println("          <div class='pa-quick-capture-actions'>");

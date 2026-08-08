@@ -11,6 +11,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 public class QuickCaptureLinkedProjectService {
 
     private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
+    private final QuickCaptureProjectTokenService projectTokenService = new QuickCaptureProjectTokenService();
 
     public static class LinkedAliasResolution {
         private final String aliasLabel;
@@ -99,7 +100,7 @@ public class QuickCaptureLinkedProjectService {
         if (linkedPatchProject != null) {
             targetProjects.add(linkedPatchProject);
         }
-        String aliasLabel = projectDisplayLabelService.buildCompositeDisplayName(privateProject, linkedPatchProject);
+        String aliasLabel = projectTokenService.buildCompositeToken(privateProject, linkedPatchProject);
         return new LinkedAliasResolution(aliasLabel, privateProject, targetProjects);
     }
 }

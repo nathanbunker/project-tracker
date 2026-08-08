@@ -18,14 +18,14 @@ public class QuickCaptureLinkedProjectServiceTest {
 
     @Test
     public void createAliasResolution_targetsPrivateAndSelectedSharedOnly() {
-        Project privateProject = project(10, "Country Interview");
-        Project sharedProject = project(20, "Mexico");
+        Project privateProject = project(10, "Country Interview", "Interview");
+        Project sharedProject = project(20, "Mexico", "MX");
 
         QuickCaptureLinkedProjectService.LinkedAliasResolution resolution = service.createAliasResolution(
                 privateProject,
                 sharedProject);
 
-        Assert.assertEquals("Country Interview / Mexico", resolution.getAliasLabel());
+        Assert.assertEquals("Interview / MX", resolution.getAliasLabel());
         Assert.assertSame(privateProject, resolution.getPrivateProject());
 
         List<Project> targetProjects = resolution.getTargetProjects();
@@ -34,10 +34,23 @@ public class QuickCaptureLinkedProjectServiceTest {
         Assert.assertSame(sharedProject, targetProjects.get(1));
     }
 
-    private Project project(int projectId, String projectName) {
+    @Test
+    public void createAliasResolution_fallsBackToProjectNamesWhenHandlesAreMissing() {
+        Project privateProject = project(10, "Country Interview", null);
+        Project sharedProject = project(20, "Mexico", " ");
+
+        QuickCaptureLinkedProjectService.LinkedAliasResolution resolution = service.createAliasResolution(
+                privateProject,
+                sharedProject);
+
+        Assert.assertEquals("Country Interview / Mexico", resolution.getAliasLabel());
+    }
+
+    private Project project(int projectId, String projectName, String projectHandle) {
         Project project = new Project();
         project.setProjectId(projectId);
         project.setProjectName(projectName);
+        project.setProjectHandle(projectHandle);
         return project;
     }
 }

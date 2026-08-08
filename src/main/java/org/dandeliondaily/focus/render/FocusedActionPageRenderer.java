@@ -123,7 +123,7 @@ public class FocusedActionPageRenderer {
                 out.println("        <div class=\"fa-capture-input-container\">");
                 out.println("          <input type=\"text\" id=\"sentenceInput\" name=\"sentenceInput\" value=\""
                                 + escapeHtml(n(quickCaptureSentenceValue))
-                                + "\" placeholder=\"Project Name: I will action details\" autocomplete=\"off\""
+                                + "\" placeholder=\"Project Handle: I will action details\" autocomplete=\"off\""
                                 + (quickCaptureFocusRequested ? " autofocus=\"autofocus\"" : "") + " />");
                 out.println("          <div id=\"suggestions\" class=\"fa-capture-suggestions\"></div>");
                 out.println("        </div>");

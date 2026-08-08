@@ -26,6 +26,7 @@ import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 public class ActionSentenceImportService {
 
     private final QuickCaptureLinkedProjectService quickCaptureLinkedProjectService = new QuickCaptureLinkedProjectService();
+    private final QuickCaptureProjectTokenService projectTokenService = new QuickCaptureProjectTokenService();
 
     public int importActionsFromText(WebUser webUser, Session dataSession, Project defaultProject,
             List<Project> projectList, String bulkImportText) {
@@ -153,33 +154,27 @@ public class ActionSentenceImportService {
         String extractedUrl = urlResult.extractedUrl;
         sentenceInput = urlResult.cleanedText;
 
-        String projectName = "";
+        String projectToken = "";
         String actionPart = sentenceInput;
         if (!projectScoped) {
             String[] parts = sentenceInput.split(":", 2);
             if (parts.length == 2) {
-                projectName = parts[0].trim();
+                projectToken = parts[0].trim();
                 actionPart = parts[1].trim();
             }
         }
 
         Project foundProject = null;
-        if (!projectScoped && projectName.length() > 0 && projectList != null) {
-            for (Project project : projectList) {
-                if (project != null && project.getProjectName() != null
-                        && project.getProjectName().equalsIgnoreCase(projectName)) {
-                    foundProject = project;
-                    break;
-                }
-            }
+        if (!projectScoped && projectToken.length() > 0) {
+            foundProject = projectTokenService.findFirstByToken(projectList, projectToken);
         }
         if (foundProject == null) {
             if (defaultProject == null) {
                 return null;
             }
             foundProject = defaultProject;
-            if (!projectScoped && projectName.length() > 0) {
-                actionPart = projectName + " " + actionPart;
+            if (!projectScoped && projectToken.length() > 0) {
+                actionPart = projectToken + " " + actionPart;
             }
         }
 
@@ -322,7 +317,7 @@ public class ActionSentenceImportService {
         nextAction.setNextTimeEstimate(nextTimeEstimate);
         nextAction.setNextChangeDate(new Date());
         Integer workspaceId = workspaceIdOverride != null ? workspaceIdOverride
-            : WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
+                : WorkspaceRegistry.getWorkspaceIdForWebUserId(dataSession, webUser.getWebUserId());
         nextAction.setWorkspaceId(workspaceId);
         nextAction.setContact(actorContact);
         nextAction.setBillable(resolveBillable(dataSession, foundProject));
