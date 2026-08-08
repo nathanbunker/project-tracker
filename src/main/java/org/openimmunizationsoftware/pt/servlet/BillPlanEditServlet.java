@@ -87,14 +87,28 @@ public class BillPlanEditServlet extends ClientServlet {
                             "Approved, superseded, and inactive plans are read-only. Create a revision to make changes.");
                 } else {
                     applyPlanFields(request, appReq, billPlan);
-                    targets = readTargetsFromRequest(request);
-                    String validationMessage = validateAndSave(action, dataSession, billPlan, targets, billCodeList,
-                            billBudgetList);
-                    if (validationMessage == null) {
-                        response.sendRedirect("BillPlanEditServlet?billPlanId=" + billPlan.getBillPlanId());
-                        return;
+                    boolean editingTargets = "Add Target".equals(action) || action.startsWith("Remove Target ");
+                    targets = readTargetsFromRequest(request, editingTargets);
+                    if ("Add Target".equals(action)) {
+                        targets.add(new BillPlanTarget());
+                    } else if (action.startsWith("Remove Target ")) {
+                        Integer targetIndex = parseInteger(action.substring("Remove Target ".length()));
+                        if (targetIndex != null && targetIndex.intValue() >= 0
+                                && targetIndex.intValue() < targets.size()) {
+                            targets.remove(targetIndex.intValue());
+                        }
+                        if (targets.isEmpty()) {
+                            targets.add(new BillPlanTarget());
+                        }
+                    } else {
+                        String validationMessage = validateAndSave(action, dataSession, billPlan, targets, billCodeList,
+                                billBudgetList);
+                        if (validationMessage == null) {
+                            response.sendRedirect("BillPlanEditServlet?billPlanId=" + billPlan.getBillPlanId());
+                            return;
+                        }
+                        appReq.setMessageProblem(validationMessage);
                     }
-                    appReq.setMessageProblem(validationMessage);
                 }
             }
 
@@ -115,9 +129,6 @@ public class BillPlanEditServlet extends ClientServlet {
             out.println(
                     "  <tr class=\"boxed\"><th class=\"boxed\">Plan Label</th><td class=\"boxed\"><input type=\"text\" name=\"planLabel\" value=\""
                             + escapeHtmlAttribute(n(billPlan.getPlanLabel())) + "\" size=\"40\"></td></tr>");
-            out.println(
-                    "  <tr class=\"boxed\"><th class=\"boxed\">User ID</th><td class=\"boxed\"><input type=\"text\" name=\"webUserId\" value=\""
-                            + billPlan.getWebUserId() + "\" size=\"8\"></td></tr>");
             out.println(
                     "  <tr class=\"boxed\"><th class=\"boxed\">Fiscal Start Date</th><td class=\"boxed\"><input type=\"text\" name=\"fiscalStartDate\" value=\""
                             + formatDate(appReq, billPlan.getFiscalStartDate()) + "\" size=\"10\"></td></tr>");
@@ -145,8 +156,9 @@ public class BillPlanEditServlet extends ClientServlet {
                             + n(billPlan.getChangeNote()) + "</textarea></td></tr>");
             out.println("</table><br/>");
 
+            boolean targetsReadOnly = isReadOnlyStatus(billPlan);
             out.println("<table class=\"boxed\">");
-            out.println("  <tr><th class=\"title\" colspan=\"8\">Targets</th></tr>");
+            out.println("  <tr><th class=\"title\" colspan=\"" + (targetsReadOnly ? 8 : 9) + "\">Targets</th></tr>");
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">Bill Code</th>");
             out.println("    <th class=\"boxed\">Mode</th>");
@@ -156,6 +168,9 @@ public class BillPlanEditServlet extends ClientServlet {
             out.println("    <th class=\"boxed\">Variance Policy</th>");
             out.println("    <th class=\"boxed\">Display Order</th>");
             out.println("    <th class=\"boxed\">Note</th>");
+            if (!targetsReadOnly) {
+                out.println("    <th class=\"boxed\">Action</th>");
+            }
             out.println("  </tr>");
             for (int i = 0; i < targets.size(); i++) {
                 BillPlanTarget target = targets.get(i);
@@ -200,11 +215,16 @@ public class BillPlanEditServlet extends ClientServlet {
                         + target.getDisplayOrder() + "\" size=\"4\"></td>");
                 out.println("    <td class=\"boxed\"><input type=\"text\" name=\"targetNote_" + i + "\" value=\""
                         + escapeHtmlAttribute(n(target.getTargetNote())) + "\" size=\"20\"></td>");
+                if (!targetsReadOnly) {
+                    out.println("    <td class=\"boxed\"><button type=\"submit\" name=\"action\" value=\"Remove Target "
+                            + i + "\">Remove</button></td>");
+                }
                 out.println("  </tr>");
             }
             out.println("</table><br/>");
 
             if (!isReadOnlyStatus(billPlan)) {
+                out.println("<input type=\"submit\" name=\"action\" value=\"Add Target\">");
                 out.println("<input type=\"submit\" name=\"action\" value=\"Save Draft\">");
                 out.println("<input type=\"submit\" name=\"action\" value=\"Approve\">");
             }
@@ -247,7 +267,7 @@ public class BillPlanEditServlet extends ClientServlet {
     private void applyPlanFields(HttpServletRequest request, AppReq appReq, BillPlan billPlan) {
         billPlan.setBillPlanCode(trim(request.getParameter("billPlanCode"), 30));
         billPlan.setPlanLabel(trim(request.getParameter("planLabel"), 150));
-        billPlan.setWebUserId(parseInt(request.getParameter("webUserId")));
+        billPlan.setWebUserId(appReq.getWebUser().getWebUserId());
         billPlan.setFiscalStartDate(appReq.getWebUser().parseDate(request.getParameter("fiscalStartDate")));
         billPlan.setFiscalEndDate(appReq.getWebUser().parseDate(request.getParameter("fiscalEndDate")));
         billPlan.setVersionNum(parseInt(request.getParameter("versionNum")));
@@ -256,7 +276,7 @@ public class BillPlanEditServlet extends ClientServlet {
         billPlan.setChangeNote(trim(request.getParameter("changeNote"), 1000));
     }
 
-    private List<BillPlanTarget> readTargetsFromRequest(HttpServletRequest request) {
+    private List<BillPlanTarget> readTargetsFromRequest(HttpServletRequest request, boolean includeBlankTargets) {
         int targetCount = parseInt(request.getParameter("targetCount"));
         List<BillPlanTarget> targets = new ArrayList<BillPlanTarget>();
         for (int i = 0; i < targetCount; i++) {
@@ -269,7 +289,7 @@ public class BillPlanEditServlet extends ClientServlet {
             target.setVariancePolicy(trim(request.getParameter("variancePolicy_" + i), 20));
             target.setDisplayOrder(parseInt(request.getParameter("displayOrder_" + i)));
             target.setTargetNote(trim(request.getParameter("targetNote_" + i), 500));
-            if (target.getBillCode().length() > 0) {
+            if (includeBlankTargets || target.getBillCode().length() > 0) {
                 targets.add(target);
             }
         }
