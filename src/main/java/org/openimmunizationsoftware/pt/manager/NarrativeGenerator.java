@@ -1,5 +1,5 @@
 package org.openimmunizationsoftware.pt.manager;
 
 public interface NarrativeGenerator {
-    String generateDailyMarkdown(GenerationContext ctx);
+    String generateMarkdown(String narrativeType, GenerationContext ctx);
 }

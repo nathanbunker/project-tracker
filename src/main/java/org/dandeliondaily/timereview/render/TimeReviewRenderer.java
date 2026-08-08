@@ -23,7 +23,7 @@ public class TimeReviewRenderer {
 
     private static final boolean DEV_LABELS_ENABLED = false;
     private static final Parser MARKDOWN_PARSER = Parser.builder().build();
-    private static final HtmlRenderer MARKDOWN_RENDERER = HtmlRenderer.builder().build();
+    private static final HtmlRenderer MARKDOWN_RENDERER = HtmlRenderer.builder().escapeHtml(true).build();
 
     private static final String PARAM_REVIEW_DATE = "reviewDate";
     private static final String PARAM_REPORT_TYPE = "reportType";
@@ -251,6 +251,8 @@ public class TimeReviewRenderer {
 
         if (TrackerNarrativeReviewStatus.GENERATING.equals(activeNarrative.getReviewStatus())) {
             out.println("<p class=\"rd-subtle\">Narrative is generating. Refresh to load the completed draft.</p>");
+        } else if (TrackerNarrativeReviewStatus.FAILED.equals(activeNarrative.getReviewStatus())) {
+            out.println("<p class=\"fail\">Narrative generation failed. Use Regenerate to try again.</p>");
         }
 
         if (VIEW_EDIT.equals(narrativeView)) {

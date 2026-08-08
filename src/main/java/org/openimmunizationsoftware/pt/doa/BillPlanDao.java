@@ -52,6 +52,7 @@ public class BillPlanDao {
         Query query = session.createQuery(
                 "from BillPlan where workspaceId = :workspaceId and webUserId = :webUserId "
                         + "and planStatus = :planStatus and effectiveDate <= :requestedDate "
+                        + "and fiscalStartDate <= :requestedDate and fiscalEndDate >= :requestedDate "
                         + "order by effectiveDate desc, versionNum desc");
         query.setInteger("workspaceId", workspaceId);
         query.setInteger("webUserId", webUserId);

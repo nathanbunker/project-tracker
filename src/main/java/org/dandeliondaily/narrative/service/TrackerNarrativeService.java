@@ -67,20 +67,22 @@ public class TrackerNarrativeService {
         return scope;
     }
 
-    public TrackerNarrativeViewModel loadViewModel(Session dataSession, TrackerNarrativeScope scope,
-            long preferredNarrativeId) {
+    public TrackerNarrativeViewModel loadViewModel(Session dataSession, WebUser webUser,
+            TrackerNarrativeScope scope, long preferredNarrativeId) {
         TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
         TrackerNarrativeViewModel model = new TrackerNarrativeViewModel();
         model.setScope(scope);
         model.setGenerationAvailable(TrackerNarrativeGenerator.isGenerationAvailable());
         model.setGenerationUnavailableMessage(GENERATION_UNAVAILABLE_MESSAGE);
 
-        List<TrackerNarrative> narratives = narrativeDao.findByTypeAndPeriod(scope.getNarrativeType(),
+        List<TrackerNarrative> narratives = narrativeDao.findByContactTypeAndPeriod(webUser.getContactId(),
+                scope.getNarrativeType(),
                 scope.getPeriodStart(),
                 scope.getPeriodEnd());
         model.getNarratives().addAll(narratives);
 
-        TrackerNarrative approved = narrativeDao.findApprovedByTypeAndPeriod(scope.getNarrativeType(),
+        TrackerNarrative approved = narrativeDao.findApprovedByContactTypeAndPeriod(webUser.getContactId(),
+                scope.getNarrativeType(),
                 scope.getPeriodStart(),
                 scope.getPeriodEnd());
         model.setApprovedNarrative(approved);
@@ -130,7 +132,7 @@ public class TrackerNarrativeService {
 
         Session dataSession = appReq.getDataSession();
         TrackerNarrative existing = (TrackerNarrative) dataSession.get(TrackerNarrative.class, (int) narrativeId);
-        if (existing == null) {
+        if (existing == null || existing.getContactId() != appReq.getWebUser().getContactId()) {
             appReq.setMessageProblem("Narrative not found.");
             return 0;
         }
@@ -163,17 +165,17 @@ public class TrackerNarrativeService {
             return;
         }
         TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-        narrativeDao.approve(narrativeId, webUser.getLocalDateTimeNow());
+        narrativeDao.approve(narrativeId, webUser.getContactId(), webUser.getLocalDateTimeNow());
     }
 
-    public void reject(Session dataSession, long narrativeId) {
+    public void reject(Session dataSession, WebUser webUser, long narrativeId) {
         if (narrativeId <= 0) {
             return;
         }
         Transaction transaction = dataSession.beginTransaction();
         try {
             TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            narrativeDao.reject(narrativeId);
+            narrativeDao.reject(narrativeId, webUser.getContactId());
             transaction.commit();
         } catch (RuntimeException e) {
             if (transaction != null && transaction.isActive()) {
@@ -183,14 +185,14 @@ public class TrackerNarrativeService {
         }
     }
 
-    public void delete(Session dataSession, long narrativeId) {
+    public void delete(Session dataSession, WebUser webUser, long narrativeId) {
         if (narrativeId <= 0) {
             return;
         }
         Transaction transaction = dataSession.beginTransaction();
         try {
             TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            narrativeDao.softDelete(narrativeId);
+            narrativeDao.softDelete(narrativeId, webUser.getContactId());
             transaction.commit();
         } catch (RuntimeException e) {
             if (transaction != null && transaction.isActive()) {
@@ -200,14 +202,14 @@ public class TrackerNarrativeService {
         }
     }
 
-    public void saveMarkdown(Session dataSession, long narrativeId, String markdownFinal) {
+    public void saveMarkdown(Session dataSession, WebUser webUser, long narrativeId, String markdownFinal) {
         if (narrativeId <= 0) {
             return;
         }
         Transaction transaction = dataSession.beginTransaction();
         try {
             TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            narrativeDao.updateFinalText(narrativeId, normalizeMarkdown(markdownFinal));
+            narrativeDao.updateFinalText(narrativeId, webUser.getContactId(), normalizeMarkdown(markdownFinal));
             transaction.commit();
         } catch (RuntimeException e) {
             if (transaction != null && transaction.isActive()) {

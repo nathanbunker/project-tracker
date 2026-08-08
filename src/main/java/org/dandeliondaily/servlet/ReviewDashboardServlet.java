@@ -108,8 +108,8 @@ public class ReviewDashboardServlet extends ClientServlet {
             TimeReviewDayModel dayModel = timeReviewService.buildDayModel(webUser, dataSession, selectedDay,
                     lockedBillEntryId);
             TimeReviewRenderer.EditFormModel editForm = buildEditForm(request, dayModel, webUser, dataSession);
-            TrackerNarrativeViewModel narrativeModel = narrativeService.loadViewModel(dataSession, narrativeScope,
-                    selectedNarrativeId);
+            TrackerNarrativeViewModel narrativeModel = narrativeService.loadViewModel(dataSession, webUser,
+                    narrativeScope, selectedNarrativeId);
 
             printHtmlHead(appReq);
             renderer.renderPage(appReq.getOut(), webUser, dayModel, quickScope, editForm, pageMessage,
@@ -151,20 +151,20 @@ public class ReviewDashboardServlet extends ClientServlet {
         }
         if (ACTION_NARRATIVE_REJECT.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
-            narrativeService.reject(appReq.getDataSession(), narrativeId);
+            narrativeService.reject(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
             appReq.setMessageConfirmation("Narrative rejected.");
             return narrativeId;
         }
         if (ACTION_NARRATIVE_SAVE.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
             String markdownFinal = request.getParameter(PARAM_MARKDOWN_FINAL);
-            narrativeService.saveMarkdown(appReq.getDataSession(), narrativeId, markdownFinal);
+            narrativeService.saveMarkdown(appReq.getDataSession(), appReq.getWebUser(), narrativeId, markdownFinal);
             appReq.setMessageConfirmation("Narrative updated.");
             return narrativeId;
         }
         if (ACTION_NARRATIVE_DELETE.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
-            narrativeService.delete(appReq.getDataSession(), narrativeId);
+            narrativeService.delete(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
             appReq.setMessageConfirmation("Narrative deleted.");
             return 0;
         }

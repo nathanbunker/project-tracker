@@ -47,7 +47,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
     private static final long serialVersionUID = 1952130555696282854L;
 
     private static final Parser MARKDOWN_PARSER = Parser.builder().build();
-    private static final HtmlRenderer MARKDOWN_RENDERER = HtmlRenderer.builder().build();
+    private static final HtmlRenderer MARKDOWN_RENDERER = HtmlRenderer.builder().escapeHtml(true).build();
 
     private static final String PARAM_ID = "id";
     private static final String PARAM_DATE = "date";
@@ -108,7 +108,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
             if (narrativeId > 0) {
                 TrackerNarrative narrative = (TrackerNarrative) dataSession.get(TrackerNarrative.class,
                         (int) narrativeId);
-                if (narrative == null) {
+                if (narrative == null || narrative.getContactId() != webUser.getContactId()) {
                     out.println("<p class=\"fail\">Narrative not found.</p>");
                 } else {
                     printEditor(out, webUser, narrative, type, selectedDate, editMode);
@@ -160,15 +160,15 @@ public class TrackerNarrativeServlet extends ClientServlet {
         String redirect = buildListLink(type, selectedDate);
         if (ACTION_SAVE.equals(action)) {
             String markdownFinal = n(request.getParameter(PARAM_MARKDOWN_FINAL));
-            narrativeService.saveMarkdown(appReq.getDataSession(), narrativeId, markdownFinal);
+            narrativeService.saveMarkdown(appReq.getDataSession(), appReq.getWebUser(), narrativeId, markdownFinal);
             appReq.setMessageConfirmation("Narrative updated.");
             redirect = buildEditorLink(narrativeId, type, selectedDate);
         } else if (ACTION_REJECT.equals(action)) {
-            narrativeService.reject(appReq.getDataSession(), narrativeId);
+            narrativeService.reject(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
             appReq.setMessageConfirmation("Narrative rejected.");
             redirect = buildEditorLink(narrativeId, type, selectedDate);
         } else if (ACTION_DELETE.equals(action)) {
-            narrativeService.delete(appReq.getDataSession(), narrativeId);
+            narrativeService.delete(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
             appReq.setMessageConfirmation("Narrative deleted.");
             redirect = buildEditorLink(narrativeId, type, selectedDate);
         } else if (ACTION_GENERATE.equals(action)) {
@@ -246,10 +246,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("    <th class=\"boxed\">View</th>");
         out.println("  </tr>");
 
-        List<TrackerNarrative> narratives = narrativeDao.findByTypeAndPeriod(type, scope.getPeriodStart(),
-                scope.getPeriodEnd());
-        TrackerNarrative approved = narrativeDao.findApprovedByTypeAndPeriod(type, scope.getPeriodStart(),
-                scope.getPeriodEnd());
+        List<TrackerNarrative> narratives = narrativeDao.findByContactTypeAndPeriod(webUser.getContactId(), type,
+                scope.getPeriodStart(), scope.getPeriodEnd());
+        TrackerNarrative approved = narrativeDao.findApprovedByContactTypeAndPeriod(webUser.getContactId(), type,
+                scope.getPeriodStart(), scope.getPeriodEnd());
         int approvedId = approved == null ? 0 : approved.getNarrativeId();
 
         if (narratives.isEmpty()) {
@@ -301,10 +301,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
         Integer webUserId = webUser == null ? null : Integer.valueOf(webUser.getWebUserId());
         Map<LocalDate, Integer> billableMinutesByDay = narrativeDao.sumBillableMinutesByDay(webUserId,
                 firstWeekStart, endExclusive);
-        Set<LocalDate> approvedDailyStarts = narrativeDao.findApprovedPeriodStarts(TYPE_DAILY, firstWeekStart,
-                endExclusive.minusDays(1));
-        Set<LocalDate> approvedWeeklyStarts = narrativeDao.findApprovedPeriodStarts(TYPE_WEEKLY, firstWeekStart,
-                lastWeekStart);
+        Set<LocalDate> approvedDailyStarts = narrativeDao.findApprovedPeriodStarts(webUser.getContactId(), TYPE_DAILY,
+                firstWeekStart, endExclusive.minusDays(1));
+        Set<LocalDate> approvedWeeklyStarts = narrativeDao.findApprovedPeriodStarts(webUser.getContactId(),
+                TYPE_WEEKLY, firstWeekStart, lastWeekStart);
 
         out.println("<table class=\"boxed\">");
         out.println("  <tr class=\"boxed\">");
@@ -410,6 +410,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
                     + "<a class=\"button\" href=\"" + buildEditorLink(narrative.getNarrativeId(), type,
                             selectedDate, editMode ? VIEW_EDIT : null)
                     + "\">Refresh</a></p>\n");
+        } else if (TrackerNarrativeReviewStatus.FAILED.equals(narrative.getReviewStatus())) {
+            out.println("<p class=\"fail\">Narrative generation failed. Use Regenerate to try again.</p>\n");
         }
 
         if (editMode) {

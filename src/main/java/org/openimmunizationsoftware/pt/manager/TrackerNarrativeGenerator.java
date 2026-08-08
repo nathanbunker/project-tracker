@@ -1,7 +1,6 @@
 package org.openimmunizationsoftware.pt.manager;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -24,10 +23,12 @@ import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectIssueStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
-import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
 
 public class TrackerNarrativeGenerator {
 
@@ -66,46 +67,73 @@ public class TrackerNarrativeGenerator {
         @Override
         public void run() {
             if (!isGenerationAvailable()) {
-                System.out.println("[TrackerNarrativeGenerator] " + getGenerationUnavailableMessage());
+                System.err.println("[TrackerNarrativeGenerator] Narrative " + trackerNarrativeId + ": "
+                        + getGenerationUnavailableMessage());
+                markGenerationFailed(trackerNarrativeId);
                 return;
             }
-            SessionFactory factory = CentralControl.getSessionFactory();
-            Session session = factory.openSession();
+            Session session = null;
             Transaction transaction = null;
+            Exception generationFailure = null;
             try {
+                SessionFactory factory = CentralControl.getSessionFactory();
+                session = factory.openSession();
                 TrackerNarrative narrative = (TrackerNarrative) session.get(TrackerNarrative.class,
                         (int) trackerNarrativeId);
                 if (narrative == null) {
                     return;
                 }
 
-                LocalDate periodStart = toLocalDate(narrative.getPeriodStart());
-                LocalDate periodEnd = toLocalDate(narrative.getPeriodEnd());
+                WebUser owner = loadOwner(session, narrative.getContactId());
+                if (owner == null) {
+                    throw new IllegalStateException("Narrative owner was not found");
+                }
+                Project narrativeProject = (Project) session.get(Project.class, narrative.getProjectId());
+                Integer workspaceId = narrativeProject == null ? null : narrativeProject.getWorkspaceId();
+
+                LocalDate periodStart = owner.toLocalDate(narrative.getPeriodStart());
+                LocalDate periodEnd = owner.toLocalDate(narrative.getPeriodEnd());
                 if (periodStart == null || periodEnd == null) {
-                    return;
+                    throw new IllegalStateException("Narrative period is incomplete");
                 }
 
                 LocalDate endExclusive = periodEnd.plusDays(1);
-                Date startDate = toDate(periodStart);
-                Date endDate = toDate(endExclusive);
+                Date startDate = owner.toDate(periodStart);
+                Date endDate = owner.toDate(endExclusive);
 
-                List<ActionTaken> completedActions = loadCompletedActions(session, startDate, endDate);
-                Map<Integer, Integer> timeByProject = loadMinutesByProject(session, startDate, endDate);
+                List<ActionTaken> completedActions = loadCompletedActions(session, narrative.getContactId(),
+                        workspaceId, startDate, endDate);
+                Map<Integer, Integer> timeByProject = loadMinutesByProject(session, owner.getWebUserId(), workspaceId,
+                        startDate, endDate);
                 Map<Integer, String> projectNames = loadProjectNames(session, timeByProject.keySet(), completedActions);
-                List<ProjectNarrative> projectNarratives = loadProjectNarratives(session, startDate, endDate);
-                List<ActionNext> waitingActions = loadWaitingActions(session, startDate, endDate);
+                List<ProjectNarrative> projectNarratives = loadProjectNarratives(session, narrative.getContactId(),
+                        workspaceId, startDate, endDate);
+                List<ActionNext> waitingActions = loadWaitingActions(session, narrative.getContactId(), workspaceId);
+                List<ActionNext> completedActionDetails = loadCompletedActionDetails(session, narrative.getContactId(),
+                        workspaceId, startDate, endDate);
+                List<ActionNext> upcomingActions = loadUpcomingActions(session, narrative.getContactId(), workspaceId,
+                        owner.toDate(endExclusive.plusWeeks(1)));
+                List<TrackerNarrative> approvedDailyNarratives = "WEEKLY".equals(narrative.getNarrativeType())
+                        ? new TrackerNarrativeDao(session).findApprovedByContactTypeAndPeriodRange(
+                                narrative.getContactId(), "DAILY", periodStart, periodEnd)
+                        : new ArrayList<TrackerNarrative>();
                 Set<Integer> projectIds = collectProjectIds(timeByProject, completedActions, projectNarratives,
                         waitingActions);
+                addActionProjectIds(projectIds, completedActionDetails);
+                addActionProjectIds(projectIds, upcomingActions);
                 Map<Integer, Project> projectsById = loadProjectsById(session, projectIds);
+                for (Map.Entry<Integer, Project> entry : projectsById.entrySet()) {
+                    projectNames.put(entry.getKey(), entry.getValue().getProjectName());
+                }
                 Map<Integer, List<String>> openIssuesByProject = loadOpenIssuesByProject(session, projectIds);
 
-                String prompt = buildPrompt(narrative, periodStart, periodEnd, completedActions, timeByProject,
-                        projectNames, projectsById, openIssuesByProject, projectNarratives, waitingActions);
-                GenerationContext context = new GenerationContext(periodStart, periodEnd, prompt, completedActions,
+                GenerationContext context = new GenerationContext(periodStart, periodEnd, "", completedActions,
                         timeByProject, projectNames, projectsById, openIssuesByProject, projectNarratives,
-                        waitingActions);
-                String promptUsedText = OpenAiNarrativeGenerator.buildPromptForInspection(context);
-                String markdownGenerated = createGenerator().generateDailyMarkdown(context);
+                        waitingActions, completedActionDetails, upcomingActions, approvedDailyNarratives,
+                        owner.getZoneId().getId());
+                String promptUsedText = OpenAiNarrativeGenerator.buildPromptForInspection(
+                        narrative.getNarrativeType(), context);
+                String markdownGenerated = createGenerator().generateMarkdown(narrative.getNarrativeType(), context);
 
                 transaction = session.beginTransaction();
                 TrackerNarrative refresh = (TrackerNarrative) session.get(TrackerNarrative.class,
@@ -118,17 +146,56 @@ public class TrackerNarrativeGenerator {
                 refresh.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
                 refresh.setLastUpdated(new Date());
                 refresh.setPromptUsedText(promptUsedText);
+                refresh.setPromptVersion(OpenAiNarrativeGenerator.promptVersionFor(narrative.getNarrativeType()));
+                refresh.setModelName(OpenAiNarrativeGenerator.MODEL_NAME);
                 if (isEmpty(refresh.getMarkdownFinal())) {
                     refresh.setMarkdownFinal(markdownGenerated);
                 }
                 session.update(refresh);
                 transaction.commit();
             } catch (Exception e) {
-                if (transaction != null) {
+                if (transaction != null && transaction.isActive()) {
                     transaction.rollback();
                 }
-                e.printStackTrace();
+                generationFailure = e;
             } finally {
+                if (session != null) {
+                    session.close();
+                }
+            }
+            if (generationFailure != null) {
+                System.err.println("[TrackerNarrativeGenerator] Generation failed for narrative "
+                        + trackerNarrativeId + ": " + generationFailure.getMessage());
+                generationFailure.printStackTrace();
+                markGenerationFailed(trackerNarrativeId);
+            }
+        }
+    }
+
+    private static void markGenerationFailed(long trackerNarrativeId) {
+        Session session = null;
+        Transaction transaction = null;
+        try {
+            session = CentralControl.getSessionFactory().openSession();
+            transaction = session.beginTransaction();
+            TrackerNarrative narrative = (TrackerNarrative) session.get(TrackerNarrative.class,
+                    (int) trackerNarrativeId);
+            if (narrative != null
+                    && TrackerNarrativeReviewStatus.GENERATING.equals(narrative.getReviewStatus())) {
+                narrative.setReviewStatus(TrackerNarrativeReviewStatus.FAILED);
+                narrative.setLastUpdated(new Date());
+                session.update(narrative);
+            }
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            System.err.println("[TrackerNarrativeGenerator] Could not mark narrative " + trackerNarrativeId
+                    + " as failed: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (session != null) {
                 session.close();
             }
         }
@@ -139,22 +206,43 @@ public class TrackerNarrativeGenerator {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<ActionTaken> loadCompletedActions(Session session, Date startDate, Date endDate) {
+    private static WebUser loadOwner(Session session, int contactId) {
+        Query query = session.createQuery("from WebUser where contactId = :contactId order by webUserId");
+        query.setInteger("contactId", contactId);
+        query.setMaxResults(1);
+        List<WebUser> users = query.list();
+        return users.isEmpty() ? null : users.get(0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<ActionTaken> loadCompletedActions(Session session, int contactId, Integer workspaceId,
+            Date startDate, Date endDate) {
         Query query = session.createQuery(
                 "from ActionTaken atk left join fetch atk.project "
                         + "where atk.actionDate >= :start and atk.actionDate < :end "
+                        + "and atk.contactId = :contactId "
+                        + (workspaceId == null ? "" : "and atk.workspaceId = :workspaceId ")
                         + "and atk.actionDescription is not null and atk.actionDescription <> '' "
                         + "order by atk.actionDate asc");
+        query.setInteger("contactId", contactId);
+        if (workspaceId != null)
+            query.setInteger("workspaceId", workspaceId.intValue());
         query.setTimestamp("start", startDate);
         query.setTimestamp("end", endDate);
         return query.list();
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<Integer, Integer> loadMinutesByProject(Session session, Date startDate, Date endDate) {
+    private static Map<Integer, Integer> loadMinutesByProject(Session session, int webUserId, Integer workspaceId,
+            Date startDate, Date endDate) {
         Query query = session.createQuery(
                 "select be.projectId, sum(be.billMins) from BillEntry be "
-                        + "where be.startTime >= :start and be.startTime < :end group by be.projectId");
+                        + "where be.webUser.webUserId = :webUserId and be.billable = 'Y' and be.billMins > 0 "
+                        + (workspaceId == null ? "" : "and be.workspaceId = :workspaceId ")
+                        + "and be.startTime >= :start and be.startTime < :end group by be.projectId");
+        query.setInteger("webUserId", webUserId);
+        if (workspaceId != null)
+            query.setInteger("workspaceId", workspaceId.intValue());
         query.setTimestamp("start", startDate);
         query.setTimestamp("end", endDate);
         List<Object[]> rows = query.list();
@@ -168,7 +256,7 @@ public class TrackerNarrativeGenerator {
             if (projectId == null) {
                 continue;
             }
-            results.put(projectId.intValue(), minutes == null ? 0 : minutes.intValue());
+            results.put(projectId.intValue(), minutes == null ? 0 : TimeEntry.adjustMinutes(minutes.intValue()));
         }
         return results;
     }
@@ -239,170 +327,85 @@ public class TrackerNarrativeGenerator {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<ProjectNarrative> loadProjectNarratives(Session session, Date startDate, Date endDate) {
+    private static List<ProjectNarrative> loadProjectNarratives(Session session, int contactId, Integer workspaceId,
+            Date startDate, Date endDate) {
         Query query = session.createQuery(
                 "from ProjectNarrative pn left join fetch pn.project "
                         + "where pn.narrativeDate >= :start and pn.narrativeDate < :end "
+                        + "and pn.contactId = :contactId "
+                        + (workspaceId == null ? "" : "and pn.workspaceId = :workspaceId ")
                         + "order by pn.projectId, pn.narrativeVerbString, pn.narrativeDate asc");
+        query.setInteger("contactId", contactId);
+        if (workspaceId != null)
+            query.setInteger("workspaceId", workspaceId.intValue());
         query.setTimestamp("start", startDate);
         query.setTimestamp("end", endDate);
         return query.list();
     }
 
     @SuppressWarnings("unchecked")
-    private static List<ActionNext> loadWaitingActions(Session session, Date startDate, Date endDate) {
+    private static List<ActionNext> loadWaitingActions(Session session, int contactId, Integer workspaceId) {
         Query query = session.createQuery(
                 "from ActionNext an left join fetch an.project "
                         + "where an.nextActionType = :waiting and an.nextDescription <> '' "
-                        + "and an.nextChangeDate >= :start and an.nextChangeDate < :end "
+                        + "and an.contactId = :contactId "
+                        + (workspaceId == null ? "" : "and an.workspaceId = :workspaceId ")
+                        + "and an.nextActionStatusString in (:ready, :proposed) "
                         + "order by an.nextChangeDate asc");
         query.setString("waiting", ProjectNextActionType.WAITING);
-        query.setTimestamp("start", startDate);
-        query.setTimestamp("end", endDate);
+        query.setInteger("contactId", contactId);
+        query.setString("ready", ProjectNextActionStatus.READY.getId());
+        query.setString("proposed", ProjectNextActionStatus.PROPOSED.getId());
+        if (workspaceId != null)
+            query.setInteger("workspaceId", workspaceId.intValue());
         return query.list();
     }
 
-    private static String buildPrompt(TrackerNarrative narrative, LocalDate periodStart, LocalDate periodEnd,
-            List<ActionTaken> completedActions, Map<Integer, Integer> timeByProject,
-            Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
-            Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
-            List<ActionNext> waitingActions) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("You are writing a tracker narrative for period ")
-                .append(periodStart).append(" to ").append(periodEnd).append(".\n");
-        sb.append("Output Markdown with headings and bullets only. ")
-                .append("No tables, no code blocks, no numbered lists.\n\n");
-
-        sb.append("# Summary\n");
-        sb.append("- Provide a concise overview of the period.\n\n");
-
-        sb.append("# Time By Project\n");
-        if (timeByProject.isEmpty()) {
-            sb.append("- No time tracked.\n\n");
-        } else {
-            for (Map.Entry<Integer, Integer> entry : timeByProject.entrySet()) {
-                String name = projectNames.get(entry.getKey());
-                sb.append("- ").append(name == null ? "Project " + entry.getKey() : name)
-                        .append(": ").append(TimeTracker.formatTime(entry.getValue())).append("\n");
-            }
-            sb.append("\n");
-        }
-
-        sb.append("# Completed Actions\n");
-        if (completedActions.isEmpty()) {
-            sb.append("- No completed actions recorded.\n\n");
-        } else {
-            for (ActionTaken action : completedActions) {
-                String projectName = action.getProject() == null ? "" : action.getProject().getProjectName();
-                sb.append("- ");
-                if (!isEmpty(projectName)) {
-                    sb.append(projectName).append(": ");
-                }
-                sb.append(action.getActionDescription()).append("\n");
-            }
-            sb.append("\n");
-        }
-
-        appendProjectContextSection(sb, timeByProject, projectNames, projectsById, openIssuesByProject);
-
-        appendNarrativeSection(sb, "Notes", ProjectNarrativeVerb.NOTE, projectNarratives);
-        appendNarrativeSection(sb, "Decisions", ProjectNarrativeVerb.DECISION, projectNarratives);
-        appendNarrativeSection(sb, "Insights", ProjectNarrativeVerb.INSIGHT, projectNarratives);
-        appendNarrativeSection(sb, "Risks", ProjectNarrativeVerb.RISK, projectNarratives);
-        appendNarrativeSection(sb, "Opportunities", ProjectNarrativeVerb.OPPORTUNITY, projectNarratives);
-
-        sb.append("# Waiting / Blocked\n");
-        if (waitingActions.isEmpty()) {
-            sb.append("- No waiting items recorded.\n");
-        } else {
-            for (ActionNext action : waitingActions) {
-                String projectName = action.getProject() == null ? "" : action.getProject().getProjectName();
-                sb.append("- ");
-                if (!isEmpty(projectName)) {
-                    sb.append(projectName).append(": ");
-                }
-                sb.append(action.getNextDescription()).append("\n");
-            }
-        }
-
-        return sb.toString();
+    @SuppressWarnings("unchecked")
+    private static List<ActionNext> loadCompletedActionDetails(Session session, int contactId, Integer workspaceId,
+            Date startDate, Date endDate) {
+        Query query = session.createQuery(
+                "from ActionNext an left join fetch an.project where an.contactId = :contactId "
+                        + (workspaceId == null ? "" : "and an.workspaceId = :workspaceId ")
+                        + "and an.nextActionStatusString = :completed and an.nextChangeDate >= :start "
+                        + "and an.nextChangeDate < :end and an.nextSummary is not null and an.nextSummary <> '' "
+                        + "order by an.nextChangeDate asc");
+        query.setInteger("contactId", contactId);
+        query.setString("completed", ProjectNextActionStatus.COMPLETED.getId());
+        query.setTimestamp("start", startDate);
+        query.setTimestamp("end", endDate);
+        if (workspaceId != null)
+            query.setInteger("workspaceId", workspaceId.intValue());
+        return query.list();
     }
 
-    private static void appendProjectContextSection(StringBuilder sb, Map<Integer, Integer> timeByProject,
-            Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
-            Map<Integer, List<String>> openIssuesByProject) {
-        sb.append("# Project Context\n");
-        boolean addedAny = false;
-
-        for (Integer projectId : projectNames.keySet()) {
-            Project project = projectsById.get(projectId);
-            List<String> openIssues = openIssuesByProject.get(projectId);
-
-            String description = project == null ? null : project.getDescription();
-            String outcome = project == null ? null : project.getOutcomeText();
-            String successCriteria = project == null ? null : project.getSuccessCriteriaText();
-
-            boolean hasDescription = !isEmpty(description);
-            boolean hasOutcome = !isEmpty(outcome);
-            boolean hasSuccess = !splitNonEmptyLines(successCriteria).isEmpty();
-            boolean hasOpenIssues = openIssues != null && !openIssues.isEmpty();
-
-            if (!hasDescription && !hasOutcome && !hasSuccess && !hasOpenIssues) {
-                continue;
-            }
-
-            addedAny = true;
-            String projectName = projectNames.get(projectId);
-            sb.append("## ").append(isEmpty(projectName) ? "Project " + projectId : projectName).append("\n");
-
-            if (hasDescription) {
-                sb.append("### Project Description\n");
-                sb.append(description.trim()).append("\n\n");
-            }
-            if (hasOutcome) {
-                sb.append("### Project Outcome\n");
-                sb.append(outcome.trim()).append("\n\n");
-            }
-            if (hasSuccess) {
-                sb.append("### Project Success Criteria\n");
-                for (String line : splitNonEmptyLines(successCriteria)) {
-                    sb.append("- ").append(line).append("\n");
-                }
-                sb.append("\n");
-            }
-            if (hasOpenIssues) {
-                sb.append("### Open Issues\n");
-                for (String issue : openIssues) {
-                    if (isEmpty(issue)) {
-                        continue;
-                    }
-                    sb.append("- ").append(issue.trim()).append("\n");
-                }
-                sb.append("\n");
-            }
-        }
-
-        if (!addedAny) {
-            sb.append("- None recorded.\n\n");
-        }
+    @SuppressWarnings("unchecked")
+    private static List<ActionNext> loadUpcomingActions(Session session, int contactId, Integer workspaceId,
+            Date nextWeekEnd) {
+        Query query = session.createQuery(
+                "from ActionNext an left join fetch an.project where an.contactId = :contactId "
+                        + (workspaceId == null ? "" : "and an.workspaceId = :workspaceId ")
+                        + "and an.nextActionStatusString in (:ready, :proposed) and an.nextDescription <> '' "
+                        + "and ((an.nextActionDate is not null and an.nextActionDate < :nextWeekEnd) "
+                        + "or (an.nextTargetDate is not null and an.nextTargetDate < :nextWeekEnd) "
+                        + "or (an.nextDeadlineDate is not null and an.nextDeadlineDate < :nextWeekEnd)) "
+                        + "order by an.nextActionDate asc, an.priorityLevel desc");
+        query.setInteger("contactId", contactId);
+        query.setString("ready", ProjectNextActionStatus.READY.getId());
+        query.setString("proposed", ProjectNextActionStatus.PROPOSED.getId());
+        query.setDate("nextWeekEnd", nextWeekEnd);
+        if (workspaceId != null)
+            query.setInteger("workspaceId", workspaceId.intValue());
+        query.setMaxResults(30);
+        return query.list();
     }
 
-    private static List<String> splitNonEmptyLines(String value) {
-        List<String> lines = new ArrayList<String>();
-        if (isEmpty(value)) {
-            return lines;
-        }
-        String[] parts = value.split("\\r?\\n");
-        for (String part : parts) {
-            if (part == null) {
-                continue;
-            }
-            String trimmed = part.trim();
-            if (trimmed.length() > 0) {
-                lines.add(trimmed);
+    private static void addActionProjectIds(Set<Integer> projectIds, List<ActionNext> actions) {
+        for (ActionNext action : actions) {
+            if (action != null && action.getProjectId() > 0) {
+                projectIds.add(Integer.valueOf(action.getProjectId()));
             }
         }
-        return lines;
     }
 
     private static Set<Integer> collectProjectIds(Map<Integer, Integer> timeByProject,
@@ -430,46 +433,7 @@ public class TrackerNarrativeGenerator {
         return projectIds;
     }
 
-    private static void appendNarrativeSection(StringBuilder sb, String title, ProjectNarrativeVerb verb,
-            List<ProjectNarrative> narratives) {
-        sb.append("# ").append(title).append("\n");
-        boolean added = false;
-        for (ProjectNarrative narrative : narratives) {
-            if (narrative.getNarrativeVerb() != verb) {
-                continue;
-            }
-            String projectName = narrative.getProject() == null ? "" : narrative.getProject().getProjectName();
-            sb.append("- ");
-            if (!isEmpty(projectName)) {
-                sb.append(projectName).append(": ");
-            }
-            sb.append(narrative.getNarrativeText()).append("\n");
-            added = true;
-        }
-        if (!added) {
-            sb.append("- None recorded.\n");
-        }
-        sb.append("\n");
-    }
-
     private static boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
-    }
-
-    private static LocalDate toLocalDate(Date date) {
-        if (date == null) {
-            return null;
-        }
-        if (date instanceof java.sql.Date) {
-            return ((java.sql.Date) date).toLocalDate();
-        }
-        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-    }
-
-    private static Date toDate(LocalDate date) {
-        if (date == null) {
-            return null;
-        }
-        return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 }

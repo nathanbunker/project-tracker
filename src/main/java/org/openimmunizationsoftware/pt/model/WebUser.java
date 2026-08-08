@@ -137,12 +137,18 @@ public class WebUser implements java.io.Serializable {
     if (date == null) {
       return null;
     }
+    if (date instanceof java.sql.Date) {
+      return ((java.sql.Date) date).toLocalDate();
+    }
     return date.toInstant().atZone(getZoneId()).toLocalDate();
   }
 
   public LocalDateTime toLocalDateTime(Date date) {
     if (date == null) {
       return null;
+    }
+    if (date instanceof java.sql.Date) {
+      return ((java.sql.Date) date).toLocalDate().atStartOfDay();
     }
     return date.toInstant().atZone(getZoneId()).toLocalDateTime();
   }

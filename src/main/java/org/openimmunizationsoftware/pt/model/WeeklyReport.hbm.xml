@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="WeeklyReport" table="weekly_report">
+        <id name="weeklyReportId" type="int"><column name="weekly_report_id"/><generator class="native"/></id>
+        <property name="reportName" type="string"><column name="report_name" length="150" not-null="true"/></property>
+        <property name="ownerUserId" type="int"><column name="owner_user_id" not-null="true"/></property>
+        <property name="rootWorkspaceId" type="int"><column name="root_workspace_id" not-null="true"/></property>
+        <property name="rootBillCode" type="string"><column name="root_bill_code" length="15" not-null="true"/></property>
+        <property name="active" type="string"><column name="active" length="1" not-null="true"/></property>
+        <property name="accessKeyHash" type="string"><column name="access_key_hash" length="64"/></property>
+        <property name="accessKeyCreatedAt" type="timestamp"><column name="access_key_created_at"/></property>
+        <property name="createdAt" type="timestamp"><column name="created_at" not-null="true"/></property>
+        <property name="updatedAt" type="timestamp"><column name="updated_at" not-null="true"/></property>
+    </class>
+</hibernate-mapping>

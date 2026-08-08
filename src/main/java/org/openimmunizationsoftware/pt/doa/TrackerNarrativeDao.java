@@ -41,20 +41,25 @@ public class TrackerNarrativeDao {
     }
 
     @SuppressWarnings("unchecked")
-    public List<TrackerNarrative> findByTypeAndPeriod(String type, LocalDate start, LocalDate end) {
+    public List<TrackerNarrative> findByContactTypeAndPeriod(int contactId, String type, LocalDate start,
+            LocalDate end) {
         Query query = session.createQuery(
-                "from TrackerNarrative where narrativeType = :type and periodStart = :start and periodEnd = :end "
-                        + "order by dateGenerated desc");
+                "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
+                        + "and periodStart = :start and periodEnd = :end order by dateGenerated desc");
+        query.setInteger("contactId", contactId);
         query.setString("type", type);
         query.setDate("start", toSqlDate(start));
         query.setDate("end", toSqlDate(end));
         return query.list();
     }
 
-    public TrackerNarrative findApprovedByTypeAndPeriod(String type, LocalDate start, LocalDate end) {
+    public TrackerNarrative findApprovedByContactTypeAndPeriod(int contactId, String type, LocalDate start,
+            LocalDate end) {
         Query query = session.createQuery(
-                "from TrackerNarrative where narrativeType = :type and periodStart = :start and periodEnd = :end "
-                        + "and reviewStatusString = :status order by dateApproved desc, dateGenerated desc");
+                "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
+                        + "and periodStart = :start and periodEnd = :end and reviewStatusString = :status "
+                        + "order by dateApproved desc, dateGenerated desc");
+        query.setInteger("contactId", contactId);
         query.setString("type", type);
         query.setDate("start", toSqlDate(start));
         query.setDate("end", toSqlDate(end));
@@ -62,10 +67,22 @@ public class TrackerNarrativeDao {
         query.setMaxResults(1);
         @SuppressWarnings("unchecked")
         List<TrackerNarrative> results = query.list();
-        if (results == null || results.isEmpty()) {
-            return null;
-        }
-        return results.get(0);
+        return results == null || results.isEmpty() ? null : results.get(0);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<TrackerNarrative> findApprovedByContactTypeAndPeriodRange(int contactId, String type,
+            LocalDate startInclusive, LocalDate endInclusive) {
+        Query query = session.createQuery(
+                "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
+                        + "and periodStart >= :start and periodEnd <= :end and reviewStatusString = :status "
+                        + "and markdownFinal is not null order by periodStart asc, dateApproved desc");
+        query.setInteger("contactId", contactId);
+        query.setString("type", type);
+        query.setDate("start", toSqlDate(startInclusive));
+        query.setDate("end", toSqlDate(endInclusive));
+        query.setString("status", TrackerNarrativeReviewStatus.APPROVED.getId());
+        return query.list();
     }
 
     public Map<LocalDate, Integer> sumBillableMinutesByDay(Integer webUserId, LocalDate startInclusive,
@@ -104,7 +121,8 @@ public class TrackerNarrativeDao {
         return minutesByDay;
     }
 
-    public Set<LocalDate> findApprovedPeriodStarts(String type, LocalDate startInclusive, LocalDate endInclusive) {
+    public Set<LocalDate> findApprovedPeriodStarts(int contactId, String type, LocalDate startInclusive,
+            LocalDate endInclusive) {
         Set<LocalDate> approvedStarts = new HashSet<LocalDate>();
         if (type == null || type.trim().length() == 0 || startInclusive == null || endInclusive == null
                 || startInclusive.isAfter(endInclusive)) {
@@ -112,8 +130,9 @@ public class TrackerNarrativeDao {
         }
 
         Query query = session.createQuery(
-                "select periodStart from TrackerNarrative where narrativeType = :type "
+                "select periodStart from TrackerNarrative where contactId = :contactId and narrativeType = :type "
                         + "and reviewStatusString = :status and periodStart >= :start and periodStart <= :end");
+        query.setInteger("contactId", contactId);
         query.setString("type", type);
         query.setString("status", TrackerNarrativeReviewStatus.APPROVED.getId());
         query.setDate("start", toSqlDate(startInclusive));
@@ -156,8 +175,8 @@ public class TrackerNarrativeDao {
         session.update(narrative);
     }
 
-    public void updateFinalText(long id, String markdownFinal) {
-        TrackerNarrative narrative = getById(id);
+    public void updateFinalText(long id, int contactId, String markdownFinal) {
+        TrackerNarrative narrative = getByIdForContact(id, contactId);
         if (narrative == null) {
             return;
         }
@@ -166,8 +185,8 @@ public class TrackerNarrativeDao {
         session.update(narrative);
     }
 
-    public void approve(long id, LocalDateTime dateApproved) {
-        TrackerNarrative narrative = getById(id);
+    public void approve(long id, int contactId, LocalDateTime dateApproved) {
+        TrackerNarrative narrative = getByIdForContact(id, contactId);
         if (narrative == null) {
             return;
         }
@@ -178,7 +197,7 @@ public class TrackerNarrativeDao {
         Transaction transaction = session.beginTransaction();
         try {
             if (type != null && start != null && end != null) {
-                clearApprovedForPeriod(type, start, end);
+                clearApprovedForPeriod(contactId, type, start, end);
             }
             narrative.setReviewStatus(TrackerNarrativeReviewStatus.APPROVED);
             narrative.setDateApproved(toDate(dateApproved));
@@ -193,8 +212,8 @@ public class TrackerNarrativeDao {
         }
     }
 
-    public void reject(long id) {
-        TrackerNarrative narrative = getById(id);
+    public void reject(long id, int contactId) {
+        TrackerNarrative narrative = getByIdForContact(id, contactId);
         if (narrative == null) {
             return;
         }
@@ -203,8 +222,8 @@ public class TrackerNarrativeDao {
         session.update(narrative);
     }
 
-    public void softDelete(long id) {
-        TrackerNarrative narrative = getById(id);
+    public void softDelete(long id, int contactId) {
+        TrackerNarrative narrative = getByIdForContact(id, contactId);
         if (narrative == null) {
             return;
         }
@@ -213,11 +232,13 @@ public class TrackerNarrativeDao {
         session.update(narrative);
     }
 
-    public void clearApprovedForPeriod(String type, LocalDate start, LocalDate end) {
+    public void clearApprovedForPeriod(int contactId, String type, LocalDate start, LocalDate end) {
         Query query = session.createQuery(
                 "update TrackerNarrative set reviewStatusString = :rejected, lastUpdated = :lastUpdated "
-                        + "where narrativeType = :type and periodStart = :start and periodEnd = :end "
+                        + "where contactId = :contactId and narrativeType = :type "
+                        + "and periodStart = :start and periodEnd = :end "
                         + "and reviewStatusString = :approved");
+        query.setInteger("contactId", contactId);
         query.setString("rejected", TrackerNarrativeReviewStatus.REJECTED.getId());
         query.setString("approved", TrackerNarrativeReviewStatus.APPROVED.getId());
         query.setString("type", type);
@@ -229,6 +250,11 @@ public class TrackerNarrativeDao {
 
     private TrackerNarrative getById(long id) {
         return (TrackerNarrative) session.get(TrackerNarrative.class, (int) id);
+    }
+
+    public TrackerNarrative getByIdForContact(long id, int contactId) {
+        TrackerNarrative narrative = getById(id);
+        return narrative != null && narrative.getContactId() == contactId ? narrative : null;
     }
 
     private static java.sql.Date toSqlDate(LocalDate date) {

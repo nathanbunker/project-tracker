@@ -10,7 +10,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 public class StubNarrativeGenerator implements NarrativeGenerator {
 
     @Override
-    public String generateDailyMarkdown(GenerationContext ctx) {
+    public String generateMarkdown(String narrativeType, GenerationContext ctx) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Summary\n");
         sb.append("- Period: ").append(ctx.getPeriodStart()).append(" to ")

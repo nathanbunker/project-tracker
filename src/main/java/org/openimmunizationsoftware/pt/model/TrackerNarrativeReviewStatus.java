@@ -3,6 +3,7 @@ package org.openimmunizationsoftware.pt.model;
 public enum TrackerNarrativeReviewStatus {
     GENERATING("GENERATING", "Generating"),
     GENERATED("GENERATED", "Generated"),
+    FAILED("FAILED", "Failed"),
     APPROVED("APPROVED", "Approved"),
     REJECTED("REJECTED", "Rejected"),
     DELETED("DELETED", "Deleted");

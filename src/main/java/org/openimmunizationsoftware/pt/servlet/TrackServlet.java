@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -40,6 +41,9 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.dandeliondaily.timereview.service.TimeRegularizationService;
+import org.dandeliondaily.weeklyreport.model.WeeklyTimeSummary;
+import org.dandeliondaily.weeklyreport.model.WeeklyTimeSummary.ProjectTime;
+import org.dandeliondaily.weeklyreport.service.WeeklyTimeSummaryService;
 
 /**
  * @author nathan
@@ -333,7 +337,9 @@ public class TrackServlet extends ClientServlet {
         out.println("<br/> ");
       }
     } else {
-      List<TimeEntry> timeEntryList = setupTimeEntryList(dataSession, timeTracker);
+      List<TimeEntry> timeEntryList = type.equals(TYPE_WEEK)
+          ? setupWeeklyTimeEntryList(webUser, dataSession, timeTracker)
+          : setupTimeEntryList(dataSession, timeTracker);
       Collections.sort(timeEntryList);
       if (type.equals(TYPE_WEEK)) {
         int totalTimeInMinutes = 0;
@@ -612,6 +618,34 @@ public class TrackServlet extends ClientServlet {
         TimeEntry timeEntry = new TimeEntry(getProjectDisplayNameStatic(dataSession, project),
             projectMap.get(projectId), projectId);
         timeEntryList.add(timeEntry);
+      }
+    }
+    return timeEntryList;
+  }
+
+  private static List<TimeEntry> setupWeeklyTimeEntryList(WebUser webUser, Session dataSession,
+      TimeTracker timeTracker) {
+    Integer workspaceId = WorkspaceRegistry.getWorkspaceIdForWebUserId(webUser.getWebUserId());
+    if (workspaceId == null) {
+      return setupTimeEntryList(dataSession, timeTracker);
+    }
+    java.time.LocalDate weekStart = timeTracker.getStartDate().toInstant()
+        .atZone(webUser.getZoneId()).toLocalDate();
+    WeeklyTimeSummary summary = new WeeklyTimeSummaryService()
+        .load(dataSession, webUser, workspaceId.intValue(), "", weekStart, 1).get(0);
+    Map<Integer, Integer> minutesByProject = new LinkedHashMap<Integer, Integer>();
+    for (ProjectTime projectTime : summary.getProjects()) {
+      Integer projectId = Integer.valueOf(projectTime.getProjectId());
+      Integer existing = minutesByProject.get(projectId);
+      minutesByProject.put(projectId, Integer.valueOf(
+          (existing == null ? 0 : existing.intValue()) + projectTime.getRoundedMinutes()));
+    }
+    List<TimeEntry> timeEntryList = new ArrayList<TimeEntry>();
+    for (Map.Entry<Integer, Integer> entry : minutesByProject.entrySet()) {
+      Project project = (Project) dataSession.get(Project.class, entry.getKey());
+      if (project != null) {
+        timeEntryList.add(new TimeEntry(getProjectDisplayNameStatic(dataSession, project),
+            entry.getValue().intValue(), entry.getKey().intValue()));
       }
     }
     return timeEntryList;
