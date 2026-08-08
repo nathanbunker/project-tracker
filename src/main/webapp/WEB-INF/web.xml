@@ -242,6 +242,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillingProjectReportServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>BillingProjectAssignmentsServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.BillingProjectAssignmentsServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>BillPlanEditServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.BillPlanEditServlet</servlet-class>
   </servlet>
@@ -491,6 +495,10 @@
   <servlet-mapping>
     <servlet-name>BillingProjectReportServlet</servlet-name>
     <url-pattern>/BillingProjectReportServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>BillingProjectAssignmentsServlet</servlet-name>
+    <url-pattern>/BillingProjectAssignmentsServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>BillPlanEditServlet</servlet-name>
