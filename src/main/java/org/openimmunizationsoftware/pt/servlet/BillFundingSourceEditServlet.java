@@ -2,7 +2,8 @@ package org.openimmunizationsoftware.pt.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -47,7 +48,6 @@ public class BillFundingSourceEditServlet extends ClientServlet {
 
             Session dataSession = appReq.getDataSession();
             WebUser webUser = appReq.getWebUser();
-            SimpleDateFormat sdf = webUser.getDateFormat();
             String action = appReq.getAction();
 
             BillFundingSource fundingSource = resolveFundingSource(request, dataSession, activeWorkspaceId.intValue());
@@ -105,11 +105,11 @@ public class BillFundingSourceEditServlet extends ClientServlet {
             out.println("</select></td></tr>");
             out.println(
                     "  <tr class=\"boxed\"><th class=\"boxed\">Start Date</th><td class=\"boxed\"><input type=\"text\" name=\"startDate\" value=\""
-                            + (fundingSource.getStartDate() == null ? "" : sdf.format(fundingSource.getStartDate()))
+                            + formatDateOnly(fundingSource.getStartDate(), webUser)
                             + "\" size=\"10\"></td></tr>");
             out.println(
                     "  <tr class=\"boxed\"><th class=\"boxed\">End Date</th><td class=\"boxed\"><input type=\"text\" name=\"endDate\" value=\""
-                            + (fundingSource.getEndDate() == null ? "" : sdf.format(fundingSource.getEndDate()))
+                            + formatDateOnly(fundingSource.getEndDate(), webUser)
                             + "\" size=\"10\"></td></tr>");
             out.println(
                     "  <tr class=\"boxed\"><th class=\"boxed\">Visible</th><td class=\"boxed\"><input type=\"checkbox\" name=\"visible\" value=\"Y\""
@@ -147,8 +147,8 @@ public class BillFundingSourceEditServlet extends ClientServlet {
         String submittedCode = trim(request.getParameter("fundingSourceCode"), 30).trim();
         String submittedLabel = trim(request.getParameter("fundingSourceLabel"), 150).trim();
         String submittedType = trim(request.getParameter("fundingSourceType"), 20).trim();
-        java.util.Date startDate = webUser.parseDate(request.getParameter("startDate"));
-        java.util.Date endDate = webUser.parseDate(request.getParameter("endDate"));
+        java.sql.Date startDate = parseDateOnly(request.getParameter("startDate"), webUser);
+        java.sql.Date endDate = parseDateOnly(request.getParameter("endDate"), webUser);
 
         if (submittedCode.length() == 0) {
             return "Funding source code is required.";
@@ -194,6 +194,25 @@ public class BillFundingSourceEditServlet extends ClientServlet {
         fundingSource.setEndDate(endDate);
         fundingSource.setVisible(request.getParameter("visible") == null ? "N" : "Y");
         return null;
+    }
+
+    static java.sql.Date parseDateOnly(String value, WebUser webUser) {
+        java.util.Date parsed = webUser.parseDate(value);
+        if (parsed == null) {
+            return null;
+        }
+        LocalDate localDate = parsed.toInstant().atZone(webUser.getTimeZone().toZoneId()).toLocalDate();
+        return java.sql.Date.valueOf(localDate);
+    }
+
+    static String formatDateOnly(java.util.Date value, WebUser webUser) {
+        if (value == null) {
+            return "";
+        }
+        LocalDate localDate = value instanceof java.sql.Date
+                ? ((java.sql.Date) value).toLocalDate()
+                : value.toInstant().atZone(webUser.getTimeZone().toZoneId()).toLocalDate();
+        return localDate.format(DateTimeFormatter.ofPattern(webUser.getDateDisplayPattern()));
     }
 
     private boolean isFundingSourceReferenced(Session dataSession, BillFundingSource fundingSource) {

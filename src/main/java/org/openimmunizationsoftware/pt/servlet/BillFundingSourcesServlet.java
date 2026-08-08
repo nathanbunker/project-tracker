@@ -4,7 +4,6 @@ import static org.openimmunizationsoftware.pt.util.WebEscaper.escapeHtml;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
 import java.util.List;
 
 import javax.servlet.ServletException;
@@ -46,7 +45,6 @@ public class BillFundingSourcesServlet extends ClientServlet {
             }
 
             WebUser webUser = appReq.getWebUser();
-            SimpleDateFormat sdf = webUser.getDateFormat();
             Session dataSession = appReq.getDataSession();
             Query query = dataSession.createQuery(
                     "from BillFundingSource where workspaceId = :workspaceId order by fundingSourceCode");
@@ -80,8 +78,10 @@ public class BillFundingSourcesServlet extends ClientServlet {
                 out.println("    <td class=\"boxed\">" + escapeHtml(n(source.getFundingSourceCode())) + "</td>");
                 out.println("    <td class=\"boxed\">" + escapeHtml(n(source.getFundingSourceLabel())) + "</td>");
                 out.println("    <td class=\"boxed\">" + escapeHtml(n(source.getFundingSourceType())) + "</td>");
-                out.println("    <td class=\"boxed\">" + formatDate(sdf, source.getStartDate()) + "</td>");
-                out.println("    <td class=\"boxed\">" + formatDate(sdf, source.getEndDate()) + "</td>");
+                out.println("    <td class=\"boxed\">"
+                        + BillFundingSourceEditServlet.formatDateOnly(source.getStartDate(), webUser) + "</td>");
+                out.println("    <td class=\"boxed\">"
+                        + BillFundingSourceEditServlet.formatDateOnly(source.getEndDate(), webUser) + "</td>");
                 out.println("    <td class=\"boxed\">" + escapeHtml(n(source.getVisible())) + "</td>");
                 out.println("    <td class=\"boxed\"><a href=\"BillFundingSourceEditServlet?fundingSourceId="
                         + source.getFundingSourceId() + "\">Edit</a></td>");
@@ -96,7 +96,4 @@ public class BillFundingSourcesServlet extends ClientServlet {
         }
     }
 
-    private String formatDate(SimpleDateFormat sdf, java.util.Date value) {
-        return value == null ? "" : sdf.format(value);
-    }
 }
