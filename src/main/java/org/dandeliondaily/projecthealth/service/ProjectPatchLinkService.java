@@ -11,6 +11,7 @@ import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.ProjectPatchLink;
 import org.openimmunizationsoftware.pt.model.ProjectTag;
+import org.openimmunizationsoftware.pt.model.Workspace;
 
 public class ProjectPatchLinkService {
 
@@ -28,6 +29,8 @@ public class ProjectPatchLinkService {
                     && link.getLinkedPatchProjectId() != null) {
                 Project patchProject = (Project) session.get(Project.class, link.getLinkedPatchProjectId());
                 display.setDirectLinkedProject(patchProject);
+            } else if (ProjectPatchLink.LINK_TYPE_PATCH_ALL.equals(link.getLinkType())) {
+                display.setResolvedProjects(listOpenPatchProjects(session, patchWorkspaceId));
             } else if (ProjectPatchLink.LINK_TYPE_PATCH_TAG.equals(link.getLinkType())
                     && link.getLinkedPatchTagId() != null) {
                 ProjectTag tag = (ProjectTag) session.get(ProjectTag.class,
@@ -48,6 +51,26 @@ public class ProjectPatchLinkService {
             result.add(display);
         }
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Project> listOpenPatchProjects(Session session, int patchWorkspaceId) {
+        Query projectQuery = session.createQuery(
+                "from Project p where p.workspaceId = :wsId"
+                        + " and (p.projectStatus is null or p.projectStatus <> :closedStatus)"
+                        + " order by p.priorityLevel desc, p.projectName");
+        projectQuery.setParameter("wsId", patchWorkspaceId);
+        projectQuery.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
+        return (List<Project>) projectQuery.list();
+    }
+
+    public String validatePatchAllLink(Session session, int patchWorkspaceId) {
+        Workspace workspace = (Workspace) session.get(Workspace.class, patchWorkspaceId);
+        if (workspace == null || !Workspace.TYPE_PATCH.equals(workspace.getWorkspaceType())
+                || !Workspace.STATUS_ACTIVE.equals(workspace.getWorkspaceStatus())) {
+            return "Linked patch workspace is not available";
+        }
+        return null;
     }
 
     public String validateDirectLink(Session session, int patchProjectId, int patchWorkspaceId) {

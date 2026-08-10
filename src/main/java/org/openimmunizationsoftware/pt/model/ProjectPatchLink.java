@@ -8,6 +8,7 @@ public class ProjectPatchLink implements java.io.Serializable {
 
     public static final String LINK_TYPE_DIRECT_PROJECT = "DIRECT_PROJECT";
     public static final String LINK_TYPE_PATCH_TAG = "PATCH_TAG";
+    public static final String LINK_TYPE_PATCH_ALL = "PATCH_ALL";
 
     private int projectPatchLinkId;
     private int privateProjectId;

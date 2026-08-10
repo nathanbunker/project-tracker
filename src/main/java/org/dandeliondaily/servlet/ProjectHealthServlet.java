@@ -123,6 +123,10 @@ public class ProjectHealthServlet extends ClientServlet {
                 handleAddTagLink(appReq);
                 return;
             }
+            if ("addPatchAllLink".equals(action)) {
+                handleAddPatchAllLink(appReq);
+                return;
+            }
             if ("removeProjectPatchLink".equals(action)) {
                 handleRemoveProjectPatchLink(appReq);
                 return;
@@ -493,6 +497,10 @@ public class ProjectHealthServlet extends ClientServlet {
         }
         int linkedPatchWorkspaceId = project.getLinkedPatchWorkspaceId().intValue();
         ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.patchAllLinkExists(projectId)) {
+            sendJson(appReq, false, "Remove the all-projects link before adding direct project links", null);
+            return;
+        }
         if (dao.directLinkExists(projectId, patchProjectId)) {
             sendJson(appReq, false, "Link already exists", null);
             return;
@@ -560,6 +568,10 @@ public class ProjectHealthServlet extends ClientServlet {
         }
         int linkedPatchWorkspaceId = project.getLinkedPatchWorkspaceId().intValue();
         ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.patchAllLinkExists(projectId)) {
+            sendJson(appReq, false, "Remove the all-projects link before adding tag links", null);
+            return;
+        }
         if (dao.tagLinkExists(projectId, patchTagId)) {
             sendJson(appReq, false, "Link already exists", null);
             return;
@@ -587,6 +599,63 @@ public class ProjectHealthServlet extends ClientServlet {
             return;
         }
         sendJson(appReq, true, "Link added", null);
+    }
+
+    private void handleAddPatchAllLink(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJson(appReq, false, "Project id is required", null);
+            return;
+        }
+        int projectId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJson(appReq, false, "Invalid project id", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        Project project = (Project) dataSession.get(Project.class, projectId);
+        if (project == null || !Integer.valueOf(appReq.getActiveWorkspaceId()).equals(project.getWorkspaceId())) {
+            sendJson(appReq, false, "Project not found", null);
+            return;
+        }
+        if (project.getLinkedPatchWorkspaceId() == null) {
+            sendJson(appReq, false, "Project has no linked patch workspace", null);
+            return;
+        }
+
+        ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.patchAllLinkExists(projectId)) {
+            sendJson(appReq, false, "All projects in this patch are already linked", null);
+            return;
+        }
+        ProjectPatchLinkService patchLinkService = new ProjectPatchLinkService();
+        String error = patchLinkService.validatePatchAllLink(dataSession,
+                project.getLinkedPatchWorkspaceId().intValue());
+        if (error != null) {
+            sendJson(appReq, false, error, null);
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            dao.deleteLinksForProject(projectId);
+            ProjectPatchLink link = new ProjectPatchLink();
+            link.setPrivateProjectId(projectId);
+            link.setPatchWorkspaceId(project.getLinkedPatchWorkspaceId().intValue());
+            link.setLinkType(ProjectPatchLink.LINK_TYPE_PATCH_ALL);
+            link.setCreatedByWebUserId(webUser.getWebUserId());
+            link.setCreatedDate(new java.util.Date());
+            dao.save(link);
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJson(appReq, false, "Unable to link patch projects: " + e.getMessage(), null);
+            return;
+        }
+        sendJson(appReq, true, "All patch projects linked", null);
     }
 
     private void handleRemoveProjectPatchLink(AppReq appReq) throws Exception {
@@ -1198,6 +1267,11 @@ public class ProjectHealthServlet extends ClientServlet {
         }
 
         ProjectPatchLinkDao dao = new ProjectPatchLinkDao(dataSession);
+        if (dao.patchAllLinkExists(privateProjectId.intValue())) {
+            redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
+                    "Remove the all-projects link before adding direct project links.", true);
+            return;
+        }
         if (dao.directLinkExists(privateProjectId.intValue(), projectId.intValue())) {
             redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId,
                     "Private project already linked.", false);

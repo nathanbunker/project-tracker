@@ -1102,6 +1102,13 @@ public class ProjectHealthPageRenderer {
                                 + escapeHtml(model.getSelectedProjectLinkedPatchWorkspace().getWorkspaceName())
                                 + "</strong></p>");
                 List<ProjectPatchLinkDisplayModel> links = model.getProjectPatchLinks();
+                boolean hasPatchAllLink = false;
+                for (ProjectPatchLinkDisplayModel link : links) {
+                        if (ProjectPatchLink.LINK_TYPE_PATCH_ALL.equals(link.getLinkType())) {
+                                hasPatchAllLink = true;
+                                break;
+                        }
+                }
                 if (!links.isEmpty()) {
                         out.println("  <ul class=\"ph-links-list\">");
                         for (ProjectPatchLinkDisplayModel link : links) {
@@ -1111,19 +1118,17 @@ public class ProjectHealthPageRenderer {
                                                         ? n(link.getDirectLinkedProject().getProjectName())
                                                         : "(unknown)";
                                         out.println("      <span>&#128196; " + escapeHtml(name) + "</span>");
-                                } else {
+                                } else if (ProjectPatchLink.LINK_TYPE_PATCH_ALL.equals(link.getLinkType())) {
+                                        out.println("      <span>&#128193; All projects in "
+                                                        + escapeHtml(model.getSelectedProjectLinkedPatchWorkspace()
+                                                                        .getWorkspaceName())
+                                                        + "</span>");
+                                        printResolvedPatchProjects(out, link.getResolvedProjects());
+                                } else if (ProjectPatchLink.LINK_TYPE_PATCH_TAG.equals(link.getLinkType())) {
                                         String tagName = link.getTagName() != null ? link.getTagName()
                                                         : "(unknown)";
                                         out.println("      <span>&#128193; " + escapeHtml(tagName) + "</span>");
-                                        List<Project> resolved = link.getResolvedProjects();
-                                        if (resolved != null && !resolved.isEmpty()) {
-                                                out.println("      <ul class=\"ph-link-resolved\">");
-                                                for (Project rp : resolved) {
-                                                        out.println("        <li>" + escapeHtml(n(rp.getProjectName()))
-                                                                        + "</li>");
-                                                }
-                                                out.println("      </ul>");
-                                        }
+                                        printResolvedPatchProjects(out, link.getResolvedProjects());
                                 }
                                 out.println("      <button type=\"button\" class=\"ph-mini-btn\" title=\"Remove link\""
                                                 + " onclick=\"phRemoveProjectPatchLink(event,"
@@ -1133,34 +1138,54 @@ public class ProjectHealthPageRenderer {
                         }
                         out.println("  </ul>");
                 }
-                List<Project> patchProjects = model.getAvailablePatchProjects();
-                if (!patchProjects.isEmpty()) {
+                if (!hasPatchAllLink) {
                         out.println("  <div class=\"ph-patch-link-form\">");
-                        out.println("    <select id=\"phAddDirectProjectSelect\">");
-                        out.println("      <option value=\"\">Add direct project link...</option>");
-                        for (Project p : patchProjects) {
-                                out.println("      <option value=\"" + p.getProjectId() + "\">"
-                                                + escapeHtml(n(p.getProjectName())) + "</option>");
-                        }
-                        out.println("    </select>");
-                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddDirectProjectLink(event,"
-                                        + model.getSelectedProjectId() + ")\">Add</button>");
+                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddPatchAllLink(event,"
+                                        + model.getSelectedProjectId() + "," + (!links.isEmpty())
+                                        + ")\">Link all projects in "
+                                        + escapeHtml(model.getSelectedProjectLinkedPatchWorkspace().getWorkspaceName())
+                                        + "</button>");
                         out.println("  </div>");
-                }
-                List<ProjectTag> patchTags = model.getAvailablePatchTags();
-                if (!patchTags.isEmpty()) {
-                        out.println("  <div class=\"ph-patch-link-form\">");
-                        out.println("    <select id=\"phAddTagSelect\">");
-                        out.println("      <option value=\"\">Add tag link...</option>");
-                        for (ProjectTag tag : patchTags) {
-                                out.println("      <option value=\"" + tag.getProjectTagId() + "\">"
-                                                + escapeHtml(n(tag.getTagName())) + "</option>");
+                        List<Project> patchProjects = model.getAvailablePatchProjects();
+                        if (!patchProjects.isEmpty()) {
+                                out.println("  <div class=\"ph-patch-link-form\">");
+                                out.println("    <select id=\"phAddDirectProjectSelect\">");
+                                out.println("      <option value=\"\">Add direct project link...</option>");
+                                for (Project p : patchProjects) {
+                                        out.println("      <option value=\"" + p.getProjectId() + "\">"
+                                                        + escapeHtml(n(p.getProjectName())) + "</option>");
+                                }
+                                out.println("    </select>");
+                                out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddDirectProjectLink(event,"
+                                                + model.getSelectedProjectId() + ")\">Add</button>");
+                                out.println("  </div>");
                         }
-                        out.println("    </select>");
-                        out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddTagLink(event,"
-                                        + model.getSelectedProjectId() + ")\">Add</button>");
-                        out.println("  </div>");
+                        List<ProjectTag> patchTags = model.getAvailablePatchTags();
+                        if (!patchTags.isEmpty()) {
+                                out.println("  <div class=\"ph-patch-link-form\">");
+                                out.println("    <select id=\"phAddTagSelect\">");
+                                out.println("      <option value=\"\">Add tag link...</option>");
+                                for (ProjectTag tag : patchTags) {
+                                        out.println("      <option value=\"" + tag.getProjectTagId() + "\">"
+                                                        + escapeHtml(n(tag.getTagName())) + "</option>");
+                                }
+                                out.println("    </select>");
+                                out.println("    <button type=\"button\" class=\"ph-btn\" onclick=\"phAddTagLink(event,"
+                                                + model.getSelectedProjectId() + ")\">Add</button>");
+                                out.println("  </div>");
+                        }
                 }
+        }
+
+        private void printResolvedPatchProjects(PrintWriter out, List<Project> resolvedProjects) {
+                if (resolvedProjects == null || resolvedProjects.isEmpty()) {
+                        return;
+                }
+                out.println("      <ul class=\"ph-link-resolved\">");
+                for (Project project : resolvedProjects) {
+                        out.println("        <li>" + escapeHtml(n(project.getProjectName())) + "</li>");
+                }
+                out.println("      </ul>");
         }
 
         private void printReprioritizeModal(PrintWriter out, ProjectHealthPageModel model) {
@@ -1494,6 +1519,8 @@ public class ProjectHealthPageRenderer {
                                 "  function phAddDirectProjectLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddDirectProjectSelect'); if (!sel || !sel.value) { alert('Select a project to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addDirectProjectLink'); formData.append('projectId', projectId); formData.append('patchProjectId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
                 out.println(
                                 "  function phAddTagLink(evt, projectId) { if (evt) { evt.preventDefault(); } var sel = document.getElementById('phAddTagSelect'); if (!sel || !sel.value) { alert('Select a tag to link.'); return false; } var formData = new URLSearchParams(); formData.append('action','addTagLink'); formData.append('projectId', projectId); formData.append('patchTagId', sel.value); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to add link'); } }).catch(function(){ alert('Unable to add link'); }); return false; }");
+                out.println(
+                                "  function phAddPatchAllLink(evt, projectId, replaceExistingLinks) { if (evt) { evt.preventDefault(); } if (replaceExistingLinks && !confirm('Linking all projects in this patch will replace the existing project and tag links. Continue?')) { return false; } var formData = new URLSearchParams(); formData.append('action','addPatchAllLink'); formData.append('projectId', projectId); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to link all patch projects'); } }).catch(function(){ alert('Unable to link all patch projects'); }); return false; }");
                 out.println(
                                 "  function phRemoveProjectPatchLink(evt, linkId, projectId) { if (evt) { evt.preventDefault(); } if (!confirm('Remove this link?')) { return false; } var formData = new URLSearchParams(); formData.append('action','removeProjectPatchLink'); formData.append('projectPatchLinkId', linkId); formData.append('projectId', projectId); fetch('ProjectHealthServlet', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: formData.toString() }).then(function(r){ return r.json(); }).then(function(data){ if (data && data.success) { window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to remove link'); } }).catch(function(){ alert('Unable to remove link'); }); return false; }");
                 out.println("</script>");

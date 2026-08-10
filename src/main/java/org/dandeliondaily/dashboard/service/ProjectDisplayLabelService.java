@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.dandeliondaily.projecthealth.service.ProjectPatchLinkService;
 import org.openimmunizationsoftware.pt.doa.ProjectPatchLinkDao;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
@@ -114,6 +115,12 @@ public class ProjectDisplayLabelService {
             if (ProjectPatchLink.LINK_TYPE_DIRECT_PROJECT.equals(link.getLinkType())) {
                 if (link.getLinkedPatchProjectId() != null) {
                     Project project = (Project) dataSession.get(Project.class, link.getLinkedPatchProjectId());
+                    addIfValidLinkedProject(byProjectId, project, patchWorkspaceId);
+                }
+            } else if (ProjectPatchLink.LINK_TYPE_PATCH_ALL.equals(link.getLinkType())) {
+                List<Project> patchProjects = new ProjectPatchLinkService()
+                        .listOpenPatchProjects(dataSession, patchWorkspaceId);
+                for (Project project : patchProjects) {
                     addIfValidLinkedProject(byProjectId, project, patchWorkspaceId);
                 }
             } else if (ProjectPatchLink.LINK_TYPE_PATCH_TAG.equals(link.getLinkType())

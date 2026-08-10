@@ -62,6 +62,22 @@ public class ProjectPatchLinkDao {
         return count != null && count.intValue() > 0;
     }
 
+    public boolean patchAllLinkExists(int privateProjectId) {
+        Query query = session.createQuery(
+                "select count(*) from ProjectPatchLink where privateProjectId = :pid and linkType = :lt");
+        query.setParameter("pid", privateProjectId);
+        query.setParameter("lt", ProjectPatchLink.LINK_TYPE_PATCH_ALL);
+        Number count = (Number) query.uniqueResult();
+        return count != null && count.intValue() > 0;
+    }
+
+    public int deleteLinksForProject(int privateProjectId) {
+        Query query = session.createQuery(
+                "delete from ProjectPatchLink where privateProjectId = :pid");
+        query.setParameter("pid", privateProjectId);
+        return query.executeUpdate();
+    }
+
     public ProjectPatchLink getById(int projectPatchLinkId) {
         return (ProjectPatchLink) session.get(ProjectPatchLink.class, projectPatchLinkId);
     }
