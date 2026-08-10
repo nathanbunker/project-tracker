@@ -9,11 +9,13 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.manager.ProjectReviewChatService;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 
 public class AdminSettingsServlet extends ClientServlet {
 
     private static final String ACTION_SAVE_SMTP = "Save SMTP Settings";
+    private static final String ACTION_SAVE_AI = "Save AI Settings";
 
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_SMTP_HOST = "smtpHost";
@@ -24,11 +26,15 @@ public class AdminSettingsServlet extends ClientServlet {
     private static final String PARAM_EMAIL_ENABLED = "emailEnabled";
     private static final String PARAM_EMAIL_REPLY = "emailReply";
     private static final String PARAM_EMAIL_DEBUG = "emailDebug";
+    private static final String PARAM_AI_MODEL_SELECT = "aiModelSelect";
+    private static final String PARAM_AI_MODEL_CUSTOM = "aiModelCustom";
+    private static final String AI_MODEL_CUSTOM_OPTION = "custom";
 
     private static final int MAX_HOST_LEN = 254;
     private static final int MAX_USERNAME_LEN = 254;
     private static final int MAX_PASSWORD_LEN = 254;
     private static final int MAX_REPLY_LEN = 254;
+    private static final int MAX_MODEL_LEN = 80;
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -48,9 +54,12 @@ public class AdminSettingsServlet extends ClientServlet {
             String action = request.getParameter(PARAM_ACTION);
             if (ACTION_SAVE_SMTP.equals(action)) {
                 handleSaveSmtpSettings(appReq);
+            } else if (ACTION_SAVE_AI.equals(action)) {
+                handleSaveAiSettings(appReq);
             }
 
             SmtpSettingsForm smtpSettings = loadSmtpSettingsForm(dataSession);
+            AiSettingsForm aiSettings = loadAiSettingsForm(dataSession);
 
             appReq.setTitle("Admin Settings");
             printHtmlHead(appReq);
@@ -92,6 +101,22 @@ public class AdminSettingsServlet extends ClientServlet {
                     + "/> <span class=\"small\">Enables JavaMail session debug output.</span></td></tr>\n"
                     + "  <tr class=\"boxed\"><td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
                     + PARAM_ACTION + "\" value=\"" + ACTION_SAVE_SMTP + "\"/></td></tr>\n"
+                    + "</table>");
+            out.println("</form>");
+
+            out.println("<form method=\"POST\" action=\"AdminSettingsServlet\">");
+            out.println("<table class=\"boxed\">\n"
+                    + "  <tr class=\"boxed\"><th class=\"title\" colspan=\"2\">Project Review Assistant (AI Model)</th></tr>\n"
+                    + "  <tr class=\"boxed\"><th class=\"boxed\">Model</th><td class=\"boxed\"><select name=\""
+                    + PARAM_AI_MODEL_SELECT + "\">"
+                    + buildAiModelOptions(aiSettings)
+                    + "</select> <span class=\"small\">Select \"Custom\" and enter a model id below to use one not listed.</span></td></tr>\n"
+                    + "  <tr class=\"boxed\"><th class=\"boxed\">Custom Model Id</th><td class=\"boxed\"><input type=\"text\" name=\""
+                    + PARAM_AI_MODEL_CUSTOM + "\" size=\"40\" maxlength=\"" + MAX_MODEL_LEN + "\" value=\""
+                    + h(aiSettings.customModel)
+                    + "\" placeholder=\"e.g. gpt-5.2-pro\"/></td></tr>\n"
+                    + "  <tr class=\"boxed\"><td class=\"boxed-submit\" colspan=\"2\"><input type=\"submit\" name=\""
+                    + PARAM_ACTION + "\" value=\"" + ACTION_SAVE_AI + "\"/></td></tr>\n"
                     + "</table>");
             out.println("</form>");
 
@@ -176,6 +201,59 @@ public class AdminSettingsServlet extends ClientServlet {
         appReq.setMessageConfirmation("SMTP settings saved.");
     }
 
+    private void handleSaveAiSettings(AppReq appReq) {
+        HttpServletRequest request = appReq.getRequest();
+        Session dataSession = appReq.getDataSession();
+
+        String selected = trimToEmpty(request.getParameter(PARAM_AI_MODEL_SELECT));
+        String customModel = clip(trimToEmpty(request.getParameter(PARAM_AI_MODEL_CUSTOM)), MAX_MODEL_LEN);
+
+        String modelToSave;
+        if (AI_MODEL_CUSTOM_OPTION.equals(selected)) {
+            if (customModel.length() == 0) {
+                appReq.setMessageProblem("Enter a custom model id, or choose one of the listed models.");
+                return;
+            }
+            modelToSave = customModel;
+        } else if (selected.length() == 0 || !ProjectReviewChatService.SUGGESTED_MODELS.contains(selected)) {
+            modelToSave = ProjectReviewChatService.DEFAULT_MODEL;
+        } else {
+            modelToSave = selected;
+        }
+
+        TrackerKeysManager.saveApplicationKeyValue(TrackerKeysManager.KEY_AI_PROJECT_REVIEW_MODEL, modelToSave,
+                dataSession);
+        appReq.setMessageConfirmation("AI settings saved.");
+    }
+
+    private AiSettingsForm loadAiSettingsForm(Session dataSession) {
+        AiSettingsForm form = new AiSettingsForm();
+        String configuredModel = TrackerKeysManager.getApplicationKeyValue(
+                TrackerKeysManager.KEY_AI_PROJECT_REVIEW_MODEL, ProjectReviewChatService.DEFAULT_MODEL, dataSession);
+        if (ProjectReviewChatService.SUGGESTED_MODELS.contains(configuredModel)) {
+            form.selectedModel = configuredModel;
+        } else {
+            form.selectedModel = AI_MODEL_CUSTOM_OPTION;
+            form.customModel = configuredModel;
+        }
+        return form;
+    }
+
+    private String buildAiModelOptions(AiSettingsForm aiSettings) {
+        StringBuilder sb = new StringBuilder();
+        for (String model : ProjectReviewChatService.SUGGESTED_MODELS) {
+            sb.append("<option value=\"").append(h(model)).append("\"")
+                    .append(model.equals(aiSettings.selectedModel) ? " selected" : "")
+                    .append(">").append(h(model))
+                    .append(model.equals(ProjectReviewChatService.DEFAULT_MODEL) ? " (default)" : "")
+                    .append("</option>");
+        }
+        sb.append("<option value=\"").append(AI_MODEL_CUSTOM_OPTION).append("\"")
+                .append(AI_MODEL_CUSTOM_OPTION.equals(aiSettings.selectedModel) ? " selected" : "")
+                .append(">Custom (enter below)</option>");
+        return sb.toString();
+    }
+
     private SmtpSettingsForm loadSmtpSettingsForm(Session dataSession) {
         SmtpSettingsForm form = new SmtpSettingsForm();
         form.smtpHost = TrackerKeysManager.getApplicationKeyValue(
@@ -240,6 +318,11 @@ public class AdminSettingsServlet extends ClientServlet {
         private boolean emailEnabled = false;
         private boolean emailDebug = false;
         private boolean passwordSet = false;
+    }
+
+    private static class AiSettingsForm {
+        private String selectedModel = ProjectReviewChatService.DEFAULT_MODEL;
+        private String customModel = "";
     }
 
     @Override

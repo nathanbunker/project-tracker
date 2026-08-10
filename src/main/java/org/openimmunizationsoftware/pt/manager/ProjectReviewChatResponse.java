@@ -11,6 +11,7 @@ public class ProjectReviewChatResponse {
 
     private String assistantMessage = "";
     private String proposedDescription = "";
+    private String proposedCurrentFocus = "";
     private String proposedOutcome = "";
     private String proposedSuccessCriteria = "";
     private List<String> followUpQuestions = new ArrayList<String>();
@@ -32,6 +33,14 @@ public class ProjectReviewChatResponse {
 
     public void setProposedDescription(String proposedDescription) {
         this.proposedDescription = proposedDescription;
+    }
+
+    public String getProposedCurrentFocus() {
+        return proposedCurrentFocus;
+    }
+
+    public void setProposedCurrentFocus(String proposedCurrentFocus) {
+        this.proposedCurrentFocus = proposedCurrentFocus;
     }
 
     public String getProposedOutcome() {

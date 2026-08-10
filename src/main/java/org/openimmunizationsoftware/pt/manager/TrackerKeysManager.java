@@ -38,6 +38,7 @@ public class TrackerKeysManager {
   public static final String KEY_DATE_ENTRY_FORMAT = "date.entry.format";
   public static final String KEY_TIME_DISPLAY_FORMAT = "time.display.format";
   public static final String KEY_TIME_ENTRY_FORMAT = "time.entry.format";
+  public static final String KEY_AI_PROJECT_REVIEW_MODEL = "ai.project.review.model";
 
   public static final String KEY_EMAIL_DEBUG = "system.email.debug";
   public static final String KEY_EMAIL_REPLY = "system.email.reply";

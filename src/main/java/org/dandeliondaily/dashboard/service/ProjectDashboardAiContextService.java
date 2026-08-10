@@ -31,6 +31,7 @@ public class ProjectDashboardAiContextService {
         sb.append("- Handle: ").append(n(project.getProjectHandle())).append("\n");
         sb.append("- Status: ").append(n(project.getProjectStatus())).append("\n");
         sb.append("- Description: ").append(n(project.getDescription())).append("\n");
+        sb.append("- Current Focus: ").append(n(project.getCurrentFocusText())).append("\n");
         sb.append("- Outcome: ").append(n(project.getOutcomeText())).append("\n");
         sb.append("- Success Criteria: ").append(n(project.getSuccessCriteriaText())).append("\n");
 

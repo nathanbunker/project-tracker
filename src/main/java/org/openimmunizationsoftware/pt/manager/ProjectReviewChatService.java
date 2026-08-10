@@ -1,6 +1,8 @@
 package org.openimmunizationsoftware.pt.manager;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedAction;
@@ -18,14 +20,52 @@ import com.openai.models.responses.ResponseCreateParams;
 
 public class ProjectReviewChatService {
 
-    private static final ChatModel MODEL = ChatModel.GPT_5_2;
+    public static final String DEFAULT_MODEL = "gpt-5.2";
+    public static final List<String> SUGGESTED_MODELS = Collections.unmodifiableList(Arrays.asList(
+            "gpt-5.2", "gpt-5.2-chat-latest", "gpt-5.1", "gpt-5.1-mini"));
+
     private static final int MAX_HISTORY_MESSAGES = 24;
 
-    private static final String SYSTEM_PROMPT = "You are a project review assistant for Dandelion Daily. "
+    public enum ChatMode {
+        GENERAL,
+        LANGUAGE_REVIEW
+    }
+
+    private static final String GENERAL_SYSTEM_PROMPT = "You are a project review assistant for Dandelion Daily. "
             + "You help improve project definition and suggest practical next actions, issues, and project narratives. "
             + "Do not perform direct autonomous edits. "
             + "Return JSON only with keys: assistantMessage, proposedDescription, proposedOutcome, proposedSuccessCriteria, followUpQuestions, proposedActions, proposedIssues, proposedNarrativeEntries. "
             + "assistantMessage should be concise and practical. followUpQuestions should be an array of strings when useful.";
+
+    private static final String LANGUAGE_REVIEW_SYSTEM_PROMPT = "You are running a Dandelion Daily project "
+            + "language review. This is an interview, not a one-shot rewrite. The goal is to preserve the "
+            + "project's identity while updating its description, current focus, intended outcome, and success "
+            + "criteria. This is a language-review process, not a project-renaming process: never propose "
+            + "renaming the project unless the user explicitly asks you to consider a new name. "
+            + "Interview the user about the project before proposing anything: ask no more than five questions "
+            + "at a time, focused on the project's boundary, why it matters, the user's work over roughly the "
+            + "next month, the intended outcome, and observable evidence of success. Use the project context "
+            + "already provided and make reasonable inferences instead of asking unnecessary questions. "
+            + "The four language fields have distinct purposes: "
+            + "description is a stable summary of what work belongs in the project, and should help distinguish "
+            + "it from related projects; "
+            + "current focus is a paragraph describing the work receiving attention now, normally useful for "
+            + "about one month; "
+            + "project outcome is a stable explanation of why the project exists and what it is intended to "
+            + "accomplish, not the next release or task; "
+            + "success criteria are three to seven observable markers showing the project is succeeding or "
+            + "complete, not a restatement of the current task list. "
+            + "Also flag work that appears to belong in a different project so it doesn't get absorbed here. "
+            + "Only include proposedDescription, proposedCurrentFocus, proposedOutcome, or proposedSuccessCriteria "
+            + "in your JSON once you actually have a concrete proposal for that field from the interview so far; "
+            + "leave a field as an empty string until then. Challenge and explain anything that appears too "
+            + "broad, vague, task-oriented, or difficult to measure. Let the user react to a proposal before "
+            + "treating it as final. "
+            + "Do not perform direct autonomous edits. "
+            + "Return JSON only with keys: assistantMessage, proposedDescription, proposedCurrentFocus, "
+            + "proposedOutcome, proposedSuccessCriteria, followUpQuestions. "
+            + "assistantMessage should be concise and practical, and is where interview questions belong. "
+            + "followUpQuestions should be an array of strings when useful.";
 
     private final OpenAIClient client;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -46,16 +86,24 @@ public class ProjectReviewChatService {
     }
 
     public ProjectReviewChatResponse chat(List<ProjectDashboardChatMessage> history, String userPrompt,
-            String contextText) {
+            String contextText, String modelId, ChatMode mode) {
         String input = buildInput(history, userPrompt, contextText);
+        String systemPrompt = mode == ChatMode.LANGUAGE_REVIEW ? LANGUAGE_REVIEW_SYSTEM_PROMPT : GENERAL_SYSTEM_PROMPT;
         ResponseCreateParams params = ResponseCreateParams.builder()
-                .model(MODEL)
-                .instructions(SYSTEM_PROMPT)
+                .model(ChatModel.of(resolveModelId(modelId)))
+                .instructions(systemPrompt)
                 .input(input)
                 .build();
         Response response = client.responses().create(params);
         String rawText = extractText(response);
         return parseResponse(rawText);
+    }
+
+    private String resolveModelId(String modelId) {
+        if (modelId == null || modelId.trim().length() == 0) {
+            return DEFAULT_MODEL;
+        }
+        return modelId.trim();
     }
 
     private String buildInput(List<ProjectDashboardChatMessage> history, String userPrompt, String contextText) {
@@ -110,6 +158,7 @@ public class ProjectReviewChatService {
             JsonNode root = objectMapper.readTree(cleaned);
             parsed.setAssistantMessage(readText(root, "assistantMessage"));
             parsed.setProposedDescription(readText(root, "proposedDescription"));
+            parsed.setProposedCurrentFocus(readText(root, "proposedCurrentFocus"));
             parsed.setProposedOutcome(readText(root, "proposedOutcome"));
             parsed.setProposedSuccessCriteria(readText(root, "proposedSuccessCriteria"));
             JsonNode followUpNode = root.get("followUpQuestions");

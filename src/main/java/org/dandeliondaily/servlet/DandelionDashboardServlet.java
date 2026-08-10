@@ -24,6 +24,7 @@ import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatState;
+import org.dandeliondaily.dashboard.model.ProjectLanguageReviewChatState;
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedAction;
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedIssue;
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedNarrative;
@@ -65,7 +66,9 @@ import org.openimmunizationsoftware.pt.model.Workspace;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
 import org.openimmunizationsoftware.pt.manager.ProjectReviewChatResponse;
 import org.openimmunizationsoftware.pt.manager.ProjectReviewChatService;
+import org.openimmunizationsoftware.pt.manager.ProjectReviewChatService.ChatMode;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
+import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.servlet.ClientServlet;
 import org.openimmunizationsoftware.pt.servlet.HandleValidationSupport;
 
@@ -89,14 +92,24 @@ public class DandelionDashboardServlet extends ClientServlet {
 
     private static final String ACTION_PROJECT_CHAT_SEND = "projectChatSend";
     private static final String ACTION_PROJECT_CHAT_QUICK_PROMPT = "projectChatQuickPrompt";
-    private static final String ACTION_PROJECT_CHAT_APPLY_DESCRIPTION = "projectChatApplyDescription";
-    private static final String ACTION_PROJECT_CHAT_APPLY_OUTCOME = "projectChatApplyOutcome";
-    private static final String ACTION_PROJECT_CHAT_APPLY_SUCCESS_CRITERIA = "projectChatApplySuccessCriteria";
-    private static final String ACTION_PROJECT_CHAT_APPLY_ALL = "projectChatApplyAll";
     private static final String ACTION_PROJECT_CHAT_APPLY_ISSUE = "projectChatApplyIssue";
     private static final String ACTION_PROJECT_CHAT_APPLY_NARRATIVE = "projectChatApplyNarrative";
     private static final String ACTION_PROJECT_CHAT_APPLY_ACTION_PROPOSALS = "projectChatApplyActionProposals";
     private static final String ACTION_PROJECT_CHAT_DISMISS = "projectChatDismissSuggestions";
+
+    private static final String ACTION_LANGUAGE_REVIEW_START = "languageReviewStart";
+    private static final String ACTION_LANGUAGE_REVIEW_SEND = "languageReviewSend";
+    private static final String ACTION_LANGUAGE_REVIEW_APPLY = "languageReviewApply";
+    private static final String ACTION_LANGUAGE_REVIEW_DISMISS = "languageReviewDismissSuggestions";
+    private static final String LANGUAGE_REVIEW_START_PROMPT = "I want to review and improve the language for "
+            + "this project. Interview me about it first — ask no more than five questions at a time. Focus "
+            + "on the project's boundary, why it matters, my work during approximately the next month, the "
+            + "intended outcome, and observable evidence of success. Use the project context already provided "
+            + "and make reasonable inferences instead of asking unnecessary questions. After I answer, propose "
+            + "updated values for description, current focus, project outcome, and success criteria, and let me "
+            + "react before treating the proposal as final. Do not propose renaming the project unless I "
+            + "specifically ask.";
+
     private static final int MAX_PROJECT_CHAT_MESSAGES = 24;
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -188,14 +201,6 @@ public class DandelionDashboardServlet extends ClientServlet {
             if (projectExpandedLayout) {
                 if (ACTION_PROJECT_CHAT_SEND.equals(action) || ACTION_PROJECT_CHAT_QUICK_PROMPT.equals(action)) {
                     handleProjectChatSend(appReq, action);
-                } else if (ACTION_PROJECT_CHAT_APPLY_DESCRIPTION.equals(action)) {
-                    handleProjectChatApplyDescription(appReq);
-                } else if (ACTION_PROJECT_CHAT_APPLY_OUTCOME.equals(action)) {
-                    handleProjectChatApplyOutcome(appReq);
-                } else if (ACTION_PROJECT_CHAT_APPLY_SUCCESS_CRITERIA.equals(action)) {
-                    handleProjectChatApplySuccessCriteria(appReq);
-                } else if (ACTION_PROJECT_CHAT_APPLY_ALL.equals(action)) {
-                    handleProjectChatApplyAll(appReq);
                 } else if (ACTION_PROJECT_CHAT_APPLY_ISSUE.equals(action)) {
                     handleProjectChatApplyIssue(appReq);
                 } else if (ACTION_PROJECT_CHAT_APPLY_NARRATIVE.equals(action)) {
@@ -204,6 +209,12 @@ public class DandelionDashboardServlet extends ClientServlet {
                     handleProjectChatApplyActionProposals(appReq);
                 } else if (ACTION_PROJECT_CHAT_DISMISS.equals(action)) {
                     handleProjectChatDismiss(appReq);
+                } else if (ACTION_LANGUAGE_REVIEW_START.equals(action) || ACTION_LANGUAGE_REVIEW_SEND.equals(action)) {
+                    handleLanguageReviewSend(appReq, action);
+                } else if (ACTION_LANGUAGE_REVIEW_APPLY.equals(action)) {
+                    handleLanguageReviewApply(appReq);
+                } else if (ACTION_LANGUAGE_REVIEW_DISMISS.equals(action)) {
+                    handleLanguageReviewDismiss(appReq);
                 }
             }
 
@@ -217,6 +228,9 @@ public class DandelionDashboardServlet extends ClientServlet {
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
             todayColumnModel.getQuickCapture().setFormAction(dashboardPath);
             ProjectDashboardChatState chatState = projectExpandedLayout ? getProjectDashboardChatState(appReq) : null;
+            ProjectLanguageReviewChatState languageReviewChatState = projectExpandedLayout
+                    ? getProjectLanguageReviewChatState(appReq)
+                    : null;
             TimeGaugeModel nowGaugeModel = dashboardTimeGaugeService.buildNowGauge(appReq);
             int todayTargetMinutes = dayCapacityService.loadTargetMinutesForDay(appReq,
                     appReq.getWebUser().toDate(appReq.getWebUser().getLocalDateToday()));
@@ -231,6 +245,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                     projectExpandedLayout ? DashboardLayoutMode.PROJECT_EXPANDED : DashboardLayoutMode.DEFAULT,
                     dashboardPath,
                     chatState,
+                    languageReviewChatState,
                     projectExpandedLayout && !ProjectReviewChatService.isConfigured()
                             ? ProjectReviewChatService.getMissingConfigurationMessage()
                             : "");
@@ -360,18 +375,16 @@ public class DandelionDashboardServlet extends ClientServlet {
 
         try {
             String contextText = projectDashboardAiContextService.buildContextText(appReq, project);
+            String modelId = resolveConfiguredModel(appReq);
             ProjectReviewChatResponse aiResponse = getProjectReviewChatService().chat(chatState.getMessages(), prompt,
-                    contextText);
+                    contextText, modelId, ChatMode.GENERAL);
             String assistantText = n(aiResponse.getAssistantMessage()).trim();
             if (assistantText.length() == 0) {
                 assistantText = "I don't have a response yet. Please try again.";
             }
             chatState.getMessages().add(new ProjectDashboardChatMessage("assistant", assistantText));
-            trimProjectChatMessages(chatState);
+            trimChatMessages(chatState.getMessages());
 
-            chatState.setProposedDescription(n(aiResponse.getProposedDescription()).trim());
-            chatState.setProposedOutcome(n(aiResponse.getProposedOutcome()).trim());
-            chatState.setProposedSuccessCriteria(n(aiResponse.getProposedSuccessCriteria()).trim());
             chatState.setFollowUpQuestions(aiResponse.getFollowUpQuestions() == null
                     ? new ArrayList<String>()
                     : aiResponse.getFollowUpQuestions());
@@ -387,25 +400,136 @@ public class DandelionDashboardServlet extends ClientServlet {
         } catch (Exception e) {
             chatState.getMessages().add(new ProjectDashboardChatMessage("assistant",
                     "I ran into an error while generating a response. Please try again."));
-            trimProjectChatMessages(chatState);
+            trimChatMessages(chatState.getMessages());
             appReq.addErrorMessage("Project chat request failed.");
         }
     }
 
-    private void handleProjectChatApplyDescription(AppReq appReq) {
-        applyProjectChatSuggestions(appReq, true, false, false);
+    private void handleLanguageReviewSend(AppReq appReq, String action) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project to use the language review.");
+            return;
+        }
+        if (!ProjectReviewChatService.isConfigured()) {
+            appReq.addWarningMessage(ProjectReviewChatService.getMissingConfigurationMessage());
+            return;
+        }
+
+        String prompt = ACTION_LANGUAGE_REVIEW_START.equals(action)
+                ? LANGUAGE_REVIEW_START_PROMPT
+                : n(appReq.getRequest().getParameter("chatPrompt")).trim();
+        if (prompt.length() == 0) {
+            appReq.addWarningMessage("Enter a message before sending.");
+            return;
+        }
+
+        ProjectLanguageReviewChatState reviewState = getProjectLanguageReviewChatState(appReq);
+        reviewState.getMessages().add(new ProjectDashboardChatMessage("user", prompt));
+
+        try {
+            String contextText = projectDashboardAiContextService.buildContextText(appReq, project);
+            String modelId = resolveConfiguredModel(appReq);
+            ProjectReviewChatResponse aiResponse = getProjectReviewChatService().chat(reviewState.getMessages(),
+                    prompt, contextText, modelId, ChatMode.LANGUAGE_REVIEW);
+            String assistantText = n(aiResponse.getAssistantMessage()).trim();
+            if (assistantText.length() == 0) {
+                assistantText = "I don't have a response yet. Please try again.";
+            }
+            reviewState.getMessages().add(new ProjectDashboardChatMessage("assistant", assistantText));
+            trimChatMessages(reviewState.getMessages());
+
+            reviewState.setProposedDescription(n(aiResponse.getProposedDescription()).trim());
+            reviewState.setProposedCurrentFocus(n(aiResponse.getProposedCurrentFocus()).trim());
+            reviewState.setProposedOutcome(n(aiResponse.getProposedOutcome()).trim());
+            reviewState.setProposedSuccessCriteria(n(aiResponse.getProposedSuccessCriteria()).trim());
+            reviewState.setFollowUpQuestions(aiResponse.getFollowUpQuestions() == null
+                    ? new ArrayList<String>()
+                    : aiResponse.getFollowUpQuestions());
+        } catch (Exception e) {
+            reviewState.getMessages().add(new ProjectDashboardChatMessage("assistant",
+                    "I ran into an error while generating a response. Please try again."));
+            trimChatMessages(reviewState.getMessages());
+            appReq.addErrorMessage("Language review request failed.");
+        }
     }
 
-    private void handleProjectChatApplyOutcome(AppReq appReq) {
-        applyProjectChatSuggestions(appReq, false, true, false);
+    private String resolveConfiguredModel(AppReq appReq) {
+        return TrackerKeysManager.getApplicationKeyValue(
+                TrackerKeysManager.KEY_AI_PROJECT_REVIEW_MODEL, ProjectReviewChatService.DEFAULT_MODEL,
+                appReq.getDataSession());
     }
 
-    private void handleProjectChatApplySuccessCriteria(AppReq appReq) {
-        applyProjectChatSuggestions(appReq, false, false, true);
+    private void handleLanguageReviewApply(AppReq appReq) {
+        Project project = appReq.getProject();
+        if (project == null) {
+            appReq.addWarningMessage("Select a project before applying the language update.");
+            return;
+        }
+
+        ProjectLanguageReviewChatState reviewState = getProjectLanguageReviewChatState(appReq);
+        boolean hasDescription = ProjectLanguageReviewChatState.isNonEmpty(reviewState.getProposedDescription());
+        boolean hasCurrentFocus = ProjectLanguageReviewChatState.isNonEmpty(reviewState.getProposedCurrentFocus());
+        boolean hasOutcome = ProjectLanguageReviewChatState.isNonEmpty(reviewState.getProposedOutcome());
+        boolean hasSuccessCriteria = ProjectLanguageReviewChatState
+                .isNonEmpty(reviewState.getProposedSuccessCriteria());
+
+        if (!hasDescription && !hasCurrentFocus && !hasOutcome && !hasSuccessCriteria) {
+            appReq.addWarningMessage("No language review proposal is available to apply yet.");
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        if (webUser == null || project.getWorkspaceId() == null
+                || !WorkspaceRegistry.canAdministerWorkspace(dataSession, project.getWorkspaceId(),
+                        webUser.getWebUserId())) {
+            appReq.addErrorMessage("Project is not available for this user.");
+            return;
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            Project managedProject = (Project) dataSession.get(Project.class, project.getProjectId());
+            if (managedProject == null) {
+                transaction.rollback();
+                appReq.addErrorMessage("Project was not found.");
+                return;
+            }
+
+            if (hasDescription) {
+                managedProject.setDescription(clip(reviewState.getProposedDescription(), 1200));
+            }
+            if (hasCurrentFocus) {
+                managedProject.setCurrentFocusText(clip(reviewState.getProposedCurrentFocus(), 12000));
+            }
+            if (hasOutcome) {
+                managedProject.setOutcomeText(clip(reviewState.getProposedOutcome(), 12000));
+            }
+            if (hasSuccessCriteria) {
+                managedProject.setSuccessCriteriaText(clip(reviewState.getProposedSuccessCriteria(), 12000));
+            }
+
+            managedProject.setLastModifiedByWebUserId(webUser.getWebUserId());
+            dataSession.saveOrUpdate(managedProject);
+            transaction.commit();
+
+            reviewState.clearProposals();
+            appReq.setProject(managedProject);
+            appReq.setProjectSelected(managedProject);
+            appReq.addSuccessMessage("Language update applied.");
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            appReq.addErrorMessage("Unable to apply language update.");
+        }
     }
 
-    private void handleProjectChatApplyAll(AppReq appReq) {
-        applyProjectChatSuggestions(appReq, true, true, true);
+    private void handleLanguageReviewDismiss(AppReq appReq) {
+        ProjectLanguageReviewChatState reviewState = getProjectLanguageReviewChatState(appReq);
+        reviewState.clearProposals();
+        appReq.addSuccessMessage("Language review suggestions dismissed.");
     }
 
     private void handleProjectChatApplyIssue(AppReq appReq) {
@@ -649,84 +773,6 @@ public class DandelionDashboardServlet extends ClientServlet {
         return sb.toString();
     }
 
-    private void applyProjectChatSuggestions(AppReq appReq, boolean applyDescription, boolean applyOutcome,
-            boolean applySuccessCriteria) {
-        Project project = appReq.getProject();
-        if (project == null) {
-            appReq.addWarningMessage("Select a project before applying AI suggestions.");
-            return;
-        }
-
-        ProjectDashboardChatState chatState = getProjectDashboardChatState(appReq);
-        boolean hasDescription = ProjectDashboardChatState.isNonEmpty(chatState.getProposedDescription());
-        boolean hasOutcome = ProjectDashboardChatState.isNonEmpty(chatState.getProposedOutcome());
-        boolean hasSuccessCriteria = ProjectDashboardChatState.isNonEmpty(chatState.getProposedSuccessCriteria());
-
-        if ((applyDescription && !hasDescription)
-                && (applyOutcome && !hasOutcome)
-                && (applySuccessCriteria && !hasSuccessCriteria)) {
-            appReq.addWarningMessage("No AI suggestions are available to apply.");
-            return;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        WebUser webUser = appReq.getWebUser();
-        if (webUser == null || project.getWorkspaceId() == null
-                || !WorkspaceRegistry.canAdministerWorkspace(dataSession, project.getWorkspaceId(),
-                        webUser.getWebUserId())) {
-            appReq.addErrorMessage("Project is not available for this user.");
-            return;
-        }
-
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            Project managedProject = (Project) dataSession.get(Project.class, project.getProjectId());
-            if (managedProject == null) {
-                transaction.rollback();
-                appReq.addErrorMessage("Project was not found.");
-                return;
-            }
-
-            int changedCount = 0;
-            if (applyDescription && hasDescription) {
-                managedProject.setDescription(clip(chatState.getProposedDescription(), 1200));
-                chatState.setProposedDescription("");
-                changedCount++;
-            }
-            if (applyOutcome && hasOutcome) {
-                String outcome = clip(chatState.getProposedOutcome(), 12000);
-                managedProject.setOutcomeText(outcome.length() == 0 ? null : outcome);
-                chatState.setProposedOutcome("");
-                changedCount++;
-            }
-            if (applySuccessCriteria && hasSuccessCriteria) {
-                String successCriteria = clip(chatState.getProposedSuccessCriteria(), 12000);
-                managedProject.setSuccessCriteriaText(successCriteria.length() == 0 ? null : successCriteria);
-                chatState.setProposedSuccessCriteria("");
-                changedCount++;
-            }
-
-            if (changedCount == 0) {
-                transaction.rollback();
-                appReq.addWarningMessage("No AI suggestions were applied.");
-                return;
-            }
-
-            managedProject.setLastModifiedByWebUserId(webUser.getWebUserId());
-            dataSession.saveOrUpdate(managedProject);
-            transaction.commit();
-
-            appReq.setProject(managedProject);
-            appReq.setProjectSelected(managedProject);
-            appReq.addSuccessMessage(changedCount == 1 ? "Applied 1 AI suggestion." : "Applied AI suggestions.");
-        } catch (Exception e) {
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
-            }
-            appReq.addErrorMessage("Unable to apply AI suggestions.");
-        }
-    }
-
     private ProjectReviewChatService getProjectReviewChatService() {
         if (projectReviewChatService == null) {
             projectReviewChatService = new ProjectReviewChatService();
@@ -748,11 +794,24 @@ public class DandelionDashboardServlet extends ClientServlet {
         return state;
     }
 
-    private void trimProjectChatMessages(ProjectDashboardChatState chatState) {
-        if (chatState == null || chatState.getMessages() == null) {
+    private ProjectLanguageReviewChatState getProjectLanguageReviewChatState(AppReq appReq) {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        Project project = appReq.getProject();
+        String key = "PROJECT_LANGUAGE_REVIEW_CHAT_STATE_" + (workspaceId == null ? "0" : workspaceId.intValue())
+                + "_" + (project == null ? "0" : project.getProjectId());
+        Object stateObject = appReq.getWebSession().getAttribute(key);
+        if (stateObject instanceof ProjectLanguageReviewChatState) {
+            return (ProjectLanguageReviewChatState) stateObject;
+        }
+        ProjectLanguageReviewChatState state = new ProjectLanguageReviewChatState();
+        appReq.getWebSession().setAttribute(key, state);
+        return state;
+    }
+
+    private void trimChatMessages(List<ProjectDashboardChatMessage> messages) {
+        if (messages == null) {
             return;
         }
-        List<ProjectDashboardChatMessage> messages = chatState.getMessages();
         while (messages.size() > MAX_PROJECT_CHAT_MESSAGES) {
             messages.remove(0);
         }

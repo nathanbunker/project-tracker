@@ -6,12 +6,9 @@ import java.util.List;
 
 public class ProjectDashboardChatState implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private List<ProjectDashboardChatMessage> messages = new ArrayList<ProjectDashboardChatMessage>();
-    private String proposedDescription = "";
-    private String proposedOutcome = "";
-    private String proposedSuccessCriteria = "";
     private List<String> followUpQuestions = new ArrayList<String>();
     private List<ProjectDashboardSuggestedAction> proposedActions = new ArrayList<ProjectDashboardSuggestedAction>();
     private List<ProjectDashboardSuggestedIssue> proposedIssues = new ArrayList<ProjectDashboardSuggestedIssue>();
@@ -23,30 +20,6 @@ public class ProjectDashboardChatState implements Serializable {
 
     public void setMessages(List<ProjectDashboardChatMessage> messages) {
         this.messages = messages;
-    }
-
-    public String getProposedDescription() {
-        return proposedDescription;
-    }
-
-    public void setProposedDescription(String proposedDescription) {
-        this.proposedDescription = proposedDescription;
-    }
-
-    public String getProposedOutcome() {
-        return proposedOutcome;
-    }
-
-    public void setProposedOutcome(String proposedOutcome) {
-        this.proposedOutcome = proposedOutcome;
-    }
-
-    public String getProposedSuccessCriteria() {
-        return proposedSuccessCriteria;
-    }
-
-    public void setProposedSuccessCriteria(String proposedSuccessCriteria) {
-        this.proposedSuccessCriteria = proposedSuccessCriteria;
     }
 
     public List<String> getFollowUpQuestions() {
@@ -82,18 +55,12 @@ public class ProjectDashboardChatState implements Serializable {
     }
 
     public boolean hasSuggestions() {
-        return isNonEmpty(proposedDescription)
-                || isNonEmpty(proposedOutcome)
-                || isNonEmpty(proposedSuccessCriteria)
-                || (proposedActions != null && !proposedActions.isEmpty())
+        return (proposedActions != null && !proposedActions.isEmpty())
                 || (proposedIssues != null && !proposedIssues.isEmpty())
                 || (proposedNarratives != null && !proposedNarratives.isEmpty());
     }
 
     public void clearSuggestions() {
-        proposedDescription = "";
-        proposedOutcome = "";
-        proposedSuccessCriteria = "";
         followUpQuestions.clear();
         proposedActions.clear();
         proposedIssues.clear();

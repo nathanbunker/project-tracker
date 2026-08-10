@@ -12,6 +12,7 @@ import org.dandeliondaily.dashboard.model.DashboardNowColumnModel;
 import org.dandeliondaily.dashboard.model.DashboardNextColumnModel;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatMessage;
 import org.dandeliondaily.dashboard.model.ProjectDashboardChatState;
+import org.dandeliondaily.dashboard.model.ProjectLanguageReviewChatState;
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedAction;
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedIssue;
 import org.dandeliondaily.dashboard.model.ProjectDashboardSuggestedNarrative;
@@ -61,7 +62,7 @@ public class DashboardPageRenderer {
                         TimeGaugeModel nowGaugeModel,
                         TimeGaugeModel todayGaugeModel) {
                 render(appReq, nowColumnModel, todayColumnModel, nextColumnModel, nowGaugeModel, todayGaugeModel,
-                                DashboardLayoutMode.DEFAULT, "DandelionDashboardServlet", null, "");
+                                DashboardLayoutMode.DEFAULT, "DandelionDashboardServlet", null, null, "");
         }
 
         public void render(AppReq appReq, DashboardNowColumnModel nowColumnModel,
@@ -72,6 +73,7 @@ public class DashboardPageRenderer {
                         DashboardLayoutMode layoutMode,
                         String dashboardPath,
                         ProjectDashboardChatState chatState,
+                        ProjectLanguageReviewChatState languageReviewChatState,
                         String chatWarningMessage) {
                 PrintWriter out = appReq.getOut();
                 this.layoutMode = layoutMode == null ? DashboardLayoutMode.DEFAULT : layoutMode;
@@ -144,7 +146,7 @@ public class DashboardPageRenderer {
                 printDevLabel(out, "NEXT HEADER");
                 out.println("        <div class=\"dd-header-main\">");
                 if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
-                        printProjectExpandedRightHeader(out);
+                        printProjectExpandedRightHeader(out, languageReviewChatState);
                 } else {
                         String nextHeaderLabel = nextColumnModel.getSelectedDay().getDayKey().length() > 0
                                         ? nextColumnModel.getSelectedDay().getFullDateLabel()
@@ -188,7 +190,7 @@ public class DashboardPageRenderer {
                 out.println("      <div class=\"dd-dashboard-column dd-dashboard-column-next\">");
                 out.println("        <!-- Real data wiring starts here for the dashboard next column. -->");
                 if (this.layoutMode == DashboardLayoutMode.PROJECT_EXPANDED) {
-                        printProjectExpandedRightColumn(out, chatState, chatWarningMessage);
+                        printProjectExpandedRightColumn(out, chatState, languageReviewChatState, chatWarningMessage);
                 } else {
                         printNextColumn(out, nextColumnModel);
                 }
@@ -347,6 +349,16 @@ public class DashboardPageRenderer {
                 out.println("    border: 1px solid #cfbea6;");
                 out.println("    background: #fffdf8;");
                 out.println("    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);");
+                out.println("  }");
+                out.println("  .dd-panel-secondary {");
+                out.println("    margin-top: 24px;");
+                out.println("    padding-top: 16px;");
+                out.println("    border-top: 1px dashed #cbbda7;");
+                out.println("    opacity: 0.9;");
+                out.println("  }");
+                out.println("  .dd-chat-header-title-secondary {");
+                out.println("    font-size: 13px;");
+                out.println("    color: #6b6455;");
                 out.println("  }");
                 out.println("  .dd-dashboard-header {");
                 out.println("    position: sticky;");
@@ -1347,16 +1359,101 @@ public class DashboardPageRenderer {
         }
 
         private void printProjectExpandedRightColumn(PrintWriter out, ProjectDashboardChatState chatState,
+                        ProjectLanguageReviewChatState languageReviewChatState, String chatWarningMessage) {
+                printLanguageReviewPanel(out, languageReviewChatState, chatWarningMessage);
+                printOtherAiToolsPanel(out, chatState, chatWarningMessage);
+        }
+
+        private void printLanguageReviewPanel(PrintWriter out, ProjectLanguageReviewChatState languageReviewChatState,
                         String chatWarningMessage) {
                 out.println("<div class=\"dd-section dd-panel dd-panel-open\">");
-                printDevLabel(out, "PROJECT CHAT");
+                printDevLabel(out, "LANGUAGE REVIEW");
                 if (chatWarningMessage != null && chatWarningMessage.trim().length() > 0) {
                         out.println("  <p class=\"dd-chat-warning\">" + escapeHtml(chatWarningMessage) + "</p>");
                 }
 
                 out.println("  <div class=\"dd-chat-history\">");
+                if (languageReviewChatState == null || languageReviewChatState.getMessages().isEmpty()) {
+                        out.println("    <p class=\"dd-subtle\">Click \"Start Project Review\" above to begin an interview about this project's description, current focus, outcome, and success criteria.</p>");
+                } else {
+                        for (ProjectDashboardChatMessage message : languageReviewChatState.getMessages()) {
+                                String messageClass = message.isUser() ? "dd-chat-user" : "dd-chat-assistant";
+                                out.println("    <div class=\"dd-chat-message " + messageClass + "\">");
+                                out.println("      <div class=\"dd-chat-role\">"
+                                                + escapeHtml(message.isUser() ? "You" : "Assistant") + "</div>");
+                                out.println("      <div class=\"dd-chat-text\">"
+                                                + escapeHtml(message.getText()).replace("\n", "<br/>") + "</div>");
+                                out.println("    </div>");
+                        }
+                }
+                out.println("  </div>");
+
+                out.println("  <form method=\"POST\" action=\"" + dashboardPath + "\" class=\"dd-chat-send\">");
+                out.println("    <input type=\"hidden\" name=\"action\" value=\"languageReviewSend\" />");
+                out.println("    <textarea name=\"chatPrompt\" rows=\"4\" class=\"dd-form-textarea\" placeholder=\"Answer the interview questions, or ask the assistant to reconsider something...\"></textarea>");
+                out.println("    <div class=\"dd-chat-send-row\"><button type=\"submit\" class=\"dd-btn dd-btn-primary\">Send</button></div>");
+                out.println("  </form>");
+
+                out.println("  <div class=\"dd-chat-suggestions\">");
+                out.println("    <h4 class=\"dd-backlog-section-title\">Proposed Language</h4>");
+                boolean hasProposals = languageReviewChatState != null && languageReviewChatState.hasProposals();
+                if (!hasProposals) {
+                        out.println("    <p class=\"dd-subtle\">No proposal yet. Keep answering the interview questions above.</p>");
+                } else {
+                        printLanguageReviewProposalCard(out, "Description", languageReviewChatState.getProposedDescription());
+                        printLanguageReviewProposalCard(out, "Current Focus",
+                                        languageReviewChatState.getProposedCurrentFocus());
+                        printLanguageReviewProposalCard(out, "Outcome", languageReviewChatState.getProposedOutcome());
+                        printLanguageReviewProposalCard(out, "Success Criteria",
+                                        languageReviewChatState.getProposedSuccessCriteria());
+
+                        if (languageReviewChatState.getFollowUpQuestions() != null
+                                        && !languageReviewChatState.getFollowUpQuestions().isEmpty()) {
+                                out.println("    <div class=\"dd-chat-follow-up\">\n      <strong>Follow-up questions:</strong><ul>");
+                                for (String question : languageReviewChatState.getFollowUpQuestions()) {
+                                        out.println("      <li>" + escapeHtml(question) + "</li>");
+                                }
+                                out.println("      </ul>\n    </div>");
+                        }
+
+                        out.println("    <div class=\"dd-chat-apply-row\">");
+                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                        + "\" style=\"display:inline-block;\">\n        <input type=\"hidden\" name=\"action\" value=\"languageReviewApply\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-primary\">Apply Language Update</button>\n      </form>");
+                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
+                                        + "\" style=\"display:inline-block; margin-left:8px;\">\n        <input type=\"hidden\" name=\"action\" value=\"languageReviewDismissSuggestions\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Dismiss Suggestions</button>\n      </form>");
+                        out.println("    </div>");
+                }
+                out.println("  </div>");
+                out.println("</div>");
+        }
+
+        private void printLanguageReviewProposalCard(PrintWriter out, String title, String text) {
+                if (text == null || text.trim().length() == 0) {
+                        return;
+                }
+                out.println("    <div class=\"dd-chat-suggestion-card\">");
+                out.println("      <div class=\"dd-chat-suggestion-title\">" + escapeHtml(title) + "</div>");
+                out.println("      <div class=\"dd-chat-suggestion-text\">" + escapeHtml(text).replace("\n", "<br/>")
+                                + "</div>");
+                out.println("    </div>");
+        }
+
+        private void printOtherAiToolsPanel(PrintWriter out, ProjectDashboardChatState chatState,
+                        String chatWarningMessage) {
+                out.println("<div class=\"dd-section dd-panel dd-panel-open dd-panel-secondary\">");
+                printDevLabel(out, "PROJECT CHAT");
+                out.println("  <h3 class=\"dd-chat-header-title dd-chat-header-title-secondary\">Other AI Tools</h3>");
+                out.println("  <p class=\"dd-subtle\">Separate from the language review above: suggested next actions, issues, and narrative entries.</p>");
+                out.println("  <form method=\"POST\" action=\"" + dashboardPath + "\" class=\"dd-chat-quick-prompts\">");
+                out.println("    <input type=\"hidden\" name=\"action\" value=\"projectChatQuickPrompt\" />");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Suggest concrete next actions for this project. Include type, estimate, and rationale.\" class=\"dd-chat-chip\">Suggest Next Actions</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Identify blockers, assumptions, and risks. Propose issues with issue type and rationale.\" class=\"dd-chat-chip\">Identify Issues</button>");
+                out.println("    <button type=\"submit\" name=\"quickPrompt\" value=\"Propose project narrative entries from this context using NOTE, DECISION, INSIGHT, RISK, or OPPORTUNITY.\" class=\"dd-chat-chip\">Save Narrative</button>");
+                out.println("  </form>");
+
+                out.println("  <div class=\"dd-chat-history\">");
                 if (chatState == null || chatState.getMessages().isEmpty()) {
-                        out.println("    <p class=\"dd-subtle\">Ask the assistant to review this project and suggest clearer direction.</p>");
+                        out.println("    <p class=\"dd-subtle\">Ask the assistant to suggest next actions, issues, or narrative entries.</p>");
                 } else {
                         for (ProjectDashboardChatMessage message : chatState.getMessages()) {
                                 String messageClass = message.isUser() ? "dd-chat-user" : "dd-chat-assistant";
@@ -1372,23 +1469,15 @@ public class DashboardPageRenderer {
 
                 out.println("  <form method=\"POST\" action=\"" + dashboardPath + "\" class=\"dd-chat-send\">");
                 out.println("    <input type=\"hidden\" name=\"action\" value=\"projectChatSend\" />");
-                out.println("    <textarea name=\"chatPrompt\" rows=\"4\" class=\"dd-form-textarea\" placeholder=\"Ask about scope, clarity, outcomes, or success criteria...\"></textarea>");
+                out.println("    <textarea name=\"chatPrompt\" rows=\"4\" class=\"dd-form-textarea\" placeholder=\"Ask about next actions, issues, or narratives...\"></textarea>");
                 out.println("    <div class=\"dd-chat-send-row\"><button type=\"submit\" class=\"dd-btn dd-btn-primary\">Send</button></div>");
                 out.println("  </form>");
 
                 out.println("  <div class=\"dd-chat-suggestions\">");
                 out.println("    <h4 class=\"dd-backlog-section-title\">AI Suggestions</h4>");
                 if (chatState == null || !chatState.hasSuggestions()) {
-                        out.println("    <p class=\"dd-subtle\">No suggestions yet. Ask the assistant to refine text, suggest actions, identify issues, or create narratives.</p>");
+                        out.println("    <p class=\"dd-subtle\">No suggestions yet. Ask the assistant to suggest actions, identify issues, or create narratives.</p>");
                 } else {
-                        out.println("    <h4 class=\"dd-backlog-section-title\">Project Definition</h4>");
-                        printSuggestionCard(out, "Description", chatState.getProposedDescription(),
-                                        "projectChatApplyDescription");
-                        printSuggestionCard(out, "Outcome", chatState.getProposedOutcome(),
-                                        "projectChatApplyOutcome");
-                        printSuggestionCard(out, "Success Criteria", chatState.getProposedSuccessCriteria(),
-                                        "projectChatApplySuccessCriteria");
-
                         if (chatState.getFollowUpQuestions() != null && !chatState.getFollowUpQuestions().isEmpty()) {
                                 out.println("    <div class=\"dd-chat-follow-up\">\n      <strong>Follow-up questions:</strong><ul>");
                                 for (String question : chatState.getFollowUpQuestions()) {
@@ -1513,48 +1602,27 @@ public class DashboardPageRenderer {
 
                         out.println("    <div class=\"dd-chat-apply-row\">");
                         out.println("      <form method=\"POST\" action=\"" + dashboardPath
-                                        + "\" style=\"display:inline-block;\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatApplyAll\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-primary\">Apply All</button>\n      </form>");
-                        out.println("      <form method=\"POST\" action=\"" + dashboardPath
-                                        + "\" style=\"display:inline-block; margin-left:8px;\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatDismissSuggestions\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Dismiss Suggestions</button>\n      </form>");
+                                        + "\" style=\"display:inline-block;\">\n        <input type=\"hidden\" name=\"action\" value=\"projectChatDismissSuggestions\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Dismiss Suggestions</button>\n      </form>");
                         out.println("    </div>");
                 }
                 out.println("  </div>");
                 out.println("</div>");
         }
 
-        private void printProjectExpandedRightHeader(PrintWriter out) {
+        private void printProjectExpandedRightHeader(PrintWriter out, ProjectLanguageReviewChatState languageReviewChatState) {
                 out.println("          <div class=\"dd-header-text\">");
-                out.println("            <h3 class=\"dd-chat-header-title\">Project Review Assistant</h3>");
-                out.println("            <form method=\"POST\" action=\"" + dashboardPath
-                                + "\" class=\"dd-chat-quick-prompts\">");
-                out.println("              <input type=\"hidden\" name=\"action\" value=\"projectChatQuickPrompt\" />");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Summarize this project from current context and recent work.\" class=\"dd-chat-chip\">Summarize Project</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite the project description to be clearer and more outcome oriented.\" class=\"dd-chat-chip\">Improve Description</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Propose a sharper outcome statement with measurable completion criteria.\" class=\"dd-chat-chip\">Clarify Outcome</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Rewrite success criteria as concise checklist bullets.\" class=\"dd-chat-chip\">Clarify Success Criteria</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Suggest concrete next actions for this project. Include type, estimate, and rationale.\" class=\"dd-chat-chip\">Suggest Next Actions</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Identify blockers, assumptions, and risks. Propose issues with issue type and rationale.\" class=\"dd-chat-chip\">Identify Issues</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Propose project narrative entries from this context using NOTE, DECISION, INSIGHT, RISK, or OPPORTUNITY.\" class=\"dd-chat-chip\">Save Narrative</button>");
-                out.println("              <button type=\"submit\" name=\"quickPrompt\" value=\"Identify what is missing or ambiguous in this project definition.\" class=\"dd-chat-chip\">What Is Missing?</button>");
-                out.println("            </form>");
-                out.println("          </div>");
-        }
-
-        private void printSuggestionCard(PrintWriter out, String title, String text, String applyAction) {
-                if (text == null || text.trim().length() == 0) {
-                        return;
+                out.println("            <h3 class=\"dd-chat-header-title\">Project Language Review</h3>");
+                boolean started = languageReviewChatState != null && languageReviewChatState.hasStarted();
+                if (!started) {
+                        out.println("            <form method=\"POST\" action=\"" + dashboardPath
+                                        + "\" class=\"dd-chat-quick-prompts\">");
+                        out.println("              <input type=\"hidden\" name=\"action\" value=\"languageReviewStart\" />");
+                        out.println("              <button type=\"submit\" class=\"dd-chat-chip\">Start Project Review</button>");
+                        out.println("            </form>");
+                } else {
+                        out.println("            <div class=\"dd-header-subtitle\">Review in progress — continue below.</div>");
                 }
-                out.println("    <div class=\"dd-chat-suggestion-card\">");
-                out.println("      <div class=\"dd-chat-suggestion-title\">" + escapeHtml(title) + "</div>");
-                out.println("      <div class=\"dd-chat-suggestion-text\">" + escapeHtml(text).replace("\n", "<br/>")
-                                + "</div>");
-                out.println("      <form method=\"POST\" action=\"" + dashboardPath
-                                + "\">\n        <input type=\"hidden\" name=\"action\" value=\""
-                                + applyAction
-                                + "\"/>\n        <button type=\"submit\" class=\"dd-btn dd-btn-secondary\">Apply "
-                                + escapeHtml(title)
-                                + "</button>\n      </form>");
-                out.println("    </div>");
+                out.println("          </div>");
         }
 
         private void printNowCurrentActionPanel(PrintWriter out, DashboardNowColumnModel nowColumnModel) {
