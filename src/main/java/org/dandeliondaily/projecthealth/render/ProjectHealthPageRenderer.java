@@ -76,6 +76,7 @@ public class ProjectHealthPageRenderer {
                 printReprioritizeModal(out, model);
                 printScheduleReviewModal(out, model);
                 printBulkImportModal(out, model);
+                printProjectDefinitionImportModal(out);
                 printReviewUnscheduledModal(out, model);
                 printScripts(out, model);
                 out.println("</div>");
@@ -473,6 +474,28 @@ public class ProjectHealthPageRenderer {
                         out.println("    <li>" + escapeHtml(recommendation) + "</li>");
                 }
                 out.println("  </ul>");
+
+                out.println("  <h3>Current Focus</h3>");
+                out.println("  <p>" + escapeHtml(n(report.getCurrentFocus()).trim().length() == 0
+                                ? "(none)"
+                                : report.getCurrentFocus()) + "</p>");
+
+                out.println("  <h3>Project Outcome</h3>");
+                out.println("  <p>" + escapeHtml(n(report.getProjectOutcome()).trim().length() == 0
+                                ? "(none)"
+                                : report.getProjectOutcome()) + "</p>");
+
+                out.println("  <h3>Success Criteria</h3>");
+                List<String> successCriteria = splitNonEmptyLines(report.getSuccessCriteria());
+                if (successCriteria.isEmpty()) {
+                        out.println("  <p>(none)</p>");
+                } else {
+                        out.println("  <ul class=\"ph-list\">");
+                        for (String criterion : successCriteria) {
+                                out.println("    <li>" + escapeHtml(criterion) + "</li>");
+                        }
+                        out.println("  </ul>");
+                }
 
                 out.println("  <h3>Copy-Friendly Briefing</h3>");
                 out.println("  <pre id=\"phReportText\" class=\"ph-report-block\">" + escapeHtml(report.getReportText())
@@ -1041,10 +1064,10 @@ public class ProjectHealthPageRenderer {
                 out.println("  <div class=\"ph-divider\"></div>");
                 printDevLabel(out, "PROJECT ACTIONS");
                 out.println("  <h2>Quick Actions</h2>");
-                // Bulk import is intentionally hosted here as the conceptual home for project
-                // maintenance flows, even while this first cut remains scaffolded.
+                out.println("  <div class=\"ph-quick-actions\">");
+                out.println(
+                                "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenProjectDefinitionImportModal(event)\">Import Language</button>");
                 if (model.isSelectedProjectAvailable()) {
-                        out.println("  <div class=\"ph-quick-actions\">");
                         out.println(
                                         "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReviewScheduleModal(event)\">Schedule Project Review</button>");
                         out.println(
@@ -1055,10 +1078,10 @@ public class ProjectHealthPageRenderer {
                                         "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenReprioritizeProjectModal(event)\">Reprioritize Project</button>");
                         out.println(
                                         "    <button type=\"button\" class=\"ph-btn\" onclick=\"phOpenProjectEditModal(event)\">Edit Project</button>");
-                        out.println("  </div>");
                 } else {
                         out.println("  <p class=\"ph-subtle\">Select a project to run quick actions.</p>");
                 }
+                out.println("  </div>");
 
                 if (model.isPatchLinksVisible()) {
                         out.println("  <div class=\"ph-divider\"></div>");
@@ -1202,6 +1225,45 @@ public class ProjectHealthPageRenderer {
                 out.println("      </div>");
                 out.println(
                                 "      <div class=\"ph-form-actions\">\n        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Import Actions</button>\n        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseBulkImportModal(event)\">Cancel</button>\n      </div>");
+                out.println("    </form>");
+                out.println("  </div>");
+                out.println("</div>");
+        }
+
+        private void printProjectDefinitionImportModal(PrintWriter out) {
+                out.println(
+                                "<div id=\"phProjectDefinitionImportModal\" class=\"ph-modal-overlay\" onclick=\"phCloseProjectDefinitionImportModal(event)\">");
+                out.println("  <div class=\"ph-modal ph-import-modal\" onclick=\"event.stopPropagation()\">");
+                out.println("    <div class=\"ph-modal-head\">");
+                out.println("      <h3 class=\"ph-modal-title\">Import Project Language</h3>");
+                out.println(
+                                "      <button type=\"button\" class=\"ph-modal-close\" title=\"Close\" onclick=\"phCloseProjectDefinitionImportModal(event)\">&times;</button>");
+                out.println("    </div>");
+                out.println("    <form id=\"phProjectDefinitionImportForm\" onsubmit=\"return phSubmitProjectDefinitionImport(event)\">");
+                out.println("      <input type=\"hidden\" name=\"action\" value=\"importProjectDefinitions\" />");
+                out.println("      <div class=\"ph-form-field\">");
+                out.println("        <label for=\"phProjectDefinitionFile\">JSON or JSON Lines file</label>");
+                out.println(
+                                "        <input id=\"phProjectDefinitionFile\" name=\"projectDefinitionFile\" type=\"file\" accept=\".json,.jsonl,application/json,application/x-ndjson\" />");
+                out.println("      </div>");
+                out.println("      <div class=\"ph-import-divider\"><span>or paste</span></div>");
+                out.println("      <div class=\"ph-form-field\">");
+                out.println("        <label for=\"phProjectDefinitionJson\">Project updates</label>");
+                out.println(
+                                "        <textarea id=\"phProjectDefinitionJson\" name=\"projectDefinitionJson\" rows=\"12\" spellcheck=\"false\" placeholder='{\"projectName\":\"Website Refresh\",\"currentFocus\":\"Approve final copy\",\"successCriteria\":[\"Stakeholders approve copy\",\"New site is live\"]}'></textarea>");
+                out.println("      </div>");
+                out.println(
+                                "      <p class=\"ph-subtle\">Use one object, an array of objects, or one object per line. Missing fields stay unchanged. Use an empty value to clear a field.</p>");
+                out.println("      <details class=\"ph-import-example\">");
+                out.println("        <summary>Format example</summary>");
+                out.println(
+                                "        <pre>[{\n  &quot;projectName&quot;: &quot;Website Refresh&quot;,\n  &quot;description&quot;: &quot;Refresh the public website.&quot;,\n  &quot;currentFocus&quot;: &quot;Approve final copy&quot;,\n  &quot;projectOutcome&quot;: &quot;A clear, current website is live.&quot;,\n  &quot;successCriteria&quot;: [\n    &quot;Stakeholders approve copy&quot;,\n    &quot;New site is live&quot;\n  ]\n}]</pre>");
+                out.println("      </details>");
+                out.println("      <div class=\"ph-form-actions\">");
+                out.println("        <button type=\"submit\" class=\"ph-btn ph-btn-primary\">Import Updates</button>");
+                out.println(
+                                "        <button type=\"button\" class=\"ph-btn\" onclick=\"phCloseProjectDefinitionImportModal(event)\">Cancel</button>");
+                out.println("      </div>");
                 out.println("    </form>");
                 out.println("  </div>");
                 out.println("</div>");
@@ -1603,6 +1665,24 @@ public class ProjectHealthPageRenderer {
                 out.println("  }");
 
                 out.println(
+                                "  function phOpenProjectDefinitionImportModal(evt) { if (evt) { evt.preventDefault(); } var m=document.getElementById('phProjectDefinitionImportModal'); if (m) { m.classList.add('ph-modal-open'); } var t=document.getElementById('phProjectDefinitionJson'); if (t) { t.focus(); } return false; }");
+                out.println(
+                                "  function phCloseProjectDefinitionImportModal(evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var m=document.getElementById('phProjectDefinitionImportModal'); if (m) { m.classList.remove('ph-modal-open'); } return false; }");
+                out.println("  function phSubmitProjectDefinitionImport(evt) {");
+                out.println(
+                                "    evt.preventDefault(); var f=document.getElementById('phProjectDefinitionImportForm'); if (!f) { return false; }");
+                out.println("    var formData=new FormData(f);");
+                out.println("    fetch('ProjectHealthServlet', { method:'POST', body:formData })");
+                out.println(
+                                "      .then(function(r){ return r.text().then(function(text){ var data=null; try { data=text ? JSON.parse(text) : null; } catch (e) { throw new Error('Unexpected server response (' + r.status + ')'); } if (!r.ok) { throw new Error((data && data.message) ? data.message : ('Request failed (' + r.status + ')')); } return data; }); })");
+                out.println(
+                                "      .then(function(data){ if (data && data.success) { alert(data.message || 'Projects updated.'); window.location.reload(); } else { alert((data && data.message) ? data.message : 'Unable to import project updates.'); } })");
+                out.println(
+                                "      .catch(function(error){ alert(error && error.message ? error.message : 'Unable to import project updates.'); });");
+                out.println("    return false;");
+                out.println("  }");
+
+                out.println(
                                 "  function phOpenReviewUnscheduledModal(evt) { if (evt) { evt.preventDefault(); } if (!window.phSelectedProjectId) { alert('Select a project before reviewing unscheduled actions.'); return false; } var m=document.getElementById('phReviewUnscheduledModal'); if (m) { m.classList.add('ph-modal-open'); } phLoadReviewUnscheduledList(); return false; }");
                 out.println(
                                 "  function phCloseReviewUnscheduledModal(evt) { if (evt) { evt.preventDefault(); evt.stopPropagation(); } var m=document.getElementById('phReviewUnscheduledModal'); if (m) { m.classList.remove('ph-modal-open'); } return false; }");
@@ -1853,6 +1933,12 @@ public class ProjectHealthPageRenderer {
                 out.println("  .ph-modal-overlay.ph-modal-open { display: flex; }");
                 out.println(
                                 "  .ph-modal { width: min(460px, calc(100vw - 30px)); max-height: calc(100vh - 40px); overflow: auto; background: #fff; border: 1px solid #e4dbcd; border-radius: 6px; box-shadow: 0 10px 28px rgba(0,0,0,0.2); padding: 12px 14px; }");
+                out.println("  .ph-import-modal { width: min(620px, calc(100vw - 30px)); }");
+                out.println("  .ph-import-divider { display: flex; align-items: center; gap: 10px; margin: 10px 0; color: #776f64; font-size: 12px; }");
+                out.println("  .ph-import-divider::before, .ph-import-divider::after { content: ''; flex: 1; border-top: 1px solid #e4dbcd; }");
+                out.println("  .ph-import-example { margin: 10px 0; }");
+                out.println("  .ph-import-example summary { cursor: pointer; color: #5b6653; font-weight: 600; }");
+                out.println("  .ph-import-example pre { overflow: auto; padding: 9px; background: #f5f2ec; border: 1px solid #e4dbcd; border-radius: 4px; font-size: 12px; line-height: 1.45; }");
                 out.println(
                                 "  .ph-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }");
                 out.println("  .ph-modal-title { margin: 0; font-size: 16px; color: #2f3a2f; }");

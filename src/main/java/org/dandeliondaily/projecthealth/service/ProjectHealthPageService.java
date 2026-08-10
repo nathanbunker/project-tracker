@@ -2083,6 +2083,9 @@ public class ProjectHealthPageService {
         report.setProjectId(project.getProjectId());
         report.setProjectName(resolveProjectDisplayName(project, displayNameByProjectId));
         report.setDescription(n(project.getDescription()));
+        report.setCurrentFocus(n(project.getCurrentFocusText()));
+        report.setProjectOutcome(n(project.getOutcomeText()));
+        report.setSuccessCriteria(n(project.getSuccessCriteriaText()));
         report.setCategory(loadTagSummaryForProject(dataSession, project.getProjectId()));
         report.setPhase(normalizeProjectStatus(project.getProjectStatus()));
         report.setUndatedOpenCount(stats.undatedOpen);
@@ -2425,7 +2428,31 @@ public class ProjectHealthPageService {
             text.append("- ").append(recommendation).append("\n");
         }
 
+        text.append("\nCurrent Focus\n");
+        text.append(n(report.getCurrentFocus(), "(none)")).append("\n");
+        text.append("\nProject Outcome\n");
+        text.append(n(report.getProjectOutcome(), "(none)")).append("\n");
+        text.append("\nSuccess Criteria\n");
+        appendDashList(text, report.getSuccessCriteria());
+
         return text.toString();
+    }
+
+    private void appendDashList(StringBuilder text, String value) {
+        if (value == null || value.trim().length() == 0) {
+            text.append("- (none)\n");
+            return;
+        }
+        String[] lines = value.split("\\r?\\n");
+        for (String line : lines) {
+            String item = n(line).trim();
+            if (item.startsWith("- ")) {
+                item = item.substring(2).trim();
+            }
+            if (item.length() > 0) {
+                text.append("- ").append(item).append("\n");
+            }
+        }
     }
 
     private boolean isPersonalProject(Project project, Session dataSession) {

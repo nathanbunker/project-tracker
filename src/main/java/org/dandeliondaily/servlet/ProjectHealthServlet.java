@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
@@ -25,11 +26,14 @@ import javax.servlet.http.Part;
 import org.dandeliondaily.projecthealth.model.ProjectHealthPageModel;
 import org.dandeliondaily.projecthealth.model.ProjectListItemModel;
 import org.dandeliondaily.projecthealth.render.ProjectHealthPageRenderer;
+import org.dandeliondaily.projecthealth.service.ProjectDefinitionImportService;
+import org.dandeliondaily.projecthealth.service.ProjectDefinitionImportService.ProjectDefinitionPatch;
 import org.dandeliondaily.projecthealth.service.ProjectFactValueService;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.util.WebEscaper;
 import org.openimmunizationsoftware.pt.model.ActionNext;
+import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.dandeliondaily.projecthealth.service.ProjectPatchLinkService;
@@ -53,6 +57,7 @@ public class ProjectHealthServlet extends ClientServlet {
 
     private final ProjectHealthPageService pageService = new ProjectHealthPageService();
     private final ProjectFactValueService projectFactValueService = new ProjectFactValueService();
+    private final ProjectDefinitionImportService projectDefinitionImportService = new ProjectDefinitionImportService();
     private final ProjectHealthPageRenderer pageRenderer = new ProjectHealthPageRenderer();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -96,6 +101,10 @@ public class ProjectHealthServlet extends ClientServlet {
             }
             if ("bulkImportActions".equals(action)) {
                 handleBulkImportActions(appReq);
+                return;
+            }
+            if ("importProjectDefinitions".equals(action)) {
+                handleImportProjectDefinitions(appReq);
                 return;
             }
             if ("loadUnscheduledReviewData".equals(action)) {
@@ -1270,6 +1279,114 @@ public class ProjectHealthServlet extends ClientServlet {
         redirectToProjectHealth(appReq, projectId, patchTagKey, privateProjectId, "Project definition saved.", false);
     }
 
+    private void handleImportProjectDefinitions(AppReq appReq) throws Exception {
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            sendJson(appReq, false, "Workspace is required.", null);
+            return;
+        }
+
+        String pastedJson = safeText(appReq.getRequest().getParameter("projectDefinitionJson")).trim();
+        Part jsonFile = null;
+        try {
+            jsonFile = appReq.getRequest().getPart("projectDefinitionFile");
+        } catch (Exception e) {
+            sendJson(appReq, false, "Unable to read the uploaded JSON file.", null);
+            return;
+        }
+        boolean hasFile = jsonFile != null && jsonFile.getSize() > 0;
+        if (hasFile && pastedJson.length() > 0) {
+            sendJson(appReq, false, "Choose a JSON file or paste JSON, not both.", null);
+            return;
+        }
+        if (hasFile && jsonFile.getSize() > 1024 * 1024) {
+            sendJson(appReq, false, "The JSON file must be 1 MB or smaller.", null);
+            return;
+        }
+        String importText = hasFile ? readPartUtf8(jsonFile) : pastedJson;
+
+        List<ProjectDefinitionPatch> patches;
+        try {
+            patches = projectDefinitionImportService.parse(importText);
+        } catch (IllegalArgumentException e) {
+            sendJson(appReq, false, e.getMessage(), null);
+            return;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        Query projectQuery = dataSession.createQuery("from Project where workspaceId = :workspaceId");
+        projectQuery.setParameter("workspaceId", workspaceId);
+        @SuppressWarnings("unchecked")
+        List<Project> workspaceProjects = projectQuery.list();
+        Map<String, List<Project>> projectsByName = new HashMap<String, List<Project>>();
+        for (Project project : workspaceProjects) {
+            String key = normalizeProjectName(project.getProjectName());
+            List<Project> namedProjects = projectsByName.get(key);
+            if (namedProjects == null) {
+                namedProjects = new ArrayList<Project>();
+                projectsByName.put(key, namedProjects);
+            }
+            namedProjects.add(project);
+        }
+
+        List<Project> matchedProjects = new ArrayList<Project>();
+        Set<Integer> matchedProjectIds = new HashSet<Integer>();
+        for (ProjectDefinitionPatch patch : patches) {
+            List<Project> matches = projectsByName.get(normalizeProjectName(patch.getProjectName()));
+            if (matches == null || matches.isEmpty()) {
+                sendJson(appReq, false, "Project '" + patch.getProjectName() + "' was not found in this workspace.",
+                        null);
+                return;
+            }
+            if (matches.size() > 1) {
+                sendJson(appReq, false, "Project name '" + patch.getProjectName()
+                        + "' is ambiguous in this workspace.", null);
+                return;
+            }
+            Project project = matches.get(0);
+            if (!matchedProjectIds.add(Integer.valueOf(project.getProjectId()))) {
+                sendJson(appReq, false, "Project '" + patch.getProjectName()
+                        + "' appears more than once in the import.", null);
+                return;
+            }
+            matchedProjects.add(project);
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            for (int i = 0; i < patches.size(); i++) {
+                ProjectDefinitionPatch patch = patches.get(i);
+                Project project = matchedProjects.get(i);
+                if (patch.isDescriptionPresent()) {
+                    project.setDescription(clipAllowNull(patch.getDescription(), 12000));
+                }
+                if (patch.isCurrentFocusPresent()) {
+                    project.setCurrentFocusText(clipAllowNull(patch.getCurrentFocus(), 12000));
+                }
+                if (patch.isProjectOutcomePresent()) {
+                    project.setOutcomeText(clipAllowNull(patch.getProjectOutcome(), 12000));
+                }
+                if (patch.isSuccessCriteriaPresent()) {
+                    project.setSuccessCriteriaText(clipAllowNull(patch.getSuccessCriteria(), 12000));
+                }
+                if (appReq.getWebUser() != null) {
+                    project.setLastModifiedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
+                }
+                dataSession.saveOrUpdate(project);
+            }
+            transaction.commit();
+        } catch (Exception e) {
+            transaction.rollback();
+            sendJson(appReq, false, "Unable to update projects: " + safeText(e.getMessage()), null);
+            return;
+        }
+
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        data.put("updatedCount", Integer.valueOf(patches.size()));
+        sendJson(appReq, true, "Updated " + patches.size() + " project"
+                + (patches.size() == 1 ? "." : "s."), data);
+    }
+
     private void handleToggleSharedProjectFact(AppReq appReq, Integer contextWorkspaceId, String patchTagKey)
             throws IOException {
         Integer projectId = parseInteger(appReq.getRequest().getParameter("projectId"));
@@ -1703,6 +1820,10 @@ public class ProjectHealthServlet extends ClientServlet {
             return normalized;
         }
         return null;
+    }
+
+    private String normalizeProjectName(String value) {
+        return safeText(value).trim().toLowerCase(Locale.ENGLISH);
     }
 
     private void applyProjectDefinitionField(Project project, String fieldName, String fieldValue) {

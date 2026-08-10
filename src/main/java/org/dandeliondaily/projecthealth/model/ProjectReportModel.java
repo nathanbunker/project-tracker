@@ -38,6 +38,9 @@ public class ProjectReportModel {
     private int projectId;
     private String projectName = "";
     private String description = "";
+    private String currentFocus = "";
+    private String projectOutcome = "";
+    private String successCriteria = "";
     private String category = "";
     private String phase = "";
     private String reportText = "";
@@ -75,6 +78,30 @@ public class ProjectReportModel {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getCurrentFocus() {
+        return currentFocus;
+    }
+
+    public void setCurrentFocus(String currentFocus) {
+        this.currentFocus = currentFocus;
+    }
+
+    public String getProjectOutcome() {
+        return projectOutcome;
+    }
+
+    public void setProjectOutcome(String projectOutcome) {
+        this.projectOutcome = projectOutcome;
+    }
+
+    public String getSuccessCriteria() {
+        return successCriteria;
+    }
+
+    public void setSuccessCriteria(String successCriteria) {
+        this.successCriteria = successCriteria;
     }
 
     public String getCategory() {
