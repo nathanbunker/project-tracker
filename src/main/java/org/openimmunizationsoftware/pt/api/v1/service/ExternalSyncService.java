@@ -76,7 +76,7 @@ public class ExternalSyncService {
                 project.setExternalManaged(true);
                 project.setExternalLastSyncedAt(new Date());
 
-                applyProjectFields(project, item);
+                applyProjectFields(project, item, createMode);
                 String stateError = validateProjectState(project);
                 if (stateError != null) {
                     error(result, stateError);
@@ -251,7 +251,7 @@ public class ExternalSyncService {
         return response;
     }
 
-    private void applyProjectFields(Project project, SyncProjectUpsertItem item) {
+    void applyProjectFields(Project project, SyncProjectUpsertItem item, boolean createMode) {
         if (item.isHasProjectName()) {
             project.setProjectName(item.getProjectName());
         }
@@ -260,6 +260,8 @@ public class ExternalSyncService {
         }
         if (item.isHasProjectHandle()) {
             project.setProjectHandle(emptyToNull(item.getProjectHandle()));
+        } else if (createMode) {
+            project.setProjectHandle(HandleValidationSupport.resolveHandle("", project.getProjectName(), 60));
         }
         if (item.isHasProjectStatus()) {
             String status = item.getProjectStatus();

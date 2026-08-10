@@ -42,7 +42,9 @@ Example root: `/api/v1/sync`
 - `externalProjectId`: required, immutable identity key.
 - `projectName`: required, cannot be empty.
 - `projectStatus`: required, must be one of: `Active`, `Paused`, `Complete`, `Closed`.
-- `projectHandle`: required for non-closed projects; may be empty only when status is `Closed`.
+- `projectHandle`: optional. When omitted while creating a project, Dandelion uses the
+  `projectName` (trimmed and clipped to 60 characters). An explicitly empty value is
+  allowed only when status is `Closed`.
 - `description`: optional.
 - `projectTags`: optional list of human-readable tag labels.
   - Labels are trimmed.
@@ -54,7 +56,8 @@ Example root: `/api/v1/sync`
   - When generated tag handles collide, Dandelion appends deterministic suffixes (`-2`, `-3`, ...).
 
 ### Omit vs Empty
-- Omitted field: preserve existing value.
+- Omitted field: preserve existing value, except an omitted `projectHandle` defaults to
+  `projectName` when creating a project.
 - Present with `""` or `null`: clear value when field is clearable.
 - Non-clearable fields (such as `projectName`, `projectStatus`) reject empty values.
 - For `projectTags` specifically:
