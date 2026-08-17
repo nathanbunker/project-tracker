@@ -311,8 +311,8 @@ public class WeeklyReportRenderer {
     }
 
     private static String allocationMetric(int minutes, BigDecimal percent) {
-        return "<td class=\"wr-number\"><strong>" + formatMinutes(minutes) + "</strong><small>"
-                + percent(percent) + "</small></td>";
+        return "<td class=\"wr-number\"><strong>" + percent(percent) + "</strong><small>"
+                + formatMinutes(minutes) + " hrs</small></td>";
     }
 
     private static String metricCell(int minutes, int denominator) {
