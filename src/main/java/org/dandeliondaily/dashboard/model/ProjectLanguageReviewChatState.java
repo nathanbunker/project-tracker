@@ -4,9 +4,14 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Session-scoped state for one project's language review thread. A background thread (kicked off by
+ * the servlet) mutates this concurrently with the request thread that renders the page or polls status,
+ * so all access goes through synchronized methods rather than exposing the backing fields/lists directly.
+ */
 public class ProjectLanguageReviewChatState implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private List<ProjectDashboardChatMessage> messages = new ArrayList<ProjectDashboardChatMessage>();
     private String proposedDescription = "";
@@ -14,65 +19,82 @@ public class ProjectLanguageReviewChatState implements Serializable {
     private String proposedOutcome = "";
     private String proposedSuccessCriteria = "";
     private List<String> followUpQuestions = new ArrayList<String>();
+    private boolean pending = false;
 
-    public List<ProjectDashboardChatMessage> getMessages() {
+    public synchronized List<ProjectDashboardChatMessage> getMessages() {
         return messages;
     }
 
-    public void setMessages(List<ProjectDashboardChatMessage> messages) {
-        this.messages = messages;
+    public synchronized List<ProjectDashboardChatMessage> snapshotMessages() {
+        return new ArrayList<ProjectDashboardChatMessage>(messages);
     }
 
-    public String getProposedDescription() {
+    public synchronized String getProposedDescription() {
         return proposedDescription;
     }
 
-    public void setProposedDescription(String proposedDescription) {
-        this.proposedDescription = proposedDescription;
-    }
-
-    public String getProposedCurrentFocus() {
+    public synchronized String getProposedCurrentFocus() {
         return proposedCurrentFocus;
     }
 
-    public void setProposedCurrentFocus(String proposedCurrentFocus) {
-        this.proposedCurrentFocus = proposedCurrentFocus;
-    }
-
-    public String getProposedOutcome() {
+    public synchronized String getProposedOutcome() {
         return proposedOutcome;
     }
 
-    public void setProposedOutcome(String proposedOutcome) {
-        this.proposedOutcome = proposedOutcome;
-    }
-
-    public String getProposedSuccessCriteria() {
+    public synchronized String getProposedSuccessCriteria() {
         return proposedSuccessCriteria;
     }
 
-    public void setProposedSuccessCriteria(String proposedSuccessCriteria) {
-        this.proposedSuccessCriteria = proposedSuccessCriteria;
-    }
-
-    public List<String> getFollowUpQuestions() {
+    public synchronized List<String> getFollowUpQuestions() {
         return followUpQuestions;
     }
 
-    public void setFollowUpQuestions(List<String> followUpQuestions) {
-        this.followUpQuestions = followUpQuestions;
+    public synchronized boolean isPending() {
+        return pending;
     }
 
-    public boolean hasStarted() {
+    public synchronized boolean hasStarted() {
         return messages != null && !messages.isEmpty();
     }
 
-    public boolean hasProposals() {
+    public synchronized boolean hasProposals() {
         return isNonEmpty(proposedDescription) || isNonEmpty(proposedCurrentFocus)
                 || isNonEmpty(proposedOutcome) || isNonEmpty(proposedSuccessCriteria);
     }
 
-    public void clearProposals() {
+    /** Records the user's turn and marks the thread as waiting on a background AI call. */
+    public synchronized void appendUserMessageAndBeginPending(String prompt) {
+        messages.add(new ProjectDashboardChatMessage("user", prompt));
+        pending = true;
+    }
+
+    /** Called from the background thread once the AI call succeeds. */
+    public synchronized void completePending(String assistantText, String description, String currentFocus,
+            String outcome, String successCriteria, List<String> followUps, int maxMessages) {
+        messages.add(new ProjectDashboardChatMessage("assistant", assistantText));
+        trimMessages(maxMessages);
+        this.proposedDescription = description == null ? "" : description;
+        this.proposedCurrentFocus = currentFocus == null ? "" : currentFocus;
+        this.proposedOutcome = outcome == null ? "" : outcome;
+        this.proposedSuccessCriteria = successCriteria == null ? "" : successCriteria;
+        this.followUpQuestions = followUps == null ? new ArrayList<String>() : followUps;
+        this.pending = false;
+    }
+
+    /** Called from the background thread if the AI call fails. */
+    public synchronized void failPending(String errorMessage, int maxMessages) {
+        messages.add(new ProjectDashboardChatMessage("assistant", errorMessage));
+        trimMessages(maxMessages);
+        this.pending = false;
+    }
+
+    private void trimMessages(int maxMessages) {
+        while (messages.size() > maxMessages) {
+            messages.remove(0);
+        }
+    }
+
+    public synchronized void clearProposals() {
         proposedDescription = "";
         proposedCurrentFocus = "";
         proposedOutcome = "";

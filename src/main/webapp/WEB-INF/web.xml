@@ -89,6 +89,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.ScheduleSchoolServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>ManageSchoolTemplatesServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.ManageSchoolTemplatesServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>StudentOfferSetupServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.StudentOfferSetupServlet</servlet-class>
   </servlet>
@@ -123,14 +127,6 @@
   <servlet>
     <servlet-name>PublicWeeklyReportServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.PublicWeeklyReportServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>WeeklyReportBillingServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.WeeklyReportBillingServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>PublicWeeklyReportBillingServlet</servlet-name>
-    <servlet-class>org.openimmunizationsoftware.pt.servlet.PublicWeeklyReportBillingServlet</servlet-class>
   </servlet>
   <servlet>
     <servlet-name>WeeklyReportProjectServlet</servlet-name>
@@ -409,14 +405,6 @@
     <url-pattern>/PublicWeeklyReportServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>WeeklyReportBillingServlet</servlet-name>
-    <url-pattern>/WeeklyReportBillingServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>PublicWeeklyReportBillingServlet</servlet-name>
-    <url-pattern>/PublicWeeklyReportBillingServlet</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
     <servlet-name>WeeklyReportProjectServlet</servlet-name>
     <url-pattern>/WeeklyReportProjectServlet</url-pattern>
   </servlet-mapping>
@@ -459,6 +447,10 @@
   <servlet-mapping>
     <servlet-name>ScheduleSchoolServlet</servlet-name>
     <url-pattern>/ScheduleSchoolServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>ManageSchoolTemplatesServlet</servlet-name>
+    <url-pattern>/ManageSchoolTemplatesServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>StudentOfferSetupServlet</servlet-name>

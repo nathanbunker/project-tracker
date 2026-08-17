@@ -48,6 +48,16 @@ public class WeeklyReportRendererTest {
         row.setFiscalYearPercent(new BigDecimal("40.00"));
         model.getAllocationRows().put(row.getBillCode(), row);
 
+        Project project = new Project();
+        project.setProjectId(7);
+        project.setProjectName("Immunization Registry");
+        ProjectActivity activity = new ProjectActivity();
+        activity.setProjectId(7);
+        activity.setProject(project);
+        activity.setBillCode("AIRA-1");
+        activity.setRoundedMinutes(60);
+        model.getProjectActivities().put(WeeklyReportViewModel.projectKey(7, "AIRA-1"), activity);
+
         WebUser owner = new WebUser();
         owner.setFirstName("Report");
         owner.setLastName("Owner");
@@ -65,7 +75,10 @@ public class WeeklyReportRendererTest {
         Assert.assertTrue(html.contains("Project Activity"));
         Assert.assertTrue(html.contains("Eight-Week History"));
         Assert.assertTrue(html.contains("key=public+key"));
-        Assert.assertTrue(html.contains("PublicWeeklyReportBillingServlet"));
+        Assert.assertTrue(html.contains("class=\"wr-code-toggle\""));
+        Assert.assertTrue(html.contains("class=\"wr-alloc-detail\""));
+        Assert.assertTrue(html.contains("PublicWeeklyReportProjectServlet"));
+        Assert.assertFalse(html.contains("WeeklyReportBillingServlet"));
         Assert.assertTrue(html.contains("class=\"wr-page\""));
         Assert.assertTrue(html.contains("class=\"wr-header\""));
         Assert.assertTrue(html.contains("class=\"wr-table\""));

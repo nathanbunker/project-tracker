@@ -16,6 +16,8 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
+import org.openimmunizationsoftware.pt.doa.BillPlanDao;
+import org.openimmunizationsoftware.pt.doa.BillPlanTargetDao;
 import org.openimmunizationsoftware.pt.model.BillBudget;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillPlan;
@@ -162,8 +164,10 @@ public class BillPlanEditServlet extends ClientServlet {
             out.println("  <tr class=\"boxed\">");
             out.println("    <th class=\"boxed\">Bill Code</th>");
             out.println("    <th class=\"boxed\">Mode</th>");
-            out.println("    <th class=\"boxed\">Annual BPS</th>");
-            out.println("    <th class=\"boxed\">Steering BPS</th>");
+            out.println(
+                    "    <th class=\"boxed\">Annual BPS<br><small>(10000 = 100%, or type e.g. 40%)</small></th>");
+            out.println(
+                    "    <th class=\"boxed\">Steering BPS<br><small>(10000 = 100%, or type e.g. 40%)</small></th>");
             out.println("    <th class=\"boxed\">Budget</th>");
             out.println("    <th class=\"boxed\">Variance Policy</th>");
             out.println("    <th class=\"boxed\">Display Order</th>");
@@ -190,10 +194,18 @@ public class BillPlanEditServlet extends ClientServlet {
                             + mode.getCode() + "</option>");
                 }
                 out.println("</select></td>");
-                out.println("    <td class=\"boxed\"><input type=\"text\" name=\"annualTargetBps_" + i + "\" value=\""
-                        + n(target.getAnnualTargetBps()) + "\" size=\"6\"></td>");
-                out.println("    <td class=\"boxed\"><input type=\"text\" name=\"steeringTargetBps_" + i + "\" value=\""
-                        + n(target.getSteeringTargetBps()) + "\" size=\"6\"></td>");
+                out.println("    <td class=\"boxed\">"
+                        + "<input type=\"hidden\" class=\"bpsAnnualInput\" name=\"annualTargetBps_" + i
+                        + "\" id=\"annualTargetBps_" + i + "\" value=\"" + n(target.getAnnualTargetBps()) + "\">"
+                        + "<input type=\"text\" class=\"bpsAnnualDisplay\" data-hidden-id=\"annualTargetBps_" + i
+                        + "\" value=\"" + formatBpsGrouped(target.getAnnualTargetBps())
+                        + "\" placeholder=\"40 00 or 40%\" size=\"9\"></td>");
+                out.println("    <td class=\"boxed\">"
+                        + "<input type=\"hidden\" class=\"bpsSteeringInput\" name=\"steeringTargetBps_" + i
+                        + "\" id=\"steeringTargetBps_" + i + "\" value=\"" + n(target.getSteeringTargetBps()) + "\">"
+                        + "<input type=\"text\" class=\"bpsSteeringDisplay\" data-hidden-id=\"steeringTargetBps_" + i
+                        + "\" value=\"" + formatBpsGrouped(target.getSteeringTargetBps())
+                        + "\" placeholder=\"40 00 or 40%\" size=\"9\"></td>");
                 out.println(
                         "    <td class=\"boxed\"><select name=\"billBudgetId_" + i + "\"><option value=\"\"></option>");
                 for (BillBudget billBudget : billBudgetList) {
@@ -221,7 +233,31 @@ public class BillPlanEditServlet extends ClientServlet {
                 }
                 out.println("  </tr>");
             }
+            out.println("  <tr class=\"boxed\">");
+            out.println("    <th class=\"boxed\" colspan=\"2\">Totals</th>");
+            out.println("    <td class=\"boxed\" id=\"bpsAnnualTotal\">-</td>");
+            out.println("    <td class=\"boxed\" id=\"bpsSteeringTotal\">-</td>");
+            out.println("    <td class=\"boxed\" colspan=\"" + (targetsReadOnly ? 4 : 5) + "\"></td>");
+            out.println("  </tr>");
             out.println("</table><br/>");
+            out.println(
+                    "<script>(function(){"
+                            + "function groupBps(bps){if(bps===null||isNaN(bps)){return '';}var neg=bps<0;var digits=String(Math.abs(bps));while(digits.length<3){digits='0'+digits;}var whole=digits.slice(0,digits.length-2);var frac=digits.slice(digits.length-2);return (neg?'-':'')+whole+' '+frac;}"
+                            + "function toBps(raw){if(raw===null){return null;}var v=raw.replace(/\\s+/g,'');if(v===''){return null;}var isPercent=v.indexOf('%')>=0||v.indexOf('.')>=0;v=v.replace('%','');var num=parseFloat(v);if(isNaN(num)){return null;}return isPercent?Math.round(num*100):Math.round(num);}"
+                            + "function calcTotal(cls){var inputs=document.getElementsByClassName(cls);var total=0;for(var i=0;i<inputs.length;i++){var v=parseInt(inputs[i].value,10);if(!isNaN(v)){total+=v;}}return total;}"
+                            + "function fmt(total){var pct=(total/100).toFixed(2);var text=total+' bps ('+pct+'%)';return {text:text,ok:total===10000};}"
+                            + "function updateTotals(){var annual=fmt(calcTotal('bpsAnnualInput'));var steering=fmt(calcTotal('bpsSteeringInput'));"
+                            + "var a=document.getElementById('bpsAnnualTotal');var s=document.getElementById('bpsSteeringTotal');"
+                            + "a.textContent=annual.text;a.style.color=annual.ok?'green':'red';"
+                            + "s.textContent=steering.text;s.style.color=steering.ok?'green':'red';}"
+                            + "function bindDisplay(displayClass){var displays=document.getElementsByClassName(displayClass);"
+                            + "for(var i=0;i<displays.length;i++){(function(display){"
+                            + "var hidden=document.getElementById(display.getAttribute('data-hidden-id'));"
+                            + "display.addEventListener('input',function(){hidden.value=toBps(display.value)===null?'':String(toBps(display.value));updateTotals();});"
+                            + "display.addEventListener('blur',function(){var bps=toBps(display.value);hidden.value=bps===null?'':String(bps);display.value=groupBps(bps);updateTotals();});"
+                            + "})(displays[i]);}}"
+                            + "bindDisplay('bpsAnnualDisplay');bindDisplay('bpsSteeringDisplay');"
+                            + "updateTotals();})();</script>");
 
             if (!isReadOnlyStatus(billPlan)) {
                 out.println("<input type=\"submit\" name=\"action\" value=\"Add Target\">");
@@ -327,7 +363,8 @@ public class BillPlanEditServlet extends ClientServlet {
 
             if (approving) {
                 billPlan.setPlanStatus(BillPlanStatus.APPROVED.getCode());
-                BillPlanService service = new BillPlanService();
+                BillPlanService service = new BillPlanService(new BillPlanDao(dataSession),
+                        new BillPlanTargetDao(dataSession));
                 service.approvePlan(billPlan);
             } else if ("Save Draft".equals(action)) {
                 billPlan.setPlanStatus(BillPlanStatus.DRAFT.getCode());
@@ -392,6 +429,20 @@ public class BillPlanEditServlet extends ClientServlet {
 
     private String formatDate(AppReq appReq, java.util.Date value) {
         return value == null ? "" : appReq.getWebUser().getDateFormat().format(value);
+    }
+
+    private String formatBpsGrouped(Integer bps) {
+        if (bps == null) {
+            return "";
+        }
+        boolean negative = bps.intValue() < 0;
+        String digits = String.valueOf(Math.abs(bps.intValue()));
+        while (digits.length() < 3) {
+            digits = "0" + digits;
+        }
+        String whole = digits.substring(0, digits.length() - 2);
+        String frac = digits.substring(digits.length() - 2);
+        return (negative ? "-" : "") + whole + " " + frac;
     }
 
     private int parseInt(String value) {

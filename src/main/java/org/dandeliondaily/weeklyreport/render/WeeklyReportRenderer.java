@@ -118,34 +118,64 @@ public class WeeklyReportRenderer {
     private static void renderAllocations(PrintWriter out, WeeklyReportViewModel model, String reportQuery,
             boolean publicView) {
         openSection(out, "Allocation", "Billing Allocation",
-                "Billing-code distribution compared with annual and steering targets.", "");
+                "Billing-code distribution compared with annual and steering targets. "
+                        + "Click a billing code to see this week's project breakdown.",
+                "");
         if (model.getAllocationRows().isEmpty()) {
             out.println("<p class=\"wr-empty\">No billing codes in this report have activity or plan targets.</p>");
             closeSection(out);
             return;
         }
+        Map<String, List<ProjectActivity>> activitiesByCode = new LinkedHashMap<String, List<ProjectActivity>>();
+        for (ProjectActivity activity : model.getProjectActivities().values()) {
+            List<ProjectActivity> activities = activitiesByCode.get(activity.getBillCode());
+            if (activities == null) {
+                activities = new ArrayList<ProjectActivity>();
+                activitiesByCode.put(activity.getBillCode(), activities);
+            }
+            activities.add(activity);
+        }
+        String projectRoute = publicView ? "PublicWeeklyReportProjectServlet" : "WeeklyReportProjectServlet";
         out.println("<div class=\"wr-table-wrap\"><table class=\"wr-table\"><thead><tr>"
                 + "<th scope=\"col\">Billing Code</th><th scope=\"col\">Funding Source</th>"
                 + "<th scope=\"col\">Week</th><th scope=\"col\">4 Weeks</th>"
                 + "<th scope=\"col\">Fiscal Year</th><th scope=\"col\">Annual Target</th>"
                 + "<th scope=\"col\">Steering Target</th></tr></thead><tbody>");
+        int groupIndex = 0;
         for (AllocationRow row : model.getAllocationRows().values()) {
-            String detailRoute = publicView ? "PublicWeeklyReportBillingServlet" : "WeeklyReportBillingServlet";
-            String codeLink = detailRoute + "?" + reportQuery + "&amp;week=" + model.getWeekStart()
-                    + "&amp;billCode=" + urlEncode(row.getBillCode());
-            boolean hasActivity = row.getWeekMinutes() > 0 || row.getFourWeekMinutes() > 0
-                    || row.getFiscalYearMinutes() > 0;
-            String codeDisplay = hasActivity ? "<a href=\"" + codeLink + "\">"
-                    + escapeHtml(row.getBillCode()) + "</a>" : escapeHtml(row.getBillCode());
+            List<ProjectActivity> activities = activitiesByCode.get(row.getBillCode());
+            boolean hasProjects = activities != null && !activities.isEmpty();
+            String groupId = "wr-alloc-" + groupIndex++;
+            String codeDisplay = hasProjects
+                    ? "<button type=\"button\" class=\"wr-code-toggle\" aria-expanded=\"false\" data-target=\""
+                            + groupId + "\">" + escapeHtml(row.getBillCode()) + "</button>"
+                    : escapeHtml(row.getBillCode());
             out.println("<tr><th scope=\"row\">" + codeDisplay + label(row.getBillLabel()) + "</th>"
                     + "<td>" + escapeHtml(value(row.getFundingSource())) + "</td>"
-                    + allocationMetric(row.getWeekMinutes(), row.getWeekPercent())
-                    + allocationMetric(row.getFourWeekMinutes(), row.getFourWeekPercent())
-                    + allocationMetric(row.getFiscalYearMinutes(), row.getFiscalYearPercent())
+                    + billingMetric(row.getWeekMinutes(), row.getWeekPercent())
+                    + billingMetric(row.getFourWeekMinutes(), row.getFourWeekPercent())
+                    + billingMetric(row.getFiscalYearMinutes(), row.getFiscalYearPercent())
                     + percentCell(row.getAnnualTargetPercent()) + percentCell(row.getSteeringTargetPercent())
                     + "</tr>");
+            if (hasProjects) {
+                for (ProjectActivity activity : activities) {
+                    Project project = activity.getProject();
+                    String projectName = project == null ? "Project " + activity.getProjectId()
+                            : project.getProjectName();
+                    String projectLink = projectRoute + "?" + reportQuery + "&amp;week=" + model.getWeekStart()
+                            + "&amp;projectId=" + activity.getProjectId() + "&amp;billCode="
+                            + urlEncode(activity.getBillCode());
+                    out.println("<tr class=\"wr-alloc-detail\" data-group=\"" + groupId + "\" hidden>"
+                            + "<th scope=\"row\"></th><td class=\"wr-alloc-project\"><a href=\"" + projectLink
+                            + "\">" + escapeHtml(projectName) + "</a></td><td class=\"wr-number\">"
+                            + formatMinutes(activity.getRoundedMinutes())
+                            + "</td><td></td><td></td><td></td><td></td></tr>");
+                }
+            }
         }
         out.println("</tbody></table></div>");
+        out.println(
+                "<script>(function(){var toggles=document.querySelectorAll('.wr-code-toggle');for(var i=0;i<toggles.length;i++){toggles[i].addEventListener('click',function(){var expanded=this.getAttribute('aria-expanded')==='true';this.setAttribute('aria-expanded',expanded?'false':'true');var rows=document.querySelectorAll('tr[data-group=\"'+this.getAttribute('data-target')+'\"]');for(var j=0;j<rows.length;j++){if(expanded){rows[j].setAttribute('hidden','');}else{rows[j].removeAttribute('hidden');}}});}})();</script>");
         closeSection(out);
     }
 
@@ -289,12 +319,21 @@ public class WeeklyReportRenderer {
         return allocationMetric(minutes, calculatePercent(minutes, denominator));
     }
 
+    private static String billingMetric(int minutes, BigDecimal percent) {
+        return "<td class=\"wr-number\"><strong>" + percentWhole(percent) + "</strong><small>"
+                + formatMinutes(minutes) + " hrs</small></td>";
+    }
+
     private static String percentCell(BigDecimal percent) {
-        return "<td class=\"wr-number\">" + (percent == null ? "&mdash;" : percent(percent)) + "</td>";
+        return "<td class=\"wr-number\">" + (percent == null ? "&mdash;" : percentWhole(percent)) + "</td>";
     }
 
     private static String percent(BigDecimal percent) {
         return percent.setScale(2, RoundingMode.HALF_UP).toPlainString() + "%";
+    }
+
+    private static String percentWhole(BigDecimal percent) {
+        return percent.setScale(0, RoundingMode.HALF_UP).toPlainString() + "%";
     }
 
     private static BigDecimal calculatePercent(int numerator, int denominator) {
@@ -332,7 +371,7 @@ public class WeeklyReportRenderer {
         out.println(
                 ".wr-page{box-sizing:border-box;min-height:calc(100vh - 70px);padding:18px;background:linear-gradient(180deg,#f4f0e8 0%,#efe7db 40%,#f8f6f1 100%);color:#2d332d;font-family:Georgia,'Times New Roman',serif}");
         out.println(
-                ".wr-page *{box-sizing:border-box}.wr-page a{color:#315c3a;text-decoration-thickness:1px;text-underline-offset:2px}.wr-page a:hover{color:#1e3d26}");
+                ".wr-page *{box-sizing:border-box}.wr-page a{color:#315c3a;text-decoration:none}.wr-page a:hover{color:#1e3d26}");
         out.println(
                 ".wr-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:28px;align-items:end;max-width:1180px;margin:0 auto;background:linear-gradient(90deg,#3c5341 0%,#5b735c 55%,#7a8f70 100%);color:#fffdf8;padding:26px 30px;border:1px solid #354b39;box-shadow:0 10px 30px rgba(94,77,58,.12)}");
         out.println(
@@ -351,6 +390,8 @@ public class WeeklyReportRenderer {
                 ".weekly-report-briefing{max-width:820px;font-size:16px;line-height:1.62}.weekly-report-briefing h2{margin:25px 0 9px;color:#3d4f41;font-size:19px}.weekly-report-briefing h2:first-child{margin-top:0}.weekly-report-briefing ul{padding-left:20px}.weekly-report-briefing li{margin-bottom:8px}.wr-empty{margin:0;color:#766c5f;font-style:italic}");
         out.println(
                 ".wr-table-wrap{width:100%;overflow-x:auto;border:1px solid #d9ccb8}.wr-table{width:100%;border-collapse:collapse;font-family:Verdana,sans-serif;font-size:12px;background:#fffdf8}.wr-table th,.wr-table td{padding:11px 12px;border-bottom:1px solid #e4dacb;text-align:left;vertical-align:top}.wr-table thead th{background:#e8eee3;color:#344637;font-size:10px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}.wr-table tbody th{color:#354537}.wr-table tbody tr:last-child th,.wr-table tbody tr:last-child td{border-bottom:0}.wr-table tbody tr:hover{background:#faf6ef}.wr-number{white-space:nowrap;font-variant-numeric:tabular-nums}.wr-number strong,.wr-number small{display:block}.wr-number small{margin-top:3px;color:#756b5f;font-size:10px}.wr-code-label{display:block;margin-top:3px;color:#756b5f;font-weight:normal}");
+        out.println(
+                ".wr-code-toggle{display:inline-flex;align-items:center;gap:6px;padding:0;margin:0;border:0;background:none;font:inherit;color:#354537;cursor:pointer;text-align:left}.wr-code-toggle:hover{color:#1e3d26}.wr-code-toggle::before{content:'\\25B8';font-size:9px;color:#78866f}.wr-code-toggle[aria-expanded=\"true\"]::before{content:'\\25BE'}.wr-alloc-detail{background:#f4efe3}.wr-alloc-detail:hover{background:#f4efe3}.wr-alloc-project{padding-left:26px;color:#5d4b34;font-style:italic}.wr-alloc-project a{font-style:normal}");
         out.println(
                 ".wr-activity-group{margin-top:24px}.wr-activity-group:first-of-type{margin-top:0}.wr-activity-group>h3{margin:0;padding:9px 12px;background:#e8eee3;border-left:4px solid #617a60;color:#344637;font-family:Verdana,sans-serif;font-size:12px;letter-spacing:.05em;text-transform:uppercase}.wr-project-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}.wr-project{padding:16px;border:1px solid #d9ccb8;background:#fffdf8}.wr-project-heading{display:flex;justify-content:space-between;gap:18px;align-items:baseline;margin-bottom:11px}.wr-project h4{margin:0;font-size:16px}.wr-project-heading span{color:#5d4b34;font-family:Verdana,sans-serif;font-size:11px;font-weight:bold;white-space:nowrap}.wr-project ul{margin:0;padding-left:19px}.wr-project li{margin-bottom:7px;line-height:1.45}.wr-selected{display:inline-block;margin-left:6px;padding:2px 6px;background:#dde9d8;color:#29402c;font-size:9px;text-transform:uppercase}");
         out.println(

@@ -28,13 +28,14 @@ public class ProjectReviewChatService {
 
     public enum ChatMode {
         GENERAL,
-        LANGUAGE_REVIEW
+        LANGUAGE_REVIEW,
+        NEXT_ACTIONS
     }
 
     private static final String GENERAL_SYSTEM_PROMPT = "You are a project review assistant for Dandelion Daily. "
-            + "You help improve project definition and suggest practical next actions, issues, and project narratives. "
+            + "You help identify issues and capture project narrative entries. "
             + "Do not perform direct autonomous edits. "
-            + "Return JSON only with keys: assistantMessage, proposedDescription, proposedOutcome, proposedSuccessCriteria, followUpQuestions, proposedActions, proposedIssues, proposedNarrativeEntries. "
+            + "Return JSON only with keys: assistantMessage, followUpQuestions, proposedIssues, proposedNarrativeEntries. "
             + "assistantMessage should be concise and practical. followUpQuestions should be an array of strings when useful.";
 
     private static final String LANGUAGE_REVIEW_SYSTEM_PROMPT = "You are running a Dandelion Daily project "
@@ -54,7 +55,9 @@ public class ProjectReviewChatService {
             + "project outcome is a stable explanation of why the project exists and what it is intended to "
             + "accomplish, not the next release or task; "
             + "success criteria are three to seven observable markers showing the project is succeeding or "
-            + "complete, not a restatement of the current task list. "
+            + "complete, not a restatement of the current task list. Write proposedSuccessCriteria as one "
+            + "criterion per line with a plain newline between lines — never number them (no \"1.\"), never "
+            + "bullet them (no \"-\" or \"*\"), just the bare text of each criterion on its own line. "
             + "Also flag work that appears to belong in a different project so it doesn't get absorbed here. "
             + "Only include proposedDescription, proposedCurrentFocus, proposedOutcome, or proposedSuccessCriteria "
             + "in your JSON once you actually have a concrete proposal for that field from the interview so far; "
@@ -66,6 +69,24 @@ public class ProjectReviewChatService {
             + "proposedOutcome, proposedSuccessCriteria, followUpQuestions. "
             + "assistantMessage should be concise and practical, and is where interview questions belong. "
             + "followUpQuestions should be an array of strings when useful.";
+
+    private static final String NEXT_ACTIONS_SYSTEM_PROMPT = "You are suggesting candidate next actions for a "
+            + "Dandelion Daily project. Propose a batch of concrete, practical actions the user might adopt. "
+            + "Expect that most proposals will NOT be adopted — that is normal and fine, so favor a reasonably "
+            + "sized set of distinct, non-overlapping actions over a single exhaustive one. Each proposal needs: "
+            + "a title written as a lowercase sentence fragment with NO leading capital letter and NO trailing "
+            + "period, phrased so it reads naturally after \"I will \" — for example \"publish a report\", not "
+            + "\"Publish a report.\" or \"I will publish a report\"; a notes field containing enough detail that the user can pick the action "
+            + "up later and know exactly what to do without re-deriving context (this is what gets saved as the "
+            + "action's own notes if adopted — write it TO the future user doing the work, not as a justification "
+            + "to the reader now); a rationale explaining briefly why this action matters right now (shown only "
+            + "while reviewing the proposal, not saved with the action); a suggested type; and a time estimate in "
+            + "minutes. When the user replies with feedback, treat it as direction for a fresh batch, not an "
+            + "edit to individual items — replace the whole set. "
+            + "Do not perform direct autonomous edits. "
+            + "Return JSON only with keys: assistantMessage, proposedActions, followUpQuestions. Each entry in "
+            + "proposedActions should have keys: title, notes, rationale, suggestedType, suggestedScheduleHint, "
+            + "estimateMinutes. assistantMessage should be concise and practical.";
 
     private final OpenAIClient client;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -88,7 +109,14 @@ public class ProjectReviewChatService {
     public ProjectReviewChatResponse chat(List<ProjectDashboardChatMessage> history, String userPrompt,
             String contextText, String modelId, ChatMode mode) {
         String input = buildInput(history, userPrompt, contextText);
-        String systemPrompt = mode == ChatMode.LANGUAGE_REVIEW ? LANGUAGE_REVIEW_SYSTEM_PROMPT : GENERAL_SYSTEM_PROMPT;
+        String systemPrompt;
+        if (mode == ChatMode.LANGUAGE_REVIEW) {
+            systemPrompt = LANGUAGE_REVIEW_SYSTEM_PROMPT;
+        } else if (mode == ChatMode.NEXT_ACTIONS) {
+            systemPrompt = NEXT_ACTIONS_SYSTEM_PROMPT;
+        } else {
+            systemPrompt = GENERAL_SYSTEM_PROMPT;
+        }
         ResponseCreateParams params = ResponseCreateParams.builder()
                 .model(ChatModel.of(resolveModelId(modelId)))
                 .instructions(systemPrompt)
@@ -182,6 +210,7 @@ public class ProjectReviewChatService {
                     ProjectDashboardSuggestedAction suggestedAction = new ProjectDashboardSuggestedAction();
                     suggestedAction.setTitle(readText(item, "title"));
                     suggestedAction.setDescription(readText(item, "description"));
+                    suggestedAction.setNotes(readText(item, "notes"));
                     suggestedAction.setRationale(readText(item, "rationale"));
                     suggestedAction.setSuggestedType(readText(item, "suggestedType"));
                     suggestedAction.setSuggestedScheduleHint(readText(item, "suggestedScheduleHint"));

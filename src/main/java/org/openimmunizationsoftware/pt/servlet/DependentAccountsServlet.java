@@ -405,6 +405,8 @@ public class DependentAccountsServlet extends ClientServlet {
             if ("active".equals(status)) {
                 out.println("      <a href=\"ScheduleSchoolServlet?dependencyId=" + dep.getDependencyId()
                         + "\" class=\"button\">Schedule School</a>");
+                out.println("      <a href=\"ManageSchoolTemplatesServlet?dependencyId=" + dep.getDependencyId()
+                        + "\" class=\"button\">Manage Templates</a>");
                 out.println("      <a href=\"StudentStoreServlet?dependencyId=" + dep.getDependencyId()
                         + "\" class=\"button\">Manage Store</a>");
             }

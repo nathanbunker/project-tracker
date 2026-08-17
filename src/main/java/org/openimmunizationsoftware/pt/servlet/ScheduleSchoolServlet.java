@@ -178,6 +178,9 @@ public class ScheduleSchoolServlet extends ClientServlet {
             }
 
             out.println("<h2>Template Scheduler</h2>");
+            out.println("<p><a href=\"ManageSchoolTemplatesServlet?" + PARAM_DEPENDENCY_ID + "="
+                    + dependency.getDependencyId()
+                    + "\" class=\"button\">Review / Export / Import Templates</a></p>");
             printTemplateTable(out, dependentUser, dataSession, schoolProjects, templateMap, templateConfigMap,
                     "School", "School", false);
             printTemplateTable(out, dependentUser, dataSession, choreProjects, templateMap, templateConfigMap,
@@ -207,7 +210,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         }
     }
 
-    private WeUserDependency loadValidatedDependency(WebUser parentUser, Integer dependencyId, Session dataSession) {
+    static WeUserDependency loadValidatedDependency(WebUser parentUser, Integer dependencyId, Session dataSession) {
         if (dependencyId == null) {
             return null;
         }
@@ -1643,7 +1646,7 @@ public class ScheduleSchoolServlet extends ClientServlet {
         return null;
     }
 
-    private Date calculateEndOfYear(WebUser webUser) {
+    static Date calculateEndOfYear(WebUser webUser) {
         Calendar calendar = webUser.getCalendar();
         calendar.add(Calendar.MONTH, 1);
         calendar.set(Calendar.MONTH, 11);

@@ -8,6 +8,7 @@ public class ProjectDashboardSuggestedAction implements Serializable {
 
     private String title = "";
     private String description = "";
+    private String notes = "";
     private String rationale = "";
     private String suggestedType = "";
     private String suggestedScheduleHint = "";
@@ -27,6 +28,14 @@ public class ProjectDashboardSuggestedAction implements Serializable {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 
     public String getRationale() {
