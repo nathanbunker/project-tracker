@@ -1736,9 +1736,13 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             WebUser webUser = appReq.getWebUser();
-            action.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
-            action.setNextChangeDate(new Date());
-            dataSession.update(action);
+            Date now = new Date();
+            List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, action);
+            for (ActionNext sibling : actionSiblings) {
+                sibling.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
+                sibling.setNextChangeDate(now);
+                dataSession.update(sibling);
+            }
             transaction.commit();
 
             appReq.setCompletingAction(action);
