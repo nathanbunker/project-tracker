@@ -311,7 +311,7 @@ public class WeeklyReportRenderer {
     }
 
     private static String allocationMetric(int minutes, BigDecimal percent) {
-        return "<td class=\"wr-number\"><strong>" + percent(percent) + "</strong><small>"
+        return "<td class=\"wr-number\"><strong>" + percentWhole(percent) + "</strong><small>"
                 + formatMinutes(minutes) + " hrs</small></td>";
     }
 
@@ -326,10 +326,6 @@ public class WeeklyReportRenderer {
 
     private static String percentCell(BigDecimal percent) {
         return "<td class=\"wr-number\">" + (percent == null ? "&mdash;" : percentWhole(percent)) + "</td>";
-    }
-
-    private static String percent(BigDecimal percent) {
-        return percent.setScale(2, RoundingMode.HALF_UP).toPlainString() + "%";
     }
 
     private static String percentWhole(BigDecimal percent) {
