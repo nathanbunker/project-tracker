@@ -48,6 +48,7 @@ import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
 import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
+import org.dandeliondaily.shared.service.ActionCompletionService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -83,6 +84,7 @@ public class DandelionDashboardServlet extends ClientServlet {
     private final DashboardNowColumnService dashboardNowColumnService = new DashboardNowColumnService();
     private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
+    private final ActionCompletionService actionCompletionService = new ActionCompletionService();
     private final ActionRecoveryService actionRecoveryService = new ActionRecoveryService();
     private final DashboardTimeGaugeService dashboardTimeGaugeService = new DashboardTimeGaugeService();
     private final DashboardNextColumnService dashboardNextColumnService = new DashboardNextColumnService();
@@ -171,6 +173,10 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
             if ("editAction".equals(action)) {
                 handleEditAction(appReq);
+                return;
+            }
+            if ("CompleteActionEdit".equals(action)) {
+                handleCompleteAction(appReq);
                 return;
             }
             if ("deleteAction".equals(action)) {
@@ -1088,75 +1094,11 @@ public class DandelionDashboardServlet extends ClientServlet {
                 parsedTimeSlot = TimeSlot.getTimeSlot(timeSlotParam.trim());
             }
 
-            Date now = new Date();
-            List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, action);
-            for (ActionNext sibling : actionSiblings) {
-                Date siblingOriginalNextActionDate = sibling.getNextActionDate();
-                boolean nextActionDateChanged = false;
-
-                if (hasNextActionDateValue && normalizedNextActionDate != null) {
-                    if (!sameDate(siblingOriginalNextActionDate, normalizedNextActionDate)) {
-                        sibling.setNextActionDate(normalizedNextActionDate);
-                        nextActionDateChanged = true;
-                    }
-                } else if (nextActionDate != null && siblingOriginalNextActionDate != null) {
-                    sibling.setNextActionDate(null);
-                    nextActionDateChanged = true;
-                }
-
-                if (nextActionType != null && nextActionType.length() > 0) {
-                    sibling.setNextActionType(nextActionType);
-                }
-
-                if (hasNextContactIdValue && parsedNextContactId != null) {
-                    sibling.setNextContactId(parsedNextContactId.intValue());
-                }
-
-                if (nextDescription != null) {
-                    sibling.setNextDescription(nextDescription);
-                }
-
-                if (hasNextTimeEstimateValue && parsedNextTimeEstimate != null) {
-                    sibling.setNextTimeEstimate(parsedNextTimeEstimate.intValue());
-                }
-
-                if (normalizedNextTargetDate != null) {
-                    sibling.setNextTargetDate(normalizedNextTargetDate);
-                } else if (clearNextTargetDate) {
-                    sibling.setNextTargetDate(null);
-                }
-
-                if (normalizedNextDeadlineDate != null) {
-                    sibling.setNextDeadlineDate(normalizedNextDeadlineDate);
-                } else if (clearNextDeadlineDate) {
-                    sibling.setNextDeadlineDate(null);
-                }
-
-                if (parsedTimeSlot != null) {
-                    sibling.setTimeSlot(parsedTimeSlot);
-                }
-
-                if (linkUrl != null) {
-                    sibling.setLinkUrl(linkUrl);
-                }
-
-                if (nextNote != null) {
-                    sibling.setNextNotes(nextNote);
-                }
-
-                if (saveAndStart) {
-                    WebUser webUser = appReq.getWebUser();
-                    sibling.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
-                    nextActionDateChanged = !sameDate(siblingOriginalNextActionDate, sibling.getNextActionDate());
-                }
-
-                if (nextActionDateChanged) {
-                    sibling.setCompletionOrder(0);
-                }
-
-                sibling.setNextChangeDate(now);
-                dataSession.update(sibling);
-            }
+            applyEditFieldsToSiblings(appReq, dataSession, action, saveAndStart, nextActionDate,
+                    normalizedNextActionDate, hasNextActionDateValue, nextActionType, hasNextContactIdValue,
+                    parsedNextContactId, nextDescription, hasNextTimeEstimateValue, parsedNextTimeEstimate,
+                    normalizedNextTargetDate, clearNextTargetDate, normalizedNextDeadlineDate, clearNextDeadlineDate,
+                    parsedTimeSlot, linkUrl, nextNote);
             transaction.commit();
 
             LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
@@ -1181,6 +1123,206 @@ public class DandelionDashboardServlet extends ClientServlet {
             e.printStackTrace();
             sendJsonResponse(appReq, false, "Error saving action: " + e.getMessage(), null);
         }
+    }
+
+    private void applyEditFieldsToSiblings(AppReq appReq, Session dataSession, ActionNext action,
+            boolean saveAndStart, String nextActionDate, Date normalizedNextActionDate,
+            boolean hasNextActionDateValue, String nextActionType, boolean hasNextContactIdValue,
+            Integer parsedNextContactId, String nextDescription, boolean hasNextTimeEstimateValue,
+            Integer parsedNextTimeEstimate, Date normalizedNextTargetDate, boolean clearNextTargetDate,
+            Date normalizedNextDeadlineDate, boolean clearNextDeadlineDate, TimeSlot parsedTimeSlot, String linkUrl,
+            String nextNote) {
+        Date now = new Date();
+        List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, action);
+        for (ActionNext sibling : actionSiblings) {
+            Date siblingOriginalNextActionDate = sibling.getNextActionDate();
+            boolean nextActionDateChanged = false;
+
+            if (hasNextActionDateValue && normalizedNextActionDate != null) {
+                if (!sameDate(siblingOriginalNextActionDate, normalizedNextActionDate)) {
+                    sibling.setNextActionDate(normalizedNextActionDate);
+                    nextActionDateChanged = true;
+                }
+            } else if (nextActionDate != null && siblingOriginalNextActionDate != null) {
+                sibling.setNextActionDate(null);
+                nextActionDateChanged = true;
+            }
+
+            if (nextActionType != null && nextActionType.length() > 0) {
+                sibling.setNextActionType(nextActionType);
+            }
+
+            if (hasNextContactIdValue && parsedNextContactId != null) {
+                sibling.setNextContactId(parsedNextContactId.intValue());
+            }
+
+            if (nextDescription != null) {
+                sibling.setNextDescription(nextDescription);
+            }
+
+            if (hasNextTimeEstimateValue && parsedNextTimeEstimate != null) {
+                sibling.setNextTimeEstimate(parsedNextTimeEstimate.intValue());
+            }
+
+            if (normalizedNextTargetDate != null) {
+                sibling.setNextTargetDate(normalizedNextTargetDate);
+            } else if (clearNextTargetDate) {
+                sibling.setNextTargetDate(null);
+            }
+
+            if (normalizedNextDeadlineDate != null) {
+                sibling.setNextDeadlineDate(normalizedNextDeadlineDate);
+            } else if (clearNextDeadlineDate) {
+                sibling.setNextDeadlineDate(null);
+            }
+
+            if (parsedTimeSlot != null) {
+                sibling.setTimeSlot(parsedTimeSlot);
+            }
+
+            if (linkUrl != null) {
+                sibling.setLinkUrl(linkUrl);
+            }
+
+            if (nextNote != null) {
+                sibling.setNextNotes(nextNote);
+            }
+
+            if (saveAndStart) {
+                WebUser webUser = appReq.getWebUser();
+                sibling.setNextActionDate(java.sql.Date.valueOf(webUser.getLocalDateToday()));
+                nextActionDateChanged = !sameDate(siblingOriginalNextActionDate, sibling.getNextActionDate());
+            }
+
+            if (nextActionDateChanged) {
+                sibling.setCompletionOrder(0);
+            }
+
+            sibling.setNextChangeDate(now);
+            dataSession.update(sibling);
+        }
+    }
+
+    /**
+     * Backdated "Complete" from the Edit Action modal: validates the completion
+     * time/duration before writing anything, then applies the same field edits
+     * as {@link #handleEditAction} and hands off to
+     * {@link ActionCompletionService} to mark the action (and SHARED siblings)
+     * completed and optionally record a bill entry.
+     */
+    private void handleCompleteAction(AppReq appReq) throws Exception {
+        String actionNextIdStr = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId = Integer.parseInt(actionNextIdStr);
+
+        Session dataSession = appReq.getDataSession();
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
+        if (action == null) {
+            sendJsonResponse(appReq, false, "Action not found", null);
+            return;
+        }
+
+        ActionCompletionService.CompletionTime completionTime = actionCompletionService.parseCompletionTime(
+                appReq.getWebUser(), appReq.getRequest().getParameter("completeDate"),
+                appReq.getRequest().getParameter("completeTime"),
+                appReq.getRequest().getParameter("completeDuration"));
+        String validationError = actionCompletionService.validateCompletion(appReq, action, completionTime);
+        if (validationError != null) {
+            sendJsonResponse(appReq, false, validationError, null);
+            return;
+        }
+
+        String nextActionDate = appReq.getRequest().getParameter("nextActionDate");
+        String nextActionType = appReq.getRequest().getParameter("nextActionType");
+        String nextContactIdStr = appReq.getRequest().getParameter("nextContactId");
+        String nextDescription = appReq.getRequest().getParameter("nextDescription");
+        String nextTimeEstimateStr = appReq.getRequest().getParameter("nextTimeEstimate");
+        String nextTargetDate = appReq.getRequest().getParameter("nextTargetDate");
+        String nextDeadlineDate = appReq.getRequest().getParameter("nextDeadlineDate");
+        String timeSlotParam = appReq.getRequest().getParameter("timeSlot");
+        String linkUrl = appReq.getRequest().getParameter("linkUrl");
+        String nextNote = appReq.getRequest().getParameter("nextNote");
+
+        if (nextActionDate != null) {
+            nextActionDate = nextActionDate.trim();
+        }
+
+        Date normalizedNextActionDate = null;
+        boolean hasNextActionDateValue = nextActionDate != null && nextActionDate.length() > 0;
+        if (hasNextActionDateValue) {
+            Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
+            if (parsedDate != null) {
+                normalizedNextActionDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
+            }
+        }
+
+        Integer parsedNextContactId = null;
+        boolean hasNextContactIdValue = nextContactIdStr != null && nextContactIdStr.length() > 0;
+        if (hasNextContactIdValue) {
+            try {
+                parsedNextContactId = Integer.valueOf(Integer.parseInt(nextContactIdStr));
+            } catch (Exception e) {
+                parsedNextContactId = null;
+            }
+        }
+
+        Integer parsedNextTimeEstimate = null;
+        boolean hasNextTimeEstimateValue = nextTimeEstimateStr != null && nextTimeEstimateStr.length() > 0;
+        if (hasNextTimeEstimateValue) {
+            try {
+                parsedNextTimeEstimate = Integer.valueOf(Integer.parseInt(nextTimeEstimateStr));
+            } catch (Exception e) {
+                parsedNextTimeEstimate = null;
+            }
+        }
+
+        Date normalizedNextTargetDate = null;
+        boolean clearNextTargetDate = nextTargetDate != null && nextTargetDate.length() == 0;
+        if (nextTargetDate != null && nextTargetDate.length() > 0) {
+            Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextTargetDate);
+            if (parsedDate != null) {
+                normalizedNextTargetDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
+            }
+        }
+
+        Date normalizedNextDeadlineDate = null;
+        boolean clearNextDeadlineDate = nextDeadlineDate != null && nextDeadlineDate.length() == 0;
+        if (nextDeadlineDate != null && nextDeadlineDate.length() > 0) {
+            Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextDeadlineDate);
+            if (parsedDate != null) {
+                normalizedNextDeadlineDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
+            }
+        }
+
+        TimeSlot parsedTimeSlot = null;
+        if (timeSlotParam != null && timeSlotParam.trim().length() > 0) {
+            parsedTimeSlot = TimeSlot.getTimeSlot(timeSlotParam.trim());
+        }
+
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            applyEditFieldsToSiblings(appReq, dataSession, action, false, nextActionDate, normalizedNextActionDate,
+                    hasNextActionDateValue, nextActionType, hasNextContactIdValue, parsedNextContactId,
+                    nextDescription, hasNextTimeEstimateValue, parsedNextTimeEstimate, normalizedNextTargetDate,
+                    clearNextTargetDate, normalizedNextDeadlineDate, clearNextDeadlineDate, parsedTimeSlot, linkUrl,
+                    nextNote);
+            transaction.commit();
+        } catch (RuntimeException re) {
+            transaction.rollback();
+            throw re;
+        }
+
+        ActionNext currentAction = appReq.getCompletingAction();
+        boolean wasCurrentAction = currentAction != null && currentAction.getActionNextId() == actionNextId;
+
+        String completeDescription = appReq.getRequest().getParameter("completeDescription");
+        actionCompletionService.closeAction(appReq, action, completeDescription, ProjectNextActionStatus.COMPLETED,
+                completionTime.getMoment(), completionTime.getDurationMins());
+
+        if (wasCurrentAction) {
+            dashboardCurrentActionService.handoffCurrentAction(appReq);
+        }
+
+        sendJsonResponse(appReq, true, "Action completed", null);
     }
 
     private void handleDeleteAction(AppReq appReq) throws Exception {

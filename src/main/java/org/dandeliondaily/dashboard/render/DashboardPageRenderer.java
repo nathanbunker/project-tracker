@@ -3792,6 +3792,8 @@ public class DashboardPageRenderer {
                 editConfig.saveAndStartOnClick = "ddSubmitEdit('saveAndStart')";
                 editConfig.cancelOnClick = "ddCloseActionModal('editActionModal')";
                 editConfig.deleteOnClick = "ddDeleteAction(event)";
+                editConfig.completeOnClick = "eaToggleCompleteSection()";
+                editConfig.completeSubmitOnClick = "ddSubmitEdit('complete')";
                 editActionModalRenderer.render(out, appReq, editConfig);
 
                 out.println("<style>");
@@ -3837,6 +3839,7 @@ public class DashboardPageRenderer {
                 out.println("  }");
                 out.println("  function ddLoadEditFormData(actionId) {");
                 out.println("    document.getElementById('eaEditActionId').value = actionId;");
+                out.println("    if (window.eaResetCompleteSection) { window.eaResetCompleteSection(); }");
                 out.println("    var formData = ddCreateDashboardParams();");
                 out.println("    formData.append('action', 'loadActionData');");
                 out.println("    formData.append('actionNextId', actionId);");
@@ -3899,12 +3902,13 @@ public class DashboardPageRenderer {
                 out.println("  function ddSubmitEdit(saveMode) {");
                 out.println("    var actionId = document.getElementById('eaEditActionId').value || ''; ");
                 out.println("    if (!actionId) { return; }");
+                out.println("    var isComplete = saveMode === 'complete';");
                 out.println("    var dateField = document.getElementById('eaEditActionDate');");
                 out.println("    var originalDateField = document.getElementById('eaEditActionDateOriginal');");
                 out.println("    var dateValue = (dateField && dateField.value ? dateField.value : '').trim();");
                 out.println("    if (!dateValue && originalDateField && originalDateField.value) { dateValue = originalDateField.value; }");
                 out.println("    var formData = ddCreateDashboardParams();");
-                out.println("    formData.append('action', 'editAction');");
+                out.println("    formData.append('action', isComplete ? 'CompleteActionEdit' : 'editAction');");
                 out.println("    formData.append('actionNextId', actionId);");
                 out.println("    formData.append('nextActionDate', dateValue);");
                 out.println("    formData.append('nextActionType', (document.getElementById('eaEditActionType').value || '').trim());");
@@ -3918,21 +3922,31 @@ public class DashboardPageRenderer {
                 out.println("    formData.append('nextDeadlineDate', (document.getElementById('eaEditActionDeadline').value || '').trim());");
                 out.println("    formData.append('linkUrl', (document.getElementById('eaEditActionLink').value || '').trim());");
                 out.println("    formData.append('nextNote', document.getElementById('eaEditActionNote').value || '');");
-                out.println("    formData.append('saveMode', saveMode || 'save');");
-                out.println("    ddFetchDashboardJson(formData, 'Edit submit')");
+                out.println("    if (isComplete) {");
+                out.println("      formData.append('completeDescription', window.eaReadCompleteValue('eaCompleteDescription'));");
+                out.println("      formData.append('completeDate', window.eaReadCompleteValue('eaCompleteDate'));");
+                out.println("      formData.append('completeTime', window.eaReadCompleteValue('eaCompleteTime'));");
+                out.println("      formData.append('completeDuration', window.eaReadCompleteValue('eaCompleteDuration'));");
+                out.println("    } else {");
+                out.println("      formData.append('saveMode', saveMode || 'save');");
+                out.println("    }");
+                out.println("    window.eaClearCompleteError();");
+                out.println("    ddFetchDashboardJson(formData, isComplete ? 'Complete submit' : 'Edit submit')");
                 out.println("      .then(data => {");
                 out.println("        if (data.success) {");
                 out.println("          ddCloseActionModal('editActionModal');");
-                out.println("          if (data.requiresActionRefresh) {");
+                out.println("          if (isComplete || data.requiresActionRefresh) {");
                 out.println("            window.location.href = '" + dashboardPath + "';");
                 out.println("          } else {");
                 out.println("            window.location.reload();");
                 out.println("          }");
+                out.println("        } else if (isComplete) {");
+                out.println("          window.eaShowCompleteError(data.message || 'Unable to complete action.');");
                 out.println("        } else {");
                 out.println("          alert('Error saving action: ' + (data.message || 'Unknown error')); ");
                 out.println("        }");
                 out.println("      })");
-                out.println("      .catch(err => ddReportDashboardLoadError('Edit submit', err));");
+                out.println("      .catch(err => ddReportDashboardLoadError(isComplete ? 'Complete submit' : 'Edit submit', err));");
                 out.println("  }");
                 out.println("</script>");
         }

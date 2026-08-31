@@ -72,6 +72,10 @@ public class PlanAheadServlet extends ClientServlet {
                 handleMutationResult(appReq, mutationService.saveCardEdit(appReq));
                 return;
             }
+            if ("completeCardEdit".equals(action)) {
+                handleMutationResult(appReq, mutationService.completeCardEdit(appReq));
+                return;
+            }
             if ("saveCardEstimate".equals(action)) {
                 handleMutationResult(appReq, mutationService.saveCardEstimate(appReq));
                 return;
@@ -142,6 +146,7 @@ public class PlanAheadServlet extends ClientServlet {
                 || "moveCard".equals(action)
                 || "loadCardEdit".equals(action)
                 || "saveCardEdit".equals(action)
+                || "completeCardEdit".equals(action)
                 || "saveCardEstimate".equals(action)
                 || "saveCardDescriptionInline".equals(action)
                 || "deleteCardEdit".equals(action)

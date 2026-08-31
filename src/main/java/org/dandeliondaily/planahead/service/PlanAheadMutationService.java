@@ -17,6 +17,7 @@ import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
+import org.dandeliondaily.shared.service.ActionCompletionService;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -42,6 +43,7 @@ public class PlanAheadMutationService {
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer renderer = new PlanAheadPageRenderer();
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
+    private final ActionCompletionService actionCompletionService = new ActionCompletionService();
 
     public PlanAheadMutationResult moveCard(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
@@ -239,6 +241,62 @@ public class PlanAheadMutationService {
     }
 
     public PlanAheadMutationResult saveCardEdit(AppReq appReq) {
+        return saveCardEditInternal(appReq, false);
+    }
+
+    /**
+     * Applies the same field updates as {@link #saveCardEdit}, but allows the
+     * action's date to be left in the past (the action is about to be marked
+     * complete, so it is leaving the board either way), then hands off to
+     * {@link ActionCompletionService} to record the backdated completion.
+     */
+    public PlanAheadMutationResult completeCardEdit(AppReq appReq) {
+        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
+        int actionNextId;
+        try {
+            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
+        } catch (NumberFormatException nfe) {
+            PlanAheadMutationResult result = new PlanAheadMutationResult();
+            result.setSuccess(false);
+            result.setMessage("actionNextId must be a whole number");
+            return result;
+        }
+
+        Session dataSession = appReq.getDataSession();
+        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
+        if (action == null) {
+            PlanAheadMutationResult result = new PlanAheadMutationResult();
+            result.setSuccess(false);
+            result.setMessage("Action not found");
+            return result;
+        }
+
+        ActionCompletionService.CompletionTime completionTime = actionCompletionService.parseCompletionTime(
+                appReq.getWebUser(), appReq.getRequest().getParameter("completeDate"),
+                appReq.getRequest().getParameter("completeTime"),
+                appReq.getRequest().getParameter("completeDuration"));
+        String validationError = actionCompletionService.validateCompletion(appReq, action, completionTime);
+        if (validationError != null) {
+            PlanAheadMutationResult result = new PlanAheadMutationResult();
+            result.setSuccess(false);
+            result.setMessage(validationError);
+            return result;
+        }
+
+        PlanAheadMutationResult result = saveCardEditInternal(appReq, true);
+        if (!result.isSuccess()) {
+            return result;
+        }
+
+        String completeDescription = appReq.getRequest().getParameter("completeDescription");
+        actionCompletionService.closeAction(appReq, action, completeDescription, ProjectNextActionStatus.COMPLETED,
+                completionTime.getMoment(), completionTime.getDurationMins());
+
+        result.setMessage("Action completed");
+        return result;
+    }
+
+    private PlanAheadMutationResult saveCardEditInternal(AppReq appReq, boolean allowPastDate) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
         boolean personalMode = isPersonalMode(appReq);
         String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
@@ -260,7 +318,7 @@ public class PlanAheadMutationService {
         }
 
         String todayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
-        if (isBeforeDay(nextActionDate, todayKey)) {
+        if (!allowPastDate && isBeforeDay(nextActionDate, todayKey)) {
             result.setSuccess(false);
             result.setMessage("Cannot schedule action to a past date");
             return result;

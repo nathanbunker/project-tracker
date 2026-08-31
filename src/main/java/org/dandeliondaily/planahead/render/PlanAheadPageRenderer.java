@@ -281,6 +281,8 @@ public class PlanAheadPageRenderer {
                 editConfig.saveAndStartOnClick = "paSaveEditModal()";
                 editConfig.cancelOnClick = "paCloseEditModal()";
                 editConfig.deleteOnClick = "paDeleteCard()";
+                editConfig.completeOnClick = "eaToggleCompleteSection()";
+                editConfig.completeSubmitOnClick = "paSubmitCompleteEdit()";
                 editActionModalRenderer.render(out, appReq, editConfig);
         }
 
@@ -445,6 +447,7 @@ public class PlanAheadPageRenderer {
                 out.println("      document.getElementById('eaEditActionContact').value = data.nextContactId || ''; ");
                 out.println("      document.getElementById('eaEditActionNote').value = data.nextNote || ''; ");
                 out.println("      paSetEditModeControls();");
+                out.println("      if (window.eaResetCompleteSection) { window.eaResetCompleteSection(); }");
                 out.println("      var modal = document.getElementById('paEditModal'); if (modal) { modal.classList.add('pa-modal-open'); }");
                 out.println("    })");
                 out.println("    .catch(function(err){ console.log('Load edit request failed', err); });");
@@ -541,6 +544,54 @@ public class PlanAheadPageRenderer {
                 out.println("      paCloseEditModal();");
                 out.println("    })");
                 out.println("    .catch(function(err){ console.log('Save edit request failed', err); });");
+                out.println("  };");
+
+                out.println("  window.paSubmitCompleteEdit = function(){");
+                out.println("    var actionTypeValue = paIsPersonal ? '' : (document.getElementById('eaEditActionType').value || '');");
+                out.println("    var timeSlotValue = paIsPersonal ? (document.getElementById('eaEditActionTimeSlot').value || 'AFTERNOON') : ''; ");
+                out.println("    var estimateValue = paIsPersonal ? '0' : (document.getElementById('eaEditActionTime').value || '0');");
+                out.println("    var body = 'action=completeCardEdit' +");
+                out.println(
+                                "      '&actionNextId=' + encodeURIComponent(document.getElementById('eaEditActionId').value || '') +");
+                out.println(
+                                "      '&nextActionDate=' + encodeURIComponent(document.getElementById('eaEditActionDate').value || '') +");
+                out.println("      '&nextActionType=' + encodeURIComponent(actionTypeValue) +");
+                out.println("      '&timeSlot=' + encodeURIComponent(timeSlotValue) +");
+                out.println(
+                                "      '&nextDescription=' + encodeURIComponent(document.getElementById('eaEditActionDescription').value || '') +");
+                out.println("      '&nextTimeEstimate=' + encodeURIComponent(estimateValue) +");
+                out.println(
+                                "      '&nextTargetDate=' + encodeURIComponent(document.getElementById('eaEditActionTarget').value || '') +");
+                out.println(
+                                "      '&nextDeadlineDate=' + encodeURIComponent(document.getElementById('eaEditActionDeadline').value || '') +");
+                out.println("      '&linkUrl=' + encodeURIComponent(document.getElementById('eaEditActionLink').value || '') +");
+                out.println(
+                                "      '&nextContactId=' + encodeURIComponent(document.getElementById('eaEditActionContact').value || '') +");
+                out.println("      '&nextNote=' + encodeURIComponent(document.getElementById('eaEditActionNote').value || '') +");
+                out.println(
+                                "      '&completeDescription=' + encodeURIComponent(window.eaReadCompleteValue('eaCompleteDescription')) +");
+                out.println(
+                                "      '&completeDate=' + encodeURIComponent(window.eaReadCompleteValue('eaCompleteDate')) +");
+                out.println(
+                                "      '&completeTime=' + encodeURIComponent(window.eaReadCompleteValue('eaCompleteTime')) +");
+                out.println(
+                                "      '&completeDuration=' + encodeURIComponent(window.eaReadCompleteValue('eaCompleteDuration')) +");
+                out.println("      '&windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    window.eaClearCompleteError();");
+                out.println("    fetch('PlanAheadServlet', {");
+                out.println("      method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body");
+                out.println("    })");
+                out.println("    .then(function(r){ return r.json(); })");
+                out.println("    .then(function(resp){");
+                out.println("      if (!resp || !resp.success) {");
+                out.println("        window.eaShowCompleteError(resp ? resp.message : 'Unable to complete action.');");
+                out.println("        return;");
+                out.println("      }");
+                out.println("      window.location.href = 'PlanAheadServlet?windowStart=' + encodeURIComponent(paWindowStart || '');");
+                out.println("    })");
+                out.println("    .catch(function(err){ console.log('Complete edit request failed', err); window.eaShowCompleteError('Unable to complete action right now.'); });");
                 out.println("  };");
 
                 out.println("  var paStatusModalContext = { dayKey: '', statusCode: 'W', billMins: 0 }; ");

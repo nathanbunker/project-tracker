@@ -8,12 +8,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.dandeliondaily.shared.service.ActionCompletionService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
-import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
 import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -22,7 +22,6 @@ import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.ProjectStatus;
-import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
@@ -31,7 +30,7 @@ import org.openimmunizationsoftware.pt.model.ActionSet;
 public class DashboardCurrentActionService {
 
     private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
-    private final ActionRecoveryService actionRecoveryService = new ActionRecoveryService();
+    private final ActionCompletionService actionCompletionService = new ActionCompletionService();
 
     private static final String PARAM_ACTION = "action";
     private static final String ACTION_WORK_NEXT = "WorkNext";
@@ -202,11 +201,9 @@ public class DashboardCurrentActionService {
         }
 
         if (WORK_STATUS_COMPLETE.equals(workStatus)) {
-            closeAction(appReq, actionToWork, actionToWork.getProject(), actionTakenText,
-                    ProjectNextActionStatus.COMPLETED);
+            closeAction(appReq, actionToWork, actionTakenText, ProjectNextActionStatus.COMPLETED);
         } else if (WORK_STATUS_DELETE.equals(workStatus)) {
-            closeAction(appReq, actionToWork, actionToWork.getProject(), actionTakenText,
-                    ProjectNextActionStatus.CANCELLED);
+            closeAction(appReq, actionToWork, actionTakenText, ProjectNextActionStatus.CANCELLED);
         } else if (WORK_STATUS_BLOCKED.equals(workStatus) && followUpAction != null) {
             saveStandaloneActionTaken(appReq, actionToWork.getProject(), actionTakenText);
             Transaction blockTrans = dataSession.beginTransaction();
@@ -318,77 +315,10 @@ public class DashboardCurrentActionService {
                 defaultProject, projectList, sentenceInput);
     }
 
-    private ActionNext closeAction(AppReq appReq, ActionNext projectAction, Project project,
+    private ActionNext closeAction(AppReq appReq, ActionNext projectAction,
             String nextDescription, ProjectNextActionStatus nextActionStatus) {
-        WebUser webUser = appReq.getWebUser();
-        Session dataSession = appReq.getDataSession();
-        ActionNext unblockedAction = null;
-        List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, projectAction);
-        Transaction trans = dataSession.beginTransaction();
-        Date now = new Date();
-        for (ActionNext sibling : actionSiblings) {
-            Project siblingProject = sibling.getProject();
-            if (siblingProject == null && sibling.getProjectId() > 0) {
-                siblingProject = (Project) dataSession.get(Project.class, sibling.getProjectId());
-            }
-            if (nextDescription != null && !nextDescription.trim().isEmpty() && siblingProject != null) {
-                ActionTaken actionTaken = new ActionTaken();
-                actionTaken.setProject(siblingProject);
-                actionTaken.setProjectId(siblingProject.getProjectId());
-                actionTaken.setActionDate(now);
-                actionTaken.setActionDescription(nextDescription);
-                actionTaken.setWorkspaceId(sibling.getWorkspaceId());
-                actionTaken.setContact(webUser.getProjectContact());
-                actionTaken.setContactId(webUser.getContactId());
-                ActionSet actionSet = sibling.getActionSet();
-                if (actionSet == null) {
-                    actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
-                    sibling.setActionSet(actionSet);
-                    dataSession.update(sibling);
-                }
-                actionTaken.setActionSet(actionSet);
-                dataSession.saveOrUpdate(actionTaken);
-            }
-
-            sibling.setNextActionStatus(nextActionStatus);
-            sibling.setCompletionOrder(0);
-            sibling.setNextChangeDate(now);
-            dataSession.update(sibling);
-
-            if (nextActionStatus == ProjectNextActionStatus.COMPLETED
-                    || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
-                ActionNext unblocked = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser,
-                        sibling);
-                if (unblocked != null) {
-                    unblockedAction = unblocked;
-                }
-            }
-        }
-        trans.commit();
-        actionRecoveryService.remember(appReq, projectAction, nextActionStatus);
-        return unblockedAction;
-    }
-
-    private List<ActionNext> resolveSharedActionSiblings(Session dataSession, ActionNext selectedAction) {
-        List<ActionNext> singleAction = new ArrayList<ActionNext>();
-        if (selectedAction == null) {
-            return singleAction;
-        }
-        singleAction.add(selectedAction);
-        if (selectedAction.getActionSet() == null
-                || selectedAction.getActionSet().getActionSetType() != ActionSetType.SHARED) {
-            return singleAction;
-        }
-        int actionSetId = selectedAction.getActionSet().getActionSetId();
-        Query siblingQuery = dataSession.createQuery(
-                "from ActionNext an where an.actionSet.actionSetId = :actionSetId order by an.actionNextId");
-        siblingQuery.setParameter("actionSetId", actionSetId);
-        @SuppressWarnings("unchecked")
-        List<ActionNext> siblings = siblingQuery.list();
-        if (siblings == null || siblings.isEmpty()) {
-            return singleAction;
-        }
-        return siblings;
+        return actionCompletionService.closeAction(appReq, projectAction, nextDescription, nextActionStatus,
+                new Date(), 0);
     }
 
     private ActionNext selectNextActionForWorkFlow(WebUser webUser, Session dataSession,
