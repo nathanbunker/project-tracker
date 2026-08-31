@@ -189,6 +189,7 @@ public class ManageSchoolTemplatesServlet extends ClientServlet {
 
         out.println("<h3>Import Updated JSON</h3>");
         out.println("<p>Paste the edited JSON below, or choose a file — not both.</p>");
+        printImportFormatHelp(out);
         out.println("<form action=\"ManageSchoolTemplatesServlet\" method=\"POST\" enctype=\"multipart/form-data\">");
         out.println("  <input type=\"hidden\" name=\"" + PARAM_DEPENDENCY_ID + "\" value=\"" + dependencyId + "\"/>");
         out.println("  <input type=\"hidden\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_PREVIEW + "\"/>");
@@ -205,6 +206,76 @@ public class ManageSchoolTemplatesServlet extends ClientServlet {
                 + "\">Back to Template Scheduler</a></p>");
 
         printHtmlFoot(appReq);
+    }
+
+    /**
+     * Reference for what edits are safe to make to the exported JSON before re-uploading. Keep this in sync with
+     * {@link org.openimmunizationsoftware.pt.schooltemplate.SchoolTemplateImportParser} and
+     * {@link org.openimmunizationsoftware.pt.schooltemplate.SchoolTemplateDiffService}, which are the actual source
+     * of truth for these rules.
+     */
+    private void printImportFormatHelp(PrintWriter out) {
+        out.println("<details style=\"margin:8px 0;\">");
+        out.println("<summary style=\"cursor:pointer; font-weight:bold;\">JSON edit reference (what you can change, and the rules)</summary>");
+        out.println("<div style=\"padding:10px 14px; background:#f7f7f7; border-left:4px solid #999; margin-top:6px;\">");
+
+        out.println("<p><strong>How a row's edit is decided (no separate \"action\" field):</strong></p>");
+        out.println("<ul>");
+        out.println("<li>No <code>id</code> &rarr; <strong>Add</strong> a new template.</li>");
+        out.println("<li><code>id</code> present, no <code>delete</code> &rarr; <strong>Update</strong>. The id must "
+                + "match an existing, still-active template for this dependent or the whole import is rejected.</li>");
+        out.println("<li><code>id</code> present with <code>\"delete\": true</code> &rarr; <strong>Close</strong> it "
+                + "(a soft cancel — the row is not actually deleted from the database). Only <code>id</code>/"
+                + "<code>delete</code> are read for these rows; other fields are ignored.</li>");
+        out.println("<li>Reusing the same <code>id</code> on two rows in one file is an error.</li>");
+        out.println("</ul>");
+
+        out.println("<p><strong>Validation is all-or-nothing.</strong> Every row is checked and every problem is "
+                + "collected before failing — if any row has a problem, nothing is applied, not even the valid rows. "
+                + "Unknown JSON field names anywhere in a row also fail the whole import, so don't invent new keys.</p>");
+
+        out.println("<p><strong>Required fields</strong> (rows that aren't <code>delete</code>): <code>project</code>, "
+                + "<code>description</code>, <code>scheduleType</code>, <code>missedActionBehavior</code>, "
+                + "<code>autoGenerate</code>, <code>actionType</code>.</p>");
+
+        out.println("<p><strong>Allowed values</strong> (case-insensitive on input):</p>");
+        out.println("<ul>");
+        out.println("<li><code>scheduleType</code>: DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY</li>");
+        out.println("<li><code>missedActionBehavior</code>: AUTO_CANCEL, CARRY_FORWARD, IGNORE</li>");
+        out.println("<li><code>actionType</code>: WILL, MIGHT, WILL_CONTACT, COMMITTED_TO</li>");
+        out.println("<li><code>timeSlot</code>: WAKE, MORNING, AFTERNOON, EVENING</li>");
+        out.println("</ul>");
+
+        out.println("<p><strong>project</strong> is matched by name (case/space-insensitive), not by id. It must "
+                + "exactly match one existing project in this workspace — this import cannot create a new project, "
+                + "and a typo or ambiguous name fails that row. Whether the template is billable (School) or not "
+                + "(Chores) is <em>derived from the matched project</em>, not set in the JSON — moving a row's "
+                + "<code>project</code> across that line switches whether <code>timeEstimateMinutes</code>/"
+                + "<code>gamePoints</code> or <code>timeSlot</code> applies.</p>");
+
+        out.println("<p><strong>scheduleDays</strong> tokens depend on <code>scheduleType</code> (only the matching "
+                + "list is used):</p>");
+        out.println("<ul>");
+        out.println("<li><code>daysOfWeek</code> (WEEKLY): MON, TUE, WED, THU, FRI, SAT, SUN</li>");
+        out.println("<li><code>daysOfMonth</code> (MONTHLY): 1&ndash;31, or a week-position like W1-MON&hellip;"
+                + "W5-MON, or WL-MON for \"last\"</li>");
+        out.println("<li><code>daysOfQuarter</code> (QUARTERLY): 1&ndash;92, or W1&hellip;W13-DAY, or WL-DAY</li>");
+        out.println("<li><code>daysOfYear</code> (YEARLY): 4-digit MMDD (e.g. 1204), or MONTH-Wn-DAY "
+                + "(e.g. NOV-W4-THU)</li>");
+        out.println("<li>Leave <code>scheduleDays</code> empty/omitted for \"every occurrence\"; not used for DAILY.</li>");
+        out.println("</ul>");
+
+        out.println("<p><strong>Other notes:</strong></p>");
+        out.println("<ul>");
+        out.println("<li>Any field change on an Update pushes that template's next occurrence to the end of the "
+                + "school year (it gets rescheduled), even for a minor wording change.</li>");
+        out.println("<li>Paste JSON or upload a file, not both; uploaded files are capped at 2&nbsp;MB.</li>");
+        out.println("<li>Nothing is saved on upload &mdash; you'll see an Add/Update/Close preview with a diff of "
+                + "changed fields, and must click Apply to commit.</li>");
+        out.println("</ul>");
+
+        out.println("</div>");
+        out.println("</details>");
     }
 
     // -------------------------------------------------------------------
