@@ -23,6 +23,7 @@ import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TrackerKeysManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionNextTemplateConfig;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -808,10 +809,18 @@ public class PlanAheadMutationService {
                     return result;
                 }
             } else {
+                // contact_id is mapped both as a scalar and as a non-insertable
+                // many-to-one, so the association must be set or Hibernate nulls
+                // the column back out on flush.
+                ProjectContact userContact = appReq.getWebUser().getProjectContact();
+                if (userContact == null) {
+                    userContact = (ProjectContact) dataSession.get(ProjectContact.class,
+                            Integer.valueOf(appReq.getWebUser().getContactId()));
+                }
                 action = new ActionNext();
                 action.setWorkspaceId(appReq.getActiveWorkspaceId());
-                action.setContactId(appReq.getWebUser().getContactId());
-                action.setNextContactId(appReq.getWebUser().getContactId());
+                action.setContact(userContact);
+                action.setNextProjectContact(userContact);
                 action.setBillable(!personalMode);
                 action.setNextActionStatus(ProjectNextActionStatus.READY);
             }
