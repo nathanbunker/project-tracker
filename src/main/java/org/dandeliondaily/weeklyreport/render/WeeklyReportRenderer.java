@@ -33,6 +33,7 @@ public class WeeklyReportRenderer {
                 : "key=" + urlEncode(accessKey);
         String ownerName = ownerName(owner);
         LocalDate weekStart = model.getWeekStart();
+        boolean editable = accessKey == null;
 
         printStyles(out);
         out.println("<div class=\"wr-page\">");
@@ -48,8 +49,8 @@ public class WeeklyReportRenderer {
         out.println("<strong>" + displayDate(weekStart) + " <span>through</span> "
                 + displayDate(weekStart.plusDays(6)) + "</strong>");
         out.println("</div>");
-        out.println("<div class=\"wr-total\"><span>Total worked</span><strong>"
-                + formatMinutes(model.getSelectedWeek().getAllWorkedMinutes()) + "</strong><small>hours</small></div>");
+        out.println(obligatedStat(model, editable));
+        out.println(totalWorkedStat(model));
         out.println("</header>");
         out.println("<nav class=\"wr-week-nav\" aria-label=\"Weekly report navigation\">");
         out.print("<a class=\"wr-nav-link\" href=\"" + reportRoute + "?" + reportQuery + "&amp;week="
@@ -96,6 +97,7 @@ public class WeeklyReportRenderer {
         }
         openSection(out, "Funding", "Funding Source Summary",
                 "Worked time by funding source across the current and longer reporting windows.", "");
+        out.println(obligatedDenominatorCaption(model));
         if (bySource.isEmpty()) {
             out.println("<p class=\"wr-empty\">No qualifying billing activity was recorded.</p>");
             closeSection(out);
@@ -107,9 +109,9 @@ public class WeeklyReportRenderer {
         for (Map.Entry<String, Totals> entry : bySource.entrySet()) {
             Totals totals = entry.getValue();
             out.println("<tr><th scope=\"row\">" + escapeHtml(entry.getKey()) + "</th>"
-                    + metricCell(totals.week, model.getSelectedWeek().getAllWorkedMinutes())
-                    + metricCell(totals.fourWeek, model.getFourWeekAllWorkedMinutes())
-                    + metricCell(totals.fiscal, model.getFiscalYearAllWorkedMinutes()) + "</tr>");
+                    + metricCell(totals.week, model.getObligatedMinutes())
+                    + metricCell(totals.fourWeek, model.getFourWeekObligatedMinutes())
+                    + metricCell(totals.fiscal, model.getFiscalYearObligatedMinutes()) + "</tr>");
         }
         out.println("</tbody></table></div>");
         closeSection(out);
@@ -121,6 +123,7 @@ public class WeeklyReportRenderer {
                 "Billing-code distribution compared with annual and steering targets. "
                         + "Click a billing code to see this week's project breakdown.",
                 "");
+        out.println(obligatedDenominatorCaption(model));
         if (model.getAllocationRows().isEmpty()) {
             out.println("<p class=\"wr-empty\">No billing codes in this report have activity or plan targets.</p>");
             closeSection(out);
@@ -283,22 +286,58 @@ public class WeeklyReportRenderer {
 
     private static void renderHistory(PrintWriter out, WeeklyReportViewModel model, String reportRoute,
             String reportQuery) {
-        openSection(out, "Trend", "Eight-Week History", "A concise view of report scope and total worked time.", "");
+        openSection(out, "Trend", "Eight-Week History", "A concise view of total worked time against obligation.", "");
         out.println("<div class=\"wr-table-wrap\"><table class=\"wr-table\"><thead><tr>"
-                + "<th scope=\"col\">Week</th><th scope=\"col\">Report Scope</th>"
-                + "<th scope=\"col\">All Worked Time</th></tr></thead><tbody>");
+                + "<th scope=\"col\">Week</th>"
+                + "<th scope=\"col\">All Worked Time</th><th scope=\"col\">Obligated</th>"
+                + "<th scope=\"col\">Over/Under</th></tr></thead><tbody>");
         for (WeeklyTimeSummary week : model.getHistory()) {
             String marker = week.getWeekStart().equals(model.getWeekStart())
                     ? " <span class=\"wr-selected\">Selected</span>"
                     : "";
+            int obligatedMinutes = model.getObligatedMinutesByWeek().containsKey(week.getWeekStart())
+                    ? model.getObligatedMinutesByWeek().get(week.getWeekStart()).intValue()
+                    : 0;
             out.println("<tr><th scope=\"row\"><a href=\"" + reportRoute + "?" + reportQuery + "&amp;week="
                     + week.getWeekStart() + "\">" + displayDate(week.getWeekStart()) + " through "
                     + displayDate(week.getWeekStart().plusDays(6)) + "</a>" + marker + "</th><td class=\"wr-number\">"
-                    + formatMinutes(week.getScopedMinutes()) + "</td><td class=\"wr-number\">"
-                    + formatMinutes(week.getAllWorkedMinutes()) + "</td></tr>");
+                    + formatMinutes(week.getAllWorkedMinutes()) + "</td><td class=\"wr-number\">"
+                    + formatMinutes(obligatedMinutes) + "</td><td class=\"wr-number\">"
+                    + varianceLabel(week.getAllWorkedMinutes() - obligatedMinutes) + "</td></tr>");
         }
         out.println("</tbody></table></div>");
         closeSection(out);
+    }
+
+    private static String obligatedDenominatorCaption(WeeklyReportViewModel model) {
+        return "<p class=\"wr-obligation-note\">Percentages are based on hours obligated, not hours worked: "
+                + formatMinutes(model.getObligatedMinutes()) + " this week, "
+                + formatMinutes(model.getFourWeekObligatedMinutes()) + " over 4 weeks, "
+                + formatMinutes(model.getFiscalYearObligatedMinutes()) + " fiscal year to date.</p>";
+    }
+
+    private static String obligatedStat(WeeklyReportViewModel model, boolean editable) {
+        String sourceLabel = model.isObligatedIsDefault() ? "default"
+                : blank(model.getObligatedNote()) ? "adjusted" : escapeHtml(model.getObligatedNote());
+        String value = formatMinutes(model.getObligatedMinutes());
+        if (editable) {
+            value = "<a href=\"WorkObligationsServlet?week=" + model.getWeekStart() + "\">" + value + "</a>";
+        }
+        return "<div class=\"wr-total wr-obligated\"><span>Time Obligated</span><strong>" + value
+                + "</strong><small>" + sourceLabel + "</small></div>";
+    }
+
+    private static String totalWorkedStat(WeeklyReportViewModel model) {
+        int worked = model.getSelectedWeek().getAllWorkedMinutes();
+        String variance = varianceLabel(worked - model.getObligatedMinutes());
+        return "<div class=\"wr-total\"><span>Total worked</span><strong>" + formatMinutes(worked)
+                + "</strong><small>hours &middot; " + variance + "</small></div>";
+    }
+
+    private static String varianceLabel(int variance) {
+        if (variance == 0)
+            return "on track";
+        return variance > 0 ? "+" + formatMinutes(variance) + " over" : "-" + formatMinutes(-variance) + " under";
     }
 
     private static String ownerName(WebUser owner) {
@@ -369,7 +408,7 @@ public class WeeklyReportRenderer {
         out.println(
                 ".wr-page *{box-sizing:border-box}.wr-page a{color:#315c3a;text-decoration:none}.wr-page a:hover{color:#1e3d26}");
         out.println(
-                ".wr-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:28px;align-items:end;max-width:1180px;margin:0 auto;background:linear-gradient(90deg,#3c5341 0%,#5b735c 55%,#7a8f70 100%);color:#fffdf8;padding:26px 30px;border:1px solid #354b39;box-shadow:0 10px 30px rgba(94,77,58,.12)}");
+                ".wr-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:28px;align-items:end;max-width:1180px;margin:0 auto;background:linear-gradient(90deg,#3c5341 0%,#5b735c 55%,#7a8f70 100%);color:#fffdf8;padding:26px 30px;border:1px solid #354b39;box-shadow:0 10px 30px rgba(94,77,58,.12)}");
         out.println(
                 ".wr-eyebrow,.wr-section-heading span{display:block;margin-bottom:7px;font-family:Verdana,sans-serif;font-size:11px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase}.wr-header h1{margin:0;font-size:30px;line-height:1.08;letter-spacing:0}.wr-owner{margin:7px 0 0;color:#e2e9df;font-family:Verdana,sans-serif;font-size:13px}");
         out.println(
@@ -383,7 +422,7 @@ public class WeeklyReportRenderer {
         out.println(
                 ".wr-section{padding:30px;border-bottom:1px solid #ddd0bd}.wr-section:last-child{border-bottom:0}.wr-section-featured{background:#fffdf8}.wr-section-heading{display:grid;grid-template-columns:minmax(220px,.7fr) minmax(280px,1fr);gap:30px;align-items:end;margin-bottom:20px}.wr-section-heading span{color:#78866f}.wr-section-heading h2{margin:0;color:#334235;font-size:23px;line-height:1.15}.wr-section-heading p{margin:0;color:#6b6256;font-family:Verdana,sans-serif;font-size:12px;line-height:1.5}");
         out.println(
-                ".weekly-report-briefing{max-width:820px;font-size:16px;line-height:1.62}.weekly-report-briefing h2{margin:25px 0 9px;color:#3d4f41;font-size:19px}.weekly-report-briefing h2:first-child{margin-top:0}.weekly-report-briefing ul{padding-left:20px}.weekly-report-briefing li{margin-bottom:8px}.wr-empty{margin:0;color:#766c5f;font-style:italic}");
+                ".weekly-report-briefing{max-width:820px;font-size:16px;line-height:1.62}.weekly-report-briefing h2{margin:25px 0 9px;color:#3d4f41;font-size:19px}.weekly-report-briefing h2:first-child{margin-top:0}.weekly-report-briefing ul{padding-left:20px}.weekly-report-briefing li{margin-bottom:8px}.wr-empty{margin:0;color:#766c5f;font-style:italic}.wr-obligation-note{margin:0 0 16px;color:#6b6256;font-family:Verdana,sans-serif;font-size:11px;font-style:italic}");
         out.println(
                 ".wr-table-wrap{width:100%;overflow-x:auto;border:1px solid #d9ccb8}.wr-table{width:100%;border-collapse:collapse;font-family:Verdana,sans-serif;font-size:12px;background:#fffdf8}.wr-table th,.wr-table td{padding:11px 12px;border-bottom:1px solid #e4dacb;text-align:left;vertical-align:top}.wr-table thead th{background:#e8eee3;color:#344637;font-size:10px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}.wr-table tbody th{color:#354537}.wr-table tbody tr:last-child th,.wr-table tbody tr:last-child td{border-bottom:0}.wr-table tbody tr:hover{background:#faf6ef}.wr-number{white-space:nowrap;font-variant-numeric:tabular-nums}.wr-number strong,.wr-number small{display:block}.wr-number small{margin-top:3px;color:#756b5f;font-size:10px}.wr-code-label{display:block;margin-top:3px;color:#756b5f;font-weight:normal}");
         out.println(

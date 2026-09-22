@@ -36,10 +36,12 @@ import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.model.WeeklyReport;
+import org.openimmunizationsoftware.pt.model.WorkObligation;
 
 public class WeeklyReportDataService {
     private final WeeklyTimeSummaryService timeService = new WeeklyTimeSummaryService();
     private final SafeMarkdownRenderer markdownRenderer = new SafeMarkdownRenderer();
+    private final WorkObligationService obligationService = new WorkObligationService();
 
     public WeeklyReportViewModel load(Session session, WeeklyReport report, WebUser owner, LocalDate weekStart) {
         WeeklyReportViewModel model = new WeeklyReportViewModel();
@@ -63,9 +65,10 @@ public class WeeklyReportDataService {
         BillPlan plan = new BillPlanDao(session).findActiveApprovedPlan(report.getRootWorkspaceId(),
                 owner.getWebUserId(), toDate(weekStart.plusDays(6), owner.getZoneId()));
         List<WeeklyTimeSummary> fiscalWeeks = new ArrayList<WeeklyTimeSummary>();
+        LocalDate firstFiscalWeek = null;
         if (plan != null) {
             LocalDate fiscalStart = owner.toLocalDate(plan.getFiscalStartDate());
-            LocalDate firstFiscalWeek = fiscalStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+            firstFiscalWeek = fiscalStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
             int fiscalWeekCount = (int) java.time.temporal.ChronoUnit.WEEKS.between(firstFiscalWeek, weekStart) + 1;
             fiscalWeeks = timeService.load(session, owner, report.getRootWorkspaceId(), report.getRootBillCode(),
                     firstFiscalWeek, fiscalWeekCount, fiscalStart, weekStart.plusWeeks(1));
@@ -78,14 +81,20 @@ public class WeeklyReportDataService {
                         (existing == null ? 0 : existing.intValue()) + time.getRoundedMinutes()));
             }
         }
-        buildAllocations(session, model, history, fiscalWeeks, plan, report.getRootWorkspaceId());
+        LocalDate obligationRangeStart = firstFiscalWeek != null && firstFiscalWeek.isBefore(historyStart)
+                ? firstFiscalWeek
+                : historyStart;
+        Map<LocalDate, WorkObligation> obligations = obligationService.loadRaw(session, owner.getWebUserId(),
+                obligationRangeStart, weekStart.plusWeeks(1));
+        buildAllocations(session, model, history, fiscalWeeks, plan, report.getRootWorkspaceId(), obligations);
         buildProjectActivity(session, model, owner, weekStart);
         return model;
     }
 
     @SuppressWarnings("unchecked")
     private void buildAllocations(Session session, WeeklyReportViewModel model, List<WeeklyTimeSummary> history,
-            List<WeeklyTimeSummary> fiscalWeeks, BillPlan plan, int workspaceId) {
+            List<WeeklyTimeSummary> fiscalWeeks, BillPlan plan, int workspaceId,
+            Map<LocalDate, WorkObligation> obligations) {
         Query codeQuery = session.createQuery("from BillCode where workspaceId = :workspaceId order by id.billCode");
         codeQuery.setInteger("workspaceId", workspaceId);
         List<BillCode> codes = codeQuery.list();
@@ -120,6 +129,21 @@ public class WeeklyReportDataService {
         int fiscalDenominator = sumAllWorked(fiscalWeeks, 0);
         model.setFourWeekAllWorkedMinutes(fourWeekDenominator);
         model.setFiscalYearAllWorkedMinutes(fiscalDenominator);
+
+        int fourWeekObligatedMinutes = sumObligated(obligations, history, Math.max(0, history.size() - 4));
+        int fiscalYearObligatedMinutes = sumObligated(obligations, fiscalWeeks, 0);
+        model.setFourWeekObligatedMinutes(fourWeekObligatedMinutes);
+        model.setFiscalYearObligatedMinutes(fiscalYearObligatedMinutes);
+        WorkObligation selectedObligation = obligations.get(model.getWeekStart());
+        int selectedObligatedMinutes = obligationService.resolveMinutes(obligations, model.getWeekStart());
+        model.setObligatedMinutes(selectedObligatedMinutes);
+        model.setObligatedIsDefault(selectedObligation == null);
+        model.setObligatedNote(selectedObligation == null ? null : selectedObligation.getNote());
+        for (WeeklyTimeSummary week : history) {
+            model.getObligatedMinutesByWeek().put(week.getWeekStart(),
+                    Integer.valueOf(obligationService.resolveMinutes(obligations, week.getWeekStart())));
+        }
+
         WeeklyTimeSummary selected = model.getSelectedWeek();
         for (String billCode : includedCodes) {
             if (!WeeklyTimeSummaryService.matchesPrefix(billCode, model.getReport().getRootBillCode()))
@@ -140,9 +164,9 @@ public class WeeklyReportDataService {
             row.setWeekMinutes(weekMinutes);
             row.setFourWeekMinutes(fourWeekMinutes);
             row.setFiscalYearMinutes(fiscalMinutes);
-            row.setWeekPercent(percent(weekMinutes, selected.getAllWorkedMinutes()));
-            row.setFourWeekPercent(percent(fourWeekMinutes, fourWeekDenominator));
-            row.setFiscalYearPercent(percent(fiscalMinutes, fiscalDenominator));
+            row.setWeekPercent(percent(weekMinutes, selectedObligatedMinutes));
+            row.setFourWeekPercent(percent(fourWeekMinutes, fourWeekObligatedMinutes));
+            row.setFiscalYearPercent(percent(fiscalMinutes, fiscalYearObligatedMinutes));
             if (target != null) {
                 row.setAnnualTargetPercent(basisPoints(target.getAnnualTargetBps()));
                 row.setSteeringTargetPercent(basisPoints(target.getSteeringTargetBps()));
@@ -209,6 +233,14 @@ public class WeeklyReportDataService {
         int total = 0;
         for (int index = start; index < summaries.size(); index++)
             total += summaries.get(index).getAllWorkedMinutes();
+        return total;
+    }
+
+    private int sumObligated(Map<LocalDate, WorkObligation> obligations, List<WeeklyTimeSummary> summaries,
+            int start) {
+        int total = 0;
+        for (int index = start; index < summaries.size(); index++)
+            total += obligationService.resolveMinutes(obligations, summaries.get(index).getWeekStart());
         return total;
     }
 

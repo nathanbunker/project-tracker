@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="WorkObligation" table="work_obligation">
+        <id name="workObligationId" type="int"><column name="work_obligation_id"/><generator class="native"/></id>
+        <property name="ownerUserId" type="int"><column name="owner_user_id" not-null="true"/></property>
+        <property name="weekStart" type="date"><column name="week_start" not-null="true"/></property>
+        <property name="obligatedMinutes" type="int"><column name="obligated_minutes" not-null="true"/></property>
+        <property name="note" type="string"><column name="note" length="150"/></property>
+        <property name="createdAt" type="timestamp"><column name="created_at" not-null="true"/></property>
+        <property name="updatedAt" type="timestamp"><column name="updated_at" not-null="true"/></property>
+    </class>
+</hibernate-mapping>

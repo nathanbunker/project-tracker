@@ -83,6 +83,35 @@ public class WeeklyReportRendererTest {
         Assert.assertTrue(html.contains("class=\"wr-header\""));
         Assert.assertTrue(html.contains("class=\"wr-table\""));
         Assert.assertTrue(html.contains("Jul 26, 2026"));
+        Assert.assertTrue(html.contains("Time Obligated"));
+        Assert.assertFalse(html.contains("WorkObligationsServlet"));
+    }
+
+    @Test
+    public void showsWorkObligationEditLinkOnlyForAuthenticatedOwnerView() {
+        LocalDate sunday = LocalDate.of(2026, 7, 26);
+        WeeklyReportViewModel model = new WeeklyReportViewModel();
+        WeeklyReport report = new WeeklyReport();
+        report.setReportName("AIRA Weekly");
+        report.setWeeklyReportId(1);
+        model.setReport(report);
+        model.setWeekStart(sunday);
+        WeeklyTimeSummary selected = new WeeklyTimeSummary(sunday);
+        selected.setAllWorkedMinutes(2000);
+        model.setSelectedWeek(selected);
+        model.setObligatedMinutes(2250);
+
+        WebUser owner = new WebUser();
+
+        StringWriter ownerBuffer = new StringWriter();
+        new WeeklyReportRenderer().render(new PrintWriter(ownerBuffer), model, owner, sunday,
+                "WeeklyReportServlet", null);
+        Assert.assertTrue(ownerBuffer.toString().contains("WorkObligationsServlet"));
+
+        StringWriter publicBuffer = new StringWriter();
+        new WeeklyReportRenderer().render(new PrintWriter(publicBuffer), model, owner, sunday,
+                "PublicWeeklyReportServlet", "public key");
+        Assert.assertFalse(publicBuffer.toString().contains("WorkObligationsServlet"));
     }
 
     @Test

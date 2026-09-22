@@ -133,6 +133,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.WeeklyReportProjectServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>WorkObligationsServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.WorkObligationsServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>PublicWeeklyReportProjectServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.PublicWeeklyReportProjectServlet</servlet-class>
   </servlet>
@@ -403,6 +407,10 @@
   <servlet-mapping>
     <servlet-name>PublicWeeklyReportServlet</servlet-name>
     <url-pattern>/PublicWeeklyReportServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>WorkObligationsServlet</servlet-name>
+    <url-pattern>/WorkObligationsServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>WeeklyReportProjectServlet</servlet-name>

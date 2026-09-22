@@ -18,7 +18,13 @@ public class WeeklyReportViewModel {
     private String approvedNarrativeHtml;
     private int fourWeekAllWorkedMinutes;
     private int fiscalYearAllWorkedMinutes;
+    private int obligatedMinutes;
+    private boolean obligatedIsDefault = true;
+    private String obligatedNote;
+    private int fourWeekObligatedMinutes;
+    private int fiscalYearObligatedMinutes;
     private final List<WeeklyTimeSummary> history = new ArrayList<WeeklyTimeSummary>();
+    private final Map<LocalDate, Integer> obligatedMinutesByWeek = new LinkedHashMap<LocalDate, Integer>();
     private final Map<String, AllocationRow> allocationRows = new LinkedHashMap<String, AllocationRow>();
     private final Map<String, ProjectActivity> projectActivities = new LinkedHashMap<String, ProjectActivity>();
     private final Map<String, Integer> fiscalProjectMinutes = new LinkedHashMap<String, Integer>();
@@ -69,6 +75,50 @@ public class WeeklyReportViewModel {
 
     public void setFiscalYearAllWorkedMinutes(int fiscalYearAllWorkedMinutes) {
         this.fiscalYearAllWorkedMinutes = fiscalYearAllWorkedMinutes;
+    }
+
+    public int getObligatedMinutes() {
+        return obligatedMinutes;
+    }
+
+    public void setObligatedMinutes(int obligatedMinutes) {
+        this.obligatedMinutes = obligatedMinutes;
+    }
+
+    public boolean isObligatedIsDefault() {
+        return obligatedIsDefault;
+    }
+
+    public void setObligatedIsDefault(boolean obligatedIsDefault) {
+        this.obligatedIsDefault = obligatedIsDefault;
+    }
+
+    public String getObligatedNote() {
+        return obligatedNote;
+    }
+
+    public void setObligatedNote(String obligatedNote) {
+        this.obligatedNote = obligatedNote;
+    }
+
+    public int getFourWeekObligatedMinutes() {
+        return fourWeekObligatedMinutes;
+    }
+
+    public void setFourWeekObligatedMinutes(int fourWeekObligatedMinutes) {
+        this.fourWeekObligatedMinutes = fourWeekObligatedMinutes;
+    }
+
+    public int getFiscalYearObligatedMinutes() {
+        return fiscalYearObligatedMinutes;
+    }
+
+    public void setFiscalYearObligatedMinutes(int fiscalYearObligatedMinutes) {
+        this.fiscalYearObligatedMinutes = fiscalYearObligatedMinutes;
+    }
+
+    public Map<LocalDate, Integer> getObligatedMinutesByWeek() {
+        return obligatedMinutesByWeek;
     }
 
     public List<WeeklyTimeSummary> getHistory() {
