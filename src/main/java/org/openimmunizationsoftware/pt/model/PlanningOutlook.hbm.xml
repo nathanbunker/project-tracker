@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="PlanningOutlook" table="planning_outlook">
+        <id name="outlookId" type="int"><column name="outlook_id"/><generator class="native"/></id>
+        <property name="ownerUserId" type="int"><column name="owner_user_id" not-null="true"/></property>
+        <property name="periodType" type="string"><column name="period_type" length="10" not-null="true"/></property>
+        <property name="periodStart" type="date"><column name="period_start" not-null="true"/></property>
+        <property name="outlookText" type="text"><column name="outlook_text"/></property>
+        <property name="createdAt" type="timestamp"><column name="created_at" not-null="true"/></property>
+        <property name="updatedAt" type="timestamp"><column name="updated_at" not-null="true"/></property>
+    </class>
+</hibernate-mapping>
