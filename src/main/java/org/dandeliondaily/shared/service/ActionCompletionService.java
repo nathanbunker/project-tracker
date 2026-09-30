@@ -42,6 +42,14 @@ public class ActionCompletionService {
         private int durationMins;
         private String errorMessage;
 
+        /** Builds a valid CompletionTime directly, bypassing the UI's string-parsing path. */
+        public static CompletionTime of(Date moment, int durationMins) {
+            CompletionTime completionTime = new CompletionTime();
+            completionTime.moment = moment;
+            completionTime.durationMins = durationMins;
+            return completionTime;
+        }
+
         public Date getMoment() {
             return moment;
         }
@@ -132,14 +140,26 @@ public class ActionCompletionService {
      * when it is safe to proceed. Nothing is written by this method.
      */
     public String validateCompletion(AppReq appReq, ActionNext action, CompletionTime completionTime) {
+        // Guard first, without touching appReq -- mirrors the original method's evaluation
+        // order (some callers may pass an incompletely-initialized appReq for these cases).
         if (completionTime == null || completionTime.hasError()) {
             return completionTime == null ? "Completion time is required." : completionTime.getErrorMessage();
         }
         if (action == null) {
             return "Action not found.";
         }
-        WebUser webUser = appReq.getWebUser();
-        Session dataSession = appReq.getDataSession();
+        return validateCompletion(appReq.getWebUser(), appReq.getDataSession(), action, completionTime);
+    }
+
+    /** Core of validateCompletion, without the AppReq/web-session coupling, for non-UI callers (e.g. MCP). */
+    public String validateCompletion(WebUser webUser, Session dataSession, ActionNext action,
+            CompletionTime completionTime) {
+        if (completionTime == null || completionTime.hasError()) {
+            return completionTime == null ? "Completion time is required." : completionTime.getErrorMessage();
+        }
+        if (action == null) {
+            return "Action not found.";
+        }
         Date now = webUser.now();
         Date start = completionTime.getMoment();
         if (start.after(now)) {
@@ -179,55 +199,12 @@ public class ActionCompletionService {
      */
     public ActionNext closeAction(AppReq appReq, ActionNext projectAction, String nextDescription,
             ProjectNextActionStatus nextActionStatus, Date completionMoment, int durationMins) {
-        WebUser webUser = appReq.getWebUser();
         Session dataSession = appReq.getDataSession();
-        ActionNext unblockedAction = null;
-        List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, projectAction);
         Transaction trans = dataSession.beginTransaction();
-        Date now = completionMoment == null ? new Date() : completionMoment;
+        ActionNext unblockedAction;
         try {
-            for (ActionNext sibling : actionSiblings) {
-                Project siblingProject = resolveProject(dataSession, sibling);
-                if (nextDescription != null && !nextDescription.trim().isEmpty() && siblingProject != null) {
-                    ActionTaken actionTaken = new ActionTaken();
-                    actionTaken.setProject(siblingProject);
-                    actionTaken.setProjectId(siblingProject.getProjectId());
-                    actionTaken.setActionDate(now);
-                    actionTaken.setActionDescription(nextDescription);
-                    actionTaken.setWorkspaceId(sibling.getWorkspaceId());
-                    actionTaken.setContact(webUser.getProjectContact());
-                    actionTaken.setContactId(webUser.getContactId());
-                    ActionSet actionSet = sibling.getActionSet();
-                    if (actionSet == null) {
-                        actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
-                        sibling.setActionSet(actionSet);
-                        dataSession.update(sibling);
-                    }
-                    actionTaken.setActionSet(actionSet);
-                    dataSession.saveOrUpdate(actionTaken);
-                }
-
-                sibling.setNextActionStatus(nextActionStatus);
-                sibling.setCompletionOrder(0);
-                sibling.setNextChangeDate(now);
-                dataSession.update(sibling);
-
-                if (nextActionStatus == ProjectNextActionStatus.COMPLETED
-                        || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
-                    ActionNext unblocked = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser,
-                            sibling);
-                    if (unblocked != null) {
-                        unblockedAction = unblocked;
-                    }
-                }
-            }
-
-            if (durationMins > 0) {
-                BillEntry billEntry = buildBillEntry(dataSession, webUser, projectAction, now, durationMins);
-                if (billEntry != null) {
-                    dataSession.save(billEntry);
-                }
-            }
+            unblockedAction = applyCompletion(dataSession, appReq.getWebUser(), projectAction, nextDescription,
+                    nextActionStatus, completionMoment, durationMins);
             trans.commit();
         } catch (RuntimeException re) {
             if (trans.isActive()) {
@@ -236,6 +213,64 @@ public class ActionCompletionService {
             throw re;
         }
         actionRecoveryService.remember(appReq, projectAction, nextActionStatus);
+        return unblockedAction;
+    }
+
+    /**
+     * Core of closeAction, without the AppReq/web-session coupling (no
+     * transaction management, no undo-recovery recording) -- for non-UI
+     * callers (e.g. MCP) that manage their own ambient transaction, possibly
+     * spanning several such calls. Never call this while a transaction is not
+     * already open on dataSession.
+     */
+    public ActionNext applyCompletion(Session dataSession, WebUser webUser, ActionNext projectAction,
+            String nextDescription, ProjectNextActionStatus nextActionStatus, Date completionMoment,
+            int durationMins) {
+        ActionNext unblockedAction = null;
+        List<ActionNext> actionSiblings = resolveSharedActionSiblings(dataSession, projectAction);
+        Date now = completionMoment == null ? new Date() : completionMoment;
+        for (ActionNext sibling : actionSiblings) {
+            Project siblingProject = resolveProject(dataSession, sibling);
+            if (nextDescription != null && !nextDescription.trim().isEmpty() && siblingProject != null) {
+                ActionTaken actionTaken = new ActionTaken();
+                actionTaken.setProject(siblingProject);
+                actionTaken.setProjectId(siblingProject.getProjectId());
+                actionTaken.setActionDate(now);
+                actionTaken.setActionDescription(nextDescription);
+                actionTaken.setWorkspaceId(sibling.getWorkspaceId());
+                actionTaken.setContact(webUser.getProjectContact());
+                actionTaken.setContactId(webUser.getContactId());
+                ActionSet actionSet = sibling.getActionSet();
+                if (actionSet == null) {
+                    actionSet = new ActionSetDao(dataSession).createStandardActionSet(webUser);
+                    sibling.setActionSet(actionSet);
+                    dataSession.update(sibling);
+                }
+                actionTaken.setActionSet(actionSet);
+                dataSession.saveOrUpdate(actionTaken);
+            }
+
+            sibling.setNextActionStatus(nextActionStatus);
+            sibling.setCompletionOrder(0);
+            sibling.setNextChangeDate(now);
+            dataSession.update(sibling);
+
+            if (nextActionStatus == ProjectNextActionStatus.COMPLETED
+                    || nextActionStatus == ProjectNextActionStatus.CANCELLED) {
+                ActionNext unblocked = ProjectActionBlockerManager.unblockActionsBlockedBy(dataSession, webUser,
+                        sibling);
+                if (unblocked != null) {
+                    unblockedAction = unblocked;
+                }
+            }
+        }
+
+        if (durationMins > 0) {
+            BillEntry billEntry = buildBillEntry(dataSession, webUser, projectAction, now, durationMins);
+            if (billEntry != null) {
+                dataSession.save(billEntry);
+            }
+        }
         return unblockedAction;
     }
 

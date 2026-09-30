@@ -167,7 +167,30 @@ public class McpResource {
             Object value = tool.call(arguments, context);
             return toolSuccessResult(value);
         } catch (McpToolException toolError) {
+            rollbackIfActive(session);
             return toolErrorResult(toolError.getCode(), toolError.getMessage());
+        } catch (RuntimeException unexpected) {
+            rollbackIfActive(session);
+            throw unexpected;
+        }
+    }
+
+    /**
+     * A tool that mutates data and then throws partway through must not leave
+     * those mutations to be silently committed by HibernateSessionFilter's
+     * end-of-request commit, since this resource always converts the
+     * exception into a normal (non-exceptional) JSON-RPC response rather than
+     * letting it propagate. Rolling back here, before that response is built,
+     * is what makes every tool call's failure atomic. A no-op if nothing was
+     * actually mutated.
+     */
+    private void rollbackIfActive(Session session) {
+        try {
+            if (session.getTransaction() != null && session.getTransaction().isActive()) {
+                session.getTransaction().rollback();
+            }
+        } catch (RuntimeException rollbackFailure) {
+            rollbackFailure.printStackTrace(System.err);
         }
     }
 

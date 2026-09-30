@@ -47,6 +47,9 @@
         <property name="lastModifiedByWebUserId" type="java.lang.Integer">
             <column name="last_modified_by_web_user_id" />
         </property>
+        <property name="lastModifiedDate" type="timestamp">
+            <column name="last_modified_date" />
+        </property>
         <many-to-one name="webUser" column="web_user_id" class="WebUser" not-null="true"/>
         <property name="linkedPatchWorkspaceId" type="java.lang.Integer">
             <column name="linked_patch_workspace_id" />

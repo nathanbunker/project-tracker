@@ -1446,6 +1446,7 @@ public class ProjectHealthServlet extends ClientServlet {
                 if (appReq.getWebUser() != null) {
                     project.setLastModifiedByWebUserId(Integer.valueOf(appReq.getWebUser().getWebUserId()));
                 }
+                project.setLastModifiedDate(new Date());
                 dataSession.saveOrUpdate(project);
             }
             transaction.commit();
@@ -1903,17 +1904,14 @@ public class ProjectHealthServlet extends ClientServlet {
     private void applyProjectDefinitionField(Project project, String fieldName, String fieldValue) {
         if ("currentFocusText".equals(fieldName)) {
             project.setCurrentFocusText(fieldValue);
-            return;
-        }
-        if ("outcomeText".equals(fieldName)) {
+        } else if ("outcomeText".equals(fieldName)) {
             project.setOutcomeText(fieldValue);
-            return;
-        }
-        if ("successCriteriaText".equals(fieldName)) {
+        } else if ("successCriteriaText".equals(fieldName)) {
             project.setSuccessCriteriaText(fieldValue);
-            return;
+        } else {
+            throw new IllegalArgumentException("Unknown project definition field");
         }
-        throw new IllegalArgumentException("Unknown project definition field");
+        project.setLastModifiedDate(new Date());
     }
 
     private String clip(String value, int maxLength) {

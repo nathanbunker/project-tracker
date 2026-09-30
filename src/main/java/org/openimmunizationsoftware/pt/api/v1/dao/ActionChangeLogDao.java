@@ -8,6 +8,10 @@ import org.openimmunizationsoftware.pt.model.ActionChangeLog;
 
 public class ActionChangeLogDao {
 
+    public void save(ActionChangeLog changeLog) {
+        HibernateRequestContext.getCurrentSession().save(changeLog);
+    }
+
     public List<ActionChangeLog> listByAction(int workspaceId, int actionNextId, int limit) {
         Session session = HibernateRequestContext.getCurrentSession();
         Query query = session.createQuery(

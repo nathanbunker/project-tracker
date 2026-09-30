@@ -39,6 +39,7 @@ public final class McpActionContextSupport {
         map.put("description", action.getNextDescription());
         map.put("nextActionType", action.getNextActionType());
         map.put("status", action.getNextActionStatusString());
+        map.put("asOf", toIso(action.getNextChangeDate()));
         map.put("scheduledDate", toIso(action.getNextActionDate()));
         map.put("deadlineDate", toIso(action.getNextDeadlineDate()));
         map.put("targetDate", toIso(action.getNextTargetDate()));
@@ -106,5 +107,19 @@ public final class McpActionContextSupport {
      */
     public static String toIso(Date date) {
         return date == null ? null : Instant.ofEpochMilli(date.getTime()).toString();
+    }
+
+    /**
+     * "Now", truncated to whole-second precision. MySQL's datetime columns
+     * (last_modified_date, next_change_date) silently drop fractional
+     * seconds on write; a version-marker value that's echoed straight back
+     * in the same response -- without a DB round-trip -- must already match
+     * what a later read will show, or a client replaying that exact value
+     * as "asOf" gets spuriously rejected as stale (found in live testing:
+     * McpProjectLanguageService's response carried milliseconds the
+     * persisted column never kept).
+     */
+    public static Date truncatedNow() {
+        return new Date((System.currentTimeMillis() / 1000L) * 1000L);
     }
 }

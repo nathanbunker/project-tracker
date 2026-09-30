@@ -762,6 +762,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             managedProject.setLastModifiedByWebUserId(webUser.getWebUserId());
+            managedProject.setLastModifiedDate(new Date());
             dataSession.saveOrUpdate(managedProject);
             transaction.commit();
 
@@ -2338,6 +2339,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             project.setWebUser(webUser);
             project.setWorkspaceId(activeWorkspaceId);
             project.setLastModifiedByWebUserId(webUser.getWebUserId());
+            project.setLastModifiedDate(new Date());
             if (createMode && project.getCreatedByWebUserId() == null) {
                 project.setCreatedByWebUserId(webUser.getWebUserId());
             }

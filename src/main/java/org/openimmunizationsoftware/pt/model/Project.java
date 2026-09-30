@@ -25,6 +25,7 @@ public class Project implements java.io.Serializable {
   private Integer workspaceId;
   private Integer createdByWebUserId;
   private Integer lastModifiedByWebUserId;
+  private Date lastModifiedDate;
   private Integer linkedPatchWorkspaceId;
   private String externalSourceKey;
   private String externalProjectId;
@@ -188,6 +189,14 @@ public class Project implements java.io.Serializable {
 
   public void setLastModifiedByWebUserId(Integer lastModifiedByWebUserId) {
     this.lastModifiedByWebUserId = lastModifiedByWebUserId;
+  }
+
+  public Date getLastModifiedDate() {
+    return lastModifiedDate;
+  }
+
+  public void setLastModifiedDate(Date lastModifiedDate) {
+    this.lastModifiedDate = lastModifiedDate;
   }
 
   public String getExternalSourceKey() {

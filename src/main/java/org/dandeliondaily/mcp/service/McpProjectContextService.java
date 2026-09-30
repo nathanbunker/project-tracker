@@ -46,6 +46,7 @@ public class McpProjectContextService {
         result.put("currentFocus", project.getCurrentFocusText());
         result.put("outcome", project.getOutcomeText());
         result.put("successCriteria", project.getSuccessCriteriaText());
+        result.put("lastModifiedAt", McpActionContextSupport.toIso(project.getLastModifiedDate()));
         result.put("priorityLevel", project.getPriorityLevel());
         result.put("billCode", project.getBillCode());
         result.put("tags", loadTagNames(session, projectId));
