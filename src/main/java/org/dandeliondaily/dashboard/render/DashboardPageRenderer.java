@@ -1290,6 +1290,10 @@ public class DashboardPageRenderer {
                                 selectedSectionId, filteredView, nowColumnModel.getOpenIssues().size(), () -> {
                                         printOpenIssuesSection(out, appReq, nowColumnModel);
                                 });
+                printAlwaysVisibleProjectSectionTable(out, "aiThoughts", "AI Thoughts",
+                                selectedSectionId, filteredView, nowColumnModel.getAiThoughts().size(), () -> {
+                                        printAiThoughtsSection(out, appReq, nowColumnModel);
+                                });
                 printProjectSectionTable(out, "proposals", "Proposals",
                                 selectedSectionId, filteredView, nowColumnModel.getProposalActions().size(), () -> {
                                         printBacklogProposals(out, nowColumnModel.getProposalActions());
@@ -1326,6 +1330,18 @@ public class DashboardPageRenderer {
                 if (count == 0) {
                         return;
                 }
+                printAlwaysVisibleProjectSectionTable(out, sectionId, title, selectedSectionId, filteredView, count,
+                                tableRenderer);
+        }
+
+        /**
+         * Like printProjectSectionTable, but never hides the section at a zero
+         * count -- needed for AI Thoughts, where the "Add" entry point lives
+         * inside the section itself, so hiding it at zero would make it
+         * impossible to create the first one from the UI.
+         */
+        private void printAlwaysVisibleProjectSectionTable(PrintWriter out, String sectionId, String title,
+                        String selectedSectionId, boolean filteredView, int count, Runnable tableRenderer) {
                 if (filteredView && !selectedSectionId.equals(sectionId)) {
                         return;
                 }
@@ -1351,6 +1367,8 @@ public class DashboardPageRenderer {
                                 ChipColorPolicy.RED_WHEN_POSITIVE));
                 chips.add(new ProjectChipModel("blockers", "Blockers",
                                 nowColumnModel.getOpenIssues().size(), ChipColorPolicy.NEUTRAL));
+                chips.add(new ProjectChipModel("aiThoughts", "AI Thoughts",
+                                nowColumnModel.getAiThoughts().size(), ChipColorPolicy.NEUTRAL));
                 chips.add(new ProjectChipModel("proposals", "Proposals",
                                 nowColumnModel.getProposalActions().size(), ChipColorPolicy.GREEN_WHEN_POSITIVE));
                 chips.add(new ProjectChipModel("scheduled", "Scheduled",
@@ -2665,6 +2683,161 @@ public class DashboardPageRenderer {
                 out.println("        else { alert((data && data.message) ? data.message : 'Unable to update issue.'); }");
                 out.println("      })");
                 out.println("      .catch(() => alert('Unable to update issue.'));");
+                out.println("  }");
+                out.println("</script>");
+        }
+
+        private void printAiThoughtsSection(PrintWriter out, AppReq appReq,
+                        DashboardNowColumnModel nowColumnModel) {
+                int projectId = nowColumnModel.getCurrentProject().getProjectId();
+                List<DashboardNowColumnModel.AiThoughtItem> aiThoughts = nowColumnModel.getAiThoughts();
+
+                out.println("  <table class=\"dd-today-table dd-backlog-table dd-issues-table\">");
+                out.println("    <tr>");
+                out.println("      <th class=\"dd-issues-col-text\">Note</th>");
+                out.println("      <th class=\"dd-issues-col-date\">Source</th>");
+                out.println("      <th class=\"dd-issues-col-date\">Updated</th>");
+                out.println("    </tr>");
+                if (!aiThoughts.isEmpty()) {
+                        for (DashboardNowColumnModel.AiThoughtItem thought : aiThoughts) {
+                                out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenEditAiThoughtModal(event, "
+                                                + thought.getNoteId() + ", '"
+                                                + escapeJsString(thought.getNoteText()) + "')\">");
+                                out.println("      <td class=\"dd-issues-col-text\">" + escapeHtml(thought.getNoteText())
+                                                + "</td>");
+                                out.println("      <td class=\"dd-issues-col-date\">" + escapeHtml(thought.getSource())
+                                                + "</td>");
+                                out.println("      <td class=\"dd-issues-col-date\">"
+                                                + escapeHtml(thought.getUpdatedDisplay()) + "</td>");
+                                out.println("    </tr>");
+                        }
+                }
+                out.println("    <tr class=\"dd-issue-row\" onclick=\"ddOpenAddAiThoughtModal(event)\">");
+                out.println("      <td colspan=\"3\"><a href=\"javascript:void(0);\" class=\"dd-next-desc-link\""
+                                + " onclick=\"ddOpenAddAiThoughtModal(event)\">Add AI Thought</a></td>");
+                out.println("    </tr>");
+                out.println("  </table>");
+
+                // Add AI Thought modal
+                out.println("<div id=\"ddAddAiThoughtModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseAddAiThoughtModal(event)\">");
+                out.println("  <div class=\"dd-modal\" onclick=\"event.stopPropagation()\">");
+                out.println("    <div class=\"dd-modal-head\">");
+                out.println("      <h3 class=\"dd-modal-title\">Add AI Thought</h3>");
+                out.println("      <button class=\"dd-modal-close\" onclick=\"ddCloseAddAiThoughtModal(event)\">&times;</button>");
+                out.println("    </div>");
+                out.println("    <div style=\"padding: 16px;\">");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Note:</label>");
+                out.println("        <textarea id=\"ddAddAiThoughtText\" rows=\"3\" class=\"dd-form-textarea\""
+                                + " placeholder=\"An observation, question, or idea to remember...\"></textarea>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-actions\">");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-primary\""
+                                + " onclick=\"ddSubmitAddAiThought(event, " + projectId + ")\">Save</button>");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-secondary\""
+                                + " onclick=\"ddCloseAddAiThoughtModal(event)\">Cancel</button>");
+                out.println("      </div>");
+                out.println("    </div>");
+                out.println("  </div>");
+                out.println("</div>");
+
+                // Edit/Delete AI Thought modal
+                out.println("<div id=\"ddEditAiThoughtModal\" class=\"dd-modal-overlay\" onclick=\"ddCloseEditAiThoughtModal(event)\">");
+                out.println("  <div class=\"dd-modal\" onclick=\"event.stopPropagation()\">");
+                out.println("    <div class=\"dd-modal-head\">");
+                out.println("      <h3 class=\"dd-modal-title\">Edit AI Thought</h3>");
+                out.println("      <button class=\"dd-modal-close\" onclick=\"ddCloseEditAiThoughtModal(event)\">&times;</button>");
+                out.println("    </div>");
+                out.println("    <div style=\"padding: 16px;\">");
+                out.println("      <input type=\"hidden\" id=\"ddEditAiThoughtId\" value=\"\">");
+                out.println("      <div class=\"dd-form-field\">");
+                out.println("        <label class=\"dd-form-label\">Note:</label>");
+                out.println("        <textarea id=\"ddEditAiThoughtText\" rows=\"3\" class=\"dd-form-textarea\"></textarea>");
+                out.println("      </div>");
+                out.println("      <div class=\"dd-form-actions\">");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-primary\""
+                                + " onclick=\"ddSubmitEditAiThought(event)\">Save</button>");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-danger\""
+                                + " onclick=\"ddSubmitDeleteAiThought(event)\">Delete</button>");
+                out.println("        <button type=\"button\" class=\"dd-btn dd-btn-secondary\""
+                                + " onclick=\"ddCloseEditAiThoughtModal(event)\">Cancel</button>");
+                out.println("      </div>");
+                out.println("    </div>");
+                out.println("  </div>");
+                out.println("</div>");
+
+                out.println("<script>");
+                out.println("  function ddOpenAddAiThoughtModal(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddAddAiThoughtModal');");
+                out.println("    var txt = document.getElementById('ddAddAiThoughtText');");
+                out.println("    if (txt) txt.value = '';");
+                out.println("    if (modal) modal.classList.add('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddCloseAddAiThoughtModal(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddAddAiThoughtModal');");
+                out.println("    if (modal) modal.classList.remove('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddSubmitAddAiThought(evt, projectId) {");
+                out.println("    if (evt) evt.preventDefault();");
+                out.println("    var noteText = document.getElementById('ddAddAiThoughtText').value.trim();");
+                out.println("    if (!noteText) { alert('Note text is required.'); return; }");
+                out.println("    var body = 'action=addAiThought&projectId=' + encodeURIComponent(projectId)");
+                out.println("      + '&noteText=' + encodeURIComponent(noteText);");
+                out.println("    fetch('" + dashboardPath + "', { method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body })");
+                out.println("      .then(r => r.json())");
+                out.println("      .then(data => {");
+                out.println("        if (data && data.success) { ddCloseAddAiThoughtModal(); window.location.reload(); }");
+                out.println("        else { alert((data && data.message) ? data.message : 'Unable to save note.'); }");
+                out.println("      })");
+                out.println("      .catch(() => alert('Unable to save note.'));");
+                out.println("  }");
+                out.println("  function ddOpenEditAiThoughtModal(evt, noteId, noteText) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddEditAiThoughtModal');");
+                out.println("    document.getElementById('ddEditAiThoughtId').value = noteId;");
+                out.println("    document.getElementById('ddEditAiThoughtText').value = noteText;");
+                out.println("    if (modal) modal.classList.add('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddCloseEditAiThoughtModal(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    var modal = document.getElementById('ddEditAiThoughtModal');");
+                out.println("    if (modal) modal.classList.remove('dd-modal-open');");
+                out.println("  }");
+                out.println("  function ddSubmitEditAiThought(evt) {");
+                out.println("    if (evt) evt.preventDefault();");
+                out.println("    var noteId   = document.getElementById('ddEditAiThoughtId').value;");
+                out.println("    var noteText = document.getElementById('ddEditAiThoughtText').value.trim();");
+                out.println("    if (!noteText) { alert('Note text is required.'); return; }");
+                out.println("    var body = 'action=editAiThought&noteId=' + encodeURIComponent(noteId)");
+                out.println("      + '&noteText=' + encodeURIComponent(noteText);");
+                out.println("    fetch('" + dashboardPath + "', { method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body })");
+                out.println("      .then(r => r.json())");
+                out.println("      .then(data => {");
+                out.println("        if (data && data.success) { ddCloseEditAiThoughtModal(); window.location.reload(); }");
+                out.println("        else { alert((data && data.message) ? data.message : 'Unable to update note.'); }");
+                out.println("      })");
+                out.println("      .catch(() => alert('Unable to update note.'));");
+                out.println("  }");
+                out.println("  function ddSubmitDeleteAiThought(evt) {");
+                out.println("    if (evt) evt.preventDefault();");
+                out.println("    if (!confirm('Delete this AI thought?')) { return; }");
+                out.println("    var noteId = document.getElementById('ddEditAiThoughtId').value;");
+                out.println("    var body = 'action=deleteAiThought&noteId=' + encodeURIComponent(noteId);");
+                out.println("    fetch('" + dashboardPath + "', { method: 'POST',");
+                out.println("      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },");
+                out.println("      body: body })");
+                out.println("      .then(r => r.json())");
+                out.println("      .then(data => {");
+                out.println("        if (data && data.success) { ddCloseEditAiThoughtModal(); window.location.reload(); }");
+                out.println("        else { alert((data && data.message) ? data.message : 'Unable to delete note.'); }");
+                out.println("      })");
+                out.println("      .catch(() => alert('Unable to delete note.'));");
                 out.println("  }");
                 out.println("</script>");
         }

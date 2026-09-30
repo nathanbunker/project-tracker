@@ -2,7 +2,13 @@
 
 Answers the questions raised in `docs/Dandelion_Daily_AI_Integration_Codebase_Assessment.md`. This is analysis only — nothing in the codebase has been changed.
 
-**Status: Phase 0 implemented and verified (2026-09-30).** All 8 tools below (`get_project_context`, `get_planning_context`, `get_outlook`, `list_outlooks`, `set_outlook`, `get_time_allocation_context`, `get_day_availability`, `set_day_availability`) are built and passed an end-to-end test against a local deployment with real data — protocol handshake, auth rejection, the frozen-outlook-period rule, day-availability read/write (including the template-regeneration side effect), time-allocation context, and error handling all confirmed working. One bug was found and fixed during testing: `ActionNext.nextActionDate`/`nextDeadlineDate`/`nextTargetDate` are Hibernate `type="date"` and come back as `java.sql.Date`, whose `toInstant()` throws `UnsupportedOperationException` — `McpActionContextSupport.toIso()` now builds the `Instant` from `getTime()` instead. Phases 1-2 (AI project-thoughts, batch write-back) are not started.
+**Status: Phase 0 implemented and verified end-to-end (2026-09-30). Phase 1 implemented, not yet live-tested (2026-09-30).**
+
+Phase 0: all 8 tools (`get_project_context`, `get_planning_context`, `get_outlook`, `list_outlooks`, `set_outlook`, `get_time_allocation_context`, `get_day_availability`, `set_day_availability`) passed an end-to-end test against a local deployment with real data — protocol handshake, auth rejection, the frozen-outlook-period rule, day-availability read/write (including the template-regeneration side effect), time-allocation context, and error handling all confirmed working. One bug was found and fixed during testing: `ActionNext.nextActionDate`/`nextDeadlineDate`/`nextTargetDate` are Hibernate `type="date"` and come back as `java.sql.Date`, whose `toInstant()` throws `UnsupportedOperationException` — `McpActionContextSupport.toIso()` now builds the `Instant` from `getTime()` instead.
+
+Phase 1: `project_ai_note` table added; `ProjectAiNoteService` (shared by MCP and UI) backs three new MCP tools (`add_project_ai_thought`, `update_project_ai_thought`, `delete_project_ai_thought`) and a new "AI Thoughts" section on the project dashboard page (view/edit/delete, modeled directly on the existing "Blockers" section's collapsible-chip UI pattern). `get_project_context` now includes an `aiThoughts` list. Compiles clean, 286/286 tests pass, but has not yet been exercised against a live deployment the way Phase 0 was.
+
+Phase 2 (batch write-back) is not started.
 
 **Bottom line: this is doable, and cheaper than the prompt implies.** The two hardest-sounding pieces — a task-oriented API surface with auth, and a propose/review/apply workflow for AI-authored edits — already exist in working form (`/api/*` + `ApiKeyAuthFilter`, and `ProjectReviewChatService`'s three chat modes). The main net-new work is: one new table for outlooks, one new table for AI project-thoughts, and finishing a batch-apply-with-staleness-checks operation that today only exists as an unfinished skeleton (`ActionProposal`/`ActionChangeLog`) plus several one-entity-at-a-time precedents.
 
@@ -152,8 +158,8 @@ Small, task-oriented surface per the doc's instruction, hosted under `/api/*` re
 - Add `get_day_availability` / `set_day_availability`, calling `PlanAheadDayCapacityService` directly. This is the one write against an existing table in this phase, but it's justified as low-risk since it fully delegates to the already-shipped `saveDayCapacity` path (including the template-regeneration side effect) rather than inventing new logic.
 - Otherwise **no writes to existing action/project data in this phase** — lowest risk, immediately useful for the "short conversation about the month, then the week" rhythm the doc describes.
 
-**Phase 1 — AI project-thoughts:**
-- Add `project_ai_note` table + CRUD tools + a minimal Dandelion UI list under the project page (view/edit/delete). Low risk: independent records, no batch/staleness complexity.
+**Phase 1 — AI project-thoughts. Implemented 2026-09-30, not yet live-tested:**
+- Added `project_ai_note` table + CRUD tools + a minimal Dandelion UI list under the project page (view/edit/delete). Low risk: independent records, no batch/staleness complexity.
 
 **Phase 2 — safe write-back (the hard part):**
 - Add `Project.lastModifiedDate` (new column).

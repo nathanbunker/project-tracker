@@ -17,12 +17,14 @@ import org.dandeliondaily.projecthealth.model.ProjectHealthIssueModel;
 import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.dandeliondaily.projectainote.service.ProjectAiNoteService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionNextNote;
+import org.openimmunizationsoftware.pt.model.ProjectAiNote;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -78,6 +80,7 @@ public class DashboardNowColumnService {
             model.setTemplatedActions(buildTemplatedItems(webUser, openActions));
             model.setRecentCompleted(buildRecentCompleted(webUser, dataSession, currentProject));
             model.setOpenIssues(buildOpenIssueItems(webUser, dataSession, currentProject));
+            model.setAiThoughts(buildAiThoughtItems(webUser, dataSession, currentProject));
             model.setTakenToday(buildTakenToday(webUser, dataSession, currentProject));
             model.setTakenActions(buildTakenActions(webUser, dataSession, currentProject));
             model.setProjectHealth(buildProjectHealthSection(appReq, currentProject, projectDisplayContext));
@@ -403,6 +406,24 @@ public class DashboardNowColumnService {
             item.setCreatedDate(issue.getCreatedDate());
             item.setCreatedDisplay(webUser.getDateFormatService().formatPattern(issue.getCreatedDate(),
                     webUser.getDateDisplayPatternWithWeekdayShort(), webUser.getTimeZone()));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private List<DashboardNowColumnModel.AiThoughtItem> buildAiThoughtItems(WebUser webUser, Session dataSession,
+            Project currentProject) {
+        List<ProjectAiNote> notes = new ProjectAiNoteService().list(dataSession, currentProject.getProjectId());
+        List<DashboardNowColumnModel.AiThoughtItem> items = new ArrayList<>();
+        for (ProjectAiNote note : notes) {
+            DashboardNowColumnModel.AiThoughtItem item = new DashboardNowColumnModel.AiThoughtItem();
+            item.setNoteId(note.getNoteId());
+            item.setNoteText(n(note.getNoteText(), ""));
+            item.setSource(n(note.getSource(), "manual"));
+            Date updatedDate = note.getUpdatedAt() != null ? note.getUpdatedAt() : note.getCreatedAt();
+            item.setUpdatedDisplay(updatedDate == null ? "" : webUser.getDateFormatService()
+                    .formatPattern(updatedDate, webUser.getDateDisplayPatternWithWeekdayShort(),
+                            webUser.getTimeZone()));
             items.add(item);
         }
         return items;

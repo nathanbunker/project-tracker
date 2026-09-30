@@ -21,6 +21,7 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/WeeklyReport.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/WorkObligation.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/PlanningOutlook.hbm.xml"/>
+    <mapping resource="org/openimmunizationsoftware/pt/model/ProjectAiNote.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillBudget.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillPlan.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/BillPlanTarget.hbm.xml"/>

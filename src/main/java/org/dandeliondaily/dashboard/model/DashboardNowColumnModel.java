@@ -14,6 +14,7 @@ public class DashboardNowColumnModel {
     private List<TemplatedActionItem> templatedActions = new ArrayList<>();
     private List<RecentCompletedItem> recentCompleted = new ArrayList<>();
     private List<OpenIssueItem> openIssues = new ArrayList<>();
+    private List<AiThoughtItem> aiThoughts = new ArrayList<>();
     private List<TakenActionItem> takenToday = new ArrayList<>();
     private List<TakenActionItem> takenActions = new ArrayList<>();
     private ProjectHealthSection projectHealth = new ProjectHealthSection();
@@ -83,6 +84,14 @@ public class DashboardNowColumnModel {
 
     public void setOpenIssues(List<OpenIssueItem> openIssues) {
         this.openIssues = openIssues;
+    }
+
+    public List<AiThoughtItem> getAiThoughts() {
+        return aiThoughts;
+    }
+
+    public void setAiThoughts(List<AiThoughtItem> aiThoughts) {
+        this.aiThoughts = aiThoughts;
     }
 
     public List<TakenActionItem> getTakenToday() {
@@ -559,6 +568,45 @@ public class DashboardNowColumnModel {
 
         public void setCreatedDate(Date createdDate) {
             this.createdDate = createdDate;
+        }
+    }
+
+    public static class AiThoughtItem {
+        private int noteId;
+        private String noteText = "";
+        private String source = "";
+        private String updatedDisplay = "";
+
+        public int getNoteId() {
+            return noteId;
+        }
+
+        public void setNoteId(int noteId) {
+            this.noteId = noteId;
+        }
+
+        public String getNoteText() {
+            return noteText;
+        }
+
+        public void setNoteText(String noteText) {
+            this.noteText = noteText;
+        }
+
+        public String getSource() {
+            return source;
+        }
+
+        public void setSource(String source) {
+            this.source = source;
+        }
+
+        public String getUpdatedDisplay() {
+            return updatedDisplay;
+        }
+
+        public void setUpdatedDisplay(String updatedDisplay) {
+            this.updatedDisplay = updatedDisplay;
         }
     }
 

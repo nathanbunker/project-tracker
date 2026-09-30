@@ -5,6 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.AddProjectAiThoughtTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectAiThoughtTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetDayAvailabilityTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetOutlookTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetPlanningContextTool;
@@ -13,8 +15,9 @@ import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetTimeAllocationContext
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.ListOutlooksTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SetDayAvailabilityTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SetOutlookTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectAiThoughtTool;
 
-/** The small, task-oriented tool surface for Phase 0 (see assessment section 4-5). */
+/** The small, task-oriented tool surface for Phase 0-1 (see assessment section 4-5). */
 public class McpToolRegistry {
 
     private final Map<String, McpTool> toolsByName = new LinkedHashMap<String, McpTool>();
@@ -28,6 +31,9 @@ public class McpToolRegistry {
         register(new GetTimeAllocationContextTool());
         register(new GetDayAvailabilityTool());
         register(new SetDayAvailabilityTool());
+        register(new AddProjectAiThoughtTool());
+        register(new UpdateProjectAiThoughtTool());
+        register(new DeleteProjectAiThoughtTool());
     }
 
     private void register(McpTool tool) {

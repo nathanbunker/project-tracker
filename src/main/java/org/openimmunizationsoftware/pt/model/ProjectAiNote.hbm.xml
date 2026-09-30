@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+    <class name="ProjectAiNote" table="project_ai_note">
+        <id name="noteId" type="int"><column name="note_id"/><generator class="native"/></id>
+        <property name="projectId" type="int"><column name="project_id" not-null="true"/></property>
+        <property name="noteText" type="text"><column name="note_text" not-null="true"/></property>
+        <property name="source" type="string"><column name="source" length="80"/></property>
+        <property name="createdAt" type="timestamp"><column name="created_at" not-null="true"/></property>
+        <property name="updatedAt" type="timestamp"><column name="updated_at" not-null="true"/></property>
+    </class>
+</hibernate-mapping>

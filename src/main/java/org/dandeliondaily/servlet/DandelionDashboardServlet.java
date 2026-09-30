@@ -236,6 +236,19 @@ public class DandelionDashboardServlet extends ClientServlet {
                 return;
             }
 
+            if ("addAiThought".equals(action)) {
+                handleAddAiThought(appReq);
+                return;
+            }
+            if ("editAiThought".equals(action)) {
+                handleEditAiThought(appReq);
+                return;
+            }
+            if ("deleteAiThought".equals(action)) {
+                handleDeleteAiThought(appReq);
+                return;
+            }
+
             if ("StartTimer".equals(action)) {
                 handleStartTimer(appReq);
             }
@@ -2030,6 +2043,120 @@ public class DandelionDashboardServlet extends ClientServlet {
             transaction.rollback();
             e.printStackTrace();
             sendJsonResponse(appReq, false, "Error updating issue: " + e.getMessage(), null);
+        }
+    }
+
+    private void handleAddAiThought(AppReq appReq) throws Exception {
+        String projectIdStr = appReq.getRequest().getParameter("projectId");
+        String noteText = clip(appReq.getRequest().getParameter("noteText"), 4000);
+
+        if (projectIdStr == null || projectIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "Project id is required", null);
+            return;
+        }
+        if (noteText.length() == 0) {
+            sendJsonResponse(appReq, false, "Note text is required", null);
+            return;
+        }
+
+        int projectId;
+        try {
+            projectId = Integer.parseInt(projectIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid project id", null);
+            return;
+        }
+
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            sendJsonResponse(appReq, false, "No active workspace", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            new org.dandeliondaily.projectainote.service.ProjectAiNoteService().create(dataSession,
+                    workspaceId.intValue(), projectId, noteText, "manual");
+            transaction.commit();
+            sendJsonResponse(appReq, true, "AI thought added", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            e.printStackTrace();
+            sendJsonResponse(appReq, false, "Error adding AI thought: " + e.getMessage(), null);
+        }
+    }
+
+    private void handleEditAiThought(AppReq appReq) throws Exception {
+        String noteIdStr = appReq.getRequest().getParameter("noteId");
+        String noteText = clip(appReq.getRequest().getParameter("noteText"), 4000);
+
+        if (noteIdStr == null || noteIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "Note id is required", null);
+            return;
+        }
+        if (noteText.length() == 0) {
+            sendJsonResponse(appReq, false, "Note text is required", null);
+            return;
+        }
+
+        int noteId;
+        try {
+            noteId = Integer.parseInt(noteIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid note id", null);
+            return;
+        }
+
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            sendJsonResponse(appReq, false, "No active workspace", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            new org.dandeliondaily.projectainote.service.ProjectAiNoteService().update(dataSession,
+                    workspaceId.intValue(), noteId, noteText);
+            transaction.commit();
+            sendJsonResponse(appReq, true, "AI thought updated", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            e.printStackTrace();
+            sendJsonResponse(appReq, false, "Error updating AI thought: " + e.getMessage(), null);
+        }
+    }
+
+    private void handleDeleteAiThought(AppReq appReq) throws Exception {
+        String noteIdStr = appReq.getRequest().getParameter("noteId");
+        if (noteIdStr == null || noteIdStr.trim().length() == 0) {
+            sendJsonResponse(appReq, false, "Note id is required", null);
+            return;
+        }
+
+        int noteId;
+        try {
+            noteId = Integer.parseInt(noteIdStr.trim());
+        } catch (NumberFormatException nfe) {
+            sendJsonResponse(appReq, false, "Invalid note id", null);
+            return;
+        }
+
+        Integer workspaceId = appReq.getActiveWorkspaceId();
+        if (workspaceId == null) {
+            sendJsonResponse(appReq, false, "No active workspace", null);
+            return;
+        }
+        Session dataSession = appReq.getDataSession();
+        Transaction transaction = dataSession.beginTransaction();
+        try {
+            new org.dandeliondaily.projectainote.service.ProjectAiNoteService().delete(dataSession,
+                    workspaceId.intValue(), noteId);
+            transaction.commit();
+            sendJsonResponse(appReq, true, "AI thought deleted", null);
+        } catch (Exception e) {
+            transaction.rollback();
+            e.printStackTrace();
+            sendJsonResponse(appReq, false, "Error deleting AI thought: " + e.getMessage(), null);
         }
     }
 

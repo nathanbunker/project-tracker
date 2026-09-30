@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.dandeliondaily.projectainote.service.ProjectAiNoteService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpToolException;
@@ -12,6 +13,7 @@ import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionTaken;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectAiNote;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
@@ -29,6 +31,8 @@ public class McpProjectContextService {
     private static final int MAX_OPEN_ACTIONS = 20;
     private static final int MAX_OPEN_ISSUES = 20;
     private static final int MAX_RECENT_NARRATIVES = 20;
+
+    private final ProjectAiNoteService aiNoteService = new ProjectAiNoteService();
 
     public Map<String, Object> getProjectContext(Session session, int workspaceId, int projectId) {
         Project project = requireProject(session, workspaceId, projectId);
@@ -50,7 +54,22 @@ public class McpProjectContextService {
         result.put("activeTemplates", loadActiveTemplatesList(session, projectId));
         result.put("openIssues", loadOpenIssuesList(session, project));
         result.put("recentNarratives", loadRecentNarrativesList(session, projectId));
+        result.put("aiThoughts", loadAiThoughtsList(session, projectId));
         return result;
+    }
+
+    private List<Map<String, Object>> loadAiThoughtsList(Session session, int projectId) {
+        List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+        for (ProjectAiNote note : aiNoteService.list(session, projectId)) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("noteId", note.getNoteId());
+            item.put("noteText", note.getNoteText());
+            item.put("source", note.getSource());
+            item.put("createdAt", McpActionContextSupport.toIso(note.getCreatedAt()));
+            item.put("updatedAt", McpActionContextSupport.toIso(note.getUpdatedAt()));
+            list.add(item);
+        }
+        return list;
     }
 
     private Project requireProject(Session session, int workspaceId, int projectId) {
