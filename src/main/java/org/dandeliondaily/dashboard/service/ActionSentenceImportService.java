@@ -137,6 +137,10 @@ public class ActionSentenceImportService {
         return resolveProjectScopedActor(webUser, dataSession, project, actionPart);
     }
 
+    private static boolean startsWithIgnoreCase(String value, String prefix) {
+        return value.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
     private ActionNext buildActionFromSentence(WebUser webUser, Session dataSession,
             Project defaultProject, List<Project> projectList, String sentenceInput, Integer workspaceIdOverride,
             boolean assignStandardActionSet) {
@@ -196,32 +200,32 @@ public class ActionSentenceImportService {
         String actionToTake = actionPart;
         String whenToTakeAction = "";
         int nextTimeEstimate = 20;
-        if (actionPart.startsWith("I will meet ")) {
+        if (startsWithIgnoreCase(actionPart, "I will meet ")) {
             actionVerb = "I will meet";
             actionToTake = actionPart.substring("I will meet ".length()).trim();
             nextTimeEstimate = 60;
-        } else if (actionPart.startsWith("I will ")) {
+        } else if (startsWithIgnoreCase(actionPart, "I will ")) {
             actionVerb = "I will";
             actionToTake = actionPart.substring("I will ".length()).trim();
-        } else if (actionPart.startsWith("I might ")) {
+        } else if (startsWithIgnoreCase(actionPart, "I might ")) {
             actionVerb = "I might";
             actionToTake = actionPart.substring("I might ".length()).trim();
-        } else if (actionPart.startsWith("I would like to ")
-                || actionPart.equals("I would like to")
-                || actionPart.startsWith("I would like to:")) {
+        } else if (startsWithIgnoreCase(actionPart, "I would like to ")
+                || actionPart.equalsIgnoreCase("I would like to")
+                || startsWithIgnoreCase(actionPart, "I would like to:")) {
             actionVerb = "I would like to";
             actionToTake = actionPart.substring("I would like to".length()).trim();
             if (actionToTake.startsWith(":")) {
                 actionToTake = actionToTake.substring(1).trim();
             }
-        } else if (actionPart.startsWith("I have committed ")) {
+        } else if (startsWithIgnoreCase(actionPart, "I have committed ")) {
             actionVerb = "I have committed";
             actionToTake = actionPart.substring("I have committed ".length()).trim();
-        } else if (actionPart.startsWith("I have set goal to")) {
+        } else if (startsWithIgnoreCase(actionPart, "I have set goal to")) {
             actionVerb = "I have set goal to";
             actionToTake = actionPart.substring("I have set goal to".length()).trim();
-        } else if (actionPart.startsWith("I am waiting ") || actionPart.equals("I am waiting")
-                || actionPart.startsWith("I am waiting:")) {
+        } else if (startsWithIgnoreCase(actionPart, "I am waiting ") || actionPart.equalsIgnoreCase("I am waiting")
+                || startsWithIgnoreCase(actionPart, "I am waiting:")) {
             actionVerb = "I am waiting";
             actionToTake = actionPart.substring("I am waiting".length()).trim();
             if (actionToTake.startsWith(":")) {

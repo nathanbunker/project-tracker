@@ -18,6 +18,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.dandeliondaily.dashboard.service.ActionSentenceImportService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.ProjectActionBlockerManager;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -58,6 +59,7 @@ public class ActionServlet extends MobileBaseServlet {
     private static final String PARAM_DATE = "date";
     private static final String PARAM_ACTION = "action";
     private static final String PARAM_BLOCKING_DESCRIPTION = "blockingDescription";
+    private static final String PARAM_NEXT_SENTENCE = "nextSentence";
 
     private static final String ACTION_SAVE = "Save";
     private static final String ACTION_START = "Start";
@@ -65,6 +67,12 @@ public class ActionServlet extends MobileBaseServlet {
     private static final String ACTION_COMPLETE = "complete";
     private static final String ACTION_TOMORROW = "tomorrow";
     private static final String ACTION_SCHEDULE_AND_BLOCK = "scheduleAndBlock";
+    private static final String ACTION_COMPLETE_AND_NEXT = "completeAndNext";
+
+    private static final String[] ACTION_SENTENCE_VERBS = { "I will", "I might", "I am waiting",
+            "I will meet", "I would like to", "I have committed", "I have set goal to" };
+
+    private final ActionSentenceImportService actionSentenceImportService = new ActionSentenceImportService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -200,6 +208,13 @@ public class ActionServlet extends MobileBaseServlet {
             response.sendRedirect(buildTodoRedirectUrl(request));
             return;
         }
+        if (ACTION_COMPLETE_AND_NEXT.equals(action)) {
+            completeAndScheduleNext(projectAction, request.getParameter(PARAM_NEXT_SENTENCE),
+                    dataSession, webUser);
+            // Land on today rather than the completed action's (possibly overdue) date.
+            response.sendRedirect("todo");
+            return;
+        }
         if (ACTION_SCHEDULE_AND_BLOCK.equals(action)) {
             String blockingDescription = request.getParameter(PARAM_BLOCKING_DESCRIPTION);
             scheduleAndBlock(projectAction, blockingDescription, dataSession, webUser);
@@ -239,6 +254,11 @@ public class ActionServlet extends MobileBaseServlet {
                 ".mv-btn{flex:1;padding:14px 8px;font-size:.95em;font-weight:bold;border:none;border-radius:8px;cursor:pointer;text-align:center;text-decoration:none;display:inline-block;color:#fff;}");
         out.println(".mv-complete{background:#2c7a2c;} .mv-postpone{background:#1a5276;} .mv-edit{background:#666;}");
         out.println(".mv-note{background:#444;} .mv-block{background:#7d4c00;} .mv-nav{background:#555;}");
+        out.println(".mv-next{background:#2c7a2c;}");
+        out.println(
+                ".mv-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}");
+        out.println(
+                ".mv-chip{padding:8px 10px;font-size:.85em;border:1px solid #ccc;border-radius:14px;background:#f5f5f5;color:#333;cursor:pointer;}");
         out.println("</style>");
 
         String projectName = action.getProject() != null
@@ -317,6 +337,8 @@ public class ActionServlet extends MobileBaseServlet {
         out.println("  </div>");
         out.println("</form>");
 
+        printCompleteAndNextForm(out, action, dateParam);
+
         out.println("<div class=\"mv-section\">Navigation</div>");
         out.println("<div class=\"mv-btn-row\">");
         String todoUrl = "todo";
@@ -375,6 +397,87 @@ public class ActionServlet extends MobileBaseServlet {
             return "todo?" + PARAM_DATE + "=" + dateParam;
         }
         return "todo";
+    }
+
+    /**
+     * Renders the Complete &amp; Next box. Deliberately avoids the desktop
+     * typeahead: the verb chips are plain buttons so nothing intercepts the
+     * phone keyboard's Enter/Go key.
+     */
+    private void printCompleteAndNextForm(PrintWriter out, ActionNext action, String dateParam) {
+        out.println("<div class=\"mv-section\">Complete &amp; Next</div>");
+        out.println("<form method=\"post\" action=\"action\">");
+        out.println("  <input type=\"hidden\" name=\"" + PARAM_VIEW_ACTION_ID + "\" value=\""
+                + action.getActionNextId() + "\" />");
+        if (!dateParam.isEmpty()) {
+            out.println("  <input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + dateParam + "\" />");
+        }
+        out.println("  <div class=\"mv-chip-row\">");
+        for (String verb : ACTION_SENTENCE_VERBS) {
+            out.println("    <button type=\"button\" class=\"mv-chip\" onclick=\"mvSetNextVerb('"
+                    + verb + "')\">" + escapeHtml(verb) + "</button>");
+        }
+        out.println("  </div>");
+        out.println("  <input type=\"text\" id=\"mvNextSentence\" name=\"" + PARAM_NEXT_SENTENCE
+                + "\" class=\"mv-input\" value=\"I will \""
+                + " placeholder=\"I will go to the store tomorrow\""
+                + " autocomplete=\"off\" autocapitalize=\"sentences\" autocorrect=\"off\""
+                + " spellcheck=\"false\" enterkeyhint=\"go\" />");
+        out.println("  <div class=\"mv-btn-row\">");
+        out.println("    <button type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\""
+                + ACTION_COMPLETE_AND_NEXT + "\" class=\"mv-btn mv-next\">&#10004; Complete &amp; Next</button>");
+        out.println("  </div>");
+        out.println("</form>");
+        out.println("<script>");
+        out.println("function mvSetNextVerb(verb){");
+        out.println("  var input = document.getElementById('mvNextSentence');");
+        out.println("  if (!input) { return; }");
+        out.println("  input.value = verb + ' ';");
+        out.println("  input.focus();");
+        out.println("}");
+        out.println("</script>");
+    }
+
+    /**
+     * Completes the action and, when the sentence carries more than a bare
+     * verb, schedules the follow-up it describes.
+     */
+    private void completeAndScheduleNext(ActionNext projectAction, String nextSentence,
+            Session dataSession, WebUser webUser) {
+        if (hasActionSentenceContent(nextSentence)) {
+            actionSentenceImportService.saveNewActionFromSentence(webUser, dataSession,
+                    projectAction.getProject(), getAllProjectList(webUser, dataSession), nextSentence.trim());
+        }
+        completeAction(projectAction, dataSession, webUser);
+    }
+
+    private boolean hasActionSentenceContent(String nextSentence) {
+        if (nextSentence == null) {
+            return false;
+        }
+        String remainder = nextSentence.trim();
+        if (remainder.isEmpty()) {
+            return false;
+        }
+        for (String verb : ACTION_SENTENCE_VERBS) {
+            if (remainder.equalsIgnoreCase(verb)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<Project> getAllProjectList(WebUser webUser, Session dataSession) {
+        Integer workspaceId = org.openimmunizationsoftware.pt.WorkspaceRegistry
+                .getWorkspaceIdForWebUserId(webUser.getWebUserId());
+        Query query = dataSession.createQuery("from Project where workspaceId = :workspaceId"
+                + " and (projectStatus is null or projectStatus <> :closedStatus)"
+                + " order by projectName");
+        query.setParameter("workspaceId", workspaceId);
+        query.setParameter("closedStatus", ProjectStatus.CLOSED.getDatabaseValue());
+        @SuppressWarnings("unchecked")
+        List<Project> allProjects = query.list();
+        return allProjects;
     }
 
     private String buildActionViewRedirectUrl(HttpServletRequest request, ActionNext action) {
