@@ -56,6 +56,11 @@ public class ActionNext implements java.io.Serializable {
 
     public void setActionNextId(int actionNextId) {
         this.actionNextId = actionNextId;
+        if (nextNoteEntries != null) {
+            for (ActionNextNote note : nextNoteEntries) {
+                note.setActionNextId(actionNextId);
+            }
+        }
     }
 
     public int getProjectId() {
@@ -357,6 +362,36 @@ public class ActionNext implements java.io.Serializable {
             note.setNoteDate(now);
             nextNoteEntries.add(note);
         }
+    }
+
+    public boolean setNextNotesIfChanged(String nextNotes) {
+        if (normalizeNextNotes(getNextNotes()).equals(normalizeNextNotes(nextNotes))) {
+            return false;
+        }
+        setNextNotes(nextNotes);
+        return true;
+    }
+
+    private String normalizeNextNotes(String nextNotes) {
+        if (nextNotes == null || nextNotes.trim().length() == 0) {
+            return "";
+        }
+        StringBuilder normalizedNotes = new StringBuilder();
+        String[] lines = nextNotes.split("\\r?\\n");
+        for (String line : lines) {
+            String normalizedLine = line == null ? "" : line.trim();
+            if (normalizedLine.startsWith("-")) {
+                normalizedLine = normalizedLine.substring(1).trim();
+            }
+            if (normalizedLine.length() == 0) {
+                continue;
+            }
+            if (normalizedNotes.length() > 0) {
+                normalizedNotes.append("\n");
+            }
+            normalizedNotes.append(normalizedLine);
+        }
+        return normalizedNotes.toString();
     }
 
     public void setNextSummary(String nextSummary) {

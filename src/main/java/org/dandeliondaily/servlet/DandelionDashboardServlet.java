@@ -145,8 +145,10 @@ public class DandelionDashboardServlet extends ClientServlet {
                 applyProjectOverride(appReq);
             }
 
-            // Language review and next-actions AI calls run on a background thread so the request returns
-            // immediately; the browser polls status and swaps in the fragment without a page reload.
+            // Language review and next-actions AI calls run on a background thread so the
+            // request returns
+            // immediately; the browser polls status and swaps in the fragment without a
+            // page reload.
             if (projectExpandedLayout) {
                 if (ACTION_LANGUAGE_REVIEW_START.equals(action) || ACTION_LANGUAGE_REVIEW_SEND.equals(action)) {
                     handleLanguageReviewSendAsync(appReq, action);
@@ -542,7 +544,8 @@ public class DandelionDashboardServlet extends ClientServlet {
         try {
             sendJsonResponse(appReq, success, message, data);
         } catch (Exception e) {
-            // best-effort; the client will retry on its next poll if the response stream failed
+            // best-effort; the client will retry on its next poll if the response stream
+            // failed
         }
     }
 
@@ -1135,7 +1138,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         } catch (Exception e) {
             transaction.rollback();
             e.printStackTrace();
-            sendJsonResponse(appReq, false, "Error saving action: " + e.getMessage(), null);
+            sendJsonResponse(appReq, false, "Unable to save action. See the server log for details.", null);
         }
     }
 
@@ -1199,7 +1202,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             }
 
             if (nextNote != null) {
-                sibling.setNextNotes(nextNote);
+                sibling.setNextNotesIfChanged(nextNote);
             }
 
             if (saveAndStart) {
