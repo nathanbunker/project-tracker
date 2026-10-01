@@ -10,9 +10,10 @@ See `docs/Dandelion_Daily_AI_Integration_Assessment.md` for the design and
 
 ## Status (2026-10-01)
 
-**Nothing is outstanding.** Every problem (P-1 to P-10) and idea (I-1 to I-11) in this
-document has been addressed, and each entry below is marked **Status: Addressed**. The
-entries are kept for history.
+**Only I-12 (build items 13 and 14) is outstanding.** It's implemented in version
+5.10.6 and waiting on deployment and verification. Every other problem (P-1 to P-10)
+and idea (I-1 to I-11) in this document has been addressed, and each entry below is
+marked **Status: Addressed**. The entries are kept for history.
 
 I-11 (build items 11 and 12) was deployed and verified on 2026-10-01; see Resolved.
 
@@ -42,8 +43,10 @@ General rules for all new tools:
 | 10 | Return the new `asOf` from `apply_changes` results | P-4 | An update followed by a reschedule works without a fresh read |
 | 11 | Return `completionOrder`, `priorityLevel`, and the dashboard bucket for each action in `get_planning_context` and `get_project_context`, sorted within a day the way the dashboard sorts (added 2026-10-01) | I-11 | Read today; the order and groups match the dashboard Today column |
 | 12 | Add an `order_day` change type to `apply_changes` that sets `completionOrder` within buckets; the dashboard bucket order doesn't change (added 2026-10-01) | I-11 | Reorder three WILL actions for today through the MCP; the dashboard shows them in that order inside the WILL group, and the order is still there after the dashboard reloads |
+| 13 | Return `linkUrl` on each action in `get_planning_context` and `get_project_context` (added 2026-10-01) | I-12 | Read a day that includes an action with a link set in the UI; `linkUrl` matches |
+| 14 | Let `create_action`, `update_action`, and `split_action` (per new action) set `linkUrl`; allow `update_action` to change only `linkUrl` (and `addNote`) on template-generated instances (added 2026-10-01) | I-12 | Create an action with a link, change it, and clear it through the MCP; each shows on the dashboard Now column. Set a link on a template-generated instance; it's accepted, and the template root is unchanged |
 
-Items 1 to 12 are done (see Resolved).
+Items 1 to 12 are done (see Resolved). Items 13 and 14 (I-12) are open.
 The entries that were left out of the first build (I-1, I-2, I-3, I-4, I-9, P-2, P-3,
 P-5, P-6) have since been addressed as well.
 
@@ -194,6 +197,57 @@ scheduled 2026-10-01) both had `asOf` 2026-09-30T20:45:24Z. Only 796171 had note
 double submit in the create or "add note" flow. 796172 was removed through the MCP.
 
 ## Ideas
+
+### I-12: Read and set an action's link (`linkUrl`) through the MCP
+
+**Status:** OUTSTANDING. Fix implemented 2026-10-01 in version 5.10.6, waiting on
+deployment and verification (build items 13 and 14).
+**Raised:** 2026-10-01 (Nathan)
+
+`ActionNext.linkUrl` (column `link_url`, up to 1200 characters) is in the model. The
+dashboard Now column shows it (`DashboardNowColumnService`), and template-generated
+instances copy it from their template (`TemplateGenerationService`). The MCP neither
+returns it nor lets the assistant set it.
+
+A link to a PR, ticket, chat thread, or document is often the first thing needed to act
+on an item. If the assistant can see it, it can open the work directly when helping
+plan or review, and if it can set it, it can attach the PR or doc it just created to the
+action that tracks it.
+
+Suggested change:
+
+- Return `linkUrl` on every action in `get_planning_context` and `get_project_context`
+  (null or empty when not set).
+- Add an optional `linkUrl` to `create_action`, `update_action`, and to each entry in
+  `split_action` `newActions`. On `update_action`, an empty string or null clears it.
+  Validate it as an http(s) URL of at most 1200 characters.
+- Template-generated instances: `update_action` currently rejects all template-managed
+  actions. Like `order_day` and `complete_action`, setting the link (and `addNote`) on a
+  generated **instance** should be allowed, because it describes today's occurrence and
+  doesn't change the template. Template roots stay blocked.
+- Write an `ActionChangeLog` entry when the link changes, as for other updates.
+
+**Fix (2026-10-01, version 5.10.6, not yet deployed):**
+
+- Build item 13: every action in `get_planning_context` and in `get_project_context`
+  `openActions` now includes `linkUrl`, read straight from `ActionNext.linkUrl`. It's null
+  or "" when no link is set.
+- Build item 14: `create_action`, `update_action`, and each `split_action` `newActions`
+  entry take an optional `linkUrl`. A non-blank value must be an absolute http or https
+  URL of at most 1200 characters; anything else rejects the batch with a reason. On
+  `update_action`, "" or null clears the link (stored as "", as the UI does).
+- An `update_action` that sets only `linkUrl` and/or `addNote` is now accepted on a
+  template-generated instance. It changes that occurrence only; the template root isn't
+  touched. Template roots are still rejected, and so is any update to an instance that
+  includes `description`, `nextActionType`, or `estimateMinutes`.
+- The update's `ActionChangeLog` entry records the link change as its reason ("Set link
+  to ..." or "Cleared link").
+- Not changed: like other MCP updates, a link set on an action in a SHARED action set
+  isn't copied to the linked projects' copies (the dashboard edit form does copy it).
+- Tests: `McpApplyChangesServiceTest` covers the URL check.
+
+To verify after deployment: run the **Verify** lines for build items 13 and 14, then
+move this entry to Resolved.
 
 ### I-11: Set the order of the day's work (`completionOrder`) through the MCP
 

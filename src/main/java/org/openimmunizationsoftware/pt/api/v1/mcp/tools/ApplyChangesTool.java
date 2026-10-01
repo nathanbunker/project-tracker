@@ -35,15 +35,17 @@ public class ApplyChangesTool implements McpTool {
                 + "approved. Each entry in \"changes\" has a \"type\" of create_action, update_action, "
                 + "reschedule_action, split_action, remove_action, complete_action, or order_day:\n"
                 + "- create_action: {type, projectId, description, nextActionType?, scheduledDate?, deadlineDate?, "
-                + "targetDate?, estimateMinutes?, notes?}. Never creates a new project -- projectId must already "
-                + "exist.\n"
+                + "targetDate?, estimateMinutes?, notes?, linkUrl?}. Never creates a new project -- projectId must "
+                + "already exist.\n"
                 + "- update_action: {type, actionNextId, asOf, description?, nextActionType?, estimateMinutes?, "
-                + "addNote?}. Only fields present are changed; addNote appends a new note rather than replacing "
-                + "existing ones.\n"
+                + "addNote?, linkUrl?}. Only fields present are changed; addNote appends a new note rather than "
+                + "replacing existing ones; linkUrl \"\" or null clears the link. An update that only sets "
+                + "linkUrl and/or addNote is also allowed on a template-generated instance (it changes only that "
+                + "occurrence, not the template).\n"
                 + "- reschedule_action: {type, actionNextId, asOf, scheduledDate?, deadlineDate?, targetDate?} "
                 + "(yyyy-MM-dd, or null to clear a date). At least one date field required.\n"
                 + "- split_action: {type, actionNextId, asOf, newActions: [{description, nextActionType?, "
-                + "scheduledDate?, estimateMinutes?}, ...]}. Cancels the original and creates the replacements "
+                + "scheduledDate?, estimateMinutes?, linkUrl?}, ...]}. Cancels the original and creates the replacements "
                 + "fresh, grouped for traceability.\n"
                 + "- remove_action: {type, actionNextId, asOf, reason?}. Always a soft cancel, never a hard "
                 + "delete.\n"
@@ -90,6 +92,10 @@ public class ApplyChangesTool implements McpTool {
                         "estimateMinutes", McpSchema.integer("0-480."),
                         "notes", McpSchema.string("Initial notes, for create_action only."),
                         "addNote", McpSchema.string("A note line to append, for update_action only."),
+                        "linkUrl", McpSchema.string(
+                                "A link for the action (PR, ticket, document, ...): an http(s) URL of at most "
+                                        + "1200 characters. For create_action and update_action; on "
+                                        + "update_action, \"\" or null clears it."),
                         "reason", McpSchema.string("Optional reason, for remove_action."),
                         "completedAt", McpSchema.string(
                                 "ISO-8601 instant when the work finished (the end of the time entry, not the "
@@ -103,7 +109,8 @@ public class ApplyChangesTool implements McpTool {
                                         "description", McpSchema.string(null),
                                         "nextActionType", McpSchema.string(null),
                                         "scheduledDate", McpSchema.string(null),
-                                        "estimateMinutes", McpSchema.integer(null)))),
+                                        "estimateMinutes", McpSchema.integer(null),
+                                        "linkUrl", McpSchema.string(null)))),
                         "date", McpSchema.string("For order_day: the day to order, yyyy-MM-dd."),
                         "actions", McpSchema.array(
                                 "For order_day: the actions in the order to do them (within their buckets).",

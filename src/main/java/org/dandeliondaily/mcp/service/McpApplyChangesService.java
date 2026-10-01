@@ -46,6 +46,7 @@ public class McpApplyChangesService {
     private static final int MAX_CHANGES = 25;
     private static final int MAX_ESTIMATE_MINUTES = 480;
     private static final int DEFAULT_ESTIMATE_MINUTES = 15;
+    private static final int MAX_LINK_URL_LENGTH = 1200;
 
     private final ActionCompletionService actionCompletionService = new ActionCompletionService();
 
@@ -206,10 +207,15 @@ public class McpApplyChangesService {
                 ? clampEstimate(item.get("estimateMinutes").asInt())
                 : DEFAULT_ESTIMATE_MINUTES);
         pc.newNotes = item.hasNonNull("notes") ? item.get("notes").asText() : null;
+        pc.newLinkUrl = parseLinkUrl(item, pc);
     }
 
     private void validateUpdate(Session session, int workspaceId, JsonNode item, PreparedChange pc) {
-        if (!resolveAndCheckAction(session, workspaceId, item, pc, false)) {
+        // Changing only the link or adding a note describes today's occurrence, not the
+        // template, so those are allowed on template-generated instances (I-12).
+        boolean instanceAllowed = !item.has("description") && !item.has("nextActionType")
+                && !item.has("estimateMinutes");
+        if (!resolveAndCheckAction(session, workspaceId, item, pc, instanceAllowed)) {
             return;
         }
         if (item.has("description")) {
@@ -238,8 +244,16 @@ public class McpApplyChangesService {
             pc.hasAddNote = true;
             pc.addNote = item.get("addNote").isNull() ? null : item.get("addNote").asText();
         }
-        if (!pc.hasDescription && !pc.hasActionType && !pc.hasEstimate && !pc.hasAddNote) {
-            pc.error = "At least one of description, nextActionType, estimateMinutes, addNote must be provided.";
+        if (item.has("linkUrl")) {
+            pc.hasLinkUrl = true;
+            pc.linkUrl = parseLinkUrl(item, pc);
+            if (pc.error != null) {
+                return;
+            }
+        }
+        if (!pc.hasDescription && !pc.hasActionType && !pc.hasEstimate && !pc.hasAddNote && !pc.hasLinkUrl) {
+            pc.error = "At least one of description, nextActionType, estimateMinutes, addNote, linkUrl must be "
+                    + "provided.";
         }
     }
 
@@ -309,6 +323,10 @@ public class McpApplyChangesService {
             spec.estimateMinutes = Integer.valueOf(newActionNode.hasNonNull("estimateMinutes")
                     ? clampEstimate(newActionNode.get("estimateMinutes").asInt())
                     : DEFAULT_ESTIMATE_MINUTES);
+            spec.linkUrl = parseLinkUrl(newActionNode, pc);
+            if (pc.error != null) {
+                return;
+            }
             specs.add(spec);
         }
         pc.newActions = specs;
@@ -455,8 +473,14 @@ public class McpApplyChangesService {
         return day.equals(today) && actionDate.isBefore(today);
     }
 
+    /**
+     * @param instanceAllowed true when the change may be applied to a
+     *                        template-generated instance (completing it, or
+     *                        updating only its link or notes). Template roots
+     *                        are always rejected.
+     */
     private boolean resolveAndCheckAction(Session session, int workspaceId, JsonNode item, PreparedChange pc,
-            boolean isComplete) {
+            boolean instanceAllowed) {
         if (!item.hasNonNull("actionNextId") || item.get("actionNextId").asInt() <= 0) {
             pc.error = "\"actionNextId\" is required.";
             return false;
@@ -470,14 +494,15 @@ public class McpApplyChangesService {
         }
         boolean isRoot = action.isTemplate();
         boolean isInstance = action.getTemplateActionNextId() != null;
-        if (isComplete) {
+        if (instanceAllowed) {
             if (isRoot) {
-                pc.error = "template_managed: cannot complete a template root; edit templates via the Dandelion UI.";
+                pc.error = "template_managed: cannot change a template root; edit templates via the Dandelion UI.";
                 return false;
             }
         } else if (isRoot || isInstance) {
             pc.error = "template_managed: template-managed actions can only be changed via the Dandelion UI "
-                    + "(completing a generated instance is the one exception).";
+                    + "(the exceptions for a generated instance are complete_action, order_day, and an "
+                    + "update_action that only sets linkUrl or addNote).";
             return false;
         }
         if (!item.hasNonNull("asOf")) {
@@ -518,6 +543,7 @@ public class McpApplyChangesService {
         action.setNextActionDate(pc.newScheduledDate);
         action.setNextDeadlineDate(pc.newDeadlineDate);
         action.setNextTargetDate(pc.newTargetDate);
+        action.setLinkUrl(pc.newLinkUrl);
         action.setNextChangeDate(McpActionContextSupport.truncatedNow());
         action.setPriorityLevel(ProjectNextActionType.defaultPriority(pc.newActionType));
         action.setBillable(isBillable(pc.project));
@@ -544,6 +570,9 @@ public class McpApplyChangesService {
         }
         if (pc.hasEstimate) {
             action.setNextTimeEstimate(pc.estimateMinutes);
+        }
+        if (pc.hasLinkUrl) {
+            action.setLinkUrl(pc.linkUrl);
         }
         if (pc.hasAddNote && pc.addNote != null && pc.addNote.trim().length() > 0) {
             ActionNextNote note = new ActionNextNote();
@@ -596,6 +625,7 @@ public class McpApplyChangesService {
             action.setNextTimeEstimate(spec.estimateMinutes);
             action.setNextActionStatus(ProjectNextActionStatus.READY);
             action.setNextActionDate(spec.scheduledDate);
+            action.setLinkUrl(spec.linkUrl);
             action.setNextChangeDate(McpActionContextSupport.truncatedNow());
             action.setPriorityLevel(ProjectNextActionType.defaultPriority(spec.actionType));
             action.setBillable(isBillable(pc.project));
@@ -699,6 +729,9 @@ public class McpApplyChangesService {
             return;
         }
         String changeReason = "remove_action".equals(pc.type) ? pc.removeReason : null;
+        if ("update_action".equals(pc.type) && pc.hasLinkUrl) {
+            changeReason = pc.linkUrl.length() == 0 ? "Cleared link" : "Set link to " + pc.linkUrl;
+        }
         writeChangeLog(webUser, agentName, pc.action, pc.project, pc.type, changeReason);
     }
 
@@ -758,6 +791,44 @@ public class McpApplyChangesService {
         return value;
     }
 
+    /**
+     * Reads an optional "linkUrl": null or blank means no link (stored as "",
+     * as the Dandelion UI does); otherwise it must be an absolute http(s) URL
+     * that fits the link_url column.
+     */
+    private String parseLinkUrl(JsonNode item, PreparedChange pc) {
+        if (!item.hasNonNull("linkUrl")) {
+            return "";
+        }
+        String value = item.get("linkUrl").asText().trim();
+        if (value.length() == 0) {
+            return "";
+        }
+        String error = linkUrlError(value);
+        if (error != null) {
+            pc.error = error;
+            return null;
+        }
+        return value;
+    }
+
+    /** Returns why a non-blank link isn't acceptable, or null when it is. */
+    static String linkUrlError(String value) {
+        if (value.length() > MAX_LINK_URL_LENGTH) {
+            return "\"linkUrl\" is longer than " + MAX_LINK_URL_LENGTH + " characters.";
+        }
+        try {
+            java.net.URI uri = new java.net.URI(value);
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+            if ((!"http".equals(scheme) && !"https".equals(scheme)) || uri.getHost() == null) {
+                return "\"linkUrl\" must be an http or https URL.";
+            }
+        } catch (java.net.URISyntaxException e) {
+            return "\"linkUrl\" is not a valid URL.";
+        }
+        return null;
+    }
+
     private Date parseNullableDate(JsonNode item, String field, PreparedChange pc) {
         if (!item.has(field)) {
             return null;
@@ -807,6 +878,7 @@ public class McpApplyChangesService {
         Date newTargetDate;
         Integer newEstimateMinutes;
         String newNotes;
+        String newLinkUrl;
 
         // update_action (presence flags)
         boolean hasDescription;
@@ -817,6 +889,8 @@ public class McpApplyChangesService {
         Integer estimateMinutes;
         boolean hasAddNote;
         String addNote;
+        boolean hasLinkUrl;
+        String linkUrl;
 
         // reschedule_action (presence flags; null value means clear)
         boolean hasScheduledDate;
@@ -849,5 +923,6 @@ public class McpApplyChangesService {
         String actionType;
         Date scheduledDate;
         Integer estimateMinutes;
+        String linkUrl;
     }
 }

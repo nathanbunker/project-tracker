@@ -58,6 +58,7 @@ public final class McpActionContextSupport {
         map.put("estimateMinutes", action.getNextTimeEstimate());
         map.put("actualMinutes", action.getNextTimeActual());
         map.put("notes", action.getNextNotes());
+        map.put("linkUrl", action.getLinkUrl());
         map.put("completionOrder", action.getCompletionOrder());
         map.put("priorityLevel", action.getPriorityLevel());
         if (webUser != null) {
