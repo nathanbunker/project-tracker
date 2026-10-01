@@ -10,13 +10,11 @@ See `docs/Dandelion_Daily_AI_Integration_Assessment.md` for the design and
 
 ## Status (2026-10-01)
 
-**Only I-11 (build items 11 and 12) is outstanding.** Every other problem (P-1 to P-10)
-and idea (I-1 to I-10) in this document has been addressed, and each entry below is
-marked **Status: Addressed**. The entries are kept for history.
+**Nothing is outstanding.** Every problem (P-1 to P-10) and idea (I-1 to I-11) in this
+document has been addressed, and each entry below is marked **Status: Addressed**. The
+entries are kept for history.
 
-I-11 status: implemented in the working tree on 2026-10-01 (see the I-11 entry for what
-changed); not yet deployed or verified against the **Verify** lines for build items 11
-and 12.
+I-11 (build items 11 and 12) was deployed and verified on 2026-10-01; see Resolved.
 
 ## Recommended Changes for the Next Build
 
@@ -45,7 +43,7 @@ General rules for all new tools:
 | 11 | Return `completionOrder`, `priorityLevel`, and the dashboard bucket for each action in `get_planning_context` and `get_project_context`, sorted within a day the way the dashboard sorts (added 2026-10-01) | I-11 | Read today; the order and groups match the dashboard Today column |
 | 12 | Add an `order_day` change type to `apply_changes` that sets `completionOrder` within buckets; the dashboard bucket order doesn't change (added 2026-10-01) | I-11 | Reorder three WILL actions for today through the MCP; the dashboard shows them in that order inside the WILL group, and the order is still there after the dashboard reloads |
 
-Items 1 to 10 are done (see Resolved). Items 11 and 12 (I-11) are the only open work.
+Items 1 to 12 are done (see Resolved).
 The entries that were left out of the first build (I-1, I-2, I-3, I-4, I-9, P-2, P-3,
 P-5, P-6) have since been addressed as well.
 
@@ -199,8 +197,8 @@ double submit in the create or "add note" flow. 796172 was removed through the M
 
 ### I-11: Set the order of the day's work (`completionOrder`) through the MCP
 
-**Status:** OUTSTANDING. Fix implemented 2026-10-01, waiting on deployment and
-verification (build items 11 and 12).
+**Status:** Addressed. Deployed and verified 2026-10-01 (build items 11 and 12; see
+Resolved).
 **Raised:** 2026-10-01 (Nathan)
 
 The assistant can put actions on a day but can't say what order to do them in. The data
@@ -233,7 +231,7 @@ Suggested change:
   already keeps orders that were set (> 0) and only fills in the zeros, so the order the
   MCP sets won't be overwritten.
 
-**Fix (2026-10-01, not yet deployed):**
+**Fix (2026-10-01):**
 
 - New shared class `DashboardActionOrdering` holds the Today column's bucket rules and
   in-bucket sort. `DashboardTodayColumnService` now delegates to it (same logic, moved),
@@ -256,9 +254,6 @@ Suggested change:
   (renumbering changes `asOf`, like the dashboard's up/down buttons). Each ordered action
   gets an `ActionChangeLog` entry.
 - Tests: `DashboardActionOrderingTest`.
-
-To verify after deployment: run the **Verify** lines for build items 11 and 12, then move
-this entry to Resolved.
 
 ### I-10: Work day review through the MCP
 
@@ -470,8 +465,22 @@ Not yet exercised: `set_outlook`, `set_day_availability`, `update_project_ai_tho
 
 ## Resolved
 
-**Addressed as of 2026-10-01:** all problems (P-1 to P-10) and ideas (I-1 to I-10).
-Still open: I-11 (build items 11 and 12).
+**Addressed as of 2026-10-01:** all problems (P-1 to P-10) and ideas (I-1 to I-11).
+
+**Verified 2026-10-01 after deployment (I-11):**
+- **Build item 11:** `get_planning_context` for 2026-10-01 returns `completionOrder`,
+  `priorityLevel`, and `dashboardBucket` on every action, plus `dayOrder`. The Will group
+  came back as review FHIR chat (7), clean my office (8), then the rest, which matched the
+  dashboard.
+- **Build item 12:** `order_day` moved clean my office (795677) ahead of review FHIR chat
+  (795674) in the Will group. Both are template-generated instances, and both were
+  accepted. Nathan confirmed the new order on the dashboard. The result listed 37
+  `renumberedActions`: the 0-order items, including Not on Dashboard and overdue
+  personal items, were numbered too. Nathan confirmed this is fine: they're numbered
+  in the same order they were already served in, so nothing visible changes, and it only
+  affects that one day.
+- Client note: after `/mcp` reconnect, the session's copy of the `apply_changes` schema
+  still didn't list `order_day`, but the call went through and the server accepted it.
 
 **Verified 2026-09-30 after deployment** (read-only checks; the server now lists 20 tools):
 - **P-1** (build item 1): `get_day_availability` returns `{"days": [...]}` and
