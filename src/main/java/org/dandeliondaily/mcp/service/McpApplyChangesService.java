@@ -3,11 +3,14 @@ package org.dandeliondaily.mcp.service;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.dandeliondaily.dashboard.service.DashboardActionOrdering;
 import org.dandeliondaily.shared.service.ActionCompletionService;
 import org.dandeliondaily.shared.service.ActionCompletionService.CompletionTime;
 import org.hibernate.Query;
@@ -102,6 +105,8 @@ public class McpApplyChangesService {
                 applyRemove(session, pc);
             } else if ("complete_action".equals(pc.type)) {
                 applyComplete(session, webUser, pc);
+            } else if ("order_day".equals(pc.type)) {
+                applyOrderDay(session, workspaceId, webUser, pc, resultItem);
             }
             resultItem.put("status", "applied");
             if (pc.action != null) {
@@ -154,6 +159,8 @@ public class McpApplyChangesService {
             validateRemove(session, workspaceId, item, pc);
         } else if ("complete_action".equals(type)) {
             validateComplete(session, workspaceId, webUser, item, pc);
+        } else if ("order_day".equals(type)) {
+            validateOrderDay(session, workspaceId, webUser, item, pc);
         } else {
             pc.error = "Unknown change type \"" + type + "\".";
         }
@@ -360,6 +367,94 @@ public class McpApplyChangesService {
                 : pc.action.getNextDescription();
     }
 
+    private void validateOrderDay(Session session, int workspaceId, WebUser webUser, JsonNode item,
+            PreparedChange pc) {
+        if (!item.hasNonNull("date")) {
+            pc.error = "\"date\" is required.";
+            return;
+        }
+        LocalDate day;
+        try {
+            day = LocalDate.parse(item.get("date").asText());
+        } catch (DateTimeParseException e) {
+            pc.error = "\"date\" must be yyyy-MM-dd.";
+            return;
+        }
+        if (!item.has("actions") || !item.get("actions").isArray() || item.get("actions").size() == 0) {
+            pc.error = "\"actions\" must be a non-empty array of {actionNextId, asOf}.";
+            return;
+        }
+        LocalDate today = webUser.getLocalDateToday();
+        List<ActionNext> ordered = new ArrayList<ActionNext>();
+        List<Project> orderedProjects = new ArrayList<Project>();
+        Set<Integer> seen = new HashSet<Integer>();
+        for (JsonNode entry : item.get("actions")) {
+            if (entry == null || !entry.hasNonNull("actionNextId") || entry.get("actionNextId").asInt() <= 0) {
+                pc.error = "Each entry in \"actions\" requires \"actionNextId\".";
+                return;
+            }
+            int actionNextId = entry.get("actionNextId").asInt();
+            if (!seen.add(Integer.valueOf(actionNextId))) {
+                pc.error = "Action " + actionNextId + " is listed more than once.";
+                return;
+            }
+            ActionNext action = (ActionNext) session.get(ActionNext.class, Integer.valueOf(actionNextId));
+            if (action == null || action.getWorkspaceId() == null
+                    || action.getWorkspaceId().intValue() != workspaceId) {
+                pc.error = "Action " + actionNextId + " not found.";
+                return;
+            }
+            if (action.isTemplate()) {
+                pc.error = "template_managed: action " + actionNextId + " is a template root and can't be ordered.";
+                return;
+            }
+            if (!ProjectNextActionStatus.READY.getId().equals(action.getNextActionStatusString())) {
+                pc.error = "Action " + actionNextId + " is not open (status "
+                        + action.getNextActionStatusString() + ").";
+                return;
+            }
+            if (!isOnDay(action, day, today, webUser)) {
+                pc.error = "Action " + actionNextId + " is not scheduled on " + day
+                        + (day.equals(today) ? " (or overdue)" : "") + ".";
+                return;
+            }
+            if (!entry.hasNonNull("asOf")) {
+                pc.error = "Each entry in \"actions\" requires \"asOf\" (action " + actionNextId + ").";
+                return;
+            }
+            String currentAsOf = McpActionContextSupport.toIso(action.getNextChangeDate());
+            if (currentAsOf == null || !currentAsOf.equals(entry.get("asOf").asText())) {
+                pc.error = "stale: action " + actionNextId + " has changed since it was last read"
+                        + (currentAsOf != null ? " (current asOf: " + currentAsOf + ")" : "") + ".";
+                return;
+            }
+            Project project = action.getProject();
+            if (project == null && action.getProjectId() > 0) {
+                project = (Project) session.get(Project.class, Integer.valueOf(action.getProjectId()));
+            }
+            ordered.add(action);
+            orderedProjects.add(project);
+        }
+        pc.orderDay = day;
+        pc.orderedActions = ordered;
+        pc.orderedProjects = orderedProjects;
+    }
+
+    /**
+     * The dashboard's day: actions scheduled on the date, plus, when the date
+     * is today, anything still open from earlier days (the Overdue bucket).
+     */
+    private boolean isOnDay(ActionNext action, LocalDate day, LocalDate today, WebUser webUser) {
+        LocalDate actionDate = webUser.toLocalDate(action.getNextActionDate());
+        if (actionDate == null) {
+            return false;
+        }
+        if (actionDate.equals(day)) {
+            return true;
+        }
+        return day.equals(today) && actionDate.isBefore(today);
+    }
+
     private boolean resolveAndCheckAction(Session session, int workspaceId, JsonNode item, PreparedChange pc,
             boolean isComplete) {
         if (!item.hasNonNull("actionNextId") || item.get("actionNextId").asInt() <= 0) {
@@ -521,6 +616,63 @@ public class McpApplyChangesService {
         session.update(pc.action);
     }
 
+    /**
+     * Writes completionOrder 1..n down the whole day in dashboard order, the
+     * same numbering DashboardCurrentActionService's rationalize step uses, so
+     * the dashboard keeps it (it only fills in actions whose order is 0).
+     */
+    private void applyOrderDay(Session session, int workspaceId, WebUser webUser, PreparedChange pc,
+            Map<String, Object> resultItem) {
+        boolean includeOverdue = pc.orderDay.equals(webUser.getLocalDateToday());
+        Query query = session.createQuery("from ActionNext an where an.workspaceId = :workspaceId "
+                + "and an.nextActionStatusString = :ready "
+                + "and (an.templateTypeString is null or an.templateTypeString = '') "
+                + "and an.nextActionDate < :dayEnd"
+                + (includeOverdue ? "" : " and an.nextActionDate >= :dayStart"));
+        query.setInteger("workspaceId", workspaceId);
+        query.setString("ready", ProjectNextActionStatus.READY.getId());
+        query.setParameter("dayEnd", java.sql.Date.valueOf(pc.orderDay.plusDays(1)));
+        if (!includeOverdue) {
+            query.setParameter("dayStart", java.sql.Date.valueOf(pc.orderDay));
+        }
+        @SuppressWarnings("unchecked")
+        List<ActionNext> dayActions = query.list();
+
+        List<ActionNext> newOrder = DashboardActionOrdering.applyRequestedOrder(dayActions, pc.orderedActions,
+                webUser);
+        Set<Integer> requestedIds = new HashSet<Integer>();
+        for (ActionNext action : pc.orderedActions) {
+            requestedIds.add(Integer.valueOf(action.getActionNextId()));
+        }
+        Date now = McpActionContextSupport.truncatedNow();
+        List<Map<String, Object>> ordered = new ArrayList<Map<String, Object>>();
+        List<Map<String, Object>> renumbered = new ArrayList<Map<String, Object>>();
+        int completionOrder = 1;
+        for (ActionNext action : newOrder) {
+            boolean changed = action.getCompletionOrder() != completionOrder;
+            if (changed) {
+                action.setCompletionOrder(completionOrder);
+                action.setNextChangeDate(now);
+                session.update(action);
+            }
+            Map<String, Object> entry = new LinkedHashMap<String, Object>();
+            entry.put("actionNextId", Integer.valueOf(action.getActionNextId()));
+            entry.put("completionOrder", Integer.valueOf(completionOrder));
+            entry.put("dashboardBucket", DashboardActionOrdering.getBucketLabel(
+                    DashboardActionOrdering.getCompletionBucket(action, webUser)));
+            entry.put("asOf", McpActionContextSupport.toIso(action.getNextChangeDate()));
+            if (requestedIds.contains(Integer.valueOf(action.getActionNextId()))) {
+                ordered.add(entry);
+            } else if (changed) {
+                renumbered.add(entry);
+            }
+            completionOrder++;
+        }
+        resultItem.put("date", pc.orderDay.toString());
+        resultItem.put("orderedActions", ordered);
+        resultItem.put("renumberedActions", renumbered);
+    }
+
     private void applyComplete(Session session, WebUser webUser, PreparedChange pc) {
         actionCompletionService.applyCompletion(session, webUser, pc.action, pc.completionDescription,
                 ProjectNextActionStatus.COMPLETED, pc.completedAt, pc.durationMinutes);
@@ -529,6 +681,14 @@ public class McpApplyChangesService {
     // ---- audit trail ----
 
     private void logChange(WebUser webUser, String agentName, PreparedChange pc) {
+        if ("order_day".equals(pc.type)) {
+            for (int i = 0; i < pc.orderedActions.size(); i++) {
+                writeChangeLog(webUser, agentName, pc.orderedActions.get(i), pc.orderedProjects.get(i), "order_day",
+                        "Ordered " + (i + 1) + " of " + pc.orderedActions.size() + " within its bucket on "
+                                + pc.orderDay);
+            }
+            return;
+        }
         if ("split_action".equals(pc.type)) {
             writeChangeLog(webUser, agentName, pc.action, pc.project, "split_action",
                     "Split into actions " + describeCreatedIds(pc.createdActions));
@@ -673,6 +833,11 @@ public class McpApplyChangesService {
         Date completedAt;
         int durationMinutes;
         String completionDescription;
+
+        // order_day
+        LocalDate orderDay;
+        List<ActionNext> orderedActions;
+        List<Project> orderedProjects;
 
         // split_action
         List<NewActionSpec> newActions;

@@ -17,6 +17,7 @@ import org.openimmunizationsoftware.pt.model.ProjectAiNote;
 import org.openimmunizationsoftware.pt.model.ProjectIssue;
 import org.openimmunizationsoftware.pt.model.ProjectNarrative;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * Structured (JSON-friendly) equivalent of
@@ -34,7 +35,8 @@ public class McpProjectContextService {
 
     private final ProjectAiNoteService aiNoteService = new ProjectAiNoteService();
 
-    public Map<String, Object> getProjectContext(Session session, int workspaceId, int projectId) {
+    public Map<String, Object> getProjectContext(Session session, int workspaceId, int projectId,
+            WebUser webUser) {
         Project project = requireProject(session, workspaceId, projectId);
 
         Map<String, Object> result = new LinkedHashMap<String, Object>();
@@ -51,7 +53,7 @@ public class McpProjectContextService {
         result.put("billCode", project.getBillCode());
         result.put("tags", loadTagNames(session, projectId));
         result.put("recentActionTaken", loadRecentActionTakenList(session, projectId));
-        result.put("openActions", loadOpenActionsList(session, projectId));
+        result.put("openActions", loadOpenActionsList(session, projectId, webUser));
         result.put("activeTemplates", loadActiveTemplatesList(session, projectId));
         result.put("openIssues", loadOpenIssuesList(session, project));
         result.put("recentNarratives", loadRecentNarrativesList(session, projectId));
@@ -114,10 +116,10 @@ public class McpProjectContextService {
         return query.list();
     }
 
-    private List<Map<String, Object>> loadOpenActionsList(Session session, int projectId) {
+    private List<Map<String, Object>> loadOpenActionsList(Session session, int projectId, WebUser webUser) {
         List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         for (ActionNext action : loadOpenActions(session, projectId)) {
-            list.add(McpActionContextSupport.toActionMap(session, action, false));
+            list.add(McpActionContextSupport.toActionMap(session, action, false, webUser));
         }
         return list;
     }

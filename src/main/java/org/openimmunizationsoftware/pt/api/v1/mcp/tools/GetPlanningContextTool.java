@@ -6,12 +6,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.dandeliondaily.mcp.service.McpPlanningContextService;
+import org.dandeliondaily.mcp.service.McpWebUserSupport;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpArgs;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpSchema;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpToolContext;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpToolException;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -28,7 +30,11 @@ public class GetPlanningContextTool implements McpTool {
     public String getDescription() {
         return "Reads scheduled and overdue actions across all projects in a date range (inclusive), optionally "
                 + "filtered by action type (e.g. WILL_MEET for meetings only) or project. Covers 'all meetings "
-                + "this week' and 'everything scheduled Thursday' as narrower calls of the same tool. Read-only.";
+                + "this week' and 'everything scheduled Thursday' as narrower calls of the same tool. Each day's "
+                + "actions are sorted the way the dashboard Today column shows them: grouped by dashboardBucket "
+                + "(Start of Work Day, Overdue, Committed, Will, Personal (Morning), Might, Waiting, Will Meet, "
+                + "End of Work Day, Other), then by completionOrder within the bucket. \"dayOrder\" lists each "
+                + "day's buckets with their action ids in that order. Read-only.";
     }
 
     @Override
@@ -56,8 +62,9 @@ public class GetPlanningContextTool implements McpTool {
         LocalDate endDate = parseDate(McpArgs.requireString(arguments, "endDate"), "endDate");
         List<String> actionTypes = McpArgs.optStringList(arguments, "actionTypes");
         List<Integer> projectIds = McpArgs.optIntList(arguments, "projectIds");
+        WebUser webUser = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
         return service.getPlanningContext(context.getSession(), context.getWorkspaceId(), startDate, endDate,
-                actionTypes, projectIds);
+                actionTypes, projectIds, webUser);
     }
 
     private LocalDate parseDate(String value, String field) {

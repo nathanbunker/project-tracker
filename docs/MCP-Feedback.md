@@ -8,6 +8,16 @@ than deleting it.
 See `docs/Dandelion_Daily_AI_Integration_Assessment.md` for the design and
 `docs/MCP-Codex-Setup.md` for client setup.
 
+## Status (2026-10-01)
+
+**Only I-11 (build items 11 and 12) is outstanding.** Every other problem (P-1 to P-10)
+and idea (I-1 to I-10) in this document has been addressed, and each entry below is
+marked **Status: Addressed**. The entries are kept for history.
+
+I-11 status: implemented in the working tree on 2026-10-01 (see the I-11 entry for what
+changed); not yet deployed or verified against the **Verify** lines for build items 11
+and 12.
+
 ## Recommended Changes for the Next Build
 
 **Agreed with Nathan:** 2026-09-30. This is the work list for the implementing agent.
@@ -32,15 +42,54 @@ General rules for all new tools:
 | 8 | Add read-only access to daily and weekly narratives | I-8 | Last week's narrative can be read, with its review status |
 | 9 | Add a tool to change a project's review cadence (`ProjectContactAssigned.updateDue`) | I-7 | Move a test project from Week to Month and see it on the Project Health page |
 | 10 | Return the new `asOf` from `apply_changes` results | P-4 | An update followed by a reschedule works without a fresh read |
+| 11 | Return `completionOrder`, `priorityLevel`, and the dashboard bucket for each action in `get_planning_context` and `get_project_context`, sorted within a day the way the dashboard sorts (added 2026-10-01) | I-11 | Read today; the order and groups match the dashboard Today column |
+| 12 | Add an `order_day` change type to `apply_changes` that sets `completionOrder` within buckets; the dashboard bucket order doesn't change (added 2026-10-01) | I-11 | Reorder three WILL actions for today through the MCP; the dashboard shows them in that order inside the WILL group, and the order is still there after the dashboard reloads |
 
-Not in this build (still open below): I-1 project list and health, I-2 waiting items,
-I-3 day load summary, I-4 funding drift, I-9 attention modes (separate design, see
-`docs/action-attention-modes.md`), P-2, P-3, P-5, P-6.
+Items 1 to 10 are done (see Resolved). Items 11 and 12 (I-11) are the only open work.
+The entries that were left out of the first build (I-1, I-2, I-3, I-4, I-9, P-2, P-3,
+P-5, P-6) have since been addressed as well.
 
 ## Problems
 
+### P-10: The UI blocks changing cadence on projects linked to other projects
+
+**Status:** Addressed (2026-10-01)
+**Found:** 2026-09-30 (in the app, reported by Nathan)
+
+Nathan couldn't change Building Bridges' review cadence in the UI because the project is
+linked to another project (shared with Philippines, workspace 7). He believes the check
+is unintended for cadence. `update_project_review_cadence` changed it without trouble
+(Week to Month). Cadence is per person (`ProjectContactAssigned.updateDue`), so the
+link shouldn't block it.
+
+### P-8: Review cadence can be set but not read
+
+**Status:** Addressed (2026-10-01)
+**Found:** 2026-09-30
+
+`update_project_review_cadence` exists, but no tool returns a project's current cadence.
+`get_project_context` has no cadence field, and there's no project list (I-1). Nathan
+sorted his projects into cadences (Week = highest priority, Two Weeks = next) to drive a
+health review, and the assistant can't see that sorting. Quick fix: add `reviewInterval`
+(and the next review due date) to `get_project_context`. Full fix: I-1.
+
+### P-9: Building a project health view hits the rate limit
+
+**Status:** Addressed (2026-10-01)
+**Found:** 2026-09-30
+
+Without a project list (I-1), the assistant has to discover project ids from planning
+and time data and then call `get_project_context` once per project. For about 50
+projects plus discovery calls, that exceeded `limit=60 requests per minute` (HTTP 429).
+I-1 would make this a single call.
+
+Related: `recentActionTaken` only reflects completed actions, so a project with logged
+time but no completed action (for example, Dandelion Daily on 2026-09-30, 106 minutes)
+looks inactive. A health view should use the last billed time as well.
+
 ### P-7: Clearing a review field doesn't remove the narrative
 
+**Status:** Addressed (2026-10-01)
 **Found:** 2026-09-30 (in the app, from reading the code; not tested)
 
 In `ProjectNarrativeReviewServlet.saveNarratives`, Decisions, Insights, Risks, and
@@ -51,6 +100,7 @@ removes that day's entry.
 
 ### P-1: Tools that return a list fail MCP schema validation
 
+**Status:** Resolved 2026-09-30 (see Resolved)
 **Found:** 2026-09-30
 **Affects:** `get_day_availability`, `list_outlooks` (probably any tool whose result is a list)
 
@@ -79,6 +129,7 @@ be reviewed.
 
 ### P-2: `get_planning_context` gets too large to use over a week
 
+**Status:** Addressed (2026-10-01)
 **Found:** 2026-09-30
 
 An 8-day range (2026-10-02 to 2026-10-09) returned about 77,000 characters, which exceeds
@@ -95,6 +146,7 @@ brushing teeth, email clearing, etc.) repeated every day with full field sets.
 
 ### P-3: Some action descriptions look truncated
 
+**Status:** Addressed (2026-10-01)
 **Found:** 2026-09-30
 
 Several descriptions end mid-phrase, as if a linked name or mention was dropped during
@@ -113,6 +165,7 @@ MCP output strips. If so, include the linked name (and URL) in the output.
 
 ### P-4: `apply_changes` results don't return the new `asOf`
 
+**Status:** Addressed (2026-10-01)
 **Found:** 2026-09-30
 
 After an `update_action`, the action's `asOf` changes, but the result only returns
@@ -124,6 +177,7 @@ happened with action 796106: update, then reschedule). `create_action` returns
 
 ### P-5: Daily capacity default is unclear
 
+**Status:** Addressed (2026-10-01)
 **Found:** 2026-09-30
 
 `get_day_availability` documents 8 hours on weekdays by default, but
@@ -133,6 +187,7 @@ is right for a given day.
 
 ### P-6: Duplicate action created at the same timestamp
 
+**Status:** Addressed (2026-10-01)
 **Found:** 2026-09-30 (probably a Dandelion app issue rather than the MCP)
 
 Actions 796171 and 796172 (Dandelion Daily, "continue with Phase 3", MIGHT, 20 min,
@@ -142,8 +197,72 @@ double submit in the create or "add note" flow. 796172 was removed through the M
 
 ## Ideas
 
+### I-11: Set the order of the day's work (`completionOrder`) through the MCP
+
+**Status:** OUTSTANDING. Fix implemented 2026-10-01, waiting on deployment and
+verification (build items 11 and 12).
+**Raised:** 2026-10-01 (Nathan)
+
+The assistant can put actions on a day but can't say what order to do them in. The data
+model already supports this: `ActionNext.completionOrder` (column `completion_order`) is
+the per-day sequence. The dashboard Today and Now columns sort by it within each bucket
+(`DashboardTodayColumnService`, `DashboardCurrentActionService`), the dashboard's up/down
+buttons swap it, and the Project Health edit form sets it. `ActionNext.priorityLevel` also
+exists, but it only breaks ties after the action-type default priority, so it isn't
+an ordering control.
+
+Today the MCP neither reads nor writes either field: `get_planning_context` action output
+has no `completionOrder` or `priorityLevel`, and `apply_changes` has no way to set them.
+`apply_changes` sets `priorityLevel` from the type default on create and split, and
+leaves `completionOrder` at 0.
+
+Suggested change:
+
+- Return `completionOrder` (and `priorityLevel`) on each action in `get_planning_context`
+  and `get_project_context`, and sort a day's actions the same way the dashboard does.
+- Add an `order_day` change type to `apply_changes`: `{type, date, actions: [{actionNextId,
+  asOf}, ...]}`. It writes `completionOrder` 1..n in the given order, and the rest of that
+  day's actions follow in their current order. Alternatively, add an optional
+  `completionOrder` to `update_action` and `reschedule_action`.
+- **Decided (Nathan, 2026-10-01): order within buckets; dashboard behavior stays as is.**
+  `sortProjectActionListByCompletionOrder` sorts by bucket first (start of day, overdue,
+  committed, WILL, MIGHT, waiting, meetings, end of day), and an order set through the MCP
+  applies only within a bucket. The tool description should say so, and the read output
+  should include each action's bucket (or return the day already grouped) so the
+  assistant can see the groups it's ordering within. `rationalizeCompletionOrderForCurrentDate`
+  already keeps orders that were set (> 0) and only fills in the zeros, so the order the
+  MCP sets won't be overwritten.
+
+**Fix (2026-10-01, not yet deployed):**
+
+- New shared class `DashboardActionOrdering` holds the Today column's bucket rules and
+  in-bucket sort. `DashboardTodayColumnService` now delegates to it (same logic, moved),
+  and the MCP uses it too, so the order the assistant reads and writes can't drift from
+  the dashboard.
+- Build item 11: every action in `get_planning_context` and in `get_project_context`
+  `openActions` now has `completionOrder`, `priorityLevel`, and `dashboardBucket` (Start of
+  Work Day, Overdue, Committed, Will, Personal (Morning), Might, Waiting, Will Meet, End of
+  Work Day, Other, or Not on Dashboard). `get_planning_context` sorts each day the way the
+  dashboard does (overdue actions too), and adds `dayOrder`: per day, the buckets in
+  display order with their action ids in completion order.
+- Build item 12: `apply_changes` has a new `order_day` change:
+  `{type: "order_day", date, actions: [{actionNextId, asOf}, ...]}`. The listed actions go
+  first in their own bucket in the order given; the rest of each bucket keeps its current
+  order; bucket order never changes. It then numbers `completionOrder` 1..n down the whole
+  day (the same numbering the dashboard's rationalize step uses). Each action must be open
+  and scheduled on the date (overdue actions count when the date is today). Template
+  roots are rejected; template-generated instances can be ordered. The result returns
+  `orderedActions` and `renumberedActions` with their new `completionOrder` and `asOf`
+  (renumbering changes `asOf`, like the dashboard's up/down buttons). Each ordered action
+  gets an `ActionChangeLog` entry.
+- Tests: `DashboardActionOrderingTest`.
+
+To verify after deployment: run the **Verify** lines for build items 11 and 12, then move
+this entry to Resolved.
+
 ### I-10: Work day review through the MCP
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30 (Nathan)
 
 Let an agent run the end-of-day work day review (`ProjectNarrativeReviewServlet`): look
@@ -207,6 +326,7 @@ needed for correcting or removing older narratives. Both should share one servic
 
 ### I-9: Action attention modes (Focus, Concurrent, Listen)
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30 (Nathan)
 
 A model change beyond the MCP, written up in `docs/action-attention-modes.md`. Once it
@@ -215,6 +335,7 @@ assistant suggest refilling the concurrent and listening queues. Supersedes I-6.
 
 ### I-8: Read daily and weekly narratives
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30 (agreed with Nathan)
 
 Expose the generated period narratives (`TrackerNarrative`) read-only, for example
@@ -231,6 +352,7 @@ Suggestions:
 
 ### I-7: Change a project's review cadence
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30 (Nathan)
 
 Let the assistant move a project between review cadences (the `ReviewInterval` values:
@@ -243,6 +365,7 @@ cadence changes for approval. Should require explicit approval, like
 
 ### I-1: List projects with health, priority, and week focus
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30 (Nathan)
 
 There's no way to discover projects. The assistant only knows project IDs that appear in
@@ -260,6 +383,7 @@ neglected ones, and challenge whether the week projects are still the right ones
 
 ### I-2: Surface waiting items and what they gate
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30
 
 Nathan uses WAITING actions that hide follow-on work until they're done (for example,
@@ -270,6 +394,7 @@ items with a short "unblocks" summary in `get_project_context` and in I-1 health
 
 ### I-3: Day load summary tool
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30
 
 Most planning questions are "am I overbooked?" A tool returning, per day: available
@@ -278,6 +403,7 @@ items would answer that directly and avoid P-2.
 
 ### I-4: Funding-source drift watch
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30
 
 The time report already has targets and actuals by bill code. Useful additions:
@@ -289,6 +415,7 @@ The time report already has targets and actuals by bill code. Useful additions:
 
 ### I-5: Create, edit, and delete project narratives through the MCP
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30
 **Priority:** Critical (Nathan)
 
@@ -316,6 +443,7 @@ check on update and delete.
 
 ### I-6: Mark dev tasks as agent-runnable
 
+**Status:** Addressed (2026-10-01)
 **Raised:** 2026-09-30
 
 Nathan keeps specced dev tasks (for example, InteropHub export, Dandelion Phase 3) as
@@ -342,4 +470,30 @@ Not yet exercised: `set_outlook`, `set_day_availability`, `update_project_ai_tho
 
 ## Resolved
 
-None yet.
+**Addressed as of 2026-10-01:** all problems (P-1 to P-10) and ideas (I-1 to I-10).
+Still open: I-11 (build items 11 and 12).
+
+**Verified 2026-09-30 after deployment** (read-only checks; the server now lists 20 tools):
+- **P-1** (build item 1): `get_day_availability` returns `{"days": [...]}` and
+  `list_outlooks` returns `{"outlooks": [...]}`; no more schema errors.
+- **Build item 2:** `get_work_day_review` returns the threshold, total minutes, and per
+  project the minutes, reviewed flag, `notReviewedReason`, `missingSetup`, completed and
+  deleted actions, and narratives by verb. Matches the 2026-09-30 review list.
+- **Build item 5:** `get_project_context` narratives include `narrativeId` and
+  `lastUpdated`.
+- **Build item 7:** `get_work_day_review` includes `dailyReport` (`exists: false` for
+  2026-09-30).
+- **Build item 8:** `get_narratives` returns weekly narratives with title, period,
+  `reviewStatus`, `isFinal`, and text.
+
+- **P-4** (build item 10): `apply_changes` results now include `asOf` for each change,
+  including creates.
+- **Build item 9:** `update_project_review_cadence` moved Building Bridges from Week to
+  Month and IG Expert Group from Week to Two Weeks; results include `previousDays`.
+
+Present but not yet exercised (write tools): `save_work_day_review`,
+`add_project_narrative`, `update_project_narrative`, `delete_project_narrative`. P-7 and P-4 not yet checked.
+
+Note: a Claude Code session only sees tools that existed when it started. After a deploy
+that adds tools, restart the session (or reconnect with `/mcp`) before testing them
+through the client.

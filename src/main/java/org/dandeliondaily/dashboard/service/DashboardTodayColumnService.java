@@ -18,7 +18,6 @@ import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeAdder;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
-import org.openimmunizationsoftware.pt.model.ProcessStage;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -42,16 +41,16 @@ public class DashboardTodayColumnService {
     private static final String ACTION_SCHEDULE = "Schedule";
     private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
 
-    private static final int BUCKET_START_OF_WORK_DAY = 0;
-    private static final int BUCKET_OVERDUE = 1;
-    private static final int BUCKET_COMMITTED = 3;
-    private static final int BUCKET_WILL = 4;
-    private static final int BUCKET_PERSONAL_MORNING = 5;
-    private static final int BUCKET_MIGHT = 6;
-    private static final int BUCKET_WAITING = 7;
-    private static final int BUCKET_WILL_MEET = 8;
-    private static final int BUCKET_END_OF_WORK_DAY = 9;
-    private static final int BUCKET_OTHER = 11;
+    private static final int BUCKET_START_OF_WORK_DAY = DashboardActionOrdering.BUCKET_START_OF_WORK_DAY;
+    private static final int BUCKET_OVERDUE = DashboardActionOrdering.BUCKET_OVERDUE;
+    private static final int BUCKET_COMMITTED = DashboardActionOrdering.BUCKET_COMMITTED;
+    private static final int BUCKET_WILL = DashboardActionOrdering.BUCKET_WILL;
+    private static final int BUCKET_PERSONAL_MORNING = DashboardActionOrdering.BUCKET_PERSONAL_MORNING;
+    private static final int BUCKET_MIGHT = DashboardActionOrdering.BUCKET_MIGHT;
+    private static final int BUCKET_WAITING = DashboardActionOrdering.BUCKET_WAITING;
+    private static final int BUCKET_WILL_MEET = DashboardActionOrdering.BUCKET_WILL_MEET;
+    private static final int BUCKET_END_OF_WORK_DAY = DashboardActionOrdering.BUCKET_END_OF_WORK_DAY;
+    private static final int BUCKET_OTHER = DashboardActionOrdering.BUCKET_OTHER;
 
     public void handleQuickCapture(AppReq appReq) {
         String action = appReq.getRequest().getParameter(PARAM_ACTION);
@@ -557,133 +556,15 @@ public class DashboardTodayColumnService {
 
     private static void sortProjectActionListByCompletionOrder(List<ActionNext> projectActionList,
             WebUser webUser) {
-        Collections.sort(projectActionList, (pa1, pa2) -> {
-            int c1 = pa1.getCompletionOrder();
-            int c2 = pa2.getCompletionOrder();
-            int bucket1 = getCompletionBucket(pa1, webUser);
-            int bucket2 = getCompletionBucket(pa2, webUser);
-            if (bucket1 != bucket2) {
-                return bucket1 - bucket2;
-            }
-            if (c1 > 0 && c2 <= 0) {
-                return -1;
-            }
-            if (c2 > 0 && c1 <= 0) {
-                return 1;
-            }
-            if (c1 > 0 && c2 > 0 && c1 != c2) {
-                return c1 - c2;
-            }
-            return compareInsideBucket(pa1, pa2);
-        });
+        DashboardActionOrdering.sortByBucketThenCompletionOrder(projectActionList, webUser);
     }
 
     private static int compareInsideBucket(ActionNext pa1, ActionNext pa2) {
-        ProcessStage ps1 = pa1.getProcessStage();
-        ProcessStage ps2 = pa2.getProcessStage();
-        if ((ps1 != null || ps2 != null) && ps1 != ps2) {
-            if (ps1 == ProcessStage.FIRST) {
-                return -1;
-            } else if (ps2 == ProcessStage.FIRST) {
-                return 1;
-            }
-            if (ps1 == ProcessStage.SECOND) {
-                return -1;
-            } else if (ps2 == ProcessStage.SECOND) {
-                return 1;
-            }
-            if (ps1 == ProcessStage.LAST) {
-                return 1;
-            } else if (ps2 == ProcessStage.LAST) {
-                return -1;
-            }
-            if (ps1 == ProcessStage.PENULTIMATE) {
-                return 1;
-            } else if (ps2 == ProcessStage.PENULTIMATE) {
-                return -1;
-            }
-        }
-
-        int p1 = ProjectNextActionType.defaultPriority(pa1.getNextActionType());
-        int p2 = ProjectNextActionType.defaultPriority(pa2.getNextActionType());
-        if (p1 != p2) {
-            return p2 - p1;
-        }
-        if (pa2.getPriorityLevel() != pa1.getPriorityLevel()) {
-            return pa2.getPriorityLevel() - pa1.getPriorityLevel();
-        }
-        Date d1 = pa1.getNextChangeDate();
-        Date d2 = pa2.getNextChangeDate();
-        if (d1 != null && d2 != null) {
-            int compare = d1.compareTo(d2);
-            if (compare != 0) {
-                return compare;
-            }
-        }
-        return pa1.getActionNextId() - pa2.getActionNextId();
+        return DashboardActionOrdering.compareInsideBucket(pa1, pa2);
     }
 
     private static int getCompletionBucket(ActionNext projectAction, WebUser webUser) {
-        if (projectAction == null) {
-            return 99;
-        }
-        if (projectAction.isBillable()) {
-            ProcessStage processStage = projectAction.getProcessStage();
-            if (processStage == ProcessStage.FIRST || processStage == ProcessStage.SECOND) {
-                return BUCKET_START_OF_WORK_DAY;
-            }
-            if (processStage == ProcessStage.PENULTIMATE || processStage == ProcessStage.LAST) {
-                return BUCKET_END_OF_WORK_DAY;
-            }
-        }
-        LocalDate actionDate = toStoredLocalDate(projectAction.getNextActionDate(), webUser);
-        if (projectAction.isBillable() && actionDate != null && actionDate.isBefore(webUser.getLocalDateToday())) {
-            return BUCKET_OVERDUE;
-        }
-        if (!projectAction.isBillable()) {
-            if (projectAction.getTimeSlot() == TimeSlot.MORNING) {
-                return BUCKET_PERSONAL_MORNING;
-            }
-            return 99;
-        }
-        String nextActionType = projectAction.getNextActionType();
-        if (ProjectNextActionType.OVERDUE_TO.equals(nextActionType)) {
-            return BUCKET_OVERDUE;
-        }
-        if (ProjectNextActionType.COMMITTED_TO.equals(nextActionType)) {
-            return BUCKET_COMMITTED;
-        }
-        if (ProjectNextActionType.WILL.equals(nextActionType)
-                || ProjectNextActionType.WILL_CONTACT.equals(nextActionType)
-                || ProjectNextActionType.WILL_REVIEW.equals(nextActionType)
-                || ProjectNextActionType.WILL_DOCUMENT.equals(nextActionType)
-                || ProjectNextActionType.WILL_FOLLOW_UP.equals(nextActionType)) {
-            return BUCKET_WILL;
-        }
-        if (ProjectNextActionType.MIGHT.equals(nextActionType)
-                || ProjectNextActionType.GOAL.equals(nextActionType)) {
-            return BUCKET_MIGHT;
-        }
-        if (ProjectNextActionType.WAITING.equals(nextActionType)) {
-            return BUCKET_WAITING;
-        }
-        if (ProjectNextActionType.WILL_MEET.equals(nextActionType)) {
-            return BUCKET_WILL_MEET;
-        }
-        if (ProjectNextActionType.WOULD_LIKE_TO.equals(nextActionType)) {
-            return 99;
-        }
-        return BUCKET_OTHER;
-    }
-
-    private static LocalDate toStoredLocalDate(Date date, WebUser webUser) {
-        if (date == null) {
-            return null;
-        }
-        if (date instanceof java.sql.Date) {
-            return ((java.sql.Date) date).toLocalDate();
-        }
-        return webUser.toLocalDate(date);
+        return DashboardActionOrdering.getCompletionBucket(projectAction, webUser);
     }
 
     private String n(String value, String defaultValue) {

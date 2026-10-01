@@ -9,12 +9,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.dandeliondaily.dashboard.service.DashboardActionOrdering;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionSet;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * Shared shaping of an ActionNext row for MCP read tools: exposes the
@@ -29,6 +31,16 @@ public final class McpActionContextSupport {
     }
 
     public static Map<String, Object> toActionMap(Session session, ActionNext action, boolean includeProjectName) {
+        return toActionMap(session, action, includeProjectName, null);
+    }
+
+    /**
+     * With a webUser, also reports the dashboard Today-column bucket the action
+     * falls in (see DashboardActionOrdering); completionOrder only orders actions
+     * within a bucket.
+     */
+    public static Map<String, Object> toActionMap(Session session, ActionNext action, boolean includeProjectName,
+            WebUser webUser) {
         Map<String, Object> map = new LinkedHashMap<String, Object>();
         map.put("actionNextId", action.getActionNextId());
         map.put("projectId", action.getProjectId());
@@ -46,6 +58,12 @@ public final class McpActionContextSupport {
         map.put("estimateMinutes", action.getNextTimeEstimate());
         map.put("actualMinutes", action.getNextTimeActual());
         map.put("notes", action.getNextNotes());
+        map.put("completionOrder", action.getCompletionOrder());
+        map.put("priorityLevel", action.getPriorityLevel());
+        if (webUser != null) {
+            map.put("dashboardBucket", DashboardActionOrdering.getBucketLabel(
+                    DashboardActionOrdering.getCompletionBucket(action, webUser)));
+        }
         map.put("rescheduleLocked", action.isRescheduleLocked());
         boolean isTemplateRoot = action.isTemplate();
         map.put("isTemplateRoot", isTemplateRoot);
