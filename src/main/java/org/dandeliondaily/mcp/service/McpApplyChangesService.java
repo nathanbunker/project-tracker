@@ -104,6 +104,20 @@ public class McpApplyChangesService {
                 applyComplete(session, webUser, pc);
             }
             resultItem.put("status", "applied");
+            if (pc.action != null) {
+                String actionAsOf = McpActionContextSupport.toIso(pc.action.getNextChangeDate());
+                resultItem.put("asOf", actionAsOf);
+                if ("split_action".equals(pc.type)) {
+                    resultItem.put("cancelledAsOf", actionAsOf);
+                }
+            }
+            if ("split_action".equals(pc.type) && pc.createdActions != null) {
+                List<String> createdAsOf = new ArrayList<String>();
+                for (ActionNext created : pc.createdActions) {
+                    createdAsOf.add(McpActionContextSupport.toIso(created.getNextChangeDate()));
+                }
+                resultItem.put("createdActionsAsOf", createdAsOf);
+            }
             logChange(webUser, agentName, pc);
         }
 

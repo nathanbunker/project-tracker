@@ -202,7 +202,14 @@ public class McpResource {
         textBlock.put("text", toJsonText(value));
         content.add(textBlock);
         result.set("content", content);
-        result.set("structuredContent", mapper.valueToTree(value));
+        // The MCP spec requires structuredContent to be a JSON object; a tool that returns a
+        // bare list would otherwise fail client-side schema validation and lose the text block
+        // too (see docs/MCP-Feedback.md P-1). Every tool is expected to wrap list results itself
+        // (e.g. {"days": [...]}), but this is a last-resort guard against that rule slipping.
+        JsonNode structured = mapper.valueToTree(value);
+        if (structured.isObject()) {
+            result.set("structuredContent", structured);
+        }
         result.put("isError", false);
         return result;
     }

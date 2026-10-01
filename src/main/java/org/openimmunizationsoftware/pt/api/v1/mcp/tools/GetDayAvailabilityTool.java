@@ -2,6 +2,7 @@ package org.openimmunizationsoftware.pt.api.v1.mcp.tools;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,7 +58,9 @@ public class GetDayAvailabilityTool implements McpTool {
         WebUser owner = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
         List<Map<String, Object>> days = service.getAvailability(context.getSession(), owner.getWebUserId(),
                 startDate, endDate);
-        return days;
+        Map<String, Object> response = new LinkedHashMap<String, Object>();
+        response.put("days", days);
+        return response;
     }
 
     private LocalDate parseDate(String value, String field) {

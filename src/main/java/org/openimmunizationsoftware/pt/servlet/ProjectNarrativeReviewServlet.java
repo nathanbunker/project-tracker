@@ -9,7 +9,6 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
-import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -19,8 +18,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
+import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao;
 import org.openimmunizationsoftware.pt.doa.ProjectNarrativeDao.Action;
@@ -53,7 +53,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
 
     private static final String ACTION_SAVE = "Save";
 
-    private static final String DEFAULT_NOTE_TEXT = "Reviewed/no comments";
+    private final ProjectNarrativeService projectNarrativeService = new ProjectNarrativeService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -110,7 +110,7 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         if (projectId > 0) {
             Project project = (Project) dataSession.get(Project.class, (int) projectId);
             if (project != null) {
-                saveNarratives(request, appReq, narrativeDao, project, reviewDate);
+                saveNarratives(request, appReq, project, reviewDate);
             }
         }
 
@@ -133,69 +133,14 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
         response.sendRedirect(redirect);
     }
 
-    private void saveNarratives(HttpServletRequest request, AppReq appReq, ProjectNarrativeDao narrativeDao,
-            Project project, LocalDate reviewDate) {
-        String noteText = n(request.getParameter(PARAM_NOTE)).trim();
-        String decisionText = n(request.getParameter(PARAM_DECISION)).trim();
-        String insightText = n(request.getParameter(PARAM_INSIGHT)).trim();
-        String riskText = n(request.getParameter(PARAM_RISK)).trim();
-        String opportunityText = n(request.getParameter(PARAM_OPPORTUNITY)).trim();
-
-        Transaction transaction = null;
-        try {
-            transaction = appReq.getDataSession().beginTransaction();
-            int offsetSeconds = 0;
-
-            if (noteText.length() == 0) {
-                noteText = DEFAULT_NOTE_TEXT;
-            }
-            offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
-                    ProjectNarrativeVerb.NOTE, noteText, offsetSeconds);
-
-            if (decisionText.length() > 0) {
-                offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
-                        ProjectNarrativeVerb.DECISION, decisionText, offsetSeconds);
-            }
-            if (insightText.length() > 0) {
-                offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
-                        ProjectNarrativeVerb.INSIGHT, insightText, offsetSeconds);
-            }
-            if (riskText.length() > 0) {
-                offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
-                        ProjectNarrativeVerb.RISK, riskText, offsetSeconds);
-            }
-            if (opportunityText.length() > 0) {
-                upsertNarrative(narrativeDao, appReq, project, reviewDate,
-                        ProjectNarrativeVerb.OPPORTUNITY, opportunityText, offsetSeconds);
-            }
-
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
-        }
-    }
-
-    private int upsertNarrative(ProjectNarrativeDao narrativeDao, AppReq appReq, Project project,
-            LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
-        ProjectNarrative narrative = narrativeDao.findNarrativeForProjectVerbOnDate(project.getProjectId(), verb,
-                reviewDate);
-        Date narrativeDate = buildNarrativeDate(reviewDate, offsetSeconds, appReq.getWebUser());
-        if (narrative == null) {
-            narrative = new ProjectNarrative();
-            narrative.setProject(project);
-            narrative.setContact(appReq.getWebUser().getProjectContact());
-            narrative.setWorkspaceId(appReq.getActiveWorkspaceId());
-            narrative.setNarrativeVerb(verb);
-            narrative.setNarrativeText(text);
-            narrative.setNarrativeDate(narrativeDate);
-            narrativeDao.insert(narrative);
-        } else {
-            narrativeDao.updateNarrativeTextIfChanged(narrative, text, narrativeDate);
-        }
-        return offsetSeconds + 1;
+    private void saveNarratives(HttpServletRequest request, AppReq appReq, Project project, LocalDate reviewDate) {
+        ProjectNarrativeEntry entry = new ProjectNarrativeEntry();
+        entry.setNote(n(request.getParameter(PARAM_NOTE)).trim());
+        entry.setDecision(n(request.getParameter(PARAM_DECISION)).trim());
+        entry.setInsight(n(request.getParameter(PARAM_INSIGHT)).trim());
+        entry.setRisk(n(request.getParameter(PARAM_RISK)).trim());
+        entry.setOpportunity(n(request.getParameter(PARAM_OPPORTUNITY)).trim());
+        projectNarrativeService.saveNarrativeForProjectDate(appReq, project.getProjectId(), reviewDate, entry);
     }
 
     private void printEditor(PrintWriter out, Session dataSession, WebUser webUser,
@@ -434,12 +379,6 @@ public class ProjectNarrativeReviewServlet extends ClientServlet {
             }
         }
         return null;
-    }
-
-    private static Date buildNarrativeDate(LocalDate date, int offsetSeconds, WebUser webUser) {
-        long offsetMillis = offsetSeconds * 1000L;
-        Date start = webUser.toDate(date);
-        return new Date(start.getTime() + offsetMillis);
     }
 
     private static long readLong(String value) {

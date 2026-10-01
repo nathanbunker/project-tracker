@@ -21,9 +21,16 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeSummary;
 
+/**
+ * Saves and summarizes ProjectNarrative rows. Used by the dashboard's
+ * quick-review widgets (AppReq-based methods below) and, per
+ * docs/MCP-Feedback.md ("the UI and the MCP should call the same service, so
+ * behavior can't drift"), by the MCP work-day-review and narrative-CRUD tools
+ * (the Session-based methods) and by ProjectNarrativeReviewServlet.
+ */
 public class ProjectNarrativeService {
 
-    private static final String DEFAULT_NOTE_TEXT = "Reviewed/no comments";
+    public static final String DEFAULT_NOTE_TEXT = "Reviewed/no comments";
     private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
     public List<ProjectNarrativeSummary> listNarrativeSummariesForCompletedProjects(WebUser webUser,
@@ -82,44 +89,20 @@ public class ProjectNarrativeService {
     public void saveNarrativeForProjectDate(AppReq appReq, long projectId, LocalDate reviewDate,
             ProjectNarrativeEntry entry) {
         Session dataSession = appReq.getDataSession();
-        Project project = (Project) dataSession.get(Project.class, (int) projectId);
-        if (project == null) {
-            throw new IllegalArgumentException("Project is not available");
-        }
-        Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
-        if (activeWorkspaceId == null || project.getWorkspaceId() == null
-                || !activeWorkspaceId.equals(project.getWorkspaceId())) {
-            throw new IllegalArgumentException("Project is not available");
-        }
+        Project project = requireProjectForWorkspace(dataSession, appReq.getActiveWorkspaceId(), projectId);
 
-        ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
-
-        String noteText = s(entry == null ? null : entry.getNote()).trim();
-        String decisionText = s(entry == null ? null : entry.getDecision()).trim();
-        String insightText = s(entry == null ? null : entry.getInsight()).trim();
-        String riskText = s(entry == null ? null : entry.getRisk()).trim();
-        String opportunityText = s(entry == null ? null : entry.getOpportunity()).trim();
-
-        if (noteText.length() == 0) {
-            noteText = DEFAULT_NOTE_TEXT;
-        }
+        Map<ProjectNarrativeVerb, String> fields = new EnumMap<ProjectNarrativeVerb, String>(
+                ProjectNarrativeVerb.class);
+        fields.put(ProjectNarrativeVerb.NOTE, entry == null ? null : entry.getNote());
+        fields.put(ProjectNarrativeVerb.DECISION, entry == null ? null : entry.getDecision());
+        fields.put(ProjectNarrativeVerb.INSIGHT, entry == null ? null : entry.getInsight());
+        fields.put(ProjectNarrativeVerb.RISK, entry == null ? null : entry.getRisk());
+        fields.put(ProjectNarrativeVerb.OPPORTUNITY, entry == null ? null : entry.getOpportunity());
 
         Transaction transaction = null;
         try {
             transaction = dataSession.beginTransaction();
-            int offsetSeconds = 0;
-            offsetSeconds = upsertNarrative(narrativeDao, appReq, project, reviewDate,
-                    ProjectNarrativeVerb.NOTE, noteText, offsetSeconds);
-
-            offsetSeconds = upsertIfPresent(narrativeDao, appReq, project, reviewDate,
-                    ProjectNarrativeVerb.DECISION, decisionText, offsetSeconds);
-            offsetSeconds = upsertIfPresent(narrativeDao, appReq, project, reviewDate,
-                    ProjectNarrativeVerb.INSIGHT, insightText, offsetSeconds);
-            offsetSeconds = upsertIfPresent(narrativeDao, appReq, project, reviewDate,
-                    ProjectNarrativeVerb.RISK, riskText, offsetSeconds);
-            upsertIfPresent(narrativeDao, appReq, project, reviewDate,
-                    ProjectNarrativeVerb.OPPORTUNITY, opportunityText, offsetSeconds);
-
+            applyFields(dataSession, project, reviewDate, appReq.getWebUser(), fields);
             transaction.commit();
         } catch (RuntimeException e) {
             if (transaction != null) {
@@ -132,15 +115,7 @@ public class ProjectNarrativeService {
     public void saveSingleNarrativeForProjectDate(AppReq appReq, long projectId, LocalDate reviewDate,
             ProjectNarrativeVerb verb, String text) {
         Session dataSession = appReq.getDataSession();
-        Project project = (Project) dataSession.get(Project.class, (int) projectId);
-        if (project == null) {
-            throw new IllegalArgumentException("Project is not available");
-        }
-        Integer activeWorkspaceId = appReq.getActiveWorkspaceId();
-        if (activeWorkspaceId == null || project.getWorkspaceId() == null
-                || !activeWorkspaceId.equals(project.getWorkspaceId())) {
-            throw new IllegalArgumentException("Project is not available");
-        }
+        Project project = requireProjectForWorkspace(dataSession, appReq.getActiveWorkspaceId(), projectId);
         if (verb == null) {
             throw new IllegalArgumentException("Narrative verb is required");
         }
@@ -149,11 +124,14 @@ public class ProjectNarrativeService {
             throw new IllegalArgumentException("Narrative text is required");
         }
 
-        ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
+        Map<ProjectNarrativeVerb, String> fields = new EnumMap<ProjectNarrativeVerb, String>(
+                ProjectNarrativeVerb.class);
+        fields.put(verb, normalizedText);
+
         Transaction transaction = null;
         try {
             transaction = dataSession.beginTransaction();
-            upsertNarrative(narrativeDao, appReq, project, reviewDate, verb, normalizedText, 0);
+            applyFields(dataSession, project, reviewDate, appReq.getWebUser(), fields);
             transaction.commit();
         } catch (RuntimeException e) {
             if (transaction != null) {
@@ -163,30 +141,74 @@ public class ProjectNarrativeService {
         }
     }
 
-    private int upsertIfPresent(ProjectNarrativeDao narrativeDao, AppReq appReq, Project project,
-            LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
-        if (text == null || text.length() == 0) {
-            return offsetSeconds;
-        }
-        return upsertNarrative(narrativeDao, appReq, project, reviewDate, verb, text, offsetSeconds);
+    /**
+     * MCP-facing save (docs/MCp-Feedback.md items 3 and 4/P-7): runs on the
+     * caller's already-open session/transaction (the MCP resource wraps the
+     * whole request in one), and -- unlike the two AppReq methods above,
+     * which always carry all five verbs -- only touches verbs present in
+     * "providedFields". A verb absent from the map is left alone; a verb
+     * present with blank/empty text clears that day's entry (the P-7 fix);
+     * NOTE, if provided blank, still gets DEFAULT_NOTE_TEXT rather than being
+     * cleared, since it's what marks a project reviewed.
+     */
+    public void applyReviewFields(Session dataSession, Project project, LocalDate reviewDate, WebUser webUser,
+            Map<ProjectNarrativeVerb, String> providedFields) {
+        applyFields(dataSession, project, reviewDate, webUser, providedFields);
     }
 
-    private int upsertNarrative(ProjectNarrativeDao narrativeDao, AppReq appReq, Project project,
-            LocalDate reviewDate, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
-        ProjectNarrative narrative = narrativeDao.findNarrativeForProjectVerbOnDate(project.getProjectId(), verb,
+    private void applyFields(Session dataSession, Project project, LocalDate reviewDate, WebUser webUser,
+            Map<ProjectNarrativeVerb, String> fields) {
+        ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(dataSession);
+        int offsetSeconds = 0;
+
+        if (fields.containsKey(ProjectNarrativeVerb.NOTE)) {
+            String noteText = s(fields.get(ProjectNarrativeVerb.NOTE)).trim();
+            if (noteText.length() == 0) {
+                noteText = DEFAULT_NOTE_TEXT;
+            }
+            offsetSeconds = upsertOrClear(narrativeDao, project, reviewDate, webUser, ProjectNarrativeVerb.NOTE,
+                    noteText, offsetSeconds);
+        }
+        for (ProjectNarrativeVerb verb : new ProjectNarrativeVerb[] { ProjectNarrativeVerb.DECISION,
+                ProjectNarrativeVerb.INSIGHT, ProjectNarrativeVerb.RISK, ProjectNarrativeVerb.OPPORTUNITY }) {
+            if (fields.containsKey(verb)) {
+                offsetSeconds = upsertOrClear(narrativeDao, project, reviewDate, webUser, verb, fields.get(verb),
+                        offsetSeconds);
+            }
+        }
+
+        // Guarantee at least one narrative marks the day reviewed, even when the caller
+        // only touched (and cleared) non-NOTE verbs and never mentioned NOTE at all.
+        if (!fields.containsKey(ProjectNarrativeVerb.NOTE)
+                && !narrativeDao.hasNarrativeForProjectOnDate(project.getProjectId(), reviewDate)) {
+            upsertOrClear(narrativeDao, project, reviewDate, webUser, ProjectNarrativeVerb.NOTE, DEFAULT_NOTE_TEXT,
+                    offsetSeconds);
+        }
+    }
+
+    private int upsertOrClear(ProjectNarrativeDao narrativeDao, Project project, LocalDate reviewDate,
+            WebUser webUser, ProjectNarrativeVerb verb, String text, int offsetSeconds) {
+        String trimmed = s(text).trim();
+        ProjectNarrative existing = narrativeDao.findNarrativeForProjectVerbOnDate(project.getProjectId(), verb,
                 reviewDate);
-        Date narrativeDate = buildNarrativeDate(reviewDate, offsetSeconds, appReq.getWebUser());
-        if (narrative == null) {
-            narrative = new ProjectNarrative();
+        if (trimmed.length() == 0) {
+            if (existing != null) {
+                narrativeDao.delete(existing);
+            }
+            return offsetSeconds;
+        }
+        Date narrativeDate = buildNarrativeDate(reviewDate, offsetSeconds, webUser);
+        if (existing == null) {
+            ProjectNarrative narrative = new ProjectNarrative();
             narrative.setProject(project);
-            narrative.setContact(appReq.getWebUser().getProjectContact());
-            narrative.setWorkspaceId(appReq.getActiveWorkspaceId());
+            narrative.setContact(webUser.getProjectContact());
+            narrative.setWorkspaceId(project.getWorkspaceId());
             narrative.setNarrativeVerb(verb);
-            narrative.setNarrativeText(text);
+            narrative.setNarrativeText(trimmed);
             narrative.setNarrativeDate(narrativeDate);
             narrativeDao.insert(narrative);
         } else {
-            narrativeDao.updateNarrativeTextIfChanged(narrative, text, narrativeDate);
+            narrativeDao.updateNarrativeTextIfChanged(existing, trimmed, narrativeDate);
         }
         return offsetSeconds + 1;
     }
@@ -227,6 +249,15 @@ public class ProjectNarrativeService {
             return "";
         }
         return note;
+    }
+
+    public static Project requireProjectForWorkspace(Session dataSession, Integer workspaceId, long projectId) {
+        Project project = (Project) dataSession.get(Project.class, (int) projectId);
+        if (project == null || workspaceId == null || project.getWorkspaceId() == null
+                || !workspaceId.equals(project.getWorkspaceId())) {
+            throw new IllegalArgumentException("Project is not available");
+        }
+        return project;
     }
 
     private String s(String value) {

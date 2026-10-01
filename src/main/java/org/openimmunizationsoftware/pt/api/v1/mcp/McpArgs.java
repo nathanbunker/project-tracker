@@ -40,6 +40,24 @@ public final class McpArgs {
         return Integer.valueOf(arguments.get(field).asInt());
     }
 
+    public static boolean optBool(JsonNode arguments, String field, boolean defaultValue) {
+        if (arguments == null || !arguments.hasNonNull(field)) {
+            return defaultValue;
+        }
+        return arguments.get(field).asBoolean();
+    }
+
+    /**
+     * Whether "field" was included in the call at all (even as an explicit
+     * null or empty string), as opposed to omitted. Needed wherever omitting
+     * a field means "leave unchanged" but an empty string means "clear it" --
+     * optString()/optInt() collapse both "omitted" and "present but null" to
+     * the same default, which can't tell those two apart.
+     */
+    public static boolean isPresent(JsonNode arguments, String field) {
+        return arguments != null && arguments.has(field);
+    }
+
     public static List<String> optStringList(JsonNode arguments, String field) {
         List<String> result = new ArrayList<String>();
         if (arguments == null || !arguments.hasNonNull(field)) {

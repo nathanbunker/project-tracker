@@ -21,7 +21,7 @@ import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
 
 public class ProjectNarrativeDao {
 
-    private static final int MINUTES_REVIEW_THRESHOLD = 5;
+    public static final int MINUTES_REVIEW_THRESHOLD = 5;
 
     private final Session session;
 
@@ -67,6 +67,14 @@ public class ProjectNarrativeDao {
     public void update(ProjectNarrative narrative) {
         narrative.setLastUpdated(new Date());
         session.update(narrative);
+    }
+
+    public void delete(ProjectNarrative narrative) {
+        session.delete(narrative);
+    }
+
+    public ProjectNarrative findById(long narrativeId) {
+        return (ProjectNarrative) session.get(ProjectNarrative.class, (int) narrativeId);
     }
 
     @SuppressWarnings("unchecked")
@@ -219,6 +227,22 @@ public class ProjectNarrativeDao {
     }
 
     public List<ReviewItem> listReviewItemsForDate(LocalDate date, int contactId) {
+        List<ReviewItem> results = new ArrayList<ReviewItem>();
+        for (ReviewItemDetail detail : listReviewItemsForDateDetailed(date, contactId, false)) {
+            results.add(new ReviewItem(detail.getProjectId(), detail.getProjectName(), detail.getMinutesSpent(),
+                    detail.isReviewed()));
+        }
+        return results;
+    }
+
+    /**
+     * Richer version of listReviewItemsForDate for the MCP work-day-review tool
+     * (docs/MCP-Feedback.md item 2, I-10): same underlying query, but also reports
+     * *why* a project isn't reviewed yet (no narrative vs. which setup pieces are
+     * missing), and can optionally include projects below the minutes threshold.
+     */
+    public List<ReviewItemDetail> listReviewItemsForDateDetailed(LocalDate date, int contactId,
+            boolean includeBelowThreshold) {
         Date start = startOfDay(date);
         Date end = startOfNextDay(date);
 
@@ -227,11 +251,13 @@ public class ProjectNarrativeDao {
                         + "from BillEntry be, Project p "
                         + "where be.projectId = p.projectId and be.startTime >= :start and be.startTime < :end "
                         + "group by be.projectId, p.projectName, p.outcomeText, p.successCriteriaText "
-                        + "having sum(be.billMins) >= :minMinutes "
+                        + (includeBelowThreshold ? "" : "having sum(be.billMins) >= :minMinutes ")
                         + "order by sum(be.billMins) desc");
         minutesQuery.setTimestamp("start", start);
         minutesQuery.setTimestamp("end", end);
-        minutesQuery.setInteger("minMinutes", MINUTES_REVIEW_THRESHOLD);
+        if (!includeBelowThreshold) {
+            minutesQuery.setInteger("minMinutes", MINUTES_REVIEW_THRESHOLD);
+        }
         @SuppressWarnings("unchecked")
         List<Object[]> rows = minutesQuery.list();
 
@@ -242,10 +268,10 @@ public class ProjectNarrativeDao {
         reviewedQuery.setTimestamp("end", end);
         @SuppressWarnings("unchecked")
         List<Number> reviewedProjectIds = reviewedQuery.list();
-        Set<Long> reviewedLookup = new HashSet<Long>();
+        Set<Long> hasNarrativeLookup = new HashSet<Long>();
         for (Number projectId : reviewedProjectIds) {
             if (projectId != null) {
-                reviewedLookup.add(projectId.longValue());
+                hasNarrativeLookup.add(projectId.longValue());
             }
         }
 
@@ -264,7 +290,7 @@ public class ProjectNarrativeDao {
             updateDueByProject.put(projectId.longValue(), updateDue == null ? 0 : updateDue.intValue());
         }
 
-        List<ReviewItem> results = new ArrayList<ReviewItem>();
+        List<ReviewItemDetail> results = new ArrayList<ReviewItemDetail>();
         for (Object[] row : rows) {
             if (row == null || row.length < 5) {
                 continue;
@@ -281,13 +307,34 @@ public class ProjectNarrativeDao {
             int updateDue = updateDueByProject.containsKey(projectId.longValue())
                     ? updateDueByProject.get(projectId.longValue()).intValue()
                     : 0;
-            boolean setupComplete = updateDue > 0
-                    && hasText(outcomeText)
-                    && hasText(successCriteriaText);
-            boolean reviewed = reviewedLookup.contains(projectId.longValue()) && setupComplete;
-            results.add(new ReviewItem(projectId.longValue(), projectName, minuteValue, reviewed));
+            List<String> missingSetup = new ArrayList<String>();
+            if (updateDue <= 0) {
+                missingSetup.add("reviewCadence");
+            }
+            if (!hasText(outcomeText)) {
+                missingSetup.add("outcome");
+            }
+            if (!hasText(successCriteriaText)) {
+                missingSetup.add("successCriteria");
+            }
+            boolean setupComplete = missingSetup.isEmpty();
+            boolean hasNarrative = hasNarrativeLookup.contains(projectId.longValue());
+            boolean reviewed = hasNarrative && setupComplete;
+            results.add(new ReviewItemDetail(projectId.longValue(), projectName, minuteValue, reviewed, hasNarrative,
+                    missingSetup));
         }
         return results;
+    }
+
+    public int getTotalMinutesForDate(LocalDate date) {
+        Date start = startOfDay(date);
+        Date end = startOfNextDay(date);
+        Query query = session.createQuery(
+                "select sum(be.billMins) from BillEntry be where be.startTime >= :start and be.startTime < :end");
+        query.setTimestamp("start", start);
+        query.setTimestamp("end", end);
+        Number total = (Number) query.uniqueResult();
+        return total == null ? 0 : total.intValue();
     }
 
     private static Date startOfDay(LocalDate date) {
@@ -363,6 +410,49 @@ public class ProjectNarrativeDao {
 
         public int getMinutes() {
             return minutes;
+        }
+    }
+
+    public static class ReviewItemDetail {
+        private final long projectId;
+        private final String projectName;
+        private final int minutesSpent;
+        private final boolean reviewed;
+        private final boolean hasNarrative;
+        private final List<String> missingSetup;
+
+        public ReviewItemDetail(long projectId, String projectName, int minutesSpent, boolean reviewed,
+                boolean hasNarrative, List<String> missingSetup) {
+            this.projectId = projectId;
+            this.projectName = projectName;
+            this.minutesSpent = minutesSpent;
+            this.reviewed = reviewed;
+            this.hasNarrative = hasNarrative;
+            this.missingSetup = missingSetup;
+        }
+
+        public long getProjectId() {
+            return projectId;
+        }
+
+        public String getProjectName() {
+            return projectName;
+        }
+
+        public int getMinutesSpent() {
+            return minutesSpent;
+        }
+
+        public boolean isReviewed() {
+            return reviewed;
+        }
+
+        public boolean isHasNarrative() {
+            return hasNarrative;
+        }
+
+        public List<String> getMissingSetup() {
+            return missingSetup;
         }
     }
 

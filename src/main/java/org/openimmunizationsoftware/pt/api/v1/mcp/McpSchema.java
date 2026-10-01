@@ -43,6 +43,10 @@ public final class McpSchema {
         return prop("integer", description);
     }
 
+    public static Map<String, Object> bool(String description) {
+        return prop("boolean", description);
+    }
+
     public static Map<String, Object> array(String description, Map<String, Object> items) {
         Map<String, Object> map = prop("array", description);
         map.put("items", items);

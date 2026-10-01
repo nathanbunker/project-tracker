@@ -6,18 +6,25 @@ import java.util.List;
 import java.util.Map;
 
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.AddProjectAiThoughtTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.AddProjectNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.ApplyChangesTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectAiThoughtTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetDayAvailabilityTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetNarrativesTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetOutlookTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetPlanningContextTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetProjectContextTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetTimeAllocationContextTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetWorkDayReviewTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.ListOutlooksTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SaveWorkDayReviewTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SetDayAvailabilityTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SetOutlookTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectAiThoughtTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectLanguageTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectNarrativeTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectReviewCadenceTool;
 
 /** The small, task-oriented tool surface for Phase 0-2 (see assessment section 4-5). */
 public class McpToolRegistry {
@@ -33,10 +40,17 @@ public class McpToolRegistry {
         register(new GetTimeAllocationContextTool());
         register(new GetDayAvailabilityTool());
         register(new SetDayAvailabilityTool());
+        register(new GetNarrativesTool());
         register(new AddProjectAiThoughtTool());
         register(new UpdateProjectAiThoughtTool());
         register(new DeleteProjectAiThoughtTool());
         register(new UpdateProjectLanguageTool());
+        register(new UpdateProjectReviewCadenceTool());
+        register(new GetWorkDayReviewTool());
+        register(new SaveWorkDayReviewTool());
+        register(new AddProjectNarrativeTool());
+        register(new UpdateProjectNarrativeTool());
+        register(new DeleteProjectNarrativeTool());
         register(new ApplyChangesTool());
     }
 

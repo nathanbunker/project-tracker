@@ -85,6 +85,27 @@ public class TrackerNarrativeDao {
         return query.list();
     }
 
+    /**
+     * All narratives (any review status) whose periodStart falls in an
+     * inclusive range, most-recent first per period -- for the MCP
+     * get_narratives read tool (docs/MCP-Feedback.md I-8), which needs to
+     * show whatever's there (including not-yet-approved) rather than only
+     * APPROVED like findApprovedByContactTypeAndPeriodRange.
+     */
+    @SuppressWarnings("unchecked")
+    public List<TrackerNarrative> findByContactAndTypeInPeriodStartRange(int contactId, String type,
+            LocalDate startInclusive, LocalDate endInclusive) {
+        Query query = session.createQuery(
+                "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
+                        + "and periodStart >= :start and periodStart <= :end "
+                        + "order by periodStart desc, dateGenerated desc");
+        query.setInteger("contactId", contactId);
+        query.setString("type", type);
+        query.setDate("start", toSqlDate(startInclusive));
+        query.setDate("end", toSqlDate(endInclusive));
+        return query.list();
+    }
+
     public Map<LocalDate, Integer> sumBillableMinutesByDay(Integer webUserId, LocalDate startInclusive,
             LocalDate endExclusive) {
         Map<LocalDate, Integer> minutesByDay = new HashMap<LocalDate, Integer>();

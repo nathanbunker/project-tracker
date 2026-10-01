@@ -178,9 +178,11 @@ public class McpProjectContextService {
         List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         for (ProjectNarrative narrative : loadRecentNarratives(session, projectId)) {
             Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("narrativeId", narrative.getNarrativeId());
             item.put("date", McpActionContextSupport.toIso(narrative.getNarrativeDate()));
             item.put("verb", narrative.getNarrativeVerb() == null ? null : narrative.getNarrativeVerb().getId());
             item.put("text", narrative.getNarrativeText());
+            item.put("lastUpdated", McpActionContextSupport.toIso(narrative.getLastUpdated()));
             list.add(item);
         }
         return list;

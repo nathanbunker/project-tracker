@@ -2,14 +2,10 @@ package org.openimmunizationsoftware.pt.api.v1.mcp.tools;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
+import org.dandeliondaily.mcp.service.McpNarrativesService;
 import org.dandeliondaily.mcp.service.McpWebUserSupport;
-import org.dandeliondaily.outlook.service.PlanningOutlookService;
-import org.dandeliondaily.outlook.service.PlanningOutlookService.OutlookResult;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpArgs;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpSchema;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpTool;
@@ -19,26 +15,29 @@ import org.openimmunizationsoftware.pt.model.WebUser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-public class ListOutlooksTool implements McpTool {
+public class GetNarrativesTool implements McpTool {
 
-    private final PlanningOutlookService service = new PlanningOutlookService();
+    private final McpNarrativesService service = new McpNarrativesService();
 
     @Override
     public String getName() {
-        return "list_outlooks";
+        return "get_narratives";
     }
 
     @Override
     public String getDescription() {
-        return "Lists monthly or weekly outlooks whose period starts within an inclusive date range, most useful "
-                + "for reviewing recent history before planning the next period. Read-only.";
+        return "Reads generated daily or weekly narrative reports (TrackerNarrative) whose period starts within "
+                + "an inclusive date range: what actually happened across projects and tasks, recurring themes, "
+                + "and where attention went. Returns the approved final text when present, otherwise the "
+                + "generated draft, with its review status. Most useful for reviewing a past period before "
+                + "setting the next one's outlook. Read-only.";
     }
 
     @Override
     public Map<String, Object> getInputSchema() {
         return McpSchema.object(
                 McpSchema.properties(
-                        "periodType", McpSchema.stringEnum("WEEK or MONTH.", "WEEK", "MONTH"),
+                        "periodType", McpSchema.stringEnum("DAILY or WEEKLY.", "DAILY", "WEEKLY"),
                         "fromPeriodStart", McpSchema.string("Inclusive lower bound on periodStart, yyyy-MM-dd."),
                         "toPeriodStart", McpSchema.string("Inclusive upper bound on periodStart, yyyy-MM-dd.")),
                 "periodType", "fromPeriodStart", "toPeriodStart");
@@ -52,16 +51,8 @@ public class ListOutlooksTool implements McpTool {
         if (to.isBefore(from)) {
             throw new McpToolException("invalid_arguments", "toPeriodStart must not be before fromPeriodStart.");
         }
-        WebUser owner = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
-        List<OutlookResult> results = service.listOutlooks(context.getSession(), owner.getWebUserId(), periodType,
-                from, to.plusDays(1), LocalDate.now(owner.getZoneId()));
-        List<Map<String, Object>> mapped = new ArrayList<Map<String, Object>>();
-        for (OutlookResult result : results) {
-            mapped.add(GetOutlookTool.toMap(result));
-        }
-        Map<String, Object> response = new LinkedHashMap<String, Object>();
-        response.put("outlooks", mapped);
-        return response;
+        WebUser webUser = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
+        return service.listNarratives(context.getSession(), webUser.getContactId(), periodType, from, to);
     }
 
     private LocalDate parseDate(String value, String field) {
