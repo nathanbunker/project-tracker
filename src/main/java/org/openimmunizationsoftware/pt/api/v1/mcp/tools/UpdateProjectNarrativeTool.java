@@ -4,11 +4,13 @@ import java.time.LocalDate;
 import java.util.Map;
 
 import org.dandeliondaily.mcp.service.McpProjectNarrativeCrudService;
+import org.dandeliondaily.mcp.service.McpWebUserSupport;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpArgs;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpSchema;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpToolContext;
 import org.openimmunizationsoftware.pt.model.ProjectNarrativeVerb;
+import org.openimmunizationsoftware.pt.model.WebUser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -53,7 +55,8 @@ public class UpdateProjectNarrativeTool implements McpTool {
                 ? AddProjectNarrativeTool.parseDate(McpArgs.optString(arguments, "date", null))
                 : null;
         String text = McpArgs.optString(arguments, "text", null);
+        WebUser webUser = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
         return service.updateNarrative(context.getSession(), context.getWorkspaceId(), narrativeId, lastUpdated,
-                verb, date, text);
+                webUser, verb, date, text);
     }
 }

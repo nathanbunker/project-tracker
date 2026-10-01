@@ -66,6 +66,9 @@ public class AddProjectNarrativeTool implements McpTool {
     }
 
     static LocalDate parseDate(String value) {
+        if (value == null) {
+            throw new McpToolException("invalid_arguments", "\"date\" must be yyyy-MM-dd.");
+        }
         try {
             return LocalDate.parse(value);
         } catch (DateTimeParseException e) {

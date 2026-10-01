@@ -104,11 +104,14 @@ public class ProjectNarrativeService {
             transaction = dataSession.beginTransaction();
             applyFields(dataSession, project, reviewDate, appReq.getWebUser(), fields);
             transaction.commit();
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             if (transaction != null) {
                 transaction.rollback();
             }
-            throw e;
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException(e);
         }
     }
 
@@ -133,11 +136,14 @@ public class ProjectNarrativeService {
             transaction = dataSession.beginTransaction();
             applyFields(dataSession, project, reviewDate, appReq.getWebUser(), fields);
             transaction.commit();
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             if (transaction != null) {
                 transaction.rollback();
             }
-            throw e;
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException(e);
         }
     }
 

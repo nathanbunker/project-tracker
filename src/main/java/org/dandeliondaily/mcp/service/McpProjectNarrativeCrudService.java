@@ -48,7 +48,7 @@ public class McpProjectNarrativeCrudService {
     }
 
     public Map<String, Object> updateNarrative(Session session, int workspaceId, int narrativeId, String lastUpdated,
-            ProjectNarrativeVerb newVerb, LocalDate newDate, String newText) {
+            WebUser webUser, ProjectNarrativeVerb newVerb, LocalDate newDate, String newText) {
         ProjectNarrative narrative = requireNarrativeInWorkspace(session, workspaceId, narrativeId);
         checkStaleness(narrative, lastUpdated);
         if (newVerb == null && newDate == null && newText == null) {
@@ -57,7 +57,7 @@ public class McpProjectNarrativeCrudService {
 
         ProjectNarrativeDao dao = new ProjectNarrativeDao(session);
         ProjectNarrativeVerb effectiveVerb = newVerb != null ? newVerb : narrative.getNarrativeVerb();
-        LocalDate effectiveDate = newDate != null ? newDate : toLocalDate(narrative.getNarrativeDate());
+        LocalDate effectiveDate = newDate != null ? newDate : webUser.toLocalDate(narrative.getNarrativeDate());
         if ((newVerb != null || newDate != null)) {
             ProjectNarrative collision = dao.findNarrativeForProjectVerbOnDate(narrative.getProjectId(),
                     effectiveVerb, effectiveDate);
@@ -73,7 +73,7 @@ public class McpProjectNarrativeCrudService {
         }
         narrative.setNarrativeVerb(effectiveVerb);
         if (newDate != null) {
-            narrative.setNarrativeDate(rebuildDateKeepingTimeOfDay(narrative.getNarrativeDate(), newDate));
+            narrative.setNarrativeDate(rebuildDateKeepingTimeOfDay(narrative.getNarrativeDate(), newDate, webUser));
         }
         dao.update(narrative);
         return toMap(narrative);
@@ -106,15 +106,11 @@ public class McpProjectNarrativeCrudService {
         }
     }
 
-    private Date rebuildDateKeepingTimeOfDay(Date currentNarrativeDate, LocalDate newDate) {
-        java.util.Calendar calendar = java.util.Calendar.getInstance();
-        calendar.setTime(currentNarrativeDate);
-        calendar.set(newDate.getYear(), newDate.getMonthValue() - 1, newDate.getDayOfMonth());
-        return calendar.getTime();
-    }
-
-    private LocalDate toLocalDate(Date date) {
-        return date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+    private Date rebuildDateKeepingTimeOfDay(Date currentNarrativeDate, LocalDate newDate, WebUser webUser) {
+        java.time.LocalDateTime currentLocalDateTime = currentNarrativeDate.toInstant()
+                .atZone(webUser.getZoneId()).toLocalDateTime();
+        java.time.LocalDateTime rebuilt = java.time.LocalDateTime.of(newDate, currentLocalDateTime.toLocalTime());
+        return webUser.toDate(rebuilt);
     }
 
     private String requireText(String text) {

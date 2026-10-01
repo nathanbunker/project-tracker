@@ -30,8 +30,7 @@ public class McpSaveWorkDayReviewService {
             throw new McpToolException("invalid_arguments",
                     "\"entries\" must include at least one of note, decision, insight, risk, opportunity.");
         }
-        Project project = ProjectNarrativeService.requireProjectForWorkspace(session, Integer.valueOf(workspaceId),
-                projectId);
+        Project project = requireProjectInWorkspace(session, workspaceId, projectId);
         ProjectNarrativeDao narrativeDao = new ProjectNarrativeDao(session);
         checkStaleness(narrativeDao, projectId, date, expectedLastUpdated);
 
@@ -42,6 +41,14 @@ public class McpSaveWorkDayReviewService {
         result.put("date", date.toString());
         result.put("narratives", McpWorkDayReviewService.narrativesByVerbMap(narrativeDao, projectId, date));
         return result;
+    }
+
+    private Project requireProjectInWorkspace(Session session, int workspaceId, long projectId) {
+        Project project = (Project) session.get(Project.class, (int) projectId);
+        if (project == null || project.getWorkspaceId() == null || project.getWorkspaceId().intValue() != workspaceId) {
+            throw new McpToolException("not_found", "Project not found.");
+        }
+        return project;
     }
 
     private void checkStaleness(ProjectNarrativeDao narrativeDao, long projectId, LocalDate date,
