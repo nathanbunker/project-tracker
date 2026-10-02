@@ -1,4 +1,6 @@
-# Linked Meeting — Domain Model Proposal
+SELECT username, web_user_id, contact_id
+FROM web_user
+WHERE username IN ('<UI_username>', '<MCP_client_owner_username>');# Linked Meeting — Domain Model Proposal
 
 ## Purpose
 

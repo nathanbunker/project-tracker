@@ -25,6 +25,7 @@ import org.openimmunizationsoftware.pt.model.ActionSet;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.ActorType;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionType;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -33,7 +34,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * apply_changes: the batch write-back operation. Pre-validates the entire
- * batch against current DB state (same shape as ProjectDefinitionImportService's
+ * batch against current DB state (same shape as
+ * ProjectDefinitionImportService's
  * "resolve everything, fail the whole batch on any mismatch" pattern) before
  * mutating anything; if any item fails validation, nothing is applied.
  * Delegates to existing services where one exists (ActionCompletionService
@@ -344,11 +346,16 @@ public class McpApplyChangesService {
         if (!resolveAndCheckAction(session, workspaceId, item, pc, true)) {
             return;
         }
-        // "completedAt" is when the work finished (the end of the time entry), matching how a
-        // person would naturally describe it ("I finished this just now, took me 10 minutes").
-        // ActionCompletionService's completionMoment parameter is the START of the entry, so it
-        // has to be derived by subtracting the duration -- passing completedAt straight through
-        // as the start made any positive duration push the computed end into the future and fail
+        // "completedAt" is when the work finished (the end of the time entry), matching
+        // how a
+        // person would naturally describe it ("I finished this just now, took me 10
+        // minutes").
+        // ActionCompletionService's completionMoment parameter is the START of the
+        // entry, so it
+        // has to be derived by subtracting the duration -- passing completedAt straight
+        // through
+        // as the start made any positive duration push the computed end into the future
+        // and fail
         // validation unconditionally (found in live testing).
         Date completedAtEnd;
         if (item.hasNonNull("completedAt")) {
@@ -533,7 +540,12 @@ public class McpApplyChangesService {
         action.setProject(pc.project);
         action.setProjectId(pc.project.getProjectId());
         action.setWorkspaceId(pc.project.getWorkspaceId());
-        action.setContact(webUser.getProjectContact());
+        ProjectContact ownerContact = webUser.getProjectContact();
+        if (ownerContact == null) {
+            ownerContact = (ProjectContact) session.get(ProjectContact.class,
+                    Integer.valueOf(webUser.getContactId()));
+        }
+        action.setContact(ownerContact);
         action.setContactId(webUser.getContactId());
         action.setNextActionType(pc.newActionType);
         action.setNextDescription(pc.newDescription);
