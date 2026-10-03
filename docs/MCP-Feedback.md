@@ -10,8 +10,9 @@ See `docs/Dandelion_Daily_AI_Integration_Assessment.md` for the design and
 
 ## Status (2026-10-01)
 
-**Only I-12 (build items 13 and 14) is outstanding.** It's implemented in version
-5.10.6 and waiting on deployment and verification. Every other problem (P-1 to P-10)
+**Only I-12 build item 14 is outstanding.** I-12 was implemented in version 5.10.6 and
+is deployed; build item 13 was verified on 2026-10-03 (see Resolved), and build item 14
+still needs its write test against production. Every other problem (P-1 to P-10)
 and idea (I-1 to I-11) in this document has been addressed, and each entry below is
 marked **Status: Addressed**. The entries are kept for history.
 
@@ -46,7 +47,7 @@ General rules for all new tools:
 | 13 | Return `linkUrl` on each action in `get_planning_context` and `get_project_context` (added 2026-10-01) | I-12 | Read a day that includes an action with a link set in the UI; `linkUrl` matches |
 | 14 | Let `create_action`, `update_action`, and `split_action` (per new action) set `linkUrl`; allow `update_action` to change only `linkUrl` (and `addNote`) on template-generated instances (added 2026-10-01) | I-12 | Create an action with a link, change it, and clear it through the MCP; each shows on the dashboard Now column. Set a link on a template-generated instance; it's accepted, and the template root is unchanged |
 
-Items 1 to 12 are done (see Resolved). Items 13 and 14 (I-12) are open.
+Items 1 to 13 are done (see Resolved). Item 14 (I-12) is deployed and waiting on verification.
 The entries that were left out of the first build (I-1, I-2, I-3, I-4, I-9, P-2, P-3,
 P-5, P-6) have since been addressed as well.
 
@@ -200,8 +201,8 @@ double submit in the create or "add note" flow. 796172 was removed through the M
 
 ### I-12: Read and set an action's link (`linkUrl`) through the MCP
 
-**Status:** OUTSTANDING. Fix implemented 2026-10-01 in version 5.10.6, waiting on
-deployment and verification (build items 13 and 14).
+**Status:** Partly verified. Fix implemented 2026-10-01 in version 5.10.6 and deployed.
+Build item 13 verified 2026-10-03 (see Resolved); build item 14 waiting on verification.
 **Raised:** 2026-10-01 (Nathan)
 
 `ActionNext.linkUrl` (column `link_url`, up to 1200 characters) is in the model. The
@@ -520,6 +521,13 @@ Not yet exercised: `set_outlook`, `set_day_availability`, `update_project_ai_tho
 ## Resolved
 
 **Addressed as of 2026-10-01:** all problems (P-1 to P-10) and ideas (I-1 to I-11).
+
+**Verified 2026-10-03 against production (I-12, build item 13):**
+- `get_planning_context` for 2026-10-05 (meetings only) returned `linkUrl` on action
+  796221 (SS + NB Weekly Check-in) with its Teams meeting link.
+- Build item 14 (setting, changing, and clearing a link through `apply_changes`,
+  including on a template-generated instance) needs writes to production data and is
+  not yet verified.
 
 **Verified 2026-10-01 after deployment (I-11):**
 - **Build item 11:** `get_planning_context` for 2026-10-01 returns `completionOrder`,
