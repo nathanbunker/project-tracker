@@ -1,7 +1,11 @@
 package org.dandeliondaily.planahead.render;
 
+import java.time.LocalDate;
+
+import org.dandeliondaily.outlook.service.PlanningOutlookService.OutlookResult;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.junit.Assert;
+import org.openimmunizationsoftware.pt.model.PlanningOutlook;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -229,5 +233,36 @@ public class PlanAheadPageRendererTest {
 
         Assert.assertTrue(html.contains("data-row=\"completed\""));
         Assert.assertTrue(html.contains("pa-card-completed"));
+    }
+
+    @Test
+    public void outlookBanner_isOpenAndEscapedWhenWeekHasOutlook() {
+        PlanningOutlook weekText = new PlanningOutlook();
+        weekText.setOutlookText("Ship <3.5> & review the narrative");
+        OutlookResult week = new OutlookResult(weekText, "WEEK", LocalDate.of(2026, 10, 4),
+                LocalDate.of(2026, 10, 10), false);
+        OutlookResult month = new OutlookResult(null, "MONTH", LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 31), false);
+
+        String html = renderer.renderOutlookBannerHtml(week, month);
+
+        Assert.assertTrue(html, html.contains("<details class=\"pa-outlook\" open>"));
+        Assert.assertTrue(html, html.contains("Week of Oct 4 - Oct 10"));
+        Assert.assertTrue(html, html.contains("Ship &lt;3.5&gt; &amp; review the narrative"));
+        Assert.assertTrue(html, html.contains("href=\"OutlooksServlet#week-2026-10-04\">Edit</a>"));
+        Assert.assertTrue(html, html.contains("October 2026 outlook &middot; <em>none written yet</em>"));
+    }
+
+    @Test
+    public void outlookBanner_isCollapsedWithWriteLinkWhenWeekHasNoOutlook() {
+        OutlookResult week = new OutlookResult(null, "WEEK", LocalDate.of(2026, 10, 4),
+                LocalDate.of(2026, 10, 10), false);
+
+        String html = renderer.renderOutlookBannerHtml(week, null);
+
+        Assert.assertTrue(html, html.contains("<details class=\"pa-outlook\">"));
+        Assert.assertTrue(html, html.contains("none written yet"));
+        Assert.assertTrue(html, html.contains("href=\"OutlooksServlet#week-2026-10-04\">Write one</a>"));
+        Assert.assertFalse(html, html.contains("pa-outlook-month"));
     }
 }

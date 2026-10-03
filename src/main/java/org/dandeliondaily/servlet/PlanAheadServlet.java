@@ -19,6 +19,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.dandeliondaily.outlook.service.PlanningOutlookService;
+import org.dandeliondaily.outlook.service.PlanningOutlookService.OutlookResult;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
@@ -38,6 +40,7 @@ public class PlanAheadServlet extends ClientServlet {
 
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer pageRenderer = new PlanAheadPageRenderer();
+    private final PlanningOutlookService outlookService = new PlanningOutlookService();
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final PlanAheadMutationService mutationService = new PlanAheadMutationService();
     private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
@@ -116,8 +119,17 @@ public class PlanAheadServlet extends ClientServlet {
             appReq.setTitle("Plan Ahead");
             Date windowStart = boardService.resolveWindowStart(appReq);
             PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
+            LocalDate firstDay = appReq.getWebUser().toLocalDate(windowStart);
+            LocalDate today = appReq.getWebUser().getLocalDateToday();
+            String week = PlanningOutlookService.PERIOD_TYPE_WEEK;
+            String month = PlanningOutlookService.PERIOD_TYPE_MONTH;
+            int ownerUserId = appReq.getWebUser().getWebUserId();
+            OutlookResult weekOutlook = outlookService.getOutlook(appReq.getDataSession(), ownerUserId, week,
+                    outlookService.periodStartFor(week, firstDay), today);
+            OutlookResult monthOutlook = outlookService.getOutlook(appReq.getDataSession(), ownerUserId, month,
+                    outlookService.periodStartFor(month, firstDay), today);
             printHtmlHead(appReq);
-            pageRenderer.render(appReq, boardModel);
+            pageRenderer.render(appReq, boardModel, weekOutlook, monthOutlook);
             printHtmlFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();

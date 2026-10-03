@@ -3,7 +3,10 @@ package org.dandeliondaily.planahead.render;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
+import java.time.format.DateTimeFormatter;
+
 import org.dandeliondaily.dashboard.render.TimeGaugeRenderer;
+import org.dandeliondaily.outlook.service.PlanningOutlookService.OutlookResult;
 import org.dandeliondaily.shared.render.EditActionModalRenderer;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -14,7 +17,8 @@ public class PlanAheadPageRenderer {
         private final TimeGaugeRenderer timeGaugeRenderer = new TimeGaugeRenderer();
         private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
 
-        public void render(AppReq appReq, PlanAheadBoardModel boardModel) {
+        public void render(AppReq appReq, PlanAheadBoardModel boardModel, OutlookResult weekOutlook,
+                        OutlookResult monthOutlook) {
                 PrintWriter out = appReq.getOut();
                 boolean personalMode = boardModel.isPersonalMode();
                 int dayCount = boardModel.getDayHeaders() == null ? 0 : boardModel.getDayHeaders().size();
@@ -33,6 +37,7 @@ public class PlanAheadPageRenderer {
                 out.println("    </div>");
                 printQuickCapture(out, boardModel);
                 out.println("  </div>");
+                out.print(renderOutlookBannerHtml(weekOutlook, monthOutlook));
 
                 int viewAllocatedMins = computeFirstDisplayedDayTotal(boardModel);
                 out.println("  <div class=\"pa-controls\">");
@@ -42,6 +47,7 @@ public class PlanAheadPageRenderer {
                 out.println("    <a class=\"pa-shift\" href=\"PlanAheadServlet?action=shiftWindowForward&days=1&windowStart="
                                 + escapeHtml(boardModel.getWindowStartKey()) + "\">Next Day &#9654;</a>");
                 out.println("    <a class=\"pa-shift\" href=\"TemplateManagementServlet\">Manage Templates</a>");
+                out.println("    <a class=\"pa-shift\" href=\"OutlooksServlet\">Outlooks</a>");
                 out.println("  </div>");
 
                 out.println("  <div class=\"pa-grid\">");
@@ -1353,6 +1359,13 @@ public class PlanAheadPageRenderer {
                 out.println(".pa-intro-bar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;}");
                 out.println(".pa-intro h1{margin:0;color:#2d3a2d;}");
                 out.println(".pa-intro p{margin:6px 0 14px 0;color:#425541;}");
+                out.println(".pa-outlook{margin:0 0 12px 0;padding:8px 12px;background:#fffdf8;border:1px solid #d7c8b1;border-left:4px solid #617a60;border-radius:4px;color:#2d3a2d;}");
+                out.println(".pa-outlook summary{cursor:pointer;}");
+                out.println(".pa-outlook-body{margin-top:8px;}");
+                out.println(".pa-outlook-text{white-space:pre-wrap;line-height:1.45;max-width:900px;}");
+                out.println(".pa-outlook-edit{display:inline-block;margin-top:6px;font-size:12px;color:#49654a;}");
+                out.println(".pa-outlook-empty{margin:0;color:#6b6256;}");
+                out.println(".pa-outlook-month{margin-top:8px;color:#425541;}");
                 out.println(".pa-quick-capture{margin-left:auto;min-width:360px;max-width:520px;flex:1 1 420px;padding:10px 12px;background:#f8f1e6;border:1px solid #d7c8b1;border-radius:6px;}");
                 out.println(".pa-quick-capture-title{font-size:12px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#52614d;margin-bottom:8px;}");
                 out.println(".pa-quick-capture-form{margin:0;}");
@@ -1496,6 +1509,61 @@ public class PlanAheadPageRenderer {
                                 .replace("\"", "\\\"")
                                 .replace("\r", "")
                                 .replace("\n", "\\n");
+        }
+
+        /**
+         * Collapsible banner with the outlook for the week (and, collapsed, the month)
+         * containing the first displayed day. Open when the week has an outlook.
+         */
+        public String renderOutlookBannerHtml(OutlookResult weekOutlook, OutlookResult monthOutlook) {
+                if (weekOutlook == null) {
+                        return "";
+                }
+                DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("MMM d");
+                String weekText = outlookText(weekOutlook);
+                String weekLabel = "Week of " + dayFormat.format(weekOutlook.getPeriodStart()) + " - "
+                                + dayFormat.format(weekOutlook.getPeriodEnd());
+                String editHref = "OutlooksServlet#week-" + weekOutlook.getPeriodStart();
+                StringBuilder sb = new StringBuilder();
+                sb.append("  <details class=\"pa-outlook\"").append(weekText == null ? "" : " open").append(">\n");
+                sb.append("    <summary><strong>Outlook</strong> &middot; ").append(escapeHtml(weekLabel));
+                if (weekText == null) {
+                        sb.append(" &middot; <em>none written yet</em>");
+                }
+                sb.append("</summary>\n");
+                sb.append("    <div class=\"pa-outlook-body\">\n");
+                if (weekText == null) {
+                        sb.append("      <p class=\"pa-outlook-empty\">No outlook for this week. <a href=\"")
+                                        .append(editHref).append("\">Write one</a>.</p>\n");
+                } else {
+                        sb.append("      <div class=\"pa-outlook-text\">").append(escapeHtml(weekText))
+                                        .append("</div>\n");
+                        sb.append("      <a class=\"pa-outlook-edit\" href=\"").append(editHref)
+                                        .append("\">Edit</a>\n");
+                }
+                if (monthOutlook != null) {
+                        String monthText = outlookText(monthOutlook);
+                        String monthLabel = DateTimeFormatter.ofPattern("MMMM uuuu")
+                                        .format(monthOutlook.getPeriodStart());
+                        sb.append("      <details class=\"pa-outlook-month\"><summary>")
+                                        .append(escapeHtml(monthLabel)).append(" outlook")
+                                        .append(monthText == null ? " &middot; <em>none written yet</em>" : "")
+                                        .append("</summary>\n");
+                        sb.append("        <div class=\"pa-outlook-text\">")
+                                        .append(monthText == null ? "" : escapeHtml(monthText)).append("</div>\n");
+                        sb.append("      </details>\n");
+                }
+                sb.append("    </div>\n");
+                sb.append("  </details>\n");
+                return sb.toString();
+        }
+
+        private static String outlookText(OutlookResult result) {
+                if (result.getOutlook() == null || result.getOutlook().getOutlookText() == null
+                                || result.getOutlook().getOutlookText().trim().length() == 0) {
+                        return null;
+                }
+                return result.getOutlook().getOutlookText().trim();
         }
 
         private String escapeHtml(String value) {
