@@ -39,6 +39,7 @@ public class McpProjectNarrativeCrudService {
         ProjectNarrative narrative = new ProjectNarrative();
         narrative.setProject(project);
         narrative.setContact(webUser.getProjectContact());
+        narrative.setContactId(webUser.getContactId());
         narrative.setWorkspaceId(project.getWorkspaceId());
         narrative.setNarrativeVerb(verb);
         narrative.setNarrativeText(trimmed);

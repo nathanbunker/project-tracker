@@ -53,6 +53,32 @@ P-5, P-6) have since been addressed as well.
 
 ## Problems
 
+### P-11: Narratives written through the MCP were saved with contact_id 0 and broke the dashboard
+
+**Status:** Addressed (2026-10-03, version 5.10.9)
+**Found:** 2026-10-03 (production, reported by Nathan)
+
+The dashboard failed with `ObjectNotFoundException: No row with the given identifier
+exists: [ProjectContact#0]` in `DashboardNowColumnService.buildNarrativeItems`.
+
+**Cause:** `McpWebUserSupport.requireWebUser` loads the `WebUser` by query, so its
+unmapped `projectContact` field is null (only web logins fill it in). Both narrative
+create paths, `add_project_narrative` (`McpProjectNarrativeCrudService`) and
+`save_work_day_review` (`ProjectNarrativeService`), called only
+`setContact(webUser.getProjectContact())`. In `project_narrative`, `contact_id` is written
+from the `contactId` property (the `contact` association is insert/update false), so
+each narrative created through the MCP was saved with `contact_id = 0`. This is the same
+missing-contact problem fixed for `create_action` in `20e8c0e`.
+
+**Fix:** `requireWebUser` now loads the user's `ProjectContact` by `contactId`, so every
+MCP tool sees the same `WebUser` a web session does, and both narrative create paths
+also set `contactId` directly. Tests: `McpWebUserSupportTest`.
+
+**Data fix (production):** Nathan is the only MCP user, so the existing rows can be
+repaired with `UPDATE project_narrative SET contact_id = <Nathan's contact_id> WHERE
+contact_id = 0`. To verify after deploying 5.10.9: add a narrative through the MCP and
+confirm the dashboard shows it with Nathan as the author.
+
 ### P-10: The UI blocks changing cadence on projects linked to other projects
 
 **Status:** Addressed (2026-10-01)
