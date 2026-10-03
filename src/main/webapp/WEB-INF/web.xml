@@ -291,6 +291,9 @@
     <load-on-startup>1</load-on-startup>
   </servlet>
   <listener>
+    <listener-class>org.openimmunizationsoftware.pt.CentralControlShutdownListener</listener-class>
+  </listener>
+  <listener>
     <listener-class>org.openimmunizationsoftware.pt.api.v1.resource.OpenApiBootstrap</listener-class>
   </listener>
   <listener>

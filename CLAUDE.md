@@ -33,3 +33,4 @@
 - `docs/Dandelion_Daily_AI_Integration_Assessment.md`: MCP/AI integration design, phases, decisions.
 - `docs/MCP-Feedback.md`: running list of MCP problems, ideas, and verification results.
 - `docs/Dandelion-Deployment.md`: production deployment.
+- `docs/Outstanding-Issues.md`: known issues logged for later (security alerts, dev tooling gaps).
