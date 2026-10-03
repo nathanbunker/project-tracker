@@ -209,6 +209,35 @@ Out of scope: action attention modes (`docs/action-attention-modes.md`, still an
 
 ---
 
+**Phase 4 — correct time entries through the MCP. Planned 2026-10-03:**
+
+Problem: time tracking is right most of the time, but completing an action automatically starts the next one, so time often lands on the wrong action or project until Nathan notices. Fixing it means clipping that time out and giving it to the entry before or after it, or to another project. The Review & Report editor (`TimeReviewService.updateEntryTime`) changes one entry's times per save, can't change an entry's project, and re-normalizes the whole day after every save (`TimeRegularizationService.normalizeDayEntries`: truncate to the minute, round each unbroken run's start down and end up to 10 minutes, close gaps inside one 10-minute window, push overlaps apart). The same normalization also runs whenever a day is opened in Review & Report. So a fix that touches several entries fights the healing between saves. Separately, reclassifying a past week (times right, projects wrong) for the annual report has no tool at all.
+
+Background facts the design relies on:
+- Time lives in `bill_entry` (project, optional action, `web_user_id`, start, end, `bill_mins`, bill code, billable, budget). Reports, the weekly report, and the work day review sum `bill_entry` directly, so corrections show up immediately; narratives already generated keep their old numbers until regenerated.
+- Zero-minute entries are deleted by `TimeRegularizationService.cleanupZeroMinuteEntries` whenever the timer is stopped (except the running entry). Zeroing an entry (start = end) is how the UI removes one, and the MCP does the same.
+- The running timer is web-session state (`TimeTracker`): it caches the running entry's start and rewrites its end and minutes from that cache. The database doesn't record which entry is running, so the MCP can't tell.
+- `bill_entry` has no last-modified column; an entry's current start and end serve as its version for staleness checks.
+
+Tools:
+- **`get_time_entries(date)`** (read). The day's entries in order: `billId`, start, end, minutes, project id and name, action id and description, bill code, billable, plus `editable` and a reason when not, and the day's total. Returns an object (MCP-Feedback P-1).
+- **`update_time_entries(date, changes, reason)`** (write, only after Nathan approves the plan in conversation). One day per call; the whole batch is validated, then applied in one transaction (nothing partial), like `apply_changes`. Change types:
+  - `adjust {billId, expectedStart, expectedEnd, start, end}`: new times. `start == end` zeroes the entry; the existing cleanup deletes it later.
+  - `reassign {billId, expectedStart, expectedEnd, projectId, actionNextId?}`: move an entry to another project (and optionally an action on it). Bill code, billable, and budget are resolved the way the timer does it (`ClientServlet.resolveBillCode`, `project.getBillBudgetId()`).
+  - `create {projectId, actionNextId?, start, end}`: new entry for time that belongs to a project with no neighboring entry to extend, built with `TimeTracker.createBillEntry`.
+
+  Validation (any failure rejects the whole batch with a per-item reason): each entry is Nathan's and on that day; `expectedStart`/`expectedEnd` still match (minute precision); whole minutes, start <= end, inside the day, at most 12 hours, nothing in the future; after all changes are applied, no two entries with time on them overlap anywhere in the day, untouched entries included (zero-length entries never overlap); target projects are in the workspace and have a bill code; the protected entry (decision 24) isn't touched.
+
+  After applying, the tool runs the same day normalization the Review page uses and returns the day as stored, listing anything normalization adjusted (decision 25). What the assistant reports is then what the app keeps; opening the day later doesn't move anything further.
+
+Implementation notes:
+- `normalizeDayEntries` and `cleanupZeroMinuteEntries` begin and commit their own transactions, which would break the all-or-nothing batch. Split normalization into a pure "compute the adjusted times" step and a "save" step (a behavior-preserving extract, like the Phase 2 `ActionCompletionService` refactor); the Review page keeps calling the combined method, and the MCP calls the pieces inside its own transaction. Cover it with tests that pin the current normalization behavior before refactoring.
+- The overlap check and the change application are plain functions over the day's entry list, so they can be unit-tested without a database.
+- Side effect to know about: after an MCP edit to today's entries, the dashboard's time totals for today can lag until the timer next starts or stops, because the web session keeps running totals. Past days aren't affected.
+- No schema change.
+
+Size: about one working session; the read tool is small, the write tool is medium (mostly validation and tests).
+
 ## 6. Decisions
 
 Resolved in review with Nathan; recorded here so the design doesn't drift.
@@ -260,6 +289,18 @@ Phase 3 decisions (2026-10-03):
 22. **Outlook start dates are fixed.** A `WEEK` outlook always starts on a Sunday and a `MONTH` outlook on the 1st. The server enforces this for every caller.
 
 23. **AI thoughts go to the in-app chat, not to supervisor narratives.** AI thoughts are added to the in-app AI chat context, labeled as assistant observations. They are speculative by design, so they are left out of daily and weekly narrative generation.
+
+Phase 4 decisions (2026-10-03):
+
+24. **The current entry is off-limits.** Today's most recent time entry is never editable through the MCP, because the MCP can't tell whether it's the running timer entry. `get_time_entries` marks it not editable ("current entry; edit in Dandelion") and `update_time_entries` rejects any batch that touches it. Every earlier entry today, and every past day, is editable.
+
+25. **Normalize after editing, never reject for it.** After applying a batch, the tool runs the same day normalization as the Review page and reports what it adjusted. A batch is never rejected because normalization would change it; if the adjustment isn't wanted, it can be corrected with a follow-up change, and the assistant learns how the rules treat that request.
+
+26. **No date limit.** Any past day can be corrected, including early-year weeks that need reclassifying for the annual report. Reports or narratives built from the old numbers can go out of sync; keeping them current is Nathan's call.
+
+27. **No audit trail.** Time corrections aren't logged beyond the tool result (before and after). No change-log table.
+
+28. **Removal is zeroing.** The MCP never deletes a time entry; setting start equal to end zeroes it, and the existing zero-minute cleanup deletes it, exactly as when Nathan zeroes an entry in the UI.
 
 ---
 
