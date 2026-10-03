@@ -27,7 +27,7 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
     private static final ChatModel MODEL = ChatModel.GPT_5_2;
     public static final String MODEL_NAME = "gpt-5.2";
     public static final String DAILY_PROMPT_VERSION = "daily-v1";
-    public static final String WEEKLY_PROMPT_VERSION = "weekly-supervisor-v1";
+    public static final String WEEKLY_PROMPT_VERSION = "weekly-supervisor-v2";
     private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(2);
 
     private static final String DAILY_SYSTEM_PROMPT = "You are generating an operational daily summary report for a private Dandelion workspace.\n"
@@ -66,6 +66,13 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             + "Use approved daily narratives and completed work as evidence of past results. Use current open, waiting, "
             + "overdue, and scheduled actions only for Supervisor Attention or Next Week. Never describe planned work "
             + "as completed.\n\n"
+            + "The OUTLOOK sections are the user's own plan, written before the period: what they intended to "
+            + "accomplish and why. They are statements of intent, never evidence that work happened. Compare the "
+            + "reported week's outlook with the evidence of what actually happened (completed work, approved daily "
+            + "briefings, and time by project) and say plainly whether the week went as planned or how it "
+            + "diverged. Describe divergence factually and neutrally; reactive or externally driven work displacing "
+            + "planned work is normal and is not a failure. Outlooks are private planning notes: summarize their "
+            + "intent in report-safe language, never quote them, and leave out candid or personal remarks.\n\n"
             + "Supervisor-attention items are suggested talking points, not authoritative status. Include a decision, "
             + "request, dependency, risk, or blocker only when supported by the payload. Do not invent requests or "
             + "recommendations.\n\n"
@@ -73,10 +80,15 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             + "Paraphrase report-safe facts. Omit unsupported sections or items. Prefer outcomes over activity and "
             + "concrete language over praise.\n\n"
             + "Output GitHub-flavored Markdown only. No HTML, tables, code fences, numbered lists, or H1 heading. "
-            + "Target 250-450 words.\n\n"
+            + "Target 300-500 words.\n\n"
             + "Required structure:\n\n"
             + "## Summary\n"
             + "One short paragraph describing the overall direction and most important result.\n\n"
+            + "## Plan vs. Actual\n"
+            + "Compare THIS WEEK'S OUTLOOK with what happened. If the week went as planned, say so in one or two "
+            + "sentences. Otherwise, up to four bullets naming each meaningful divergence (planned work that didn't "
+            + "happen, or unplanned work that took its place) and, when the payload supports it, why. If THIS "
+            + "WEEK'S OUTLOOK is None, omit this section entirely and do not infer a plan.\n\n"
             + "## Accomplishments\n"
             + "Up to five bullets covering meaningful outcomes, grouped or consolidated where appropriate.\n\n"
             + "## Supervisor Attention\n"
@@ -84,8 +96,9 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
             + "**Coordination:**. If no supported item exists, write:\n"
             + "- No supervisor attention requested based on the available tracker data.\n\n"
             + "## Next Week\n"
-            + "Up to five bullets describing explicit planned priorities or commitments. Qualify uncertain items as "
-            + "planned or proposed.";
+            + "Up to five bullets describing explicit planned priorities or commitments. When NEXT WEEK'S OUTLOOK "
+            + "is present, lead with its priorities and use next-week commitments to support them. Qualify "
+            + "uncertain items as planned or proposed.";
 
     private final OpenAIClient client;
 
@@ -172,6 +185,8 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         sb.append("Period: ").append(ctx.getPeriodStart()).append(" through ").append(ctx.getPeriodEnd()).append("\n");
         sb.append("Timezone: ").append(ctx.getTimeZoneId()).append("\n\n");
 
+        appendOutlooks(sb, ctx);
+
         sb.append("WEEK SIGNALS\n");
         int totalMinutes = 0;
         for (Integer minutes : ctx.getTimeByProject().values()) {
@@ -208,6 +223,27 @@ public class OpenAiNarrativeGenerator implements NarrativeGenerator {
         sb.append("\nNEXT-WEEK COMMITMENTS\n");
         appendActions(sb, ctx.getUpcomingActions(), true);
         return sb.toString();
+    }
+
+    private static void appendOutlooks(StringBuilder sb, GenerationContext ctx) {
+        sb.append("THIS WEEK'S OUTLOOK (the plan for this report period, written in advance)\n");
+        appendOutlookText(sb, ctx.getWeekOutlook());
+        sb.append("\nMONTH OUTLOOK (wider context for the plan)\n");
+        if (ctx.getMonthOutlooks().isEmpty()) {
+            sb.append("None\n");
+        } else {
+            for (Map.Entry<String, String> entry : ctx.getMonthOutlooks().entrySet()) {
+                sb.append(entry.getKey()).append(":\n");
+                appendOutlookText(sb, entry.getValue());
+            }
+        }
+        sb.append("\nNEXT WEEK'S OUTLOOK (the plan for the following week)\n");
+        appendOutlookText(sb, ctx.getNextWeekOutlook());
+        sb.append("\n");
+    }
+
+    private static void appendOutlookText(StringBuilder sb, String text) {
+        sb.append(isEmpty(text) ? "None" : limit(text.trim(), 4000)).append("\n");
     }
 
     private static void appendTimeSignals(StringBuilder sb, GenerationContext ctx) {

@@ -26,6 +26,9 @@ public class GenerationContext {
     private final List<ActionNext> upcomingActions;
     private final List<TrackerNarrative> approvedDailyNarratives;
     private final String timeZoneId;
+    private final String weekOutlook;
+    private final String nextWeekOutlook;
+    private final Map<String, String> monthOutlooks;
 
     public GenerationContext(LocalDate periodStart, LocalDate periodEnd, String prompt,
             List<ActionTaken> completedActions, Map<Integer, Integer> timeByProject,
@@ -44,6 +47,23 @@ public class GenerationContext {
             Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
             List<ActionNext> waitingActions, List<ActionNext> completedActionDetails,
             List<ActionNext> upcomingActions, List<TrackerNarrative> approvedDailyNarratives, String timeZoneId) {
+        this(periodStart, periodEnd, prompt, completedActions, timeByProject, projectNames, projectsById,
+                openIssuesByProject, projectNarratives, waitingActions, completedActionDetails, upcomingActions,
+                approvedDailyNarratives, timeZoneId, null, null, java.util.Collections.<String, String>emptyMap());
+    }
+
+    /**
+     * Full constructor. The outlooks are the user's stated intent: the outlook for
+     * the reported week, the one for the following week, and the month outlook(s)
+     * the reported week falls in, keyed by a month label. Weekly narratives only.
+     */
+    public GenerationContext(LocalDate periodStart, LocalDate periodEnd, String prompt,
+            List<ActionTaken> completedActions, Map<Integer, Integer> timeByProject,
+            Map<Integer, String> projectNames, Map<Integer, Project> projectsById,
+            Map<Integer, List<String>> openIssuesByProject, List<ProjectNarrative> projectNarratives,
+            List<ActionNext> waitingActions, List<ActionNext> completedActionDetails,
+            List<ActionNext> upcomingActions, List<TrackerNarrative> approvedDailyNarratives, String timeZoneId,
+            String weekOutlook, String nextWeekOutlook, Map<String, String> monthOutlooks) {
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
         this.prompt = prompt;
@@ -58,6 +78,10 @@ public class GenerationContext {
         this.upcomingActions = upcomingActions;
         this.approvedDailyNarratives = approvedDailyNarratives;
         this.timeZoneId = timeZoneId;
+        this.weekOutlook = weekOutlook;
+        this.nextWeekOutlook = nextWeekOutlook;
+        this.monthOutlooks = monthOutlooks == null ? java.util.Collections.<String, String>emptyMap()
+                : monthOutlooks;
     }
 
     public LocalDate getPeriodStart() {
@@ -114,5 +138,17 @@ public class GenerationContext {
 
     public String getTimeZoneId() {
         return timeZoneId;
+    }
+
+    public String getWeekOutlook() {
+        return weekOutlook;
+    }
+
+    public String getNextWeekOutlook() {
+        return nextWeekOutlook;
+    }
+
+    public Map<String, String> getMonthOutlooks() {
+        return monthOutlooks;
     }
 }

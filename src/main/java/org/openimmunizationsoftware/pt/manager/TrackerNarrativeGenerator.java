@@ -1,6 +1,7 @@
 package org.openimmunizationsoftware.pt.manager;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -12,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
+import org.dandeliondaily.outlook.service.PlanningOutlookService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -28,7 +30,9 @@ import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.PlanningOutlookDao;
 import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
+import org.openimmunizationsoftware.pt.model.PlanningOutlook;
 
 public class TrackerNarrativeGenerator {
 
@@ -127,10 +131,22 @@ public class TrackerNarrativeGenerator {
                 }
                 Map<Integer, List<String>> openIssuesByProject = loadOpenIssuesByProject(session, projectIds);
 
+                boolean weekly = "WEEKLY".equals(narrative.getNarrativeType());
+                PlanningOutlookService outlookService = new PlanningOutlookService();
+                LocalDate weekStart = outlookService.periodStartFor(PlanningOutlookService.PERIOD_TYPE_WEEK,
+                        periodStart);
+                String weekOutlook = weekly ? loadOutlookText(session, owner.getWebUserId(),
+                        PlanningOutlookService.PERIOD_TYPE_WEEK, weekStart) : null;
+                String nextWeekOutlook = weekly ? loadOutlookText(session, owner.getWebUserId(),
+                        PlanningOutlookService.PERIOD_TYPE_WEEK, weekStart.plusWeeks(1)) : null;
+                Map<String, String> monthOutlooks = weekly
+                        ? loadMonthOutlooks(session, owner.getWebUserId(), outlookService, periodStart, periodEnd)
+                        : new LinkedHashMap<String, String>();
+
                 GenerationContext context = new GenerationContext(periodStart, periodEnd, "", completedActions,
                         timeByProject, projectNames, projectsById, openIssuesByProject, projectNarratives,
                         waitingActions, completedActionDetails, upcomingActions, approvedDailyNarratives,
-                        owner.getZoneId().getId());
+                        owner.getZoneId().getId(), weekOutlook, nextWeekOutlook, monthOutlooks);
                 String promptUsedText = OpenAiNarrativeGenerator.buildPromptForInspection(
                         narrative.getNarrativeType(), context);
                 String markdownGenerated = createGenerator().generateMarkdown(narrative.getNarrativeType(), context);
@@ -199,6 +215,30 @@ public class TrackerNarrativeGenerator {
                 session.close();
             }
         }
+    }
+
+    private static String loadOutlookText(Session session, int ownerUserId, String periodType,
+            LocalDate periodStart) {
+        PlanningOutlook outlook = new PlanningOutlookDao(session).findForPeriod(ownerUserId, periodType,
+                periodStart);
+        return outlook == null || isEmpty(outlook.getOutlookText()) ? null : outlook.getOutlookText().trim();
+    }
+
+    /** Outlooks for the month(s) the reported week falls in, keyed by "October 2026". */
+    private static Map<String, String> loadMonthOutlooks(Session session, int ownerUserId,
+            PlanningOutlookService outlookService, LocalDate periodStart, LocalDate periodEnd) {
+        Map<String, String> monthOutlooks = new LinkedHashMap<String, String>();
+        DateTimeFormatter label = DateTimeFormatter.ofPattern("MMMM uuuu");
+        String month = PlanningOutlookService.PERIOD_TYPE_MONTH;
+        LocalDate firstMonth = outlookService.periodStartFor(month, periodStart);
+        LocalDate lastMonth = outlookService.periodStartFor(month, periodEnd);
+        for (LocalDate m = firstMonth; !m.isAfter(lastMonth); m = m.plusMonths(1)) {
+            String text = loadOutlookText(session, ownerUserId, month, m);
+            if (text != null) {
+                monthOutlooks.put(label.format(m), text);
+            }
+        }
+        return monthOutlooks;
     }
 
     private static NarrativeGenerator createGenerator() {

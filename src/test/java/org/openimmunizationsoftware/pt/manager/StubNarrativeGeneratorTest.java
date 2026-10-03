@@ -126,4 +126,62 @@ public class StubNarrativeGeneratorTest {
         Assert.assertTrue(prompt.contains("# Daily Summary - {DATE}"));
         Assert.assertFalse(prompt.contains("## Supervisor Attention"));
     }
+
+    @Test
+    public void weeklyPayloadIncludesOutlooksForPlanVersusActual() {
+        LocalDate sunday = LocalDate.of(2026, 9, 27);
+        Map<String, String> months = new LinkedHashMap<String, String>();
+        months.put("September 2026", "Wrap up the Phase 2 MCP work.");
+        months.put("October 2026", "Finish the Conformance Reboot.");
+        GenerationContext ctx = weeklyContext(sunday, "Ship MCP Phase 3 items 3.1 to 3.3.",
+                "Weekly narrative plan-vs-actual work.", months);
+
+        String prompt = OpenAiNarrativeGenerator.buildPromptForInspection("WEEKLY", ctx);
+
+        Assert.assertTrue(prompt.contains("## Plan vs. Actual"));
+        Assert.assertTrue(prompt.contains("statements of intent, never evidence that work happened"));
+        Assert.assertTrue(prompt.contains("never quote them"));
+        Assert.assertTrue(prompt.contains(
+                "THIS WEEK'S OUTLOOK (the plan for this report period, written in advance)\nShip MCP Phase 3"));
+        Assert.assertTrue(prompt.contains("September 2026:\nWrap up the Phase 2 MCP work."));
+        Assert.assertTrue(prompt.contains("October 2026:\nFinish the Conformance Reboot."));
+        Assert.assertTrue(prompt.contains(
+                "NEXT WEEK'S OUTLOOK (the plan for the following week)\nWeekly narrative plan-vs-actual work."));
+        Assert.assertEquals("weekly-supervisor-v2", OpenAiNarrativeGenerator.promptVersionFor("WEEKLY"));
+    }
+
+    @Test
+    public void weeklyPayloadMarksMissingOutlooksAsNone() {
+        LocalDate sunday = LocalDate.of(2026, 9, 27);
+        GenerationContext ctx = weeklyContext(sunday, null, "  ", Collections.<String, String>emptyMap());
+
+        String prompt = OpenAiNarrativeGenerator.buildPromptForInspection("WEEKLY", ctx);
+
+        Assert.assertTrue(prompt.contains("If THIS WEEK'S OUTLOOK is None, omit this section entirely"));
+        Assert.assertTrue(prompt.contains("(the plan for this report period, written in advance)\nNone\n"));
+        Assert.assertTrue(prompt.contains("MONTH OUTLOOK (wider context for the plan)\nNone\n"));
+        Assert.assertTrue(prompt.contains("NEXT WEEK'S OUTLOOK (the plan for the following week)\nNone\n"));
+    }
+
+    @Test
+    public void dailyPayloadHasNoOutlooks() {
+        LocalDate sunday = LocalDate.of(2026, 9, 27);
+        GenerationContext ctx = weeklyContext(sunday, "A plan.", "Another plan.",
+                Collections.<String, String>emptyMap());
+
+        String prompt = OpenAiNarrativeGenerator.buildPromptForInspection("DAILY", ctx);
+
+        Assert.assertFalse(prompt.contains("OUTLOOK"));
+    }
+
+    private static GenerationContext weeklyContext(LocalDate sunday, String weekOutlook, String nextWeekOutlook,
+            Map<String, String> monthOutlooks) {
+        return new GenerationContext(sunday, sunday.plusDays(6), "", Collections.<ActionTaken>emptyList(),
+                Collections.<Integer, Integer>emptyMap(), Collections.<Integer, String>emptyMap(),
+                Collections.<Integer, Project>emptyMap(), Collections.<Integer, List<String>>emptyMap(),
+                Collections.<ProjectNarrative>emptyList(), Collections.<ActionNext>emptyList(),
+                Collections.<ActionNext>emptyList(), Collections.<ActionNext>emptyList(),
+                Collections.<TrackerNarrative>emptyList(), "America/Denver", weekOutlook, nextWeekOutlook,
+                monthOutlooks);
+    }
 }

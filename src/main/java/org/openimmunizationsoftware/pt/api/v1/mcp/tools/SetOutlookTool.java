@@ -30,7 +30,8 @@ public class SetOutlookTool implements McpTool {
     public String getDescription() {
         return "Replaces the outlook text for one monthly or weekly period with the latest version (no revision "
                 + "history is kept within a period). Weeks start on Sunday and months on the 1st. Fails if the "
-                + "period has already ended. Only apply this after "
+                + "period has already ended. Outlooks feed the weekly narrative's plan-vs-actual and next-week "
+                + "sections, so write a week's outlook before the week starts. Only apply this after "
                 + "the user has explicitly approved the wording.";
     }
 
