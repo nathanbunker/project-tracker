@@ -28,6 +28,11 @@ public class WeeklyReportViewModel {
     private final Map<String, AllocationRow> allocationRows = new LinkedHashMap<String, AllocationRow>();
     private final Map<String, ProjectActivity> projectActivities = new LinkedHashMap<String, ProjectActivity>();
     private final Map<String, Integer> fiscalProjectMinutes = new LinkedHashMap<String, Integer>();
+    private final Map<String, String> fiscalProjectNames = new LinkedHashMap<String, String>();
+    private String fiscalPlanCode;
+    private String fiscalPlanLabel;
+    private LocalDate fiscalStartDate;
+    private LocalDate fiscalEndDate;
 
     public WeeklyReport getReport() {
         return report;
@@ -140,6 +145,42 @@ public class WeeklyReportViewModel {
     public int getFiscalProjectMinutes(int projectId, String billCode) {
         Integer minutes = fiscalProjectMinutes.get(projectKey(projectId, billCode));
         return minutes == null ? 0 : minutes.intValue();
+    }
+
+    public Map<String, String> getFiscalProjectNames() {
+        return fiscalProjectNames;
+    }
+
+    public String getFiscalPlanCode() {
+        return fiscalPlanCode;
+    }
+
+    public void setFiscalPlanCode(String fiscalPlanCode) {
+        this.fiscalPlanCode = fiscalPlanCode;
+    }
+
+    public String getFiscalPlanLabel() {
+        return fiscalPlanLabel;
+    }
+
+    public void setFiscalPlanLabel(String fiscalPlanLabel) {
+        this.fiscalPlanLabel = fiscalPlanLabel;
+    }
+
+    public LocalDate getFiscalStartDate() {
+        return fiscalStartDate;
+    }
+
+    public void setFiscalStartDate(LocalDate fiscalStartDate) {
+        this.fiscalStartDate = fiscalStartDate;
+    }
+
+    public LocalDate getFiscalEndDate() {
+        return fiscalEndDate;
+    }
+
+    public void setFiscalEndDate(LocalDate fiscalEndDate) {
+        this.fiscalEndDate = fiscalEndDate;
     }
 
     public static String projectKey(int projectId, String billCode) {

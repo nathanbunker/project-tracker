@@ -68,6 +68,11 @@ public class WeeklyReportDataService {
         LocalDate firstFiscalWeek = null;
         if (plan != null) {
             LocalDate fiscalStart = owner.toLocalDate(plan.getFiscalStartDate());
+            model.setFiscalPlanCode(plan.getBillPlanCode());
+            model.setFiscalPlanLabel(plan.getPlanLabel());
+            model.setFiscalStartDate(fiscalStart);
+            model.setFiscalEndDate(plan.getFiscalEndDate() == null ? null
+                    : owner.toLocalDate(plan.getFiscalEndDate()));
             firstFiscalWeek = fiscalStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
             int fiscalWeekCount = (int) java.time.temporal.ChronoUnit.WEEKS.between(firstFiscalWeek, weekStart) + 1;
             fiscalWeeks = timeService.load(session, owner, report.getRootWorkspaceId(), report.getRootBillCode(),
@@ -79,6 +84,7 @@ public class WeeklyReportDataService {
                 Integer existing = model.getFiscalProjectMinutes().get(key);
                 model.getFiscalProjectMinutes().put(key, Integer.valueOf(
                         (existing == null ? 0 : existing.intValue()) + time.getRoundedMinutes()));
+                model.getFiscalProjectNames().put(key, time.getProjectName());
             }
         }
         LocalDate obligationRangeStart = firstFiscalWeek != null && firstFiscalWeek.isBefore(historyStart)

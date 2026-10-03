@@ -7,10 +7,11 @@
 - **Webapps folder:** `C:\Program Files\Apache Software Foundation\Tomcat 9.0\webapps`
 - **Deploy:** `mvn package` builds `target/dandelion.war` (`finalName` is `dandelion`). Copy it over
   `webapps\dandelion.war`; Tomcat redeploys it on its own. Allow about **3 minutes** before testing.
-  No service restart is needed. Before copying, confirm the WAR is fresh
-  (`unzip -p target/dandelion.war META-INF/maven/*/dandelion/pom.properties`): a `mvn -q package`
-  run has occasionally finished without replacing the old WAR. After deploying, the page footer
-  shows the running version.
+  No service restart is needed. Build with `mvn clean package`: a plain `mvn package` has produced
+  a WAR with the new `pom.properties` version but stale classes reused from `target/dandelion/`, so
+  the version check alone can pass on an old build. Before copying, confirm a changed class carries
+  the current build time (`unzip -l target/dandelion.war | grep <ChangedClass>.class`). After
+  deploying, the page footer shows the running version (the public weekly report has no footer).
 - **Local database:** MySQL 8, database `dandelion` (see the `interophub-dev-database` skill for access).
   It is a copy of production data.
 - **Local MCP endpoint:** http://localhost:8089/dandelion/api/v1/mcp (client setup: `docs/MCP-Codex-Setup.md`).

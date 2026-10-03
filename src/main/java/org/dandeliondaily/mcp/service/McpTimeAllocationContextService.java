@@ -4,6 +4,8 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,7 @@ public class McpTimeAllocationContextService {
 
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         result.put("weekStart", resolvedWeekStart.toString());
+        result.put("fiscalYear", toFiscalYear(model));
         result.put("obligatedMinutes", model.getObligatedMinutes());
         result.put("obligatedIsDefault", model.isObligatedIsDefault());
         result.put("obligatedNote", model.getObligatedNote());
@@ -99,19 +102,41 @@ public class McpTimeAllocationContextService {
         return rows;
     }
 
+    private Map<String, Object> toFiscalYear(WeeklyReportViewModel model) {
+        if (model.getFiscalStartDate() == null) {
+            return null;
+        }
+        Map<String, Object> item = new LinkedHashMap<String, Object>();
+        item.put("planCode", model.getFiscalPlanCode());
+        item.put("planLabel", model.getFiscalPlanLabel());
+        item.put("startDate", model.getFiscalStartDate().toString());
+        item.put("endDate", model.getFiscalEndDate() == null ? null : model.getFiscalEndDate().toString());
+        item.put("countedThrough", model.getWeekStart().plusDays(6).toString());
+        return item;
+    }
+
     private List<Map<String, Object>> toFiscalProjectMinutes(WeeklyReportViewModel model) {
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
-        for (ProjectActivity activity : model.getProjectActivities().values()) {
-            int minutes = model.getFiscalProjectMinutes(activity.getProjectId(), activity.getBillCode());
+        for (Map.Entry<String, Integer> entry : model.getFiscalProjectMinutes().entrySet()) {
+            int minutes = entry.getValue().intValue();
             if (minutes == 0) {
                 continue;
             }
+            String[] keyParts = entry.getKey().split("\u0000", 2);
             Map<String, Object> item = new LinkedHashMap<String, Object>();
-            item.put("projectId", activity.getProjectId());
-            item.put("billCode", activity.getBillCode());
+            item.put("projectId", Integer.valueOf(keyParts[1]));
+            item.put("projectName", model.getFiscalProjectNames().get(entry.getKey()));
+            item.put("billCode", keyParts[0]);
             item.put("fiscalYearMinutes", minutes);
             rows.add(item);
         }
+        Collections.sort(rows, new Comparator<Map<String, Object>>() {
+            public int compare(Map<String, Object> left, Map<String, Object> right) {
+                int code = ((String) left.get("billCode")).compareTo((String) right.get("billCode"));
+                return code != 0 ? code
+                        : ((Integer) right.get("fiscalYearMinutes")).compareTo((Integer) left.get("fiscalYearMinutes"));
+            }
+        });
         return rows;
     }
 

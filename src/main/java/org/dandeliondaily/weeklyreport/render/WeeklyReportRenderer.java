@@ -313,7 +313,19 @@ public class WeeklyReportRenderer {
         return "<p class=\"wr-obligation-note\">Percentages are based on hours obligated, not hours worked: "
                 + formatMinutes(model.getObligatedMinutes()) + " this week, "
                 + formatMinutes(model.getFourWeekObligatedMinutes()) + " over 4 weeks, "
-                + formatMinutes(model.getFiscalYearObligatedMinutes()) + " fiscal year to date.</p>";
+                + formatMinutes(model.getFiscalYearObligatedMinutes()) + " fiscal year to date."
+                + fiscalPeriodNote(model) + "</p>";
+    }
+
+    private static String fiscalPeriodNote(WeeklyReportViewModel model) {
+        if (model.getFiscalStartDate() == null) {
+            return "";
+        }
+        String plan = blank(model.getFiscalPlanCode()) ? "" : escapeHtml(model.getFiscalPlanCode()) + " ";
+        return " The " + plan + "fiscal year started " + DISPLAY_DATE.format(model.getFiscalStartDate())
+                + (model.getFiscalEndDate() == null ? ""
+                        : " and ends " + DISPLAY_DATE.format(model.getFiscalEndDate()))
+                + ".";
     }
 
     private static String obligatedStat(WeeklyReportViewModel model, boolean editable) {
