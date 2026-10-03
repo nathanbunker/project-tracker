@@ -209,7 +209,10 @@ Out of scope: action attention modes (`docs/action-attention-modes.md`, still an
 
 ---
 
-**Phase 4 — correct time entries through the MCP. Planned 2026-10-03:**
+**Phase 4 — correct time entries through the MCP. Planned 2026-10-03; implemented 2026-10-03 in version 5.10.10, not yet live-tested through an MCP client:**
+
+Status: `TimeRegularizationService.computeNormalizedTimes` extracted from `normalizeDayEntries` (pinned by `TimeRegularizationServiceTest`; the Review page still calls `normalizeDayEntries` and was checked on a real day after the change). `McpTimeEntriesService` with `get_time_entries` and `update_time_entries` (`GetTimeEntriesTool`, `UpdateTimeEntriesTool`); `McpTimeEntriesServiceTest` runs whole batches against a stand-in session (neighbor fix, overlap with an untouched entry, stale times, reassign, create, normalization report, bad input). Times are HH:mm (24-hour) in the user's time zone. 334/334 tests pass. Deployed locally; the first live check through an MCP client is pending (a local API key is needed for the local endpoint).
+
 
 Problem: time tracking is right most of the time, but completing an action automatically starts the next one, so time often lands on the wrong action or project until Nathan notices. Fixing it means clipping that time out and giving it to the entry before or after it, or to another project. The Review & Report editor (`TimeReviewService.updateEntryTime`) changes one entry's times per save, can't change an entry's project, and re-normalizes the whole day after every save (`TimeRegularizationService.normalizeDayEntries`: truncate to the minute, round each unbroken run's start down and end up to 10 minutes, close gaps inside one 10-minute window, push overlaps apart). The same normalization also runs whenever a day is opened in Review & Report. So a fix that touches several entries fights the healing between saves. Separately, reclassifying a past week (times right, projects wrong) for the annual report has no tool at all.
 

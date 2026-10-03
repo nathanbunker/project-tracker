@@ -87,8 +87,54 @@ public class TimeRegularizationService {
             return;
         }
 
+        List<BillEntry> changedEntries = computeNormalizedTimes(webUser, billEntryList, dayStart, dayEnd,
+                lockedBillEntryId, new Date());
+        if (changedEntries.isEmpty()) {
+            return;
+        }
+
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            for (BillEntry entry : billEntryList) {
+                dataSession.update(entry);
+            }
+            trans.commit();
+        } catch (RuntimeException e) {
+            if (trans != null && trans.isActive()) {
+                trans.rollback();
+            }
+            throw e;
+        }
+
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.log(Level.FINE,
+                    "Normalized bill entries for user={0}, dayStart={1}, dayEnd={2}, updates={3}",
+                    new Object[] { webUser.getUsername(), dayStart, dayEnd, changedEntries.size() });
+        }
+    }
+
+    /**
+     * The day-normalization rules, without saving: truncates times to the minute,
+     * rounds each contiguous chain's start down and end up to 10 minutes, heals gaps
+     * within a 10-minute bucket, and pushes overlaps apart. Updates the entries in
+     * place (sorted by start time) and returns the ones whose times changed; when any
+     * changed, billMins is recalculated for every entry. The caller saves them inside
+     * its own transaction.
+     */
+    public List<BillEntry> computeNormalizedTimes(
+            WebUser webUser,
+            List<BillEntry> billEntryList,
+            Date dayStart,
+            Date dayEnd,
+            Integer lockedBillEntryId,
+            Date now) {
+
+        List<BillEntry> changedEntries = new ArrayList<BillEntry>();
+        if (billEntryList == null || billEntryList.isEmpty()) {
+            return changedEntries;
+        }
+
         BillEntry activeEntry = resolveActiveEntry(billEntryList, lockedBillEntryId);
-        Date now = new Date();
         boolean isToday = now.after(dayStart) && now.before(dayEnd);
 
         if (activeEntry == null && isToday) {
@@ -99,7 +145,6 @@ public class TimeRegularizationService {
         }
 
         List<Chain> chains = buildChains(billEntryList);
-        List<BillEntry> changedEntries = new ArrayList<BillEntry>();
 
         for (BillEntry entry : billEntryList) {
             if (entry == activeEntry) {
@@ -176,31 +221,13 @@ public class TimeRegularizationService {
         }
 
         if (changedEntries.isEmpty()) {
-            return;
+            return changedEntries;
         }
 
         for (BillEntry entry : billEntryList) {
             entry.setBillMins(TimeTracker.calculateMins(entry));
         }
-
-        Transaction trans = dataSession.beginTransaction();
-        try {
-            for (BillEntry entry : billEntryList) {
-                dataSession.update(entry);
-            }
-            trans.commit();
-        } catch (RuntimeException e) {
-            if (trans != null && trans.isActive()) {
-                trans.rollback();
-            }
-            throw e;
-        }
-
-        if (LOGGER.isLoggable(Level.FINE)) {
-            LOGGER.log(Level.FINE,
-                    "Normalized bill entries for user={0}, dayStart={1}, dayEnd={2}, chains={3}, updates={4}",
-                    new Object[] { webUser.getUsername(), dayStart, dayEnd, chains.size(), changedEntries.size() });
-        }
+        return changedEntries;
     }
 
     private BillEntry resolveActiveEntry(List<BillEntry> entries, Integer lockedBillEntryId) {

@@ -16,6 +16,7 @@ import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetOutlookTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetPlanningContextTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetProjectContextTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetTimeAllocationContextTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetTimeEntriesTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetWorkDayReviewTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.ListOutlooksTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SaveWorkDayReviewTool;
@@ -25,8 +26,9 @@ import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectAiThoughtTo
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectLanguageTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateProjectReviewCadenceTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.UpdateTimeEntriesTool;
 
-/** The small, task-oriented tool surface for Phase 0-2 (see assessment section 4-5). */
+/** The small, task-oriented tool surface for Phases 0-4 (see assessment sections 4-5). */
 public class McpToolRegistry {
 
     private final Map<String, McpTool> toolsByName = new LinkedHashMap<String, McpTool>();
@@ -52,6 +54,8 @@ public class McpToolRegistry {
         register(new UpdateProjectNarrativeTool());
         register(new DeleteProjectNarrativeTool());
         register(new ApplyChangesTool());
+        register(new GetTimeEntriesTool());
+        register(new UpdateTimeEntriesTool());
     }
 
     private void register(McpTool tool) {
