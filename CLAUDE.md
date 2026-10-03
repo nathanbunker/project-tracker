@@ -1,0 +1,29 @@
+# Dandelion (project-tracker) — development notes
+
+## Local development environment
+
+- **App server:** Tomcat 9, running as a Windows service on **port 8089**.
+- **Local URL:** http://localhost:8089/dandelion/
+- **Webapps folder:** `C:\Program Files\Apache Software Foundation\Tomcat 9.0\webapps`
+- **Deploy:** `mvn package` builds `target/dandelion.war` (`finalName` is `dandelion`). Copy it over
+  `webapps\dandelion.war`; Tomcat redeploys it on its own. Allow about **3 minutes** before testing.
+  No service restart is needed.
+- **Local MCP endpoint:** http://localhost:8089/dandelion/api/v1/mcp (client setup: `docs/MCP-Codex-Setup.md`).
+  The `dandelion` MCP server configured in Claude Code points at **production**
+  (https://dandelion-daily.org/api/v1/mcp), so MCP tool calls from a session hit production data, not
+  the local deploy.
+- Port 8080 on this machine is a different app (InteropHub), not Dandelion.
+
+## Conventions
+
+- Schema migrations: sequential `src/db/vN.M.sql`, applied by hand, each paired with `Model.java`,
+  `Model.hbm.xml`, and a `<mapping resource=.../>` line in `hibernate.cfg.xml`.
+- DAOs live in `org.openimmunizationsoftware.pt.doa` (not `dao`).
+- The UI and the MCP tools should call the same service so their behavior can't drift.
+- Bump `<version>` in `pom.xml` when preparing a deployable build.
+
+## Key docs
+
+- `docs/Dandelion_Daily_AI_Integration_Assessment.md`: MCP/AI integration design, phases, decisions.
+- `docs/MCP-Feedback.md`: running list of MCP problems, ideas, and verification results.
+- `docs/Dandelion-Deployment.md`: production deployment.

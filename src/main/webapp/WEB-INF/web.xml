@@ -137,6 +137,10 @@
     <servlet-class>org.openimmunizationsoftware.pt.servlet.WorkObligationsServlet</servlet-class>
   </servlet>
   <servlet>
+    <servlet-name>OutlooksServlet</servlet-name>
+    <servlet-class>org.openimmunizationsoftware.pt.servlet.OutlooksServlet</servlet-class>
+  </servlet>
+  <servlet>
     <servlet-name>PublicWeeklyReportProjectServlet</servlet-name>
     <servlet-class>org.openimmunizationsoftware.pt.servlet.PublicWeeklyReportProjectServlet</servlet-class>
   </servlet>
@@ -411,6 +415,10 @@
   <servlet-mapping>
     <servlet-name>WorkObligationsServlet</servlet-name>
     <url-pattern>/WorkObligationsServlet</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>OutlooksServlet</servlet-name>
+    <url-pattern>/OutlooksServlet</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>WeeklyReportProjectServlet</servlet-name>
