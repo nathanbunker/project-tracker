@@ -29,7 +29,8 @@ public class SetOutlookTool implements McpTool {
     @Override
     public String getDescription() {
         return "Replaces the outlook text for one monthly or weekly period with the latest version (no revision "
-                + "history is kept within a period). Fails if the period has already ended. Only apply this after "
+                + "history is kept within a period). Weeks start on Sunday and months on the 1st. Fails if the "
+                + "period has already ended. Only apply this after "
                 + "the user has explicitly approved the wording.";
     }
 
@@ -39,8 +40,9 @@ public class SetOutlookTool implements McpTool {
                 McpSchema.properties(
                         "periodType", McpSchema.stringEnum("WEEK or MONTH.", "WEEK", "MONTH"),
                         "periodStart", McpSchema.string(
-                                "The period's start date, yyyy-MM-dd. For WEEK, the Sunday that begins the week. "
-                                        + "For MONTH, the first day of the month."),
+                                "The period's start date, yyyy-MM-dd. For WEEK, it must be the Sunday that begins the "
+                                        + "week; for MONTH, the first day of the month. Any other date is "
+                                        + "rejected."),
                         "outlookText", McpSchema.string("The full outlook text, replacing any prior text.")),
                 "periodType", "periodStart", "outlookText");
     }

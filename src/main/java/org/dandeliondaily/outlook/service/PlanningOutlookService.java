@@ -1,5 +1,6 @@
 package org.dandeliondaily.outlook.service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -75,6 +76,31 @@ public class PlanningOutlookService {
         return periodStart.plusDays(6);
     }
 
+    /**
+     * Start of the period containing {@code date}: the Sunday on or before it for
+     * WEEK (matching the weekly report), the first of its month for MONTH.
+     */
+    public LocalDate periodStartFor(String periodType, LocalDate date) {
+        if (PERIOD_TYPE_MONTH.equals(periodType)) {
+            return date.withDayOfMonth(1);
+        }
+        return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+    }
+
+    /**
+     * Throws IllegalArgumentException unless {@code periodStart} is a Sunday (WEEK)
+     * or the first of a month (MONTH), naming the start that was probably meant.
+     */
+    public void requireValidPeriodStart(String periodType, LocalDate periodStart) {
+        LocalDate expected = periodStartFor(periodType, periodStart);
+        if (!expected.equals(periodStart)) {
+            String rule = PERIOD_TYPE_MONTH.equals(periodType) ? "the first day of the month"
+                    : "a Sunday";
+            throw new IllegalArgumentException("A " + periodType.toLowerCase() + " outlook must start on " + rule
+                    + "; " + periodStart + " is not. Did you mean " + expected + "?");
+        }
+    }
+
     public boolean isFrozen(String periodType, LocalDate periodStart, LocalDate today) {
         return today.isAfter(periodEnd(periodType, periodStart));
     }
@@ -82,6 +108,7 @@ public class PlanningOutlookService {
     public OutlookResult getOutlook(Session session, int ownerUserId, String periodType, LocalDate periodStart,
             LocalDate today) {
         String normalizedType = requireValidPeriodType(periodType);
+        requireValidPeriodStart(normalizedType, periodStart);
         PlanningOutlook outlook = new PlanningOutlookDao(session).findForPeriod(ownerUserId, normalizedType,
                 periodStart);
         LocalDate end = periodEnd(normalizedType, periodStart);
@@ -104,11 +131,13 @@ public class PlanningOutlookService {
 
     /**
      * Upserts the outlook text for a period. Throws IllegalStateException if the
-     * period has already elapsed (frozen) as of {@code today}.
+     * period has already elapsed (frozen) as of {@code today}, and
+     * IllegalArgumentException if the period type or start date is invalid.
      */
     public PlanningOutlook setOutlook(Session session, int ownerUserId, String periodType, LocalDate periodStart,
             String outlookText, LocalDate today) {
         String normalizedType = requireValidPeriodType(periodType);
+        requireValidPeriodStart(normalizedType, periodStart);
         if (isFrozen(normalizedType, periodStart, today)) {
             throw new IllegalStateException("This " + normalizedType.toLowerCase()
                     + " outlook has already ended (through " + periodEnd(normalizedType, periodStart)

@@ -50,4 +50,54 @@ public class PlanningOutlookServiceTest {
         Assert.assertFalse(service.isFrozen("MONTH", firstOfMonth, LocalDate.of(2026, 9, 30)));
         Assert.assertTrue(service.isFrozen("MONTH", firstOfMonth, LocalDate.of(2026, 10, 1)));
     }
+
+    @Test
+    public void weekPeriodStartIsSundayOnOrBefore() {
+        PlanningOutlookService service = new PlanningOutlookService();
+        LocalDate sunday = LocalDate.of(2026, 10, 4);
+        Assert.assertEquals(sunday, service.periodStartFor("WEEK", sunday));
+        Assert.assertEquals(sunday, service.periodStartFor("WEEK", LocalDate.of(2026, 10, 5)));
+        Assert.assertEquals(sunday, service.periodStartFor("WEEK", LocalDate.of(2026, 10, 10)));
+    }
+
+    @Test
+    public void monthPeriodStartIsFirstOfMonth() {
+        PlanningOutlookService service = new PlanningOutlookService();
+        Assert.assertEquals(LocalDate.of(2026, 10, 1), service.periodStartFor("MONTH", LocalDate.of(2026, 10, 17)));
+    }
+
+    @Test
+    public void acceptsSundayWeekStartAndFirstOfMonth() {
+        PlanningOutlookService service = new PlanningOutlookService();
+        service.requireValidPeriodStart("WEEK", LocalDate.of(2026, 10, 4));
+        service.requireValidPeriodStart("MONTH", LocalDate.of(2026, 10, 1));
+    }
+
+    @Test
+    public void rejectsMondayWeekStartAndSuggestsSunday() {
+        PlanningOutlookService service = new PlanningOutlookService();
+        try {
+            service.requireValidPeriodStart("WEEK", LocalDate.of(2026, 10, 5));
+            Assert.fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            Assert.assertTrue(e.getMessage(), e.getMessage().contains("2026-10-04"));
+        }
+    }
+
+    @Test
+    public void rejectsMidMonthStartAndSuggestsFirst() {
+        PlanningOutlookService service = new PlanningOutlookService();
+        try {
+            service.requireValidPeriodStart("MONTH", LocalDate.of(2026, 10, 15));
+            Assert.fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            Assert.assertTrue(e.getMessage(), e.getMessage().contains("2026-10-01"));
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void setOutlookRejectsInvalidStartBeforeTouchingTheDatabase() {
+        new PlanningOutlookService().setOutlook(null, 1, "WEEK", LocalDate.of(2026, 10, 6), "text",
+                LocalDate.of(2026, 10, 3));
+    }
 }

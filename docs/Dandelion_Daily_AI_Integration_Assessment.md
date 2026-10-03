@@ -6,7 +6,11 @@ Answers the questions raised in `docs/Dandelion_Daily_AI_Integration_Codebase_As
 
 Phase 0: all 8 tools (`get_project_context`, `get_planning_context`, `get_outlook`, `list_outlooks`, `set_outlook`, `get_time_allocation_context`, `get_day_availability`, `set_day_availability`) passed an end-to-end test against a local deployment with real data — protocol handshake, auth rejection, the frozen-outlook-period rule, day-availability read/write (including the template-regeneration side effect), time-allocation context, and error handling all confirmed working. One bug was found and fixed during testing: `ActionNext.nextActionDate`/`nextDeadlineDate`/`nextTargetDate` are Hibernate `type="date"` and come back as `java.sql.Date`, whose `toInstant()` throws `UnsupportedOperationException` — `McpActionContextSupport.toIso()` now builds the `Instant` from `getTime()` instead.
 
-Phase 1: `project_ai_note` table added; `ProjectAiNoteService` (shared by MCP and UI) backs three new MCP tools (`add_project_ai_thought`, `update_project_ai_thought`, `delete_project_ai_thought`) and a new "AI Thoughts" section on the project dashboard page (view/edit/delete, modeled directly on the existing "Blockers" section's collapsible-chip UI pattern). `get_project_context` now includes an `aiThoughts` list. Compiles clean, 286/286 tests pass, but has not yet been exercised against a live deployment the way Phase 0 was.
+Phase 1: `project_ai_note` table added; `ProjectAiNoteService` (shared by MCP and UI) backs three new MCP tools (`add_project_ai_thought`, `update_project_ai_thought`, `delete_project_ai_thought`) and a new "AI Thoughts" section on the project dashboard page (view/edit/delete, modeled directly on the existing "Blockers" section's collapsible-chip UI pattern). `get_project_context` now includes an `aiThoughts` list. Live-tested 2026-09-30 (`add_project_ai_thought` returned noteIds 1 and 2; see `docs/MCP-Feedback.md`, Verified Working).
+
+Post-Phase 2: further tools and fixes (work day review, narrative CRUD, review cadence, day ordering, action links, and more) are tracked in `docs/MCP-Feedback.md`.
+
+Phase 3: planned 2026-10-03 (see §5 and §6, decisions 19-23). In progress. 3.1 (outlook start-date rule) implemented 2026-10-03: `PlanningOutlookService.requireValidPeriodStart`/`periodStartFor`, enforced in `getOutlook` and `setOutlook`; `get_outlook` and `set_outlook` return `invalid_arguments` with the suggested start date; 304/304 tests pass. Not yet deployed.
 
 Phase 2: `Project.lastModifiedDate` added (and bumped at every active human project-language edit path: `handleLanguageReviewApply`, `handleSaveProject`, and both `ProjectHealthServlet` patch-apply paths -- the external "Patch"-workspace sync paths and the legacy `ProjectEditServlet` are not covered, a deliberate scoping decision). `update_project_language` added. `apply_changes` added, covering `create_action`/`update_action`/`reschedule_action`/`split_action`/`remove_action`/`complete_action`, atomic (validate-all-then-apply-all, nothing partial), with template-managed restrictions and staleness checks per the design. `ActionCompletionService.closeAction`/`validateCompletion` were refactored (extract-method, behavior-preserving, confirmed by the existing `ActionCompletionServiceTest` suite) to expose AppReq-free core methods `applyCompletion`/`validateCompletion(WebUser, Session, ...)` for MCP to call without a web session. Also fixed a latent transaction-safety gap affecting every mutating tool since Phase 0: `McpResource` now rolls back the ambient transaction whenever a tool call throws, so a tool that mutates something and then fails can no longer have that partial mutation silently committed.
 
@@ -168,10 +172,33 @@ Small, task-oriented surface per the doc's instruction, hosted under `/api/*` re
 - Build `apply_changes` as designed above: pre-validation pass, single transaction, delegation to `ActionCompletionService`/mode-compatibility checks, `ActionChangeLog` writes — bypassing `ActionProposal` entirely.
 - Add `update_project_language` as a thin, separately-gated tool.
 
-**Phase 3 — optional, explicitly deferrable per the doc:**
-- Thread the weekly outlook into `WeeklyReportDataService.load()` (one more DAO lookup by `(owner_user_id, weekStart)`, one more view-model field — no structural change needed, confirmed by its existing `LocalDate weekStart`-threaded design).
-- Any richer outlook UI beyond minimal view/edit.
-- A second `WebApiClient` for a future meeting assistant (the data model already supports multiple clients per workspace).
+**Phase 3 — make MCP-entered information count elsewhere in the app. Planned 2026-10-03:**
+
+Goal: information entered through the MCP should be used by the rest of Dandelion, not only by the MCP. When planned, outlooks had no UI and were read by nothing except the MCP tools, and AI thoughts were missing from the in-app AI chat context (`ProjectDashboardAiContextService`). No schema change is needed anywhere in Phase 3.
+
+- **3.1 Fix outlook start dates.** `PlanningOutlookService` rejects a `WEEK` `periodStart` that isn't a Sunday and a `MONTH` `periodStart` that isn't the 1st, and the error gives the correct date. This applies to every caller (MCP and UI). MCP tool descriptions state the rule. Sunday matches the weekly report (`previousOrSame(SUNDAY)`) and `WorkObligation`, so outlook lookups by week can't silently miss.
+- **3.2 Minimal outlook UI.** A page to view and edit the current month and the current and next week, with past (frozen) periods read-only. It uses the same `PlanningOutlookService` as the MCP, so the upsert and freeze behavior can't drift. Linked from the menu and from Plan Ahead.
+- **3.3 In-app AI chat context.** `ProjectDashboardAiContextService.buildContextText()` adds the project's AI thoughts (labeled as assistant observations, not decisions or facts) and the current week and month outlooks, so the in-app GENERAL / NEXT_ACTIONS / LANGUAGE_REVIEW chats see what the MCP client sees.
+- **3.4 Outlook feeds the weekly narrative.** `TrackerNarrativeGenerator` loads the outlook for the reported week, the outlook for the following week, and the month outlook into `GenerationContext`. The WEEKLY prompt in `OpenAiNarrativeGenerator` gets new instructions:
+  - open with plan vs. actual: either "the week went as planned" or the specific ways it diverged, backed by time by project and completed work;
+  - keep divergence neutral and factual (reactive work displacing planned work is normal, not a failure);
+  - add a looking-ahead part based on the next week's outlook;
+  - summarize the outlooks, never quote them;
+  - if a week has no outlook, skip plan vs. actual rather than inventing a plan.
+
+  Bump `WEEKLY_PROMPT_VERSION`. Daily narratives are unchanged.
+- **3.5 Outlook on Plan Ahead.** A collapsible banner at the top of the Plan Ahead page with this week's outlook (the month's collapsed underneath) and an edit link to 3.2.
+- **3.6 Docs, tests, version.** Verify MCP-Feedback I-12 (`linkUrl`) first. Add tests for date normalization, the chat context sections, and the outlook input to narrative generation. Version bump.
+
+Order: 3.1 → 3.2 → 3.3 → 3.4 → 3.5 → 3.6.
+
+Weekly routine this assumes: at the end of the week, have the planning conversation, set next week's outlook, then generate and approve the weekly narrative. The looking-ahead part only works if next week's outlook exists before the narrative is generated; if it's written later, regenerate.
+
+Dropped from the original Phase 3:
+- *Outlook section in the weekly report.* The report shows what the supervisor sees, and outlooks reach it only through the approved weekly narrative (decision 19). Supersedes decision 13.
+- *A second `WebApiClient` for a meeting assistant.* Moved to the linked-meeting work (`docs/linked-meeting-domain-model.md`), where per-key scopes (decision 11) need to be designed too.
+
+Out of scope: action attention modes (`docs/action-attention-modes.md`, still an undesigned idea), copying `linkUrl` to SHARED-set siblings, and the plaintext DB password in `hibernate.cfg.xml` (see the incidental finding below).
 
 ---
 
@@ -203,7 +230,7 @@ Resolved in review with Nathan; recorded here so the design doesn't drift.
 
 12. **MCP transport.** Hand-roll the minimal JSON-RPC surface inside a new Jersey resource — no MCP SDK compatible with this app's `javax.*`/Jersey stack was found, and the tool surface is small enough that this isn't much code.
 
-13. **Weekly report integration.** Deferred, as the original prompt allowed. `WeeklyReportDataService.load()`'s existing `LocalDate weekStart`-threaded design absorbs a future outlook lookup without restructuring — no design debt from deferring it.
+13. **Weekly report integration.** *Superseded by decision 19 (2026-10-03).* Deferred, as the original prompt allowed. `WeeklyReportDataService.load()`'s existing `LocalDate weekStart`-threaded design absorbs a future outlook lookup without restructuring — no design debt from deferring it.
 
 14. **Template-managed actions via MCP.** Visible in all read output (`isTemplateRoot`/`generatedFromTemplateId` flags, plus a project's active-template list), but off-limits for `update_action`/`reschedule_action`/`split_action`/`remove_action` in `apply_changes` — those remain exclusively a Dandelion-UI operation, for now. Exception: `complete_action` is allowed on generated instances (not roots), since completion is a terminal, one-way state change that doesn't interact with the hourly template-regeneration job the way editing/rescheduling would. This distinction (and the fact that templates can't otherwise be changed via MCP) is documented in the MCP tool descriptions so the client doesn't need to discover it by trial and error.
 
@@ -214,6 +241,18 @@ Resolved in review with Nathan; recorded here so the design doesn't drift.
 17. **"Just meetings" / "just one day" queries.** No separate tool — `get_planning_context` gets an optional action-type filter and an arbitrary date range (rather than the UI's hardcoded window), so a single-day or single-type query is just a narrower call to the same tool.
 
 18. **`WorkObligation` vs. `BillExpected` — not unified.** The weekly obligated-minutes figure (`WorkObligation`, used in the report's percentages) and daily availability (`BillExpected`, used in Plan Ahead's capacity gauge and template eligibility) remain two separate, independently-maintained numbers with no automatic sync between them. Noted for the assistant's and Nathan's awareness; not something this design changes.
+
+Phase 3 decisions (2026-10-03):
+
+19. **Outlooks reach the weekly report only through the narrative.** Outlooks are source material for the weekly narrative (`TrackerNarrative`), which Nathan edits and approves before it appears in the report. The raw outlook text never renders in the weekly report, in either the public or the private view, so Nathan sees exactly what his supervisor sees. The approval step is what keeps candid outlook wording appropriate for the supervisor.
+
+20. **Plan vs. actual is a standard part of the weekly narrative.** The weekly narrative compares the reported week's outlook with what actually happened ("did everything planned" or "diverged in these ways"), and uses the next week's outlook for a looking-ahead part. The outlook is meant to inform what the supervisor sees.
+
+21. **Outlooks are written before their period and normally left alone.** Latest-wins with no revision history (decision 2) stays as is. Mid-week edits aren't prevented, but the design doesn't plan for them, and the freeze after the period ends keeps the plan of record from being rewritten later.
+
+22. **Outlook start dates are fixed.** A `WEEK` outlook always starts on a Sunday and a `MONTH` outlook on the 1st. The server enforces this for every caller.
+
+23. **AI thoughts go to the in-app chat, not to supervisor narratives.** AI thoughts are added to the in-app AI chat context, labeled as assistant observations. They are speculative by design, so they are left out of daily and weekly narrative generation.
 
 ---
 

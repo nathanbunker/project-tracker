@@ -40,8 +40,9 @@ public class GetOutlookTool implements McpTool {
                 McpSchema.properties(
                         "periodType", McpSchema.stringEnum("WEEK or MONTH.", "WEEK", "MONTH"),
                         "periodStart", McpSchema.string(
-                                "The period's start date, yyyy-MM-dd. For WEEK, the Sunday that begins the week. "
-                                        + "For MONTH, the first day of the month.")),
+                                "The period's start date, yyyy-MM-dd. For WEEK, it must be the Sunday that begins the "
+                                        + "week; for MONTH, the first day of the month. Any other date is "
+                                        + "rejected.")),
                 "periodType", "periodStart");
     }
 
@@ -50,9 +51,13 @@ public class GetOutlookTool implements McpTool {
         String periodType = McpArgs.requireString(arguments, "periodType");
         LocalDate periodStart = parseDate(McpArgs.requireString(arguments, "periodStart"));
         WebUser owner = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
-        OutlookResult result = service.getOutlook(context.getSession(), owner.getWebUserId(), periodType,
-                periodStart, LocalDate.now(owner.getZoneId()));
-        return toMap(result);
+        try {
+            OutlookResult result = service.getOutlook(context.getSession(), owner.getWebUserId(), periodType,
+                    periodStart, LocalDate.now(owner.getZoneId()));
+            return toMap(result);
+        } catch (IllegalArgumentException invalid) {
+            throw new McpToolException("invalid_arguments", invalid.getMessage());
+        }
     }
 
     static Map<String, Object> toMap(OutlookResult result) {
