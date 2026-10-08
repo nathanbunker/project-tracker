@@ -11,6 +11,8 @@ import org.openimmunizationsoftware.pt.model.ActionNext;
 
 public class FocusedActionPageRenderer {
 
+        private static final String SWITCH_URL_PREFIX = "FocusedActionServlet?action=switchAction&completingActionNextId=";
+
         private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
         private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
@@ -80,27 +82,61 @@ public class FocusedActionPageRenderer {
                 }
         }
 
-        public static class PreviousActionOption {
+        /** One fixed position in the switch bar. An empty slot has actionNextId 0. */
+        public static class SwitchSlot {
                 private final int actionNextId;
-                private final String label;
+                private final String projectName;
+                private final String description;
+                private final int minutesToday;
+                private final boolean completed;
+                private final boolean current;
 
-                public PreviousActionOption(int actionNextId, String label) {
+                public SwitchSlot(int actionNextId, String projectName, String description, int minutesToday,
+                                boolean completed, boolean current) {
                         this.actionNextId = actionNextId;
-                        this.label = label;
+                        this.projectName = projectName;
+                        this.description = description;
+                        this.minutesToday = minutesToday;
+                        this.completed = completed;
+                        this.current = current;
+                }
+
+                public static SwitchSlot empty() {
+                        return new SwitchSlot(0, "", "", 0, false, false);
+                }
+
+                public boolean isEmpty() {
+                        return actionNextId <= 0;
                 }
 
                 public int getActionNextId() {
                         return actionNextId;
                 }
 
-                public String getLabel() {
-                        return label;
+                public String getProjectName() {
+                        return projectName;
+                }
+
+                public String getDescription() {
+                        return description;
+                }
+
+                public int getMinutesToday() {
+                        return minutesToday;
+                }
+
+                public boolean isCompleted() {
+                        return completed;
+                }
+
+                public boolean isCurrent() {
+                        return current;
                 }
         }
 
         public void render(AppReq appReq, ActionNext action, List<String> notes,
                         List<MeetingOption> meetingOptions,
-                        List<PreviousActionOption> previousActions,
+                        List<SwitchSlot> switchSlots,
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,
                         int spentMinutesThisWeek, int todayBillableMinutes,
                         int todayTargetMinutes, int weekTargetMinutes,
@@ -116,6 +152,8 @@ public class FocusedActionPageRenderer {
                                                 + action.getActionNextId();
 
                 out.println("<div class=\"fa-page\">");
+                out.println("  <div class=\"fa-topbar\">");
+                renderSwitchBar(out, switchSlots, runningClock);
                 out.println("  <div class=\"fa-quick-capture-box\">");
                 out.println("    <div class=\"fa-quick-capture-title\">Quick Capture</div>");
                 out.println("    <form class=\"fa-capture-form\" method=\"POST\" action=\"FocusedActionServlet\">");
@@ -133,6 +171,7 @@ public class FocusedActionPageRenderer {
                 out.println("        </div>");
                 out.println("      </div>");
                 out.println("    </form>");
+                out.println("  </div>");
                 out.println("  </div>");
                 out.println(
                                 "  <button class=\"fa-close\" title=\"Back to Dandelion Dashboard\" onclick=\"window.location.href='"
@@ -265,7 +304,7 @@ public class FocusedActionPageRenderer {
                                                         : "\"")
                                         + " onclick=\"faCyclePrev()\">&larr;</button>");
                         out.println("            <div class=\"fa-cycle-main\">");
-                        out.println("              <a id=\"fa-cycle-link\" class=\"fa-cycle-item\" href=\"FocusedActionServlet?completingActionNextId="
+                        out.println("              <a id=\"fa-cycle-link\" class=\"fa-cycle-item\" href=\"" + escapeHtml(SWITCH_URL_PREFIX)
                                         + shownItem.getActionNextId() + "\">"
                                         + escapeHtml(n(shownItem.getLabel())) + "</a>");
                         out.println("              <div id=\"fa-cycle-position\" class=\"fa-cycle-position\">"
@@ -280,19 +319,6 @@ public class FocusedActionPageRenderer {
                         out.println("          </div>");
                 } else {
                         out.println("          <div class=\"fa-next-action-text\">No next action available.</div>");
-                }
-
-                out.println("          <h2 class=\"fa-section-title\">Previous Actions</h2>");
-                if (previousActions.isEmpty()) {
-                        out.println("          <div class=\"fa-next-action-text\">No previous actions.</div>");
-                } else {
-                        out.println("          <div class=\"fa-previous-actions\">");
-                        for (PreviousActionOption option : previousActions) {
-                                out.println("            <a class=\"fa-previous-item\" href=\"FocusedActionServlet?completingActionNextId="
-                                                + option.getActionNextId() + "\">" + escapeHtml(option.getLabel())
-                                                + "</a>");
-                        }
-                        out.println("          </div>");
                 }
                 out.println("        </div>");
 
@@ -391,7 +417,7 @@ public class FocusedActionPageRenderer {
                 out.println("    faState.cycleIndex = index;");
                 out.println("    var item = items[index] || { actionNextId: 0, label: '' };");
                 out.println("    link.textContent = item.label || '';");
-                out.println("    link.href = 'FocusedActionServlet?completingActionNextId=' + encodeURIComponent(String(item.actionNextId || 0));");
+                out.println("    link.href = '" + SWITCH_URL_PREFIX + "' + encodeURIComponent(String(item.actionNextId || 0));");
                 out.println("    position.textContent = String(index + 1) + ' / ' + String(items.length);");
                 out.println("    faSetCycleArrowState(prev, index <= 0);");
                 out.println("    faSetCycleArrowState(next, index >= items.length - 1);");
@@ -811,6 +837,10 @@ public class FocusedActionPageRenderer {
                 out.println("        if (todayEl) { todayEl.textContent = faFormatMinutes(faState.todayBillableMinutes); }");
                 out.println("        var weekEl = document.getElementById('fa-week-time');");
                 out.println("        if (weekEl) { weekEl.textContent = faFormatMinutes(faState.spentMinutesThisWeek); }");
+                out.println("        var switchTimeEl = document.getElementById('fa-switch-current-time');");
+                out.println("        if (switchTimeEl) { switchTimeEl.textContent = faFormatMinutes(faState.spentMinutes); }");
+                out.println("        var switchTile = document.getElementById('fa-switch-current');");
+                out.println("        if (switchTile) { switchTile.classList.toggle('fa-switch-running', faState.runningClock); }");
                 out.println("        faUpdateStatusAndGauge();");
                 out.println("        faDrawClock();");
                 out.println("      });");
@@ -858,19 +888,93 @@ public class FocusedActionPageRenderer {
                 out.println("</script>");
         }
 
+        /**
+         * Fixed-position tiles for the actions being juggled. Clicking a tile, or pressing Alt+1..4,
+         * switches to it and moves a running clock along with it.
+         */
+        private void renderSwitchBar(PrintWriter out, List<SwitchSlot> switchSlots, boolean runningClock) {
+                out.println("  <nav class=\"fa-switch-bar\" aria-label=\"Switch action\">");
+                int position = 0;
+                for (SwitchSlot slot : switchSlots) {
+                        position++;
+                        String key = "<span class=\"fa-switch-key\">" + position + "</span>";
+                        if (slot.isEmpty()) {
+                                out.println("    <div class=\"fa-switch-tile fa-switch-empty\" data-switch-slot=\"" + position
+                                                + "\">" + key + "<span class=\"fa-switch-desc\">Open slot</span></div>");
+                                continue;
+                        }
+                        String classes = "fa-switch-tile"
+                                        + (slot.isCurrent() ? " fa-switch-current" : "")
+                                        + (slot.isCurrent() && runningClock ? " fa-switch-running" : "")
+                                        + (slot.isCompleted() ? " fa-switch-done" : "");
+                        String title = (slot.isCurrent() ? "Current action" : "Alt+" + position + " to switch")
+                                        + ": " + slot.getProjectName() + " - " + slot.getDescription();
+                        String meta = "<span" + (slot.isCurrent() ? " id=\"fa-switch-current-time\"" : "") + ">"
+                                        + formatMinutes(slot.getMinutesToday()) + "</span> today"
+                                        + (slot.isCompleted() ? " &middot; &#10003; done" : "");
+                        String body = key
+                                        + "<span class=\"fa-switch-project\">" + escapeHtml(slot.getProjectName()) + "</span>"
+                                        + "<span class=\"fa-switch-desc\">" + escapeHtml(slot.getDescription()) + "</span>"
+                                        + "<span class=\"fa-switch-meta\">" + meta + "</span>";
+                        if (slot.isCurrent()) {
+                                out.println("    <div id=\"fa-switch-current\" class=\"" + classes + "\" data-switch-slot=\""
+                                                + position + "\" title=\"" + escapeHtml(title) + "\">" + body + "</div>");
+                        } else {
+                                out.println("    <a class=\"" + classes + "\" data-switch-slot=\"" + position + "\" href=\""
+                                                + escapeHtml(SWITCH_URL_PREFIX) + slot.getActionNextId() + "\" title=\""
+                                                + escapeHtml(title) + "\">" + body + "</a>");
+                        }
+                }
+                out.println("  </nav>");
+                out.println("<script>");
+                out.println("  document.addEventListener('keydown', function(e) {");
+                out.println("    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) { return; }");
+                out.println("    var match = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');");
+                out.println("    if (!match) { return; }");
+                out.println("    var tile = document.querySelector('[data-switch-slot=\"' + match[1] + '\"]');");
+                out.println("    if (!tile) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    if (!tile.href) { return; }");
+                out.println("    var el = document.activeElement;");
+                out.println("    var typing = el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text')) && (el.value || '').trim().length > 0;");
+                out.println("    if (typing || document.querySelector('.fa-modal-open')) {");
+                out.println("      tile.classList.add('fa-switch-blocked'); setTimeout(function() { tile.classList.remove('fa-switch-blocked'); }, 700);");
+                out.println("      return;");
+                out.println("    }");
+                out.println("    window.location.href = tile.href;");
+                out.println("  });");
+                out.println("</script>");
+        }
+
         private void printStyles(PrintWriter out) {
                 out.println("<style>");
                 out.println(
-                                "  .fa-page { height: 100vh; overflow: hidden; background: linear-gradient(160deg, #f6f8f5 0%, #edf2ec 48%, #f8fbf7 100%); box-sizing: border-box; padding: 8px 10px 10px 10px; position: relative; }");
+                                "  .fa-page { height: 100vh; overflow: hidden; background: linear-gradient(160deg, #f6f8f5 0%, #edf2ec 48%, #f8fbf7 100%); box-sizing: border-box; padding: 8px 10px 10px 10px; position: relative; display: flex; flex-direction: column; }");
+                out.println("  .fa-topbar { flex: 0 0 auto; display: flex; align-items: stretch; gap: 10px; margin-bottom: 8px; padding-right: 50px; }");
+                out.println("  .fa-switch-bar { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }");
+                out.println("  .fa-switch-tile { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; min-height: 58px; box-sizing: border-box; padding: 6px 10px 6px 36px; border: 1px solid #ced8cb; border-radius: 8px; background: #ffffffd4; color: #274127; text-decoration: none; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }");
+                out.println("  a.fa-switch-tile:hover { background: #edf5ea; border-color: #7f9b7f; }");
+                out.println("  .fa-switch-key { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; box-sizing: border-box; border: 1px solid #9fb09c; border-radius: 4px; background: #f6faf5; color: #4a6350; font-size: 12px; font-weight: 700; line-height: 18px; text-align: center; }");
+                out.println("  .fa-switch-project { font-size: 11px; letter-spacing: .03em; text-transform: uppercase; color: #4a6350; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }");
+                out.println("  .fa-switch-desc { font-size: 14px; font-weight: 600; color: #1f2f1f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }");
+                out.println("  .fa-switch-meta { font-size: 12px; color: #5b6b58; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }");
+                out.println("  .fa-switch-current { border: 2px solid #2a6f2a; background: #e6f1df; padding: 5px 9px 5px 35px; }");
+                out.println("  .fa-switch-current .fa-switch-key { background: #2f8c2f; border-color: #2a6f2a; color: #fff; left: 8px; }");
+                out.println("  .fa-switch-running .fa-switch-meta::before { content: '\\25CF  timing \\00B7  '; color: #2f8c2f; font-weight: 700; }");
+                out.println("  .fa-switch-done .fa-switch-desc { color: #5e6b5c; }");
+                out.println("  .fa-switch-empty { border-style: dashed; background: transparent; box-shadow: none; }");
+                out.println("  .fa-switch-empty .fa-switch-desc { color: #9aa79a; font-weight: 400; font-size: 13px; }");
+                out.println("  .fa-switch-empty .fa-switch-key { color: #9aa79a; border-color: #c9d2c7; background: transparent; }");
+                out.println("  .fa-switch-blocked { outline: 2px solid #cb2c1f; outline-offset: 1px; }");
                 out.println(
                                 "  .fa-close { position: fixed; right: 14px; top: 10px; border: 1px solid #7f8f7f; background: #fff; width: 38px; height: 38px; border-radius: 8px; font-size: 26px; line-height: 30px; cursor: pointer; z-index: 60; }");
                 out.println(
-                                "  .fa-shell { display: grid; grid-template-columns: minmax(380px, 39%) minmax(520px, 61%); gap: 12px; height: calc(100vh - 20px); }");
+                                "  .fa-shell { display: grid; grid-template-columns: minmax(380px, 39%) minmax(520px, 61%); gap: 12px; flex: 1; min-height: 0; }");
                 out.println("  .fa-left { min-height: 0; }");
                 out.println("  .fa-left-scroll { height: 100%; overflow-y: auto; padding-right: 6px; }");
                 out.println(
                                 "  .fa-right { min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }");
-                out.println("  .fa-clock-wrap { width: min(82vh, 760px); max-width: 100%; position: relative; }");
+                out.println("  .fa-clock-wrap { width: min(82vh, calc(100vh - 110px), 760px); max-width: 100%; position: relative; }");
                 out.println("  .fa-clock { width: 100%; height: auto; }");
                 out.println("  .fa-status-left-layer, .fa-status-right-layer { position: absolute; z-index: 7; font-size: 30px; font-weight: 700; text-shadow: 0 1px 1px rgba(255,255,255,0.55); width: 180px; line-height: 1.1; text-align: center; pointer-events: none; }");
                 out.println("  .fa-status-left-layer { left: 15%; top: 16%; transform: translate(-50%, -50%); color: #263226; text-align: left; }");
@@ -935,14 +1039,11 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-meetings-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
                 out.println("  .fa-meeting-item { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; cursor: pointer; text-align: left; }");
                 out.println("  .fa-meeting-item:hover { background: #dde9db; }");
-                out.println("  .fa-previous-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
-                out.println("  .fa-previous-item { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #d6dfd4; background: #f6faf5; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");
-                out.println("  .fa-previous-item:hover { background: #edf5ea; }");
                 out.println("  .fa-capture-input-container { position: relative; flex: 1; }");
                 out.println("  .fa-capture-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; display: none; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }");
                 out.println("  .fa-capture-suggestions div { padding: 6px 8px; cursor: pointer; }");
                 out.println("  .fa-capture-suggestions div:hover { background: #efe7db; }");
-                out.println("  .fa-quick-capture-box { position: absolute; right: 58px; top: 10px; z-index: 50; width: 520px; padding: 10px 12px; background: #f8f1e6; border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); }");
+                out.println("  .fa-quick-capture-box { flex: 0 0 440px; box-sizing: border-box; position: relative; z-index: 50; padding: 8px 12px; background: #f8f1e6; border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); }");
                 out.println("  .fa-quick-capture-title { font-size: 12px; font-weight: bold; letter-spacing: .04em; text-transform: uppercase; color: #52614d; margin-bottom: 8px; }");
                 out.println("  .fa-capture-form { margin: 0; }");
                 out.println("  .fa-capture-row { display: flex; align-items: center; gap: 8px; }");
@@ -964,6 +1065,9 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-modal-field input, .fa-modal-field textarea { width: 100%; box-sizing: border-box; border: 1px solid #bfcdbb; border-radius: 6px; padding: 8px 9px; font-family: inherit; font-size: 14px; background: #fcfffb; }");
                 out.println("  .fa-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }");
                 out.println("  @media (max-width: 900px) {");
+                out.println("    .fa-page { height: auto; min-height: 100vh; overflow: visible; }");
+                out.println("    .fa-topbar { flex-direction: column; }");
+                out.println("    .fa-switch-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }");
                 out.println("    .fa-shell { grid-template-columns: 1fr; }");
                 out.println("    .fa-left-scroll { height: auto; max-height: none; }");
                 out.println("    .fa-right { min-height: 420px; }");
@@ -975,7 +1079,7 @@ public class FocusedActionPageRenderer {
                 out.println("    .fa-controls { left: 11%; top: 82%; }");
                 out.println("    .fa-time-widget { left: 90%; top: 82%; width: min(52vw, 236px); grid-template-columns: auto auto 1fr; }");
                 out.println("    .fa-timer-btn { min-width: 112px; padding: 12px 20px; font-size: 16px; }");
-                out.println("    .fa-quick-capture-box { position: static; min-width: 0; max-width: none; width: 100%; margin: 0 0 8px 0; }");
+                out.println("    .fa-quick-capture-box { flex: 0 0 auto; position: static; min-width: 0; max-width: none; width: 100%; margin: 0 0 8px 0; }");
                 out.println("    .fa-modal-row { grid-template-columns: 1fr; }");
                 out.println("  }");
                 out.println("  .fa-contact-emphasized .fa-contact-label { color: #5b3a00; font-weight: bold; }");
