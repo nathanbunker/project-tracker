@@ -59,7 +59,7 @@ public class TemplateGenerationService {
         int total = 0;
         for (ActionNext template : templates) {
             try {
-                int created = generateForTemplate(session, template, today, windowEnd, workdayCalendar);
+                int created = generateForTemplate(session, template, today, windowEnd, workdayCalendar, false);
                 total += created;
                 LOGGER.fine("[TemplateGeneration] Template " + template.getActionNextId()
                         + " created=" + created);
@@ -128,8 +128,9 @@ public class TemplateGenerationService {
      * exists for this template on that date; otherwise cancel.
      * IGNORE: leave as-is.
      *
-     * Should be called after generateForwardWindow so schedule reconciliation does
-     * not cancel an instance moved to a non-recurrence date in the same run.
+     * Called after generateForwardWindow so duplicate detection includes newly
+     * generated occurrences. Routine reconciliation preserves carried instances
+     * even when their new dates do not match the recurrence pattern.
      */
     public void applyMissedActionBehavior(Session session, int workspaceId, int contactId,
             LocalDate today) {
@@ -242,7 +243,7 @@ public class TemplateGenerationService {
         TemplateWorkdayCalendar workdayCalendar = loadWorkdayCalendar(
                 session, contactId, today.minusDays(CARRY_SEARCH_DAYS),
                 windowEnd.plusDays(CARRY_SEARCH_DAYS));
-        generateForTemplate(session, template, today, windowEnd, workdayCalendar);
+        generateForTemplate(session, template, today, windowEnd, workdayCalendar, true);
     }
 
     // =========================================================================
@@ -264,7 +265,8 @@ public class TemplateGenerationService {
     }
 
     private int generateForTemplate(Session session, ActionNext template,
-            LocalDate today, LocalDate windowEnd, TemplateWorkdayCalendar workdayCalendar) {
+            LocalDate today, LocalDate windowEnd, TemplateWorkdayCalendar workdayCalendar,
+            boolean templateEdited) {
         int templateId = template.getActionNextId();
         ActionNextTemplateConfig config = (ActionNextTemplateConfig) session.get(
                 ActionNextTemplateConfig.class, template.getActionNextId());
@@ -298,8 +300,12 @@ public class TemplateGenerationService {
             }
         }
 
-        cancelIneligibleReadyInstances(session, template.getActionNextId(),
-                workspaceId(template), contactId(template), today, reconciliationEnd, scheduledDates);
+        // A carried instance can legitimately be off-pattern. Only an explicit
+        // template edit should invalidate those dates.
+        if (templateEdited || !"CARRY_FORWARD".equals(missedActionBehavior)) {
+            cancelIneligibleReadyInstances(session, template.getActionNextId(),
+                    workspaceId(template), contactId(template), today, reconciliationEnd, scheduledDates);
+        }
 
         Set<LocalDate> existingDates = loadExistingInstanceDates(session,
                 template.getActionNextId(), workspaceId(template), contactId(template),

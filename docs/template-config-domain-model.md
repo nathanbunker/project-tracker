@@ -178,12 +178,18 @@ rescheduler is free to move them forward.
 
 ---
 
-## Phase Notes
+## Scheduler Reconciliation
 
-**Phase 1 (current)** implements the schema, model, and template edit form only.
+The scheduler generates future instances and then applies missed-action behavior to past READY instances.
+For `CARRY_FORWARD`, an unfinished instance may move to a date outside the template's recurrence pattern.
+For example, an unfinished billable Friday action moves to Monday when the weekend is non-working.
+Routine scheduler runs preserve that moved instance rather than cancelling it for not falling on Friday.
+Personal templates carry forward using calendar days instead.
 
-- Schedule fields are stored and retrieved but not yet evaluated by any generation logic.
-- `last_generated_date` is stored in the schema but not written by any current code path.
-- `reschedule_locked` is available on the model but only set to `N` by the default; no code path sets it to `Y` yet.
+Explicit template saves still reconcile future READY instances against the saved schedule, including
+cancelling dates that no longer match. Disabling automatic generation cancels future READY instances.
+Today's instances with recorded bill entries remain protected during edit reconciliation.
 
-Auto-generation logic (reading schedule fields and creating instances) is reserved for Phase 2.
+If a carry-forward destination already has a non-cancelled occurrence of the same template, the older
+missed instance is cancelled rather than creating a duplicate on that date. Cancelled historical
+instances are not restored by the scheduler.
