@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.dandeliondaily.narrative.model.TrackerNarrativeScope;
 import org.dandeliondaily.narrative.service.TrackerNarrativeService;
+import org.dandeliondaily.narrative.service.NarrativeWorkflowException;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -87,7 +88,13 @@ public class TrackerNarrativeServlet extends ClientServlet {
             TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
 
             if ("POST".equalsIgnoreCase(request.getMethod())) {
-                handlePost(request, response, appReq, narrativeDao);
+                try {
+                    handlePost(request, response, appReq, narrativeDao);
+                } catch (NarrativeWorkflowException e) {
+                    response.sendError("stale".equals(e.getCode()) ? HttpServletResponse.SC_CONFLICT
+                            : "not_found".equals(e.getCode()) ? HttpServletResponse.SC_NOT_FOUND
+                                    : HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+                }
                 return;
             }
 
@@ -141,7 +148,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
 
         if (ACTION_APPROVE.equals(action)) {
             if (narrativeId > 0) {
-                narrativeService.approve(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
+                narrativeService.approve(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                        request.getParameter("lastUpdated"));
                 appReq.setMessageConfirmation("Narrative approved.");
             }
             response.sendRedirect(buildEditorLink(narrativeId, type, selectedDate));
@@ -160,15 +168,20 @@ public class TrackerNarrativeServlet extends ClientServlet {
         String redirect = buildListLink(type, selectedDate);
         if (ACTION_SAVE.equals(action)) {
             String markdownFinal = n(request.getParameter(PARAM_MARKDOWN_FINAL));
-            narrativeService.saveMarkdown(appReq.getDataSession(), appReq.getWebUser(), narrativeId, markdownFinal);
-            appReq.setMessageConfirmation("Narrative updated.");
+            long originalId = narrativeId;
+            narrativeId = narrativeService.updateDraft(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated"), markdownFinal).getNarrativeId();
+            appReq.setMessageConfirmation(narrativeId == originalId ? "Narrative updated."
+                    : "Revision saved as a new draft. The approved report is unchanged until you approve this draft.");
             redirect = buildEditorLink(narrativeId, type, selectedDate);
         } else if (ACTION_REJECT.equals(action)) {
-            narrativeService.reject(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
+            narrativeService.changeStatus(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated"), TrackerNarrativeReviewStatus.REJECTED);
             appReq.setMessageConfirmation("Narrative rejected.");
             redirect = buildEditorLink(narrativeId, type, selectedDate);
         } else if (ACTION_DELETE.equals(action)) {
-            narrativeService.delete(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
+            narrativeService.changeStatus(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated"), TrackerNarrativeReviewStatus.DELETED);
             appReq.setMessageConfirmation("Narrative deleted.");
             redirect = buildEditorLink(narrativeId, type, selectedDate);
         } else if (ACTION_GENERATE.equals(action)) {
@@ -178,7 +191,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 redirect = buildEditorLink(newId, type, selectedDate);
             }
         } else if (ACTION_REGENERATE.equals(action)) {
-            long newId = narrativeService.regenerate(appReq, narrativeId);
+            long newId = narrativeService.regenerate(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated")).getNarrativeId();
             if (newId > 0) {
                 appReq.setMessageConfirmation("Generation requested.");
                 redirect = buildEditorLink(newId, type, selectedDate);
@@ -378,6 +392,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
         out.println("<form method=\"POST\" action=\"TrackerNarrativeServlet\">\n");
         out.println("<input type=\"hidden\" name=\"" + PARAM_ID + "\" value=\""
                 + narrative.getNarrativeId() + "\">\n");
+        out.println("<input type=\"hidden\" name=\"lastUpdated\" value=\""
+                + escapeHtml(n(TrackerNarrativeService.version(narrative))) + "\">");
         out.println("<input type=\"hidden\" name=\"" + PARAM_TYPE + "\" value=\"" + escapeHtml(type)
                 + "\">\n");
         out.println("<input type=\"hidden\" name=\"" + PARAM_DATE + "\" value=\"" + selectedDate
@@ -415,6 +431,8 @@ public class TrackerNarrativeServlet extends ClientServlet {
         }
 
         if (editMode) {
+            out.println("<p>Save your edits before approving. Editing an approved report creates a "
+                    + "separate unapproved draft.</p>");
             out.println("<p><a class=\"button\" href=\""
                     + buildEditorLink(narrative.getNarrativeId(), type, selectedDate)
                     + "\">Preview</a></p>\n");
@@ -464,8 +482,10 @@ public class TrackerNarrativeServlet extends ClientServlet {
             out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_SAVE
                     + "\">\n");
         }
-        out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_APPROVE
-                + "\">\n");
+        if (!editMode) {
+            out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_APPROVE
+                    + "\">\n");
+        }
         if (generationAvailable) {
             out.println("  <input type=\"submit\" name=\"" + PARAM_ACTION + "\" value=\"" + ACTION_REGENERATE
                     + "\">\n");

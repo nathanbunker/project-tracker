@@ -14,6 +14,7 @@ import java.util.Set;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.LockMode;
 import org.openimmunizationsoftware.pt.api.common.HibernateRequestContext;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
@@ -45,7 +46,7 @@ public class TrackerNarrativeDao {
             LocalDate end) {
         Query query = session.createQuery(
                 "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
-                        + "and periodStart = :start and periodEnd = :end order by dateGenerated desc");
+                        + "and periodStart = :start and periodEnd = :end order by narrativeId desc");
         query.setInteger("contactId", contactId);
         query.setString("type", type);
         query.setDate("start", toSqlDate(start));
@@ -68,6 +69,20 @@ public class TrackerNarrativeDao {
         @SuppressWarnings("unchecked")
         List<TrackerNarrative> results = query.list();
         return results == null || results.isEmpty() ? null : results.get(0);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<TrackerNarrative> findByContactTypeAndPeriodForUpdate(int contactId, String type,
+            LocalDate start, LocalDate end) {
+        Query query = session.createQuery("from TrackerNarrative n where n.contactId = :contactId "
+                + "and n.narrativeType = :type and n.periodStart = :start and n.periodEnd = :end "
+                + "order by n.narrativeId asc");
+        query.setInteger("contactId", contactId);
+        query.setString("type", type);
+        query.setDate("start", toSqlDate(start));
+        query.setDate("end", toSqlDate(end));
+        query.setLockMode("n", LockMode.UPGRADE);
+        return query.list();
     }
 
     @SuppressWarnings("unchecked")
@@ -98,7 +113,7 @@ public class TrackerNarrativeDao {
         Query query = session.createQuery(
                 "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
                         + "and periodStart >= :start and periodStart <= :end "
-                        + "order by periodStart desc, dateGenerated desc");
+                        + "order by periodStart desc, narrativeId desc");
         query.setInteger("contactId", contactId);
         query.setString("type", type);
         query.setDate("start", toSqlDate(startInclusive));

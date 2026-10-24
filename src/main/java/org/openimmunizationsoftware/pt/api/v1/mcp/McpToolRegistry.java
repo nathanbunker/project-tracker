@@ -12,6 +12,7 @@ import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectAiThoughtTo
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetDayAvailabilityTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetNarrativesTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.TrackerNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetOutlookTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetPlanningContextTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetProjectContextTool;
@@ -43,6 +44,9 @@ public class McpToolRegistry {
         register(new GetDayAvailabilityTool());
         register(new SetDayAvailabilityTool());
         register(new GetNarrativesTool());
+        for (TrackerNarrativeTool.Operation operation : TrackerNarrativeTool.Operation.values()) {
+            register(new TrackerNarrativeTool(operation));
+        }
         register(new AddProjectAiThoughtTool());
         register(new UpdateProjectAiThoughtTool());
         register(new DeleteProjectAiThoughtTool());

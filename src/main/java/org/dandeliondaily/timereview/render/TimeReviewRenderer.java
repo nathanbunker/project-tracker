@@ -12,6 +12,7 @@ import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.dandeliondaily.narrative.model.TrackerNarrativeScope;
 import org.dandeliondaily.narrative.model.TrackerNarrativeViewModel;
+import org.dandeliondaily.narrative.service.TrackerNarrativeService;
 import org.dandeliondaily.timereview.model.TimeEntryModel;
 import org.dandeliondaily.timereview.model.TimeReviewDayModel;
 import org.dandeliondaily.timereview.model.TimeSessionModel;
@@ -194,7 +195,7 @@ public class TimeReviewRenderer {
 
         out.println("<div class=\"rd-narrative-toolbar\">");
         if (activeNarrative == null) {
-            printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(), 0,
+            printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(), null,
                     ACTION_NARRATIVE_GENERATE, "Generate", "rd-btn");
         } else {
             out.println("<a class=\"rd-btn rd-btn-light\" href=\""
@@ -202,11 +203,13 @@ public class TimeReviewRenderer {
                             activeNarrative.getNarrativeId(), VIEW_RENDERED, false)
                     + "\">View</a>");
             printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
-                    activeNarrative.getNarrativeId(), ACTION_NARRATIVE_REGENERATE, "Regenerate", "rd-btn rd-btn-light");
+                    activeNarrative, ACTION_NARRATIVE_REGENERATE, "Regenerate", "rd-btn rd-btn-light");
+            if (!VIEW_EDIT.equals(narrativeView)) {
+                printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
+                        activeNarrative, ACTION_NARRATIVE_APPROVE, "Approve", "rd-btn");
+            }
             printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
-                    activeNarrative.getNarrativeId(), ACTION_NARRATIVE_APPROVE, "Approve", "rd-btn");
-            printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
-                    activeNarrative.getNarrativeId(), ACTION_NARRATIVE_REJECT, "Reject", "rd-btn rd-btn-light");
+                    activeNarrative, ACTION_NARRATIVE_REJECT, "Reject", "rd-btn rd-btn-light");
 
             out.println("<a class=\"rd-btn rd-btn-light\" href=\""
                     + buildCenterLink(dayModel.getSelectedDateIso(), scope.getNarrativeType(),
@@ -239,7 +242,7 @@ public class TimeReviewRenderer {
             out.println("<p>No narrative yet for this period.</p>");
             if (narrativeModel.isGenerationAvailable()) {
                 out.println("<p class=\"rd-subtle\">Generate a narrative, make in-place edits, then approve.</p>");
-                printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(), 0,
+                printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(), null,
                         ACTION_NARRATIVE_GENERATE, "Generate", "rd-btn");
             } else {
                 out.println(
@@ -256,6 +259,8 @@ public class TimeReviewRenderer {
         }
 
         if (VIEW_EDIT.equals(narrativeView)) {
+            out.println("<p class=\"rd-subtle\">Save your edits before approving. Editing an approved report "
+                    + "creates a separate unapproved draft.</p>");
             out.println("<form action=\"ReviewDashboardServlet\" method=\"POST\" class=\"rd-narrative-edit-form\">");
             out.println("<input type=\"hidden\" name=\"action\" value=\"" + ACTION_NARRATIVE_SAVE + "\">");
             out.println("<input type=\"hidden\" name=\"" + PARAM_REVIEW_DATE + "\" value=\""
@@ -266,6 +271,7 @@ public class TimeReviewRenderer {
                     + activeNarrative.getNarrativeId() + "\">");
             out.println("<textarea name=\"markdownFinal\" rows=\"20\" class=\"rd-narrative-editor\">"
                     + escapeHtml(n(activeNarrative.getMarkdownFinal())) + "</textarea>");
+            printNarrativeVersion(out, activeNarrative);
             out.println("<div class=\"rd-edit-actions\">");
             out.println("<input type=\"submit\" value=\"Save\" class=\"rd-btn\">");
             out.println("<a class=\"rd-btn rd-btn-light\" href=\""
@@ -345,7 +351,7 @@ public class TimeReviewRenderer {
                     + "\">View</a>");
             out.println(" ");
             printNarrativeActionButton(out, dayModel.getSelectedDateIso(), scope.getNarrativeType(),
-                    narrative.getNarrativeId(), ACTION_NARRATIVE_DELETE, "Delete", "rd-inline-delete");
+                    narrative, ACTION_NARRATIVE_DELETE, "Delete", "rd-inline-delete");
             out.println("</td>");
             out.println("</tr>");
         }
@@ -358,8 +364,9 @@ public class TimeReviewRenderer {
         out.println("<option value=\"" + value + "\"" + selected + ">" + value + "</option>");
     }
 
-    private void printNarrativeActionButton(PrintWriter out, String reviewDateIso, String reportType, long narrativeId,
-            String actionValue, String label, String cssClass) {
+    private void printNarrativeActionButton(PrintWriter out, String reviewDateIso, String reportType,
+            TrackerNarrative narrative, String actionValue, String label, String cssClass) {
+        long narrativeId = narrative == null ? 0 : narrative.getNarrativeId();
         out.println("<form action=\"ReviewDashboardServlet\" method=\"POST\" class=\"rd-inline-form\">");
         out.println("<input type=\"hidden\" name=\"action\" value=\"" + actionValue + "\">");
         out.println("<input type=\"hidden\" name=\"" + PARAM_REVIEW_DATE + "\" value=\""
@@ -369,9 +376,15 @@ public class TimeReviewRenderer {
         if (narrativeId > 0) {
             out.println("<input type=\"hidden\" name=\"" + PARAM_NARRATIVE_ID + "\" value=\"" + narrativeId
                     + "\">");
+            printNarrativeVersion(out, narrative);
         }
         out.println("<input type=\"submit\" value=\"" + escapeHtml(label) + "\" class=\"" + cssClass + "\">");
         out.println("</form>");
+    }
+
+    private void printNarrativeVersion(PrintWriter out, TrackerNarrative narrative) {
+        out.println("<input type=\"hidden\" name=\"lastUpdated\" value=\""
+                + escapeHtml(n(TrackerNarrativeService.version(narrative))) + "\">");
     }
 
     private String buildCenterLink(String reviewDateIso, String reportType, long narrativeId, String narrativeView,

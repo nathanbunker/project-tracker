@@ -13,6 +13,8 @@ import javax.servlet.http.HttpServletResponse;
 import org.dandeliondaily.narrative.model.TrackerNarrativeScope;
 import org.dandeliondaily.narrative.model.TrackerNarrativeViewModel;
 import org.dandeliondaily.narrative.service.TrackerNarrativeService;
+import org.dandeliondaily.narrative.service.NarrativeWorkflowException;
+import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.manager.TimeTracker;
@@ -95,13 +97,17 @@ public class ReviewDashboardServlet extends ClientServlet {
             if ("SaveTime".equals(action)) {
                 pageMessage = handleSaveTime(request, webUser, dataSession, selectedDay, lockedBillEntryId);
             } else if (isNarrativeAction(action)) {
-                long resolvedNarrativeId = handleNarrativeAction(request, appReq, action, narrativeScope,
-                        selectedNarrativeId);
-                if (resolvedNarrativeId > 0) {
-                    selectedNarrativeId = resolvedNarrativeId;
-                }
-                if (ACTION_NARRATIVE_SAVE.equals(action)) {
-                    narrativeView = VIEW_RENDERED;
+                try {
+                    long resolvedNarrativeId = handleNarrativeAction(request, appReq, action, narrativeScope,
+                            selectedNarrativeId);
+                    if (resolvedNarrativeId > 0) {
+                        selectedNarrativeId = resolvedNarrativeId;
+                    }
+                    if (ACTION_NARRATIVE_SAVE.equals(action)) {
+                        narrativeView = VIEW_RENDERED;
+                    }
+                } catch (NarrativeWorkflowException e) {
+                    appReq.setMessageProblem(e.getMessage());
                 }
             }
 
@@ -137,7 +143,8 @@ public class ReviewDashboardServlet extends ClientServlet {
         }
         if (ACTION_NARRATIVE_REGENERATE.equals(action)) {
             long sourceNarrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
-            long narrativeId = narrativeService.regenerate(appReq, sourceNarrativeId);
+            long narrativeId = narrativeService.regenerate(appReq.getDataSession(), appReq.getWebUser(), null,
+                    sourceNarrativeId, request.getParameter("lastUpdated")).getNarrativeId();
             if (narrativeId > 0) {
                 appReq.setMessageConfirmation("Generation requested.");
             }
@@ -145,26 +152,31 @@ public class ReviewDashboardServlet extends ClientServlet {
         }
         if (ACTION_NARRATIVE_APPROVE.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
-            narrativeService.approve(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
+            narrativeService.approve(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated"));
             appReq.setMessageConfirmation("Narrative approved.");
             return narrativeId;
         }
         if (ACTION_NARRATIVE_REJECT.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
-            narrativeService.reject(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
+            narrativeService.changeStatus(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated"), TrackerNarrativeReviewStatus.REJECTED);
             appReq.setMessageConfirmation("Narrative rejected.");
             return narrativeId;
         }
         if (ACTION_NARRATIVE_SAVE.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
             String markdownFinal = request.getParameter(PARAM_MARKDOWN_FINAL);
-            narrativeService.saveMarkdown(appReq.getDataSession(), appReq.getWebUser(), narrativeId, markdownFinal);
-            appReq.setMessageConfirmation("Narrative updated.");
-            return narrativeId;
+            long savedId = narrativeService.updateDraft(appReq.getDataSession(), appReq.getWebUser(), null,
+                    narrativeId, request.getParameter("lastUpdated"), markdownFinal).getNarrativeId();
+            appReq.setMessageConfirmation(savedId == narrativeId ? "Narrative updated."
+                    : "Revision saved as a new draft. The approved report is unchanged until you approve this draft.");
+            return savedId;
         }
         if (ACTION_NARRATIVE_DELETE.equals(action)) {
             long narrativeId = parseLong(request.getParameter(PARAM_NARRATIVE_ID), selectedNarrativeId);
-            narrativeService.delete(appReq.getDataSession(), appReq.getWebUser(), narrativeId);
+            narrativeService.changeStatus(appReq.getDataSession(), appReq.getWebUser(), null, narrativeId,
+                    request.getParameter("lastUpdated"), TrackerNarrativeReviewStatus.DELETED);
             appReq.setMessageConfirmation("Narrative deleted.");
             return 0;
         }

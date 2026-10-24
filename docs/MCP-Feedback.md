@@ -20,6 +20,17 @@ I-11 (build items 11 and 12) was deployed and verified on 2026-10-01; see Resolv
 
 ## Recommended Changes for the Next Build
 
+### Tracker report lifecycle implemented in 5.10.16
+
+The existing read-only `get_narratives` now has monthly/status/history/deleted
+filters and explicit approval indicators. New tools support detail reads,
+external draft submission, editing, explicit approval, rejection, soft deletion,
+and application-side generation/regeneration. Both browser editors use the same
+workflow, stale-version checks, and approved-report revision preservation.
+See [report workflow and tool contracts](MCP-Codex-Setup.md#daily-weekly-and-monthly-report-workflow-51016).
+Focused automated coverage exercises the JSON-RPC dispatcher and shared service;
+deployment verification against a live database is a separate step.
+
 **Agreed with Nathan:** 2026-09-30. This is the work list for the implementing agent.
 Details are in the referenced entries below. After deployment, Claude will test each
 item against the **Verify** line and move fixed entries to **Resolved**.

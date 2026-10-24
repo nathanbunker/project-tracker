@@ -13,7 +13,7 @@ environment variables, never in this repo.
 
 ## What's exposed
 
-13 tools, task-oriented rather than raw CRUD:
+Tools are task-oriented rather than raw CRUD:
 
 - **Read-only**: `get_project_context`, `get_planning_context`, `get_outlook`,
   `list_outlooks`, `get_time_allocation_context`, `get_day_availability`
@@ -23,6 +23,92 @@ environment variables, never in this repo.
 - **Staleness-checked writes**: `update_project_language` (project description/
   focus/outcome/success criteria), `apply_changes` (batch create/update/reschedule/
   split/remove/complete on actions, applied atomically -- all or nothing)
+- **Tracker reports**: `get_narratives`, `get_tracker_narrative`,
+  `submit_tracker_narrative`, `update_tracker_narrative`,
+  `approve_tracker_narrative`, `reject_tracker_narrative`,
+  `delete_tracker_narrative`, `generate_tracker_narrative`,
+  `regenerate_tracker_narrative`.
+
+### Daily, weekly, and monthly report workflow (5.10.16)
+
+For the exact daily/weekly writing instructions, report sections, source-data
+rules, and an MCP evidence-gathering recipe, see the
+[Tracker narrative generation guide](Tracker-Narrative-Generation-Guide.md).
+
+These tools operate on **TrackerNarrative** reports, not dated project notes
+(`add_project_narrative`, etc.). Every write requires explicit authorization
+in conversation. Permission to save a draft is **not** permission to approve it.
+
+1. Generate report text in the assistant, then call `submit_tracker_narrative`
+   with `projectId`, `periodType` (`DAILY`, `WEEKLY`, `MONTHLY`), a `date`
+   (`yyyy-MM-dd`) within the period, and nonempty `markdown`. The project must be
+   in the API client's workspace; the owner comes from the authenticated user.
+   Optional `modelName` and `promptVersion` are limited to 50 characters each;
+   optional `promptUsedText` records the source prompt. Source metadata is
+   caller-supplied, not independently verified.
+2. Submission returns a saved, **unapproved** `GENERATED` draft, with the submitted
+   text in both `markdownGenerated` (original source) and `markdownFinal`
+   (editable text). It does not call the application's AI provider.
+3. Call `get_tracker_narrative(narrativeId)` to read it back for review. Set
+   `includePrompt: true` to include the captured prompt; it is omitted otherwise.
+4. Use `update_tracker_narrative(narrativeId, lastUpdated, markdown)` to save edits.
+   The original generated Markdown is preserved. Editing an approved report
+   creates a **new draft ID**; always use the ID returned by the tool. The old
+   approved text stays unchanged until the new draft is approved. The browser's
+   two report editors follow the same revision rule.
+5. Only after the user explicitly approves the saved text, call
+   `approve_tracker_narrative(narrativeId, lastUpdated)`. The response includes
+   `displacedNarrativeIds`: any previously approved reports for the same
+   owner/type/period are changed to `REJECTED`. An approved weekly report is
+   used by the weekly report page, so this action can publish its text.
+
+All report results are objects, with `narrativeId`, `projectId`, title, type,
+status, both Markdown fields, generation/approval timestamps, source model/prompt
+version, and `lastUpdated`. The existing `text` and `isFinal` fields remain:
+**`isFinal` only means editable text exists, not that the report is approved.**
+Use `isApproved` or `reviewStatus` to determine approval. Existing `periodStart`
+and `periodEnd` timestamp fields are retained for compatibility; new
+`periodStartDate` and `periodEndDate` provide timezone-independent civil dates.
+Weeks run Sunday-Saturday; months use their calendar boundaries.
+
+Existing-record writes (including regeneration, rejection, and deletion) require
+the exact latest `lastUpdated` token. A `stale` error means reread, review the
+new text, then retry with fresh authorization as appropriate. Tokens advance at
+least one second per mutation to work with the legacy database's second precision;
+under rapid edits they are version tokens, not precise wall-clock audit times.
+Checks and writes are serialized per owner within the database transaction.
+Unknown IDs/workspace mismatches, blank Markdown, and invalid state changes fail
+explicitly. A `GENERATING`, `FAILED`, `REJECTED`, or `DELETED` report cannot be
+approved; edit a rejected report back to a draft first. A generating report
+cannot be edited, rejected, deleted, or regenerated.
+
+`reject_tracker_narrative` retains text/history; `delete_tracker_narrative`
+soft-deletes. Either action on an approved report removes its current approval.
+Historical `dateApproved` can remain after rejection/deletion; status is authoritative.
+
+Submission retries with identical **project, canonical period, original Markdown,
+and optional source metadata** return the oldest matching existing report,
+including if it has since been edited, approved, or deleted. No duplicate is
+created and no deleted report is restored. Different source text/metadata creates
+a new candidate. Editing and approval are separate from this submission deduplication.
+
+`get_narratives` still requires `periodType`, `fromPeriodStart`, and
+`toPeriodStart` (inclusive bounds on period **start**, not overlap). It now supports
+`MONTHLY`, optional `reviewStatus`, `includeHistory` (default `true`), and
+`includeDeleted` (default `false`). `includeHistory: false` returns the newest
+matching candidate per period, not necessarily the approved candidate. To list
+deleted reports, set `includeDeleted: true`, also when filtering on `DELETED`.
+Results are restricted to the authenticated owner and client workspace.
+
+Alternatively, `generate_tracker_narrative(projectId, periodType, date)` uses the
+application's configured AI provider. `regenerate_tracker_narrative(narrativeId,
+lastUpdated)` creates a separate candidate without replacing the source.
+Both return a new `GENERATING` record immediately. Work is queued only after
+the database commits; use `get_tracker_narrative` to check for `GENERATED` or
+`FAILED`. Missing AI configuration returns `generation_unavailable`; external
+submission does not require it. Generation failure details remain in server logs.
+
+No schema migration is needed for these tools.
 
 ## Authentication
 

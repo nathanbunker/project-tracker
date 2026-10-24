@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
 import org.dandeliondaily.outlook.service.PlanningOutlookService;
+import org.dandeliondaily.narrative.service.TrackerNarrativeService;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -160,7 +161,7 @@ public class TrackerNarrativeGenerator {
                 refresh.setMarkdownGenerated(markdownGenerated);
                 refresh.setDateGenerated(new Date());
                 refresh.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
-                refresh.setLastUpdated(new Date());
+                TrackerNarrativeService.markUpdated(refresh);
                 refresh.setPromptUsedText(promptUsedText);
                 refresh.setPromptVersion(OpenAiNarrativeGenerator.promptVersionFor(narrative.getNarrativeType()));
                 refresh.setModelName(OpenAiNarrativeGenerator.MODEL_NAME);
@@ -199,7 +200,7 @@ public class TrackerNarrativeGenerator {
             if (narrative != null
                     && TrackerNarrativeReviewStatus.GENERATING.equals(narrative.getReviewStatus())) {
                 narrative.setReviewStatus(TrackerNarrativeReviewStatus.FAILED);
-                narrative.setLastUpdated(new Date());
+                TrackerNarrativeService.markUpdated(narrative);
                 session.update(narrative);
             }
             transaction.commit();

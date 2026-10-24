@@ -5,17 +5,24 @@ import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Objects;
+
+import javax.transaction.Status;
+import javax.transaction.Synchronization;
 
 import org.dandeliondaily.narrative.model.TrackerNarrativeScope;
 import org.dandeliondaily.narrative.model.TrackerNarrativeViewModel;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.LockMode;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
 import org.openimmunizationsoftware.pt.manager.NarrativePeriods;
 import org.openimmunizationsoftware.pt.manager.NarrativePeriods.PeriodRange;
 import org.openimmunizationsoftware.pt.manager.TrackerNarrativeGenerator;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
@@ -104,79 +111,281 @@ public class TrackerNarrativeService {
     }
 
     public long generate(AppReq appReq, TrackerNarrativeScope scope) {
-        if (!TrackerNarrativeGenerator.isGenerationAvailable()) {
-            return 0;
-        }
-        int projectId = resolveProjectId(appReq);
-        int contactId = resolveContactId(appReq.getWebUser());
-        if (projectId <= 0 || contactId <= 0) {
-            appReq.setMessageProblem("Unable to determine project/contact for narrative.");
-            return 0;
-        }
+        return generate(appReq.getDataSession(), appReq.getWebUser(), null, resolveProjectId(appReq), scope)
+                .getNarrativeId();
+    }
 
+    public TrackerNarrative read(Session session, WebUser owner, Integer workspaceId, long id) {
+        return requireNarrative(session, owner, workspaceId, id, false);
+    }
+
+    private TrackerNarrative requireNarrative(Session session, WebUser owner, Integer workspaceId, long id,
+            boolean forUpdate) {
+        if (id <= 0 || id > Integer.MAX_VALUE) {
+            throw problem("invalid_arguments", "narrativeId must be a positive integer.");
+        }
+        TrackerNarrative narrative = forUpdate
+                ? (TrackerNarrative) session.get(TrackerNarrative.class, (int) id, LockMode.UPGRADE)
+                : (TrackerNarrative) session.get(TrackerNarrative.class, (int) id);
+        if (narrative != null && forUpdate) {
+            session.refresh(narrative, LockMode.UPGRADE);
+        }
+        if (narrative == null || narrative.getContactId() != owner.getContactId()) {
+            throw problem("not_found", "Narrative not found.");
+        }
+        requireProject(session, narrative.getProjectId(), workspaceId);
+        return narrative;
+    }
+
+    public TrackerNarrative submit(Session session, WebUser owner, Integer workspaceId, int projectId,
+            TrackerNarrativeScope scope, String markdown, String modelName, String promptVersion, String promptText) {
+        requireMarkdown(markdown);
+        requireLength(modelName, 50, "modelName");
+        requireLength(promptVersion, 50, "promptVersion");
+        return write(session, owner, () -> {
+            requireProject(session, projectId, workspaceId);
+            // Matching the immutable source makes retries safe even after editing or approving the draft.
+            for (TrackerNarrative existing : lockedPeriod(session, owner, scope)) {
+                if (existing.getProjectId() == projectId && Objects.equals(markdown, existing.getMarkdownGenerated())
+                        && Objects.equals(modelName, existing.getModelName())
+                        && Objects.equals(promptVersion, existing.getPromptVersion())
+                        && Objects.equals(promptText, existing.getPromptUsedText())) {
+                    return existing;
+                }
+            }
+            TrackerNarrative narrative = buildNewNarrative(scope.getNarrativeType(), scope.getPeriodStart(),
+                    scope.getPeriodEnd(), projectId, owner.getContactId());
+            narrative.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
+            narrative.setMarkdownGenerated(markdown);
+            narrative.setMarkdownFinal(markdown);
+            narrative.setDateGenerated(new Date());
+            narrative.setModelName(modelName);
+            narrative.setPromptVersion(promptVersion);
+            narrative.setPromptUsedText(promptText);
+            new TrackerNarrativeDao(session).insert(narrative);
+            return narrative;
+        });
+    }
+
+    public TrackerNarrative updateDraft(Session session, WebUser owner, Integer workspaceId, long id,
+            String lastUpdated, String markdown) {
+        requireMarkdown(markdown);
+        return write(session, owner, () -> {
+            TrackerNarrative narrative = current(session, owner, workspaceId, id, lastUpdated);
+            requireEditable(narrative);
+            if (TrackerNarrativeReviewStatus.APPROVED.equals(narrative.getReviewStatus())) {
+                TrackerNarrative revision = buildNewNarrative(narrative.getNarrativeType(),
+                        owner.toLocalDate(narrative.getPeriodStart()), owner.toLocalDate(narrative.getPeriodEnd()),
+                        narrative.getProjectId(), owner.getContactId());
+                revision.setDisplayTitle(narrative.getDisplayTitle());
+                revision.setMarkdownGenerated(narrative.getMarkdownGenerated());
+                revision.setDateGenerated(narrative.getDateGenerated());
+                revision.setModelName(narrative.getModelName());
+                revision.setPromptVersion(narrative.getPromptVersion());
+                revision.setPromptUsedText(narrative.getPromptUsedText());
+                revision.setMarkdownFinal(markdown);
+                revision.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
+                new TrackerNarrativeDao(session).insert(revision);
+                return revision;
+            }
+            narrative.setMarkdownFinal(markdown);
+            narrative.setReviewStatus(TrackerNarrativeReviewStatus.GENERATED);
+            narrative.setDateApproved(null);
+            markUpdated(narrative);
+            session.update(narrative);
+            return narrative;
+        });
+    }
+
+    public List<Integer> approve(Session session, WebUser owner, Integer workspaceId, long id, String lastUpdated) {
+        return write(session, owner, () -> {
+            TrackerNarrative narrative = current(session, owner, workspaceId, id, lastUpdated);
+            if (TrackerNarrativeReviewStatus.APPROVED.equals(narrative.getReviewStatus())) {
+                return new ArrayList<Integer>();
+            }
+            if (!TrackerNarrativeReviewStatus.GENERATED.equals(narrative.getReviewStatus())) {
+                throw problem("invalid_state", "Only a generated draft can be approved.");
+            }
+            requireMarkdown(narrative.getMarkdownFinal());
+            TrackerNarrativeScope scope = resolveScope(narrative.getNarrativeType(),
+                    owner.toLocalDate(narrative.getPeriodStart()));
+            List<Integer> displaced = new ArrayList<Integer>();
+            for (TrackerNarrative previous : lockedPeriod(session, owner, scope)) {
+                if (previous.getNarrativeId() != id
+                        && TrackerNarrativeReviewStatus.APPROVED.equals(previous.getReviewStatus())) {
+                    previous.setReviewStatus(TrackerNarrativeReviewStatus.REJECTED);
+                    markUpdated(previous);
+                    session.update(previous);
+                    displaced.add(Integer.valueOf(previous.getNarrativeId()));
+                }
+            }
+            narrative.setReviewStatus(TrackerNarrativeReviewStatus.APPROVED);
+            narrative.setDateApproved(new Date());
+            markUpdated(narrative);
+            session.update(narrative);
+            return displaced;
+        });
+    }
+
+    public TrackerNarrative changeStatus(Session session, WebUser owner, Integer workspaceId, long id,
+            String lastUpdated, TrackerNarrativeReviewStatus status) {
+        if (status != TrackerNarrativeReviewStatus.REJECTED && status != TrackerNarrativeReviewStatus.DELETED) {
+            throw problem("invalid_arguments", "Unsupported status change.");
+        }
+        return write(session, owner, () -> {
+            TrackerNarrative narrative = current(session, owner, workspaceId, id, lastUpdated);
+            if (narrative.getReviewStatus() == status) {
+                return narrative;
+            }
+            if (narrative.getReviewStatus() == TrackerNarrativeReviewStatus.GENERATING
+                    || narrative.getReviewStatus() == TrackerNarrativeReviewStatus.DELETED) {
+                throw problem("invalid_state", "A generating or deleted narrative cannot be changed.");
+            }
+            narrative.setReviewStatus(status);
+            markUpdated(narrative);
+            session.update(narrative);
+            return narrative;
+        });
+    }
+
+    public TrackerNarrative generate(Session session, WebUser owner, Integer workspaceId, int projectId,
+            TrackerNarrativeScope scope) {
+        requireGeneration();
+        return write(session, owner, () -> {
+            requireProject(session, projectId, workspaceId);
+            return queueGeneration(session, owner, projectId, scope);
+        });
+    }
+
+    public TrackerNarrative regenerate(Session session, WebUser owner, Integer workspaceId, long id,
+            String lastUpdated) {
+        requireGeneration();
+        return write(session, owner, () -> {
+            TrackerNarrative source = current(session, owner, workspaceId, id, lastUpdated);
+            if (source.getReviewStatus() == TrackerNarrativeReviewStatus.GENERATING
+                    || source.getReviewStatus() == TrackerNarrativeReviewStatus.DELETED) {
+                throw problem("invalid_state", "A generating or deleted narrative cannot be regenerated.");
+            }
+            return queueGeneration(session, owner, source.getProjectId(),
+                    resolveScope(source.getNarrativeType(), owner.toLocalDate(source.getPeriodStart())));
+        });
+    }
+
+    protected boolean isGenerationAvailable() {
+        return TrackerNarrativeGenerator.isGenerationAvailable();
+    }
+
+    protected void enqueueGeneration(long id) {
+        TrackerNarrativeGenerator.enqueue(id);
+    }
+
+    private void requireGeneration() {
+        if (!isGenerationAvailable()) {
+            throw problem("generation_unavailable", GENERATION_UNAVAILABLE_MESSAGE);
+        }
+    }
+
+    private TrackerNarrative queueGeneration(Session session, WebUser owner, int projectId,
+            TrackerNarrativeScope scope) {
         TrackerNarrative narrative = buildNewNarrative(scope.getNarrativeType(), scope.getPeriodStart(),
-                scope.getPeriodEnd(),
-                projectId, contactId, appReq.getWebUser());
+                scope.getPeriodEnd(), projectId, owner.getContactId());
+        new TrackerNarrativeDao(session).insert(narrative);
+        session.getTransaction().registerSynchronization(new Synchronization() {
+            public void beforeCompletion() {
+            }
 
-        long newId = insertNarrative(appReq.getDataSession(), narrative);
-        if (newId > 0) {
-            TrackerNarrativeGenerator.enqueue(newId);
-        }
-        return newId;
+            public void afterCompletion(int status) {
+                if (status == Status.STATUS_COMMITTED) {
+                    enqueueGeneration(narrative.getNarrativeId());
+                }
+            }
+        });
+        return narrative;
     }
 
-    public long regenerate(AppReq appReq, long narrativeId) {
-        if (!TrackerNarrativeGenerator.isGenerationAvailable()) {
-            return 0;
+    private TrackerNarrative current(Session session, WebUser owner, Integer workspaceId, long id,
+            String lastUpdated) {
+        TrackerNarrative narrative = requireNarrative(session, owner, workspaceId, id, true);
+        if (lastUpdated == null || lastUpdated.trim().isEmpty()) {
+            throw problem("invalid_arguments", "lastUpdated is required; reload the report before modifying it.");
         }
-
-        Session dataSession = appReq.getDataSession();
-        TrackerNarrative existing = (TrackerNarrative) dataSession.get(TrackerNarrative.class, (int) narrativeId);
-        if (existing == null || existing.getContactId() != appReq.getWebUser().getContactId()) {
-            appReq.setMessageProblem("Narrative not found.");
-            return 0;
+        if (!lastUpdated.equals(version(narrative))) {
+            throw problem("stale", "This narrative has changed; read it again before modifying it.");
         }
-
-        int projectId = existing.getProjectId();
-        int contactId = existing.getContactId();
-        if (projectId <= 0 || contactId <= 0) {
-            projectId = resolveProjectId(appReq);
-            contactId = resolveContactId(appReq.getWebUser());
-        }
-        if (projectId <= 0 || contactId <= 0) {
-            appReq.setMessageProblem("Unable to determine project/contact for narrative.");
-            return 0;
-        }
-
-        LocalDate periodStart = appReq.getWebUser().toLocalDate(existing.getPeriodStart());
-        LocalDate periodEnd = appReq.getWebUser().toLocalDate(existing.getPeriodEnd());
-        TrackerNarrative replacement = buildNewNarrative(existing.getNarrativeType(), periodStart, periodEnd, projectId,
-                contactId, appReq.getWebUser());
-
-        long newId = insertNarrative(dataSession, replacement);
-        if (newId > 0) {
-            TrackerNarrativeGenerator.enqueue(newId);
-        }
-        return newId;
+        return narrative;
     }
 
-    public void approve(Session dataSession, WebUser webUser, long narrativeId) {
-        if (narrativeId <= 0) {
-            return;
-        }
-        TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-        narrativeDao.approve(narrativeId, webUser.getContactId(), webUser.getLocalDateTimeNow());
+    public static String version(TrackerNarrative narrative) {
+        return narrative.getLastUpdated() == null ? null
+                : java.time.Instant.ofEpochMilli(narrative.getLastUpdated().getTime()).toString();
     }
 
-    public void reject(Session dataSession, WebUser webUser, long narrativeId) {
-        if (narrativeId <= 0) {
-            return;
+    public static void markUpdated(TrackerNarrative narrative) {
+        // MySQL's legacy timestamp columns have second precision. Every write must change the token.
+        long previous = narrative.getLastUpdated() == null ? 0 : narrative.getLastUpdated().getTime();
+        narrative.setLastUpdated(new Date(Math.max(System.currentTimeMillis() / 1000 * 1000,
+                previous / 1000 * 1000 + 1000)));
+    }
+
+    private static Project requireProject(Session session, int projectId, Integer workspaceId) {
+        Project project = projectId > 0 ? (Project) session.get(Project.class, projectId) : null;
+        if (project == null || (workspaceId != null && !workspaceId.equals(project.getWorkspaceId()))) {
+            throw problem("not_found", "Project/narrative not found in this workspace.");
         }
-        Transaction transaction = dataSession.beginTransaction();
+        return project;
+    }
+
+    private List<TrackerNarrative> lockedPeriod(Session session, WebUser owner, TrackerNarrativeScope scope) {
+        List<TrackerNarrative> narratives = new TrackerNarrativeDao(session).findByContactTypeAndPeriodForUpdate(
+                owner.getContactId(), scope.getNarrativeType(), scope.getPeriodStart(), scope.getPeriodEnd());
+        for (TrackerNarrative narrative : narratives) {
+            session.refresh(narrative, LockMode.UPGRADE);
+        }
+        return narratives;
+    }
+
+    private static void requireEditable(TrackerNarrative narrative) {
+        TrackerNarrativeReviewStatus status = narrative.getReviewStatus();
+        if (status != TrackerNarrativeReviewStatus.GENERATED && status != TrackerNarrativeReviewStatus.APPROVED
+                && status != TrackerNarrativeReviewStatus.REJECTED) {
+            throw problem("invalid_state", "Only a generated, approved, or rejected report can be edited.");
+        }
+    }
+
+    private static void requireMarkdown(String markdown) {
+        if (normalizeMarkdown(markdown) == null) {
+            throw problem("invalid_arguments", "Report Markdown cannot be empty.");
+        }
+    }
+
+    private static void requireLength(String value, int max, String field) {
+        if (value != null && value.length() > max) {
+            throw problem("invalid_arguments", field + " must not exceed " + max + " characters.");
+        }
+    }
+
+    private interface Work<T> {
+        T run();
+    }
+
+    private <T> T write(Session session, WebUser owner, Work<T> work) {
+        Transaction transaction = session.getTransaction();
+        boolean ownTransaction = transaction == null || !transaction.isActive();
+        if (ownTransaction) {
+            transaction = session.beginTransaction();
+        }
         try {
-            TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            narrativeDao.reject(narrativeId, webUser.getContactId());
-            transaction.commit();
+            // Serialize all narrative writes for this contact, including concurrent period approvals/submissions.
+            if (owner.getContactId() <= 0 || session.get(ProjectContact.class, owner.getContactId(),
+                    LockMode.UPGRADE) == null) {
+                throw problem("not_found", "Narrative owner not found.");
+            }
+            T result = work.run();
+            session.flush();
+            if (ownTransaction) {
+                transaction.commit();
+            }
+            return result;
         } catch (RuntimeException e) {
             if (transaction != null && transaction.isActive()) {
                 transaction.rollback();
@@ -185,38 +394,8 @@ public class TrackerNarrativeService {
         }
     }
 
-    public void delete(Session dataSession, WebUser webUser, long narrativeId) {
-        if (narrativeId <= 0) {
-            return;
-        }
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            narrativeDao.softDelete(narrativeId, webUser.getContactId());
-            transaction.commit();
-        } catch (RuntimeException e) {
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
-            }
-            throw e;
-        }
-    }
-
-    public void saveMarkdown(Session dataSession, WebUser webUser, long narrativeId, String markdownFinal) {
-        if (narrativeId <= 0) {
-            return;
-        }
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            narrativeDao.updateFinalText(narrativeId, webUser.getContactId(), normalizeMarkdown(markdownFinal));
-            transaction.commit();
-        } catch (RuntimeException e) {
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
-            }
-            throw e;
-        }
+    private static NarrativeWorkflowException problem(String code, String message) {
+        return new NarrativeWorkflowException(code, message);
     }
 
     public static String normalizeMarkdown(String value) {
@@ -294,38 +473,19 @@ public class TrackerNarrativeService {
         return project == null ? 0 : project.getProjectId();
     }
 
-    private static int resolveContactId(WebUser webUser) {
-        return webUser == null ? 0 : webUser.getContactId();
-    }
-
     private static TrackerNarrative buildNewNarrative(String type, LocalDate periodStart, LocalDate periodEnd,
-            int projectId, int contactId, WebUser webUser) {
+            int projectId, int contactId) {
         TrackerNarrative narrative = new TrackerNarrative();
         narrative.setProjectId(projectId);
         narrative.setContactId(contactId);
         narrative.setNarrativeType(type);
-        narrative.setPeriodStart(webUser.toDate(periodStart));
-        narrative.setPeriodEnd(webUser.toDate(periodEnd));
+        narrative.setPeriodStart(java.sql.Date.valueOf(periodStart));
+        narrative.setPeriodEnd(java.sql.Date.valueOf(periodEnd));
         narrative.setDisplayTitle(buildDisplayTitle(type, periodStart, periodEnd));
         narrative.setReviewStatus(TrackerNarrativeReviewStatus.GENERATING);
         narrative.setMarkdownGenerated(null);
         narrative.setMarkdownFinal(null);
-        narrative.setLastUpdated(new Date());
+        narrative.setLastUpdated(new Date(System.currentTimeMillis() / 1000 * 1000));
         return narrative;
-    }
-
-    private static long insertNarrative(Session dataSession, TrackerNarrative narrative) {
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            TrackerNarrativeDao narrativeDao = new TrackerNarrativeDao(dataSession);
-            long newId = narrativeDao.insert(narrative);
-            transaction.commit();
-            return newId;
-        } catch (RuntimeException e) {
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
-            }
-            throw e;
-        }
     }
 }
