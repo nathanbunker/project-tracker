@@ -32,6 +32,41 @@ public class BillPlanServiceTest {
         Assert.assertSame(sameDateHigherVersion, selected);
     }
 
+    @Test
+    public void selectActiveApprovedPlan_usesSupersededPlanBeforeSuccessorTakesEffect() throws ParseException {
+        BillPlan v1 = plan("2026-07-25", 1, BillPlanStatus.SUPERSEDED.getCode());
+        v1.setBillPlanId(1);
+        BillPlan v2 = plan("2026-10-01", 2, BillPlanStatus.APPROVED.getCode());
+        v2.setBillPlanId(2);
+        v2.setSupersedesBillPlanId(Integer.valueOf(1));
+
+        Assert.assertSame(v1, service.selectActiveApprovedPlan(Arrays.asList(v1, v2), parse("2026-09-15")));
+        Assert.assertSame(v2, service.selectActiveApprovedPlan(Arrays.asList(v1, v2), parse("2026-10-17")));
+    }
+
+    @Test
+    public void selectActiveApprovedPlan_retroactiveRevisionReplacesSupersededPlan() throws ParseException {
+        BillPlan v1 = plan("2026-10-01", 1, BillPlanStatus.SUPERSEDED.getCode());
+        v1.setBillPlanId(1);
+        BillPlan v2 = plan("2026-08-01", 2, BillPlanStatus.APPROVED.getCode());
+        v2.setBillPlanId(2);
+        v2.setSupersedesBillPlanId(Integer.valueOf(1));
+
+        Assert.assertSame(v2, service.selectActiveApprovedPlan(Arrays.asList(v1, v2), parse("2026-11-01")));
+    }
+
+    @Test
+    public void selectActiveApprovedPlan_ignoresDrafts() throws ParseException {
+        BillPlan approved = plan("2026-08-01", 1, BillPlanStatus.APPROVED.getCode());
+        approved.setBillPlanId(1);
+        BillPlan draft = plan("2026-09-01", 2, BillPlanStatus.DRAFT.getCode());
+        draft.setBillPlanId(2);
+        draft.setSupersedesBillPlanId(Integer.valueOf(1));
+
+        Assert.assertSame(approved,
+                service.selectActiveApprovedPlan(Arrays.asList(approved, draft), parse("2026-10-01")));
+    }
+
     private BillPlan plan(String effectiveDate, int versionNum, String status) throws ParseException {
         BillPlan plan = new BillPlan();
         plan.setEffectiveDate(parse(effectiveDate));

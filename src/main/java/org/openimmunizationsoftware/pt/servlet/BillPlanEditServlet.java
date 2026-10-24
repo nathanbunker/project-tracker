@@ -83,7 +83,13 @@ public class BillPlanEditServlet extends ClientServlet {
             }
 
             String action = appReq.getAction();
-            if (action != null && action.length() > 0) {
+            if ("Create Revision".equals(action) && billPlan.getBillPlanId() > 0) {
+                String revisionMessage = createRevision(appReq, dataSession, billPlan);
+                if (revisionMessage == null) {
+                    return;
+                }
+                appReq.setMessageProblem(revisionMessage);
+            } else if (action != null && action.length() > 0) {
                 if (isReadOnlyStatus(billPlan)) {
                     appReq.setMessageProblem(
                             "Approved, superseded, and inactive plans are read-only. Create a revision to make changes.");
@@ -369,8 +375,6 @@ public class BillPlanEditServlet extends ClientServlet {
             } else if ("Save Draft".equals(action)) {
                 billPlan.setPlanStatus(BillPlanStatus.DRAFT.getCode());
                 dataSession.update(billPlan);
-            } else if ("Create Revision".equals(action)) {
-                createRevision(dataSession, billPlan, targets);
             }
 
             trans.commit();
@@ -381,40 +385,21 @@ public class BillPlanEditServlet extends ClientServlet {
         return null;
     }
 
-    private void createRevision(Session dataSession, BillPlan sourcePlan, List<BillPlanTarget> sourceTargets) {
-        BillPlan revision = new BillPlan();
-        revision.setWorkspaceId(sourcePlan.getWorkspaceId());
-        revision.setWebUserId(sourcePlan.getWebUserId());
-        revision.setBillPlanCode(sourcePlan.getBillPlanCode());
-        revision.setPlanLabel(sourcePlan.getPlanLabel());
-        revision.setFiscalStartDate(sourcePlan.getFiscalStartDate());
-        revision.setFiscalEndDate(sourcePlan.getFiscalEndDate());
-        revision.setVersionNum(sourcePlan.getVersionNum() + 1);
-        revision.setEffectiveDate(sourcePlan.getEffectiveDate());
-        revision.setPercentBasis(sourcePlan.getPercentBasis());
-        revision.setPlanStatus(BillPlanStatus.DRAFT.getCode());
-        revision.setSupersedesBillPlanId(Integer.valueOf(sourcePlan.getBillPlanId()));
-        revision.setChangeNote(sourcePlan.getChangeNote());
-        dataSession.save(revision);
-
-        for (BillPlanTarget sourceTarget : sourceTargets) {
-            BillPlanTarget target = new BillPlanTarget();
-            target.setBillPlan(revision);
-            target.setBillCode(sourceTarget.getBillCode());
-            target.setTargetMode(sourceTarget.getTargetMode());
-            target.setAnnualTargetBps(sourceTarget.getAnnualTargetBps());
-            target.setSteeringTargetBps(sourceTarget.getSteeringTargetBps());
-            target.setBillBudgetId(sourceTarget.getBillBudgetId());
-            target.setVariancePolicy(sourceTarget.getVariancePolicy());
-            target.setDisplayOrder(sourceTarget.getDisplayOrder());
-            target.setTargetNote(sourceTarget.getTargetNote());
-            dataSession.save(target);
+    // Copies the saved plan (not any unsaved form edits) into a new draft and opens it.
+    private String createRevision(AppReq appReq, Session dataSession, BillPlan sourcePlan) throws IOException {
+        BillPlan revision;
+        Transaction trans = dataSession.beginTransaction();
+        try {
+            BillPlanService service = new BillPlanService(new BillPlanDao(dataSession),
+                    new BillPlanTargetDao(dataSession));
+            revision = service.createRevision(sourcePlan, appReq.getWebUser().getToday());
+            trans.commit();
+        } catch (Exception e) {
+            trans.rollback();
+            return "Unable to create revision: " + e.getMessage();
         }
-
-        if (BillPlanStatus.APPROVED.getCode().equalsIgnoreCase(n(sourcePlan.getPlanStatus()))) {
-            sourcePlan.setPlanStatus(BillPlanStatus.SUPERSEDED.getCode());
-            dataSession.update(sourcePlan);
-        }
+        appReq.getResponse().sendRedirect("BillPlanEditServlet?billPlanId=" + revision.getBillPlanId());
+        return null;
     }
 
     private boolean isReadOnlyStatus(BillPlan billPlan) {

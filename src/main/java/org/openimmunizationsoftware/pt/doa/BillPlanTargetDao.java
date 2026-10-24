@@ -19,6 +19,10 @@ public class BillPlanTargetDao {
         this.session = session;
     }
 
+    public void save(BillPlanTarget target) {
+        session.save(target);
+    }
+
     @SuppressWarnings("unchecked")
     public List<BillPlanTarget> listTargetsForPlan(int billPlanId) {
         Query query = session.createQuery(

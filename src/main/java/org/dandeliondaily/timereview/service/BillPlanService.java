@@ -35,9 +35,61 @@ public class BillPlanService {
         billPlanDao.update(billPlan);
     }
 
+    /**
+     * Copies a plan and its targets into a new draft numbered after the highest
+     * existing version of the plan code. The source keeps its status until the
+     * draft is approved, so the current plan stays in effect meanwhile.
+     */
+    public BillPlan createRevision(BillPlan source, Date today) {
+        BillPlan revision = new BillPlan();
+        revision.setWorkspaceId(source.getWorkspaceId());
+        revision.setWebUserId(source.getWebUserId());
+        revision.setBillPlanCode(source.getBillPlanCode());
+        revision.setPlanLabel(source.getPlanLabel());
+        revision.setFiscalStartDate(source.getFiscalStartDate());
+        revision.setFiscalEndDate(source.getFiscalEndDate());
+        revision.setVersionNum(billPlanDao.findMaxVersionNum(source.getWorkspaceId(), source.getWebUserId(),
+                source.getBillPlanCode()) + 1);
+        boolean todayInFiscalPeriod = today != null && source.getFiscalStartDate() != null
+                && source.getFiscalEndDate() != null && !today.before(source.getFiscalStartDate())
+                && !today.after(source.getFiscalEndDate());
+        revision.setEffectiveDate(todayInFiscalPeriod ? today : source.getEffectiveDate());
+        revision.setPercentBasis(source.getPercentBasis());
+        revision.setPlanStatus(BillPlanStatus.DRAFT.getCode());
+        revision.setSupersedesBillPlanId(Integer.valueOf(source.getBillPlanId()));
+        revision.setChangeNote(null);
+        billPlanDao.save(revision);
+
+        for (BillPlanTarget sourceTarget : billPlanTargetDao.listTargetsForPlan(source.getBillPlanId())) {
+            BillPlanTarget target = new BillPlanTarget();
+            target.setBillPlan(revision);
+            target.setBillCode(sourceTarget.getBillCode());
+            target.setTargetMode(sourceTarget.getTargetMode());
+            target.setAnnualTargetBps(sourceTarget.getAnnualTargetBps());
+            target.setSteeringTargetBps(sourceTarget.getSteeringTargetBps());
+            target.setBillBudgetId(sourceTarget.getBillBudgetId());
+            target.setVariancePolicy(sourceTarget.getVariancePolicy());
+            target.setDisplayOrder(sourceTarget.getDisplayOrder());
+            target.setTargetNote(sourceTarget.getTargetNote());
+            billPlanTargetDao.save(target);
+        }
+        return revision;
+    }
+
     public void approvePlan(BillPlan billPlan) {
-        BillPlan prior = billPlanDao.findLatestApprovedPlanBefore(billPlan.getWorkspaceId(), billPlan.getWebUserId(),
-                billPlan.getBillPlanCode(), billPlan.getEffectiveDate(), Integer.valueOf(billPlan.getBillPlanId()));
+        BillPlan prior = null;
+        if (billPlan.getSupersedesBillPlanId() != null
+                && billPlan.getSupersedesBillPlanId().intValue() != billPlan.getBillPlanId()) {
+            BillPlan source = billPlanDao.getBillPlan(billPlan.getSupersedesBillPlanId().intValue());
+            if (source != null && BillPlanStatus.APPROVED.getCode().equalsIgnoreCase(source.getPlanStatus())) {
+                prior = source;
+            }
+        }
+        if (prior == null) {
+            prior = billPlanDao.findLatestApprovedPlanBefore(billPlan.getWorkspaceId(), billPlan.getWebUserId(),
+                    billPlan.getBillPlanCode(), billPlan.getEffectiveDate(),
+                    Integer.valueOf(billPlan.getBillPlanId()));
+        }
         if (prior != null) {
             billPlan.setSupersedesBillPlanId(Integer.valueOf(prior.getBillPlanId()));
             prior.setPlanStatus(BillPlanStatus.SUPERSEDED.getCode());
@@ -64,18 +116,36 @@ public class BillPlanService {
         if (plans == null || requestedDate == null) {
             return null;
         }
-        List<BillPlan> candidates = new ArrayList<BillPlan>();
+        // Mirrors BillPlanDao.findActiveApprovedPlan: a superseded plan still applies
+        // until its successor's effective date.
+        List<BillPlan> inForce = new ArrayList<BillPlan>();
         for (BillPlan plan : plans) {
             if (plan == null || plan.getEffectiveDate() == null || plan.getPlanStatus() == null) {
                 continue;
             }
-            if (!BillPlanStatus.APPROVED.getCode().equalsIgnoreCase(plan.getPlanStatus())) {
+            if (!BillPlanStatus.APPROVED.getCode().equalsIgnoreCase(plan.getPlanStatus())
+                    && !BillPlanStatus.SUPERSEDED.getCode().equalsIgnoreCase(plan.getPlanStatus())) {
                 continue;
             }
             if (plan.getEffectiveDate().after(requestedDate)) {
                 continue;
             }
-            candidates.add(plan);
+            inForce.add(plan);
+        }
+        List<BillPlan> candidates = new ArrayList<BillPlan>();
+        for (BillPlan plan : inForce) {
+            boolean replaced = false;
+            for (BillPlan other : inForce) {
+                if (other.getSupersedesBillPlanId() != null
+                        && other.getSupersedesBillPlanId().intValue() == plan.getBillPlanId()
+                        && other != plan) {
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) {
+                candidates.add(plan);
+            }
         }
         if (candidates.isEmpty()) {
             return null;

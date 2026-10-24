@@ -1,5 +1,6 @@
 package org.openimmunizationsoftware.pt.doa;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -48,18 +49,38 @@ public class BillPlanDao {
         return query.list();
     }
 
+    /**
+     * Returns the plan in effect on the requested date. A superseded plan still
+     * covers the dates before its successor's effective date, so history keeps
+     * the plan that applied at the time.
+     */
     public BillPlan findActiveApprovedPlan(int workspaceId, int webUserId, Date requestedDate) {
         Query query = session.createQuery(
-                "from BillPlan where workspaceId = :workspaceId and webUserId = :webUserId "
-                        + "and planStatus = :planStatus and effectiveDate <= :requestedDate "
-                        + "and fiscalStartDate <= :requestedDate and fiscalEndDate >= :requestedDate "
-                        + "order by effectiveDate desc, versionNum desc");
+                "from BillPlan p where p.workspaceId = :workspaceId and p.webUserId = :webUserId "
+                        + "and p.planStatus in (:statuses) and p.effectiveDate <= :requestedDate "
+                        + "and p.fiscalStartDate <= :requestedDate and p.fiscalEndDate >= :requestedDate "
+                        + "and not exists (select q.billPlanId from BillPlan q "
+                        + "where q.supersedesBillPlanId = p.billPlanId and q.planStatus in (:statuses) "
+                        + "and q.effectiveDate <= :requestedDate) "
+                        + "order by p.effectiveDate desc, p.versionNum desc");
         query.setInteger("workspaceId", workspaceId);
         query.setInteger("webUserId", webUserId);
-        query.setString("planStatus", BillPlanStatus.APPROVED.getCode());
+        query.setParameterList("statuses",
+                Arrays.asList(BillPlanStatus.APPROVED.getCode(), BillPlanStatus.SUPERSEDED.getCode()));
         query.setDate("requestedDate", requestedDate);
         query.setMaxResults(1);
         return (BillPlan) query.uniqueResult();
+    }
+
+    public int findMaxVersionNum(int workspaceId, int webUserId, String billPlanCode) {
+        Query query = session.createQuery(
+                "select max(versionNum) from BillPlan where workspaceId = :workspaceId "
+                        + "and webUserId = :webUserId and billPlanCode = :billPlanCode");
+        query.setInteger("workspaceId", workspaceId);
+        query.setInteger("webUserId", webUserId);
+        query.setString("billPlanCode", billPlanCode);
+        Number max = (Number) query.uniqueResult();
+        return max == null ? 0 : max.intValue();
     }
 
     public BillPlan findLatestApprovedPlanBefore(int workspaceId, int webUserId, String billPlanCode,
