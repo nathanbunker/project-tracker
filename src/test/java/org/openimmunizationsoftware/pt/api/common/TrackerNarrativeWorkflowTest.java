@@ -44,6 +44,7 @@ import org.openimmunizationsoftware.pt.model.ProjectContact;
 import org.openimmunizationsoftware.pt.model.TrackerNarrative;
 import org.openimmunizationsoftware.pt.model.TrackerNarrativeReviewStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
+import org.openimmunizationsoftware.pt.doa.TrackerNarrativeDao;
 import org.openimmunizationsoftware.pt.servlet.TrackerNarrativeServlet;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -500,12 +501,19 @@ public class TrackerNarrativeWorkflowTest {
     public void legacyEditorCarriesTheDisplayedVersionAndRequiresSavingBeforeApproval() throws Exception {
         TrackerNarrative report = submit("Text");
         java.lang.reflect.Method editor = TrackerNarrativeServlet.class.getDeclaredMethod("printEditor",
-                PrintWriter.class, WebUser.class, TrackerNarrative.class, String.class, LocalDate.class, boolean.class);
+                PrintWriter.class, WebUser.class, TrackerNarrative.class, String.class, LocalDate.class, boolean.class,
+                TrackerNarrativeDao.class);
         editor.setAccessible(true);
         for (boolean editing : new boolean[] { true, false }) {
             StringWriter text = new StringWriter();
             editor.invoke(new TrackerNarrativeServlet(), new PrintWriter(text), owner, report, "WEEKLY",
-                    LocalDate.of(2026, 10, 23), editing);
+                    LocalDate.of(2026, 10, 23), editing, new TrackerNarrativeDao(session) {
+                        @Override
+                        public TrackerNarrative findAdjacentByContactAndType(int contactId, String type,
+                                LocalDate periodStart, boolean next) {
+                            return null;
+                        }
+                    });
             String html = text.toString();
             assertTrue(html.contains("name=\"lastUpdated\" value=\"" + TrackerNarrativeService.version(report) + "\""));
             assertEquals(!editing, html.contains("value=\"Approve\""));

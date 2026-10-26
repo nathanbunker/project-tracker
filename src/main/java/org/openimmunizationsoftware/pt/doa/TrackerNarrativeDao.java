@@ -71,6 +71,25 @@ public class TrackerNarrativeDao {
         return results == null || results.isEmpty() ? null : results.get(0);
     }
 
+    public TrackerNarrative findAdjacentByContactAndType(int contactId, String type, LocalDate periodStart,
+            boolean next) {
+        Query query = session.createQuery(
+                "from TrackerNarrative where contactId = :contactId and narrativeType = :type "
+                        + "and periodStart " + (next ? ">" : "<") + " :periodStart "
+                        + "and reviewStatusString <> :deleted "
+                        + "order by periodStart " + (next ? "asc" : "desc")
+                        + ", case when reviewStatusString = :approved then 0 else 1 end, narrativeId desc");
+        query.setInteger("contactId", contactId);
+        query.setString("type", type);
+        query.setDate("periodStart", toSqlDate(periodStart));
+        query.setString("deleted", TrackerNarrativeReviewStatus.DELETED.getId());
+        query.setString("approved", TrackerNarrativeReviewStatus.APPROVED.getId());
+        query.setMaxResults(1);
+        @SuppressWarnings("unchecked")
+        List<TrackerNarrative> results = query.list();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
     @SuppressWarnings("unchecked")
     public List<TrackerNarrative> findByContactTypeAndPeriodForUpdate(int contactId, String type,
             LocalDate start, LocalDate end) {

@@ -28,6 +28,13 @@ model for external generation.
 
 ## At a glance
 
+When viewing a report in `TrackerNarrativeServlet`, **Previous** and **Next**
+beside **Back to list** open the nearest earlier or later report of the same type
+for the signed-in user. Dates without reports and deleted reports are skipped.
+If a date has multiple reports, an approved report is preferred; otherwise the
+newest revision is opened. A navigation link is hidden when no report exists in
+that direction. Navigation opens the preview; save any edits before leaving.
+
 | | Daily | Weekly |
 |---|---|---|
 | Audience/purpose | Private operational record of what happened that day | Concise supervisor-facing briefing of outcomes, changes, and attention needed |

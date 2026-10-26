@@ -118,7 +118,7 @@ public class TrackerNarrativeServlet extends ClientServlet {
                 if (narrative == null || narrative.getContactId() != webUser.getContactId()) {
                     out.println("<p class=\"fail\">Narrative not found.</p>");
                 } else {
-                    printEditor(out, webUser, narrative, type, selectedDate, editMode);
+                    printEditor(out, webUser, narrative, type, selectedDate, editMode, narrativeDao);
                 }
             } else {
                 printList(out, webUser, narrativeDao, scope);
@@ -379,11 +379,23 @@ public class TrackerNarrativeServlet extends ClientServlet {
     }
 
     private void printEditor(PrintWriter out, WebUser webUser, TrackerNarrative narrative, String type,
-            LocalDate selectedDate, boolean editMode) {
+            LocalDate selectedDate, boolean editMode, TrackerNarrativeDao narrativeDao) {
         boolean generationAvailable = TrackerNarrativeGenerator.isGenerationAvailable();
         out.println("<h2>Tracker Narrative</h2>");
         out.println("<p><a class=\"button\" href=\"" + buildListLink(type, selectedDate)
-                + "\">Back to list</a></p>");
+                + "\">Back to list</a>");
+        LocalDate periodStart = webUser.toLocalDate(narrative.getPeriodStart());
+        for (boolean next : new boolean[] { false, true }) {
+            TrackerNarrative adjacent = narrativeDao.findAdjacentByContactAndType(webUser.getContactId(),
+                    narrative.getNarrativeType(), periodStart, next);
+            if (adjacent != null) {
+                out.println(" <a class=\"button\" href=\""
+                        + buildEditorLink(adjacent.getNarrativeId(), adjacent.getNarrativeType(),
+                                webUser.toLocalDate(adjacent.getPeriodStart()))
+                        + "\">" + (next ? "Next" : "Previous") + "</a>");
+            }
+        }
+        out.println("</p>");
 
         if (!generationAvailable) {
             out.println("<p class=\"fail\">" + escapeHtml(GENERATION_UNAVAILABLE_MESSAGE) + "</p>");
