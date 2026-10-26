@@ -16,6 +16,11 @@ Building Bridges is the first use case: one private project linked to many count
 
 ## Current Model (as built)
 
+**2026-10-26 correction:** Dandelion's v5.3 meeting agenda/note tables are empty persistence scaffolding, not an
+implemented meeting-history feature. Meeting agendas and notes are maintained in InteropHub. Retire that
+scaffolding as described in the [linked-meeting reconciliation](linked-meeting-domain-model.md#reconciliation-with-v53-meeting-work);
+retain the populated project/contact synchronization fields.
+
 | Layer | What it holds | Where |
 |---|---|---|
 | InteropHub topic | Public-facing topic, meeting agendas and notes | InteropHub |
@@ -23,7 +28,7 @@ Building Bridges is the first use case: one private project linked to many count
 | Private project | One person's work, e.g. Nathan's "Building Bridges" | `project` in a private workspace |
 | Patch link | Private project → shared topics, 1-to-N | `project_patch_link` (`DIRECT_PROJECT`, `PATCH_TAG`, `PATCH_ALL`) |
 | Shared action set | One action recorded in both the private and the shared project | `action_set` with type `SHARED` |
-| Meeting topic | A topic discussed in an InteropHub meeting | `meeting_session_topic.interop_hub_topic_id` / `project_id` |
+| Meeting topic | A topic discussed in an InteropHub meeting | InteropHub; not Dandelion's dormant `meeting_session_topic` table |
 
 Students will get their own private accounts and link their own private projects to the same shared topics. The
 shared topic then collects actions from everyone working on it, while each person's private project stays theirs.
@@ -39,7 +44,8 @@ An agent working through MCP cannot currently follow the chain from private proj
    folder or a meeting topic.
 3. An action shows `sharedWithProjects` only after it is already in a shared action set. There is no MCP way to
    create a private action that is also recorded on a chosen topic.
-4. There is no MCP read of a topic's shared history (actions from all linked users, meeting topic notes).
+4. There is no MCP read of a topic's shared action history from all linked users. Meeting topic notes must be
+   obtained separately from InteropHub.
 
 In practice (10/15/2026): 11 follow-ups from the IVC meeting were created in Building Bridges without any link to
 their topics (PATH, UMC, Canada, India, ...), because the linked topics were not visible.
@@ -150,8 +156,8 @@ Add identity and linkage:
 One read for "everything Dandelion knows about this topic":
 
 - shared actions, open and recent completed, with who recorded each
-- meeting topics (`meeting_session_topic`) for this topic, with date, meeting name, and note lines, respecting
-  `meeting_note_line.visibility`
+- stable InteropHub topic identity/link so the agent can obtain meeting history and notes from InteropHub under
+  its authorization rules; do not depend on local meeting-topic or note-line tables
 - contacts assigned to the topic project
 - the caller's private actions linked to the topic
 
@@ -211,5 +217,5 @@ scientific committee follow-up) before any MCP work.
 - Should `get_topic_context` show other users' shared actions with their names, or anonymized for students?
 - Should the topic folder root be recorded per patch workspace or tag (for example a shared Dropbox link on the
   topic space) so students can find it without local configuration?
-- Is `meeting_session_topic` populated for Building Bridges meetings today, so topic history includes meeting notes?
+- Which InteropHub read interface should agents use to retrieve a topic's meeting history and notes?
 - Should Dandelion store a shareable Dropbox URL on the topic project (not a local path) as a convenience link?

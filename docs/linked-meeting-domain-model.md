@@ -13,6 +13,130 @@ calendar-integration architecture or define reminder and user-interface behavior
 
 ---
 
+## Reconciliation with v5.3 Meeting Work
+
+### Scope and evidence
+
+Analysis on 2026-10-26 compared `src/db/v5.3.sql`, application references, Hibernate mappings, and read-only queries
+against the local `dandelion` database at `127.0.0.1`. The user identifies that database as a production copy from
+the previous day. Production itself was not queried. This analysis does not remove code, execute a migration, or
+change database data.
+
+The migration combines two independent features: an unfinished meeting agenda/note subsystem and implemented
+project/contact synchronization. They should not be rolled back together.
+
+| v5.3 addition | Local database evidence | Recommendation |
+|---|---|---|
+| `meeting_session` | 0 rows | Retire; do not repurpose for linked meetings |
+| `meeting_session_topic` | 0 rows | Retire; agendas and meeting topics belong in InteropHub |
+| `meeting_note_line` | 0 rows | Retire; structured meeting notes belong in InteropHub |
+| `project_contact.name_title` widened to `varchar(200)` | 109 values exceed the old 10-character limit; maximum length is 62 | Keep |
+| Project external identity and ownership fields | 307 of 412 projects have populated source keys, external IDs, and sync timestamps; 307 are externally managed | Keep |
+| Contact external identity and ownership fields | 141 of 4,173 contacts have populated source keys, external IDs, and sync timestamps; 141 are externally managed | Keep |
+| Unique workspace/source/external-ID indexes | Used to enforce the existing synchronization identity boundary | Keep |
+| Nonunique indexes with the same columns as those unique indexes | Exact column-order duplicates on both tables | Optional separate index cleanup; not required for linked meetings |
+
+There are 1,098 project-contact assignment rows referencing externally managed projects and contacts. These
+assignments are not part of the abandoned meeting-note model.
+
+No database foreign keys, views, triggers, routines, or scheduled events referring to the three old meeting tables
+were found in the local inspection. The owner confirms that this subsystem was never put into use, the tables are
+empty in production, and the local copy accurately reflects that state as of the previous night. This is a
+single-user application with production migrations run manually by the owner; no migration-time emptiness checks
+or dependency guards are required for this cleanup.
+
+### What was actually implemented
+
+The old meeting subsystem has three model classes, three Hibernate mapping files, three DAOs, and three mapping
+registrations in `src/main/resources/hibernate.cfg.xml`:
+
+- `MeetingSession`, `MeetingSessionTopic`, and `MeetingNoteLine`
+- their corresponding `.hbm.xml` files under `org/openimmunizationsoftware/pt/model`
+- `MeetingSessionDao`, `MeetingSessionTopicDao`, and `MeetingNoteLineDao`
+
+Repository searches found no callers outside that persistence scaffolding and its mapping registrations: no UI,
+REST/MCP operation, service workflow, or test consumes these meeting entities. The mappings are still registered
+with Hibernate, however, so the feature is dormant scaffolding rather than just unused SQL.
+
+Project/contact synchronization is different. `SyncResource` exposes:
+
+- `POST /api/v1/sync/projects/upsert`
+- `POST /api/v1/sync/contacts/upsert`
+- `POST /api/v1/sync/assignments/apply`
+
+`ExternalSyncService` resolves projects and contacts using workspace, source key, and external ID, marks them as
+externally managed, and records the sync timestamp. Assignment mutations resolve both external identities.
+`ProjectEditServlet` and `ProjectContactEditServlet` also use the ownership flag to prevent local editing of
+source-controlled fields and display the last sync time. Removing these columns would break existing mapped
+entities and synchronization behavior, not merely remove unused meeting support.
+
+Keep all four external fields on each entity: `external_source_key`, `external_project_id` or
+`external_contact_id`, `external_managed`, and `external_last_synced_at`. Keep their model properties, mappings,
+sync API, and UI ownership behavior. The API contract is documented in [InteropHub Sync API](interophub-sync-api.md).
+
+### Why a new linked-meeting table is preferable
+
+The old `meeting_session` represents an InteropHub-oriented agenda container with draft/proposed/finalized states
+and a parent project. It has no action relationship, no enforced unique source occurrence key, and an optional end
+time. Its topics can map to multiple projects, and its note lines support nested notes, visibility, narrative
+categories, and generated-action candidates.
+
+The proposed linked meeting instead represents one externally owned calendar occurrence attached to exactly one
+`WILL_MEET` action, with a required start/end interval and durable occurrence identity. Reusing the old table would
+retain misleading lifecycle and ownership concepts while still requiring substantial schema changes.
+
+Use a new, distinctly named table/model, preferably `linked_meeting` / `LinkedMeeting` subject to final technical
+design. Meeting identity belongs there, not in the project/contact external keys. Project assignment comes from
+the attached action. No general action start-time field or Dandelion agenda/note-taking subsystem is needed.
+Meeting content and notes authored in InteropHub remain there; retaining a source invitation body is not a
+replacement meeting-note editor.
+
+### Recommended cleanup sequence
+
+1. Preserve `v5.3.sql` as migration history. Do not rewrite an already-applied migration or revert it wholesale.
+2. Remove the three old DAOs, model classes, mapping files, and Hibernate registrations as one application change.
+   Build and validate Hibernate configuration after removal, and ensure the deployed WAR contains no stale copies.
+3. Add a new sequential SQL script after the current migration head for the owner to run manually in production.
+   Drop `meeting_note_line`, `meeting_session_topic`, and `meeting_session` in child-first order with straightforward
+   `DROP TABLE` statements. No emptiness checks, dependency guards, or migration framework are needed.
+4. Coordinate the deployment and script execution so old application code cannot still access dropped tables.
+5. Preserve the title width, project/contact external fields and unique indexes, all synchronized records, and
+   project-contact assignments. Removing duplicate nonunique indexes is optional and should be evaluated separately.
+6. Implement linked-meeting persistence and MCP behavior separately, without recreating agenda/topic/note tables.
+
+The [topic folders proposal](topic-folders-proposal.md) previously assumed local meeting topics and notes were
+available. That assumption is withdrawn: topic preparation must obtain meeting history from InteropHub rather than
+depend on these empty tables.
+
+---
+
+## Agreed Phases and Rollout
+
+1. **Retire the old meeting subsystem.** Remove the unused persistence code and mappings and prepare the manual
+   table-drop script. Preserve project/contact synchronization and the widened title field.
+2. **Add linked meetings through MCP.** Implement persistence, a shared service, occurrence lookup and idempotent
+   synchronization, and meeting details in action/planning reads. Include series-level project discovery without
+   silently changing action ownership or planning fields. Do not add general action start times or redesign the UI.
+3. **Consider UI improvements separately.** Use experience with MCP synchronization to decide on time labels,
+   join controls, source-status indicators, conflict presentation, and ordering behavior. This phase may follow
+   immediately or be deferred; it is not required for the initial release.
+
+Build and validate phases 1 and 2 locally, then deploy them together to production with the associated manually
+applied SQL scripts. Phase 1 does not require a separate production deployment. The owner will exercise phase 2
+through the real MCP workflow in production before deciding when to proceed with phase 3.
+
+### Phase 1 implementation
+
+The old meeting models, DAOs, Hibernate mapping files, and mapping registrations have been removed from the
+application source. [v5.11.sql](../src/db/v5.11.sql) contains the three manual `DROP TABLE` statements; it does not
+change project/contact synchronization or the title width. The historical `v5.3.sql` remains unchanged.
+
+The cleanup script has not been applied as part of this implementation. Run it manually with the combined
+phase 1/2 production release. Build with `mvn clean package` so deleted classes and mappings are not carried
+forward from an earlier build.
+
+---
+
 ## Core Principles
 
 1. A meeting is a distinct domain concept, not merely a collection of fields on an action.

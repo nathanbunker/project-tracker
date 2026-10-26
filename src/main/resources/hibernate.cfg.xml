@@ -65,9 +65,6 @@
     <mapping resource="org/openimmunizationsoftware/pt/model/WeUserDependency.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ProjectIssue.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/ActionNextTemplateConfig.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/MeetingSession.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/MeetingSessionTopic.hbm.xml"/>
-    <mapping resource="org/openimmunizationsoftware/pt/model/MeetingNoteLine.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/NathanAccess.hbm.xml"/>
     <mapping resource="org/openimmunizationsoftware/pt/model/NathanAccessEvent.hbm.xml"/>
     
