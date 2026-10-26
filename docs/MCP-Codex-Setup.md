@@ -16,18 +16,160 @@ environment variables, never in this repo.
 Tools are task-oriented rather than raw CRUD:
 
 - **Read-only**: `get_project_context`, `get_planning_context`, `get_outlook`,
-  `list_outlooks`, `get_time_allocation_context`, `get_day_availability`
+  `list_outlooks`, `get_time_allocation_context`, `get_day_availability`, `get_linked_meetings`,
+  `list_projects`, `search_actions`
 - **Narrow writes** (single record, no staleness ceremony beyond a simple upsert):
   `set_outlook`, `set_day_availability`, `add_project_ai_thought`,
   `update_project_ai_thought`, `delete_project_ai_thought`
 - **Staleness-checked writes**: `update_project_language` (project description/
   focus/outcome/success criteria), `apply_changes` (batch create/update/reschedule/
-  split/remove/complete on actions, applied atomically -- all or nothing)
+  split/remove/complete on actions, private project creation, guarded action moves, and linked-meeting
+  synchronization, applied atomically -- all or nothing)
 - **Tracker reports**: `get_narratives`, `get_tracker_narrative`,
   `submit_tracker_narrative`, `update_tracker_narrative`,
   `approve_tracker_narrative`, `reject_tracker_narrative`,
   `delete_tracker_narrative`, `generate_tracker_narrative`,
   `regenerate_tracker_narrative`.
+
+### Project discovery and action management (5.12.1)
+
+See [MCP project/action requests and implementation contract](mcp-project-and-action-requests.md#implementation-contract-5121)
+for exact filters, history limitations, batch references, move restrictions, examples, and the owner-run deployment
+review checklist. `list_projects` finds projects even without actions or recorded time, including authorized shared
+projects. `search_actions` searches private workspace action history. `create_project` and `update_action` project
+moves are available through `apply_changes` after user approval.
+
+This is a code-only patch on schema 5.12: there is no new migration beyond the linked-meeting prerequisites below.
+Related-project visibility links are deferred; existing SHARED action sets are not equivalent.
+
+### Linked meetings (5.12.0)
+
+Linked meetings complement ordinary `WILL_MEET` actions. Calendar identity, invitation content, start/end, and
+source status live on the linked meeting; the action retains its project, focused description, estimates, notes,
+manual order, completion, and actual time. This release adds no general action start times, calendar connector,
+automatic reordering, reminder delivery, or meeting-note editor.
+
+**Deployment:** manually apply [v5.11.sql](../src/db/v5.11.sql) (old meeting-table removal) and then
+[v5.12.sql](../src/db/v5.12.sql) (linked-meeting table), coordinated with deployment of the clean-built WAR.
+Both migrations are required before using the new build; action context reads now query the linked-meeting table.
+Project/contact sync fields are retained. Production verification is a separate, owner-run step.
+
+#### Read and match
+
+Call `get_linked_meetings` with any combination of:
+
+- `actionNextId`.
+- `sourceSystem`, `externalEventUid`, optional `sourceNamespace` (default `""`), and optional
+  `externalOccurrenceId`. Omit the occurrence ID to search a recurring series. Source identity is case-sensitive
+  and scoped to the authenticated workspace.
+- `date` (`yyyy-MM-dd` in the authenticated user's time zone), or both `rangeStart` and `rangeEnd` with explicit
+  offsets. Ranges return meetings overlapping `[start, end)`, including meetings that started before the range.
+- `sourceStatus`: `CONFIRMED`, `TENTATIVE`, `CANCELLED`, or `MISSING`. Without this filter all statuses are returned.
+- `limit` (1-200, default 100) and `offset` (default 0). Follow `hasMore` / `nextOffset` for additional results.
+
+The result is an object with `meetings`, `hasMore`, and `nextOffset`. Each meeting contains the complete source
+snapshot, `linkedMeetingId`, numeric `version`, `actionNextId`, `actionAsOf`, action description/status, project
+ID/name, and `lastSyncedAt`. Instants are UTC ISO-8601 strings. Series queries also return
+`seriesProjectCandidates` across the series' history, independent of occurrence/date/status filters and pagination.
+`suggestedProjectId` is populated only when exactly one distinct project was found. Never silently change a
+project because of that suggestion.
+
+Project/planning action entries also include `linkedMeeting` (null when absent), including the complete snapshot
+and meeting version. For conflicts, compare the returned intervals; do not treat `CANCELLED`/`MISSING` as confirmed
+attendance or decide which meeting the user should attend.
+
+#### Synchronize an existing action
+
+After user approval, call `apply_changes`:
+
+```json
+{
+  "changes": [{
+    "type": "upsert_linked_meeting",
+    "actionNextId": 456,
+    "asOf": "2026-10-26T12:00:00Z",
+    "meeting": {
+      "sourceSystem": "OUTLOOK_ICS",
+      "sourceNamespace": "personal-calendar",
+      "externalEventUid": "stable-calendar-series-uid",
+      "externalOccurrenceId": "2026-10-26T15:00:00Z",
+      "originalSubject": "Planning meeting",
+      "originalDescription": "Original invitation content",
+      "scheduledStart": "2026-10-26T09:00:00-06:00",
+      "scheduledEnd": "2026-10-26T10:00:00-06:00",
+      "sourceTimeZone": "America/Denver",
+      "joinUrl": "https://example.org/join",
+      "sourceStatus": "CONFIRMED"
+    }
+  }]
+}
+```
+
+Omit `expectedMeetingVersion` only for a new link. For an existing link, supply the numeric `version` from a read
+as `expectedMeetingVersion`, even if it is zero. Keep `asOf` from the action read as well. These are separate
+concurrency tokens: meeting sync does not modify the action's `asOf`. The result includes `linkedMeeting` with the
+current version after database flush. Identical snapshots preserve the version and `lastSyncedAt`; after a lost
+response, reread by source identity before retrying rather than creating a second action.
+
+Required snapshot fields: `sourceSystem` (max 64), `externalEventUid` (255), `externalOccurrenceId` (128),
+`originalSubject` (512), `scheduledStart`, `scheduledEnd`, and `sourceStatus`. End must be after start; timestamps
+must contain `Z` or an explicit offset. Stored precision is milliseconds. Retain the original occurrence ID when
+renaming/rescheduling; do not derive it from the newly scheduled start.
+
+Optional snapshot fields: `sourceNamespace` (128, default `""`), `originalDescription` (1,000,000),
+`organizerName` (255), `organizerAddress` (320), `sourceTimeZone` (128), `location` (2048), `joinUrl` (1200),
+`sourceLastModifiedAt` (offset timestamp), `sourceRevision` (255), and `sourceFingerprint` (255).
+`joinUrl` must be absolute HTTP(S), without embedded credentials. Use the direct conferencing link, not invitation
+management/help links. Source time-zone IDs and revisions are retained verbatim.
+
+**This is a complete snapshot, not a patch:** omitted optional source fields are cleared. Unknown fields are
+rejected. Never put action notes, project assignment, or estimates inside `meeting`. General action-edit operations
+do not accept meeting source fields. Source timestamps older than the stored `sourceLastModifiedAt` are rejected
+when both are supplied; opaque revision values are not interpreted as ordered counters.
+
+#### Create and link atomically
+
+Use an ordinary `create_action` with `nextActionType: "WILL_MEET"`, followed by `upsert_linked_meeting` with
+`actionChangeIndex` pointing to that earlier entry (zero-based), instead of `actionNextId` and `asOf`:
+
+```json
+{
+  "changes": [
+    {"type": "create_action", "projectId": 123, "description": "Attend planning",
+     "nextActionType": "WILL_MEET", "scheduledDate": "2026-10-26", "estimateMinutes": 30},
+    {"type": "upsert_linked_meeting", "actionChangeIndex": 0,
+     "meeting": {
+       "sourceSystem": "OUTLOOK_ICS", "externalEventUid": "event-uid",
+       "externalOccurrenceId": "original-occurrence-id", "originalSubject": "Planning",
+       "scheduledStart": "2026-10-26T15:00:00Z", "scheduledEnd": "2026-10-26T16:00:00Z",
+       "sourceStatus": "CONFIRMED"
+     }}
+  ]
+}
+```
+
+A batch is limited to 25 changes. Duplicate source occurrences, multiple meeting operations on the same action,
+and conflicting type changes are rejected for the entire batch. Runtime/constraint/concurrency failures roll back
+all writes, including newly created actions. Source identity and action attachment are immutable during upsert.
+There is no automatic reassignment, transfer to split actions, or propagation through shared action sets.
+
+#### Cancellation, absence, and unlinking
+
+Synchronize a complete snapshot with `sourceStatus: "CANCELLED"` or `"MISSING"` to record those states. Neither
+closes or reschedules the action. Absence from a read never automatically marks anything missing; the integration
+must explicitly decide that based on its successful source reads. Completing/cancelling an action retains its
+meeting. Action date/order changes remain separate, explicit `apply_changes` operations.
+
+After explicit approval, `unlink_meeting` accepts `actionNextId`, action `asOf`, and `expectedMeetingVersion`.
+It deletes only the linked snapshot, preserving the action. To replace or reassign a link, unlink first, then
+perform the new link in a later call. Existing browser/Plan Ahead edits reject type changes away from `WILL_MEET`
+while linked and reject conversion into a template; unlink through MCP first. There are no new meeting UI controls.
+
+**Owner-run production verification:** create/link one occurrence, read it back by identity, repeat with the current
+version, rename/reschedule it while preserving its occurrence ID, and confirm no duplicate action or unintended
+planning changes. Verify a new recurrence suggests its previous project, then verify cancellation leaves its action
+open. Local automated tests exercise the JSON-RPC dispatcher and rollback path; the opt-in persistence test uses
+only a disposable local `linked_meeting_test_*` schema, never the application database.
 
 ### Daily, weekly, and monthly report workflow (5.10.16)
 

@@ -49,6 +49,7 @@ import org.dandeliondaily.projecthealth.service.ProjectHealthPageService;
 import org.dandeliondaily.projectnarrative.model.ProjectNarrativeEntry;
 import org.dandeliondaily.projectnarrative.service.ProjectNarrativeService;
 import org.dandeliondaily.shared.service.ActionCompletionService;
+import org.dandeliondaily.shared.service.LinkedMeetingService;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.WorkspaceRegistry;
 import org.openimmunizationsoftware.pt.model.Project;
@@ -1111,6 +1112,16 @@ public class DandelionDashboardServlet extends ClientServlet {
                 parsedTimeSlot = TimeSlot.getTimeSlot(timeSlotParam.trim());
             }
 
+            if (nextActionType != null && nextActionType.length() > 0) {
+                for (ActionNext sibling : resolveSharedActionSiblings(dataSession, action)) {
+                    String meetingError = LinkedMeetingService.actionTypeError(dataSession, sibling, nextActionType);
+                    if (meetingError != null) {
+                        transaction.rollback();
+                        sendJsonResponse(appReq, false, meetingError, null);
+                        return;
+                    }
+                }
+            }
             applyEditFieldsToSiblings(appReq, dataSession, action, saveAndStart, nextActionDate,
                     normalizedNextActionDate, hasNextActionDateValue, nextActionType, hasNextContactIdValue,
                     parsedNextContactId, nextDescription, hasNextTimeEstimateValue, parsedNextTimeEstimate,

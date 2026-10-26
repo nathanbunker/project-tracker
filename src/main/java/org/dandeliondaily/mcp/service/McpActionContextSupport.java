@@ -12,6 +12,8 @@ import java.util.Set;
 import org.dandeliondaily.dashboard.service.DashboardActionOrdering;
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.dandeliondaily.shared.service.LinkedMeetingService;
+import org.openimmunizationsoftware.pt.doa.LinkedMeetingDao;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionSet;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
@@ -41,6 +43,11 @@ public final class McpActionContextSupport {
      */
     public static Map<String, Object> toActionMap(Session session, ActionNext action, boolean includeProjectName,
             WebUser webUser) {
+        return toActionMap(session, action, includeProjectName, webUser, true);
+    }
+
+    public static Map<String, Object> toActionMap(Session session, ActionNext action, boolean includeProjectName,
+            WebUser webUser, boolean includePrivateContext) {
         Map<String, Object> map = new LinkedHashMap<String, Object>();
         map.put("actionNextId", action.getActionNextId());
         map.put("projectId", action.getProjectId());
@@ -61,6 +68,10 @@ public final class McpActionContextSupport {
         map.put("linkUrl", action.getLinkUrl());
         map.put("completionOrder", action.getCompletionOrder());
         map.put("priorityLevel", action.getPriorityLevel());
+        if (includePrivateContext && action.getWorkspaceId() != null) {
+            map.put("linkedMeeting", LinkedMeetingService.toMap(
+                    new LinkedMeetingDao(session).findByAction(action.getWorkspaceId(), action.getActionNextId())));
+        }
         if (webUser != null) {
             map.put("dashboardBucket", DashboardActionOrdering.getBucketLabel(
                     DashboardActionOrdering.getCompletionBucket(action, webUser)));
@@ -70,7 +81,8 @@ public final class McpActionContextSupport {
         map.put("isTemplateRoot", isTemplateRoot);
         map.put("generatedFromTemplateId", action.getTemplateActionNextId());
         map.put("templateManaged", isTemplateRoot || action.getTemplateActionNextId() != null);
-        List<Map<String, Object>> sharedWith = resolveSharedProjects(session, action);
+        List<Map<String, Object>> sharedWith = includePrivateContext ? resolveSharedProjects(session, action)
+                : new ArrayList<Map<String, Object>>();
         if (!sharedWith.isEmpty()) {
             map.put("sharedWithProjects", sharedWith);
         }

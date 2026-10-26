@@ -1,5 +1,6 @@
 package org.dandeliondaily.projecthealth.service;
 
+import org.dandeliondaily.shared.service.LinkedMeetingService;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -775,6 +776,15 @@ public class ProjectHealthPageService {
         try {
             Date now = new Date();
             List<ActionNext> siblings = resolveSharedActionSiblings(dataSession, selectedAction);
+            if (nextActionType != null && nextActionType.trim().length() > 0) {
+                for (ActionNext sibling : siblings) {
+                    String meetingError = LinkedMeetingService.actionTypeError(
+                            dataSession, sibling, nextActionType.trim());
+                    if (meetingError != null) {
+                        throw new IllegalArgumentException(meetingError);
+                    }
+                }
+            }
             for (ActionNext sibling : siblings) {
                 if (actorContact == null) {
                     sibling.setContact(null);
@@ -844,6 +854,11 @@ public class ProjectHealthPageService {
                 Date now = new Date();
                 boolean privateBillable = isWorkProject(privateProject, dataSession);
                 for (ActionNext existing : existingLinks) {
+                    String meetingError = LinkedMeetingService.actionTypeError(
+                            dataSession, existing, sharedAction.getNextActionType());
+                    if (meetingError != null) {
+                        throw new IllegalArgumentException(meetingError);
+                    }
                     existing.setWorkspaceId(privateProject.getWorkspaceId());
                     existing.setProject(privateProject);
                     existing.setProjectId(privateProject.getProjectId());

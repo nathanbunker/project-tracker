@@ -135,6 +135,45 @@ The cleanup script has not been applied as part of this implementation. Run it m
 phase 1/2 production release. Build with `mvn clean package` so deleted classes and mappings are not carried
 forward from an earlier build.
 
+### Phase 2 implementation (5.12.0)
+
+Persistence is implemented as `LinkedMeeting`, its Hibernate mapping, `LinkedMeetingDao`, and the shared
+`LinkedMeetingService`. [v5.12.sql](../src/db/v5.12.sql) creates the new table; apply it manually after v5.11.
+Neither script is automatically run by the application. The application databases have not been migrated or
+deployed by this implementation.
+
+The application version's major/minor components match the schema migration version (`5.12`); the third
+component is reserved for code-only revisions against that schema, starting with `5.12.0`.
+
+`get_linked_meetings` reads occurrences by action, source identity, date/range, or source status. A series lookup
+also returns project candidates from its linked occurrences; one distinct project produces a suggestion, not an
+automatic assignment. Project and planning action reads include an optional `linkedMeeting` object.
+
+`apply_changes` supports `upsert_linked_meeting` and `unlink_meeting` alongside ordinary action changes. An upsert
+can reference an earlier `create_action` in the same atomic batch via `actionChangeIndex`. Existing links require
+`expectedMeetingVersion`, independent of the action's `asOf`. Source identity is immutable; moving a link requires
+an explicit unlink followed by linking in a later request. Duplicate or conflicting meeting operations in one
+batch are rejected rather than resolved implicitly.
+
+Source snapshots are complete replacements: omitted optional source fields are cleared, not preserved or appended
+to action notes. Identical snapshots are no-ops, preserving the meeting version and `lastSyncedAt`; that timestamp
+records the last accepted changed snapshot, not every observation of an unchanged source. Source revision and
+fingerprint are opaque metadata. If both snapshots supply `sourceLastModifiedAt`, an older timestamp is rejected.
+
+The table uses UTC epoch milliseconds in `BIGINT` columns, avoiding JDBC/server time-zone conversion. MCP accepts
+ISO-8601 timestamps with explicit offsets and returns UTC ISO-8601 strings, at millisecond precision. The source
+time-zone identifier is retained verbatim, including provider-specific identifiers; it does not determine the
+stored instant. Source identity is case-sensitive and unique within the workspace, with an omitted namespace
+normalized to an empty string.
+
+Meeting synchronization does not mirror the join URL to the action, alter action dates or estimates, reorder work,
+or close cancelled/missing meetings' actions. Existing browser action-edit and Plan Ahead mutation paths use the
+shared validation to prevent changing linked actions away from `WILL_MEET` or converting them into templates;
+this is an integrity check, not phase 3 meeting UI. Explicitly unlink through MCP before such a change.
+
+For fields, examples, pagination, and deployment verification, see the
+[MCP linked-meeting contract](MCP-Codex-Setup.md#linked-meetings-5120).
+
 ---
 
 ## Core Principles
@@ -243,7 +282,7 @@ the same URL.
 Recommended uniqueness:
 
 ```text
-UNIQUE(source_system, source_namespace, external_event_uid, external_occurrence_id)
+UNIQUE(workspace_id, source_system, source_namespace, external_event_uid, external_occurrence_id)
 ```
 
 The precise representation of `external_occurrence_id` may vary by source, but its stored value must remain stable

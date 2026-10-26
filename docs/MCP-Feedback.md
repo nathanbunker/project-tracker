@@ -10,7 +10,7 @@ See `docs/Dandelion_Daily_AI_Integration_Assessment.md` for the design and
 
 ## Status (2026-10-01)
 
-**Only I-12 build item 14 is outstanding.** I-12 was implemented in version 5.10.6 and
+**Historical status:** I-12 build item 14 was outstanding. I-12 was implemented in version 5.10.6 and
 is deployed; build item 13 was verified on 2026-10-03 (see Resolved), and build item 14
 still needs its write test against production. Every other problem (P-1 to P-10)
 and idea (I-1 to I-11) in this document has been addressed, and each entry below is
@@ -19,6 +19,28 @@ marked **Status: Addressed**. The entries are kept for history.
 I-11 (build items 11 and 12) was deployed and verified on 2026-10-01; see Resolved.
 
 ## Recommended Changes for the Next Build
+
+### Project discovery and safe moves in 5.12.1 (owner deployment/review pending)
+
+The project-discovery portion of I-1 was not actually covered by the previous tools: a project with no open
+actions or recorded time could not be discovered. `list_projects` now explicitly covers empty private projects
+and authorized shared projects, with matching shared reads in `get_project_context`. `search_actions` adds
+completed/cancelled history with conservative, explicit handling of unknown completion dates.
+
+`apply_changes` adds private `create_project`, same-batch project references, and guarded moves of open,
+non-template actions. Identity/meeting links survive moves; historical time stays in its original project.
+Related-project visibility links remain deferred and must not be simulated using SHARED action sets.
+See the [implemented contract and deployment review checklist](mcp-project-and-action-requests.md#implementation-contract-5121).
+No 5.13 migration is required. Production-agent review is still pending; local tests are not a production result.
+
+### Linked meetings implemented in 5.12.0 (not yet production-verified)
+
+`get_linked_meetings` supports durable occurrence/series identity lookup, schedule/status filters, and series
+project suggestions. `apply_changes` supports atomic linked-meeting upserts/unlinks, including linking an action
+created earlier in the same batch. Meeting timing and invitation data remain separate from action planning fields.
+Project/planning reads include the linked snapshot. The old unused meeting-note subsystem is removed; InteropHub
+continues to own meeting notes. See the [linked-meeting contract](MCP-Codex-Setup.md#linked-meetings-5120) for the
+manual migration sequence, examples, concurrency rules, and owner-run production verification.
 
 ### Tracker report lifecycle implemented in 5.10.16
 

@@ -295,7 +295,9 @@ public class McpTimeEntriesService {
             if (item.hasNonNull("actionNextId")) {
                 ActionNext action = (ActionNext) session.get(ActionNext.class,
                         Integer.valueOf(item.get("actionNextId").asInt()));
-                if (action == null || action.getProjectId() != p.project.getProjectId()) {
+                if (action == null || (action.getWorkspaceId() != null
+                        && action.getWorkspaceId().intValue() != workspaceId)
+                        || !isCompatibleActionProjectPair(p.entry, p.project, action)) {
                     p.error = "Action " + item.get("actionNextId").asInt() + " doesn't belong to project "
                             + p.project.getProjectId() + ".";
                     return p;
@@ -357,6 +359,39 @@ public class McpTimeEntriesService {
             }
         }
         return latest;
+    }
+
+    boolean isCurrentEntryForAction(Session session, WebUser webUser, ActionNext action) {
+        if (action == null) {
+            return false;
+        }
+        BillEntry current = currentEntry(loadDay(session, webUser, webUser.getLocalDateToday()), true);
+        return isCurrentEntryForAction(current, action.getActionNextId());
+    }
+
+    static boolean isCurrentEntryForAction(BillEntry current, int actionNextId) {
+        return current != null && current.getAction() != null
+                && current.getAction().getActionNextId() == actionNextId;
+    }
+
+    /**
+     * A historical bill entry may retain the project/action pair that was valid
+     * when it was recorded, even after the open action is moved elsewhere. Only
+     * that exact stored pair is grandfathered; new entries and changed pairs
+     * must match the action's current project.
+     */
+    static boolean isCompatibleActionProjectPair(BillEntry existingEntry, Project targetProject,
+            ActionNext action) {
+        if (targetProject == null || action == null) {
+            return action == null;
+        }
+        if (action.getProjectId() == targetProject.getProjectId()) {
+            return true;
+        }
+        return existingEntry != null
+                && existingEntry.getProjectId() == targetProject.getProjectId()
+                && existingEntry.getAction() != null
+                && existingEntry.getAction().getActionNextId() == action.getActionNextId();
     }
 
     /**

@@ -18,6 +18,8 @@ import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
 import org.dandeliondaily.shared.service.ActionCompletionService;
+import org.dandeliondaily.shared.service.LinkedMeetingService;
+import org.openimmunizationsoftware.pt.doa.LinkedMeetingDao;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.openimmunizationsoftware.pt.AppReq;
@@ -114,6 +116,14 @@ public class PlanAheadMutationService {
                 return result;
             }
 
+            String meetingError = LinkedMeetingService.actionTypeError(
+                    dataSession, action, personalMode ? ProjectNextActionType.WILL : targetActionType);
+            if (meetingError != null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage(meetingError);
+                return result;
+            }
             Date actionDate = action.getNextActionDate();
             if (actionDate != null && toDayKey(actionDate).compareTo(todayKey) < 0) {
                 sourceDayKey = todayKey;
@@ -391,6 +401,14 @@ public class PlanAheadMutationService {
             sourceDayKey = toDayKey(action.getNextActionDate());
             sourceRowKey = resolveRowKeyForAction(action, appReq);
 
+            String meetingError = LinkedMeetingService.actionTypeError(
+                    dataSession, action, personalMode ? ProjectNextActionType.WILL : nextActionType);
+            if (meetingError != null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage(meetingError);
+                return result;
+            }
             action.setNextActionDate(nextActionDate);
             if (personalMode) {
                 action.setTimeSlot(nextTimeSlot);
@@ -883,6 +901,14 @@ public class PlanAheadMutationService {
                 action.setNextActionStatus(ProjectNextActionStatus.READY);
             }
 
+            if (action.isWillMeet() && action.getActionNextId() > 0 && action.getWorkspaceId() != null
+                    && new LinkedMeetingDao(dataSession)
+                            .findByAction(action.getWorkspaceId(), action.getActionNextId()) != null) {
+                transaction.rollback();
+                result.setSuccess(false);
+                result.setMessage("Explicitly unlink the meeting through MCP before converting this action to a template.");
+                return result;
+            }
             action.setTemplateType(templateType);
             action.setNextDescription(nextDescription);
             action.setNextTimeEstimate(nextTimeEstimate);

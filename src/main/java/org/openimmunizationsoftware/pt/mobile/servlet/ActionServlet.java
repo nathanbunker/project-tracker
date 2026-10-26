@@ -33,6 +33,7 @@ import org.openimmunizationsoftware.pt.model.ProjectStatus;
 import org.openimmunizationsoftware.pt.model.TimeSlot;
 import org.openimmunizationsoftware.pt.model.WebUser;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
+import org.dandeliondaily.shared.service.LinkedMeetingService;
 import org.openimmunizationsoftware.pt.servlet.ProjectServlet;
 
 /**
@@ -113,11 +114,16 @@ public class ActionServlet extends MobileBaseServlet {
                                     Integer.parseInt(nextProjectIdString));
                         }
                     }
-                    editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
-                    project = editProjectAction.getProject();
-
-                    response.sendRedirect(buildTodoRedirectUrl(request));
-                    return;
+                    String meetingError = LinkedMeetingService.actionTypeError(
+                            dataSession, editProjectAction, request.getParameter(PARAM_NEXT_ACTION_TYPE));
+                    if (meetingError != null) {
+                        appReq.setMessageProblem(meetingError);
+                    } else {
+                        editProjectAction = saveProjectAction(appReq, editProjectAction, nextProject);
+                        project = editProjectAction.getProject();
+                        response.sendRedirect(buildTodoRedirectUrl(request));
+                        return;
+                    }
                 } else if (action.equals(ACTION_DELETE) && editProjectAction != null && project != null) {
                     closeAction(appReq, editProjectAction, project, "", ProjectNextActionStatus.CANCELLED);
                     appReq.setMessageConfirmation("Action deleted");

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -23,6 +24,7 @@ import org.junit.Test;
 import org.openimmunizationsoftware.pt.model.BillCode;
 import org.openimmunizationsoftware.pt.model.BillCodeId;
 import org.openimmunizationsoftware.pt.model.BillEntry;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.Project;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
@@ -41,6 +43,7 @@ public class McpTimeEntriesServiceTest {
     private BillCode otherBillCode;
     private final List<Object> updated = new ArrayList<Object>();
     private final List<Object> saved = new ArrayList<Object>();
+    private final Map<Integer, ActionNext> actions = new HashMap<Integer, ActionNext>();
 
     @Before
     public void setUp() {
@@ -68,6 +71,36 @@ public class McpTimeEntriesServiceTest {
         Assert.assertSame(late, McpTimeEntriesService.currentEntry(Arrays.asList(early, late), true));
         Assert.assertNull(McpTimeEntriesService.currentEntry(Arrays.asList(early, late), false));
         Assert.assertNull(McpTimeEntriesService.currentEntry(Collections.<BillEntry>emptyList(), true));
+    }
+
+    @Test
+    public void historicalProjectActionPairRemainsValidOnlyForTheSameStoredPair() {
+        Project historicalProject = new Project();
+        historicalProject.setProjectId(10);
+        Project newProject = new Project();
+        newProject.setProjectId(20);
+        ActionNext movedAction = action(55, 20);
+        ActionNext unrelatedAction = action(56, 20);
+
+        BillEntry history = entry(3, 10, at(9, 0), at(9, 30));
+        history.setAction(movedAction);
+        Assert.assertTrue(McpTimeEntriesService.isCompatibleActionProjectPair(history, historicalProject,
+                movedAction));
+        Assert.assertFalse(McpTimeEntriesService.isCompatibleActionProjectPair(history, historicalProject,
+                unrelatedAction));
+        Assert.assertFalse(McpTimeEntriesService.isCompatibleActionProjectPair(null, historicalProject,
+                movedAction));
+        Assert.assertTrue(McpTimeEntriesService.isCompatibleActionProjectPair(null, newProject, movedAction));
+    }
+
+    @Test
+    public void runningTimerConventionMatchesOnlyTheCurrentEntriesAction() {
+        ActionNext action = action(55, 20);
+        BillEntry current = entry(3, 20, at(9, 0), at(9, 30));
+        current.setAction(action);
+        Assert.assertTrue(McpTimeEntriesService.isCurrentEntryForAction(current, 55));
+        Assert.assertFalse(McpTimeEntriesService.isCurrentEntryForAction(current, 56));
+        Assert.assertFalse(McpTimeEntriesService.isCurrentEntryForAction(null, 55));
     }
 
     @Test
@@ -189,6 +222,77 @@ public class McpTimeEntriesServiceTest {
     }
 
     @Test
+    public void reassignAcceptsUnchangedHistoricalPairAfterActionMoved() throws Exception {
+        ActionNext moved = action(55, 88);
+        actions.put(Integer.valueOf(55), moved);
+        BillEntry history = entry(1, 77, at(9, 0), at(9, 30));
+        history.setAction(moved);
+
+        Map<String, Object> result = new McpTimeEntriesService().updateDay(
+                session(new ArrayList<BillEntry>(Arrays.asList(history))), WORKSPACE, webUser, DAY,
+                changes("[{\"type\":\"reassign\",\"billId\":1,\"expectedStart\":\"09:00\","
+                        + "\"expectedEnd\":\"09:30\",\"projectId\":77,\"actionNextId\":55}]"), null);
+
+        Assert.assertEquals(Boolean.TRUE, result.get("applied"));
+        Assert.assertEquals(77, history.getProjectId());
+        Assert.assertSame(moved, history.getAction());
+        Assert.assertEquals(88, moved.getProjectId());
+        Assert.assertTrue(updated.contains(history));
+    }
+
+    @Test
+    public void reassignRejectsDifferentActionOnHistoricalProjectAfterMove() throws Exception {
+        ActionNext original = action(55, 88);
+        ActionNext different = action(56, 88);
+        actions.put(Integer.valueOf(56), different);
+        BillEntry history = entry(1, 77, at(9, 0), at(9, 30));
+        history.setAction(original);
+
+        Map<String, Object> result = new McpTimeEntriesService().updateDay(
+                session(new ArrayList<BillEntry>(Arrays.asList(history))), WORKSPACE, webUser, DAY,
+                changes("[{\"type\":\"reassign\",\"billId\":1,\"expectedStart\":\"09:00\","
+                        + "\"expectedEnd\":\"09:30\",\"projectId\":77,\"actionNextId\":56}]"), null);
+
+        Assert.assertEquals(Boolean.FALSE, result.get("applied"));
+        Assert.assertSame(original, history.getAction());
+        Assert.assertEquals(77, history.getProjectId());
+        Assert.assertTrue(updated.isEmpty());
+    }
+
+    @Test
+    public void createRejectsHistoricalProjectActionMismatchEvenWhenOldEntryExists() throws Exception {
+        ActionNext moved = action(55, 88);
+        actions.put(Integer.valueOf(55), moved);
+        BillEntry history = entry(1, 77, at(9, 0), at(9, 30));
+        history.setAction(moved);
+
+        Map<String, Object> result = new McpTimeEntriesService().updateDay(
+                session(new ArrayList<BillEntry>(Arrays.asList(history))), WORKSPACE, webUser, DAY,
+                changes("[{\"type\":\"create\",\"projectId\":77,\"actionNextId\":55,"
+                        + "\"start\":\"13:00\",\"end\":\"13:30\"}]"), null);
+
+        Assert.assertEquals(Boolean.FALSE, result.get("applied"));
+        Assert.assertTrue(saved.isEmpty());
+        Assert.assertTrue(updated.isEmpty());
+    }
+
+    @Test
+    public void adjustStillEditsTimeOnOriginalHistoricalPairAfterActionMoved() throws Exception {
+        ActionNext moved = action(55, 88);
+        BillEntry history = entry(1, 77, at(9, 0), at(9, 30));
+        history.setAction(moved);
+        Map<String, Object> result = new McpTimeEntriesService().updateDay(
+                session(new ArrayList<BillEntry>(Arrays.asList(history))), WORKSPACE, webUser, DAY,
+                changes("[{\"type\":\"adjust\",\"billId\":1,\"expectedStart\":\"09:00\","
+                        + "\"expectedEnd\":\"09:30\",\"start\":\"09:00\",\"end\":\"09:20\"}]"), null);
+
+        Assert.assertEquals(Boolean.TRUE, result.get("applied"));
+        Assert.assertEquals(77, history.getProjectId());
+        Assert.assertSame(moved, history.getAction());
+        Assert.assertEquals(at(9, 20), history.getEndTime());
+    }
+
+    @Test
     public void reportsWhatNormalizationAdjusted() throws Exception {
         BillEntry a = entry(1, 10, at(9, 0), at(9, 30));
         BillEntry b = entry(2, 20, at(11, 0), at(12, 0));
@@ -261,6 +365,9 @@ public class McpTimeEntriesServiceTest {
                     if ("get".equals(name) && args[0] == Project.class) {
                         return Integer.valueOf(77).equals(args[1]) ? otherProject : null;
                     }
+                    if ("get".equals(name) && args[0] == ActionNext.class) {
+                        return actions.get(args[1]);
+                    }
                     if ("get".equals(name)) {
                         return null;
                     }
@@ -318,6 +425,14 @@ public class McpTimeEntriesServiceTest {
         entry.setEndTime(end);
         entry.setBillMins(Integer.valueOf((int) ((end.getTime() - start.getTime()) / 60000L)));
         return entry;
+    }
+
+    private static ActionNext action(int id, int projectId) {
+        ActionNext action = new ActionNext();
+        action.setActionNextId(id);
+        action.setProjectId(projectId);
+        action.setWorkspaceId(Integer.valueOf(WORKSPACE));
+        return action;
     }
 
     private static Date at(int hour, int minute) {

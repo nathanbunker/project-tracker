@@ -3,6 +3,7 @@ package org.dandeliondaily.mcp.service;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -13,11 +14,14 @@ import java.util.Set;
 import org.dandeliondaily.dashboard.service.DashboardActionOrdering;
 import org.dandeliondaily.shared.service.ActionCompletionService;
 import org.dandeliondaily.shared.service.ActionCompletionService.CompletionTime;
+import org.dandeliondaily.shared.service.LinkedMeetingService;
+import org.hibernate.LockMode;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.api.v1.dao.ActionChangeLogDao;
 import org.openimmunizationsoftware.pt.api.v1.mcp.McpToolException;
 import org.openimmunizationsoftware.pt.doa.ActionSetDao;
+import org.openimmunizationsoftware.pt.model.LinkedMeeting;
 import org.openimmunizationsoftware.pt.model.ActionChangeLog;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionNextNote;
@@ -51,6 +55,8 @@ public class McpApplyChangesService {
     private static final int MAX_LINK_URL_LENGTH = 1200;
 
     private final ActionCompletionService actionCompletionService = new ActionCompletionService();
+    private final LinkedMeetingService linkedMeetingService = new LinkedMeetingService();
+    private final McpProjectMutationService projectMutationService = new McpProjectMutationService();
 
     public Map<String, Object> applyChanges(Session session, int workspaceId, WebUser webUser, String agentName,
             List<JsonNode> changeNodes) {
@@ -66,7 +72,7 @@ public class McpApplyChangesService {
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
         boolean allValid = true;
         for (int i = 0; i < changeNodes.size(); i++) {
-            PreparedChange pc = validateItem(session, workspaceId, webUser, i, changeNodes.get(i));
+            PreparedChange pc = validateItem(session, workspaceId, webUser, i, changeNodes.get(i), prepared);
             prepared.add(pc);
             Map<String, Object> resultItem = new LinkedHashMap<String, Object>();
             resultItem.put("index", Integer.valueOf(i));
@@ -84,6 +90,31 @@ public class McpApplyChangesService {
             results.add(resultItem);
         }
 
+        for (int i = 0; i < prepared.size(); i++) {
+            PreparedChange pc = prepared.get(i);
+            if (pc.meetingChange == null) {
+                continue;
+            }
+            for (int j = 0; j < prepared.size(); j++) {
+                PreparedChange other = prepared.get(j);
+                boolean sameAction = pc.meetingCreate != null ? pc.meetingCreate == other.meetingCreate
+                        && other.meetingCreate != null : pc.action != null && pc.action == other.action;
+                boolean sameIdentity = other.meetingChange != null
+                        && pc.meetingChange.getSnapshot() != null && other.meetingChange.getSnapshot() != null
+                        && LinkedMeetingService.sameIdentity(pc.meetingChange.getSnapshot(),
+                                other.meetingChange.getSnapshot());
+                if (i != j && ((other.meetingChange != null && (sameAction || sameIdentity))
+                        || (sameAction && other.hasActionType
+                                && !ProjectNextActionType.WILL_MEET.equals(other.actionType)))) {
+                    allValid = false;
+                    results.get(i).put("status", "rejected");
+                    results.get(i).put("reason", "Conflicting meeting/action changes in the same batch.");
+                }
+            }
+        }
+        if (rejectIncompatibleMovedActionChanges(prepared, results)) {
+            allValid = false;
+        }
         Map<String, Object> response = new LinkedHashMap<String, Object>();
         if (!allValid) {
             response.put("applied", Boolean.FALSE);
@@ -96,7 +127,11 @@ public class McpApplyChangesService {
         for (int i = 0; i < prepared.size(); i++) {
             PreparedChange pc = prepared.get(i);
             Map<String, Object> resultItem = results.get(i);
-            if ("create_action".equals(pc.type)) {
+            if ("create_project".equals(pc.type)) {
+                projectMutationService.applyProject(session, webUser, pc.projectDraft);
+                resultItem.put("ref", pc.projectDraft.ref);
+                resultItem.put("projectId", Integer.valueOf(pc.projectDraft.project.getProjectId()));
+            } else if ("create_action".equals(pc.type)) {
                 batchActionSet = applyCreate(session, webUser, pc, batchActionSet, resultItem);
             } else if ("update_action".equals(pc.type)) {
                 applyUpdate(session, webUser, pc);
@@ -110,6 +145,13 @@ public class McpApplyChangesService {
                 applyComplete(session, webUser, pc);
             } else if ("order_day".equals(pc.type)) {
                 applyOrderDay(session, workspaceId, webUser, pc, resultItem);
+            } else if (pc.meetingChange != null) {
+                if (pc.meetingCreate != null) {
+                    pc.action = pc.meetingCreate.action;
+                    pc.project = pc.meetingCreate.project;
+                }
+                pc.meetingResult = linkedMeetingService.apply(session, pc.meetingChange, pc.action);
+                resultItem.put("actionNextId", pc.action.getActionNextId());
             }
             resultItem.put("status", "applied");
             if (pc.action != null) {
@@ -129,6 +171,12 @@ public class McpApplyChangesService {
             logChange(webUser, agentName, pc);
         }
 
+        session.flush();
+        for (int i = 0; i < prepared.size(); i++) {
+            if (prepared.get(i).meetingChange != null) {
+                results.get(i).put("linkedMeeting", LinkedMeetingService.toMap(prepared.get(i).meetingResult));
+            }
+        }
         response.put("applied", Boolean.TRUE);
         response.put("message", "All " + prepared.size() + " changes applied.");
         response.put("results", results);
@@ -137,9 +185,11 @@ public class McpApplyChangesService {
 
     // ---- validation ----
 
-    private PreparedChange validateItem(Session session, int workspaceId, WebUser webUser, int index, JsonNode item) {
+    private PreparedChange validateItem(Session session, int workspaceId, WebUser webUser, int index, JsonNode item,
+            List<PreparedChange> preceding) {
         PreparedChange pc = new PreparedChange();
         pc.index = index;
+        pc.preceding = preceding;
         if (item == null || !item.isObject()) {
             pc.error = "Each change must be an object.";
             return pc;
@@ -150,10 +200,36 @@ public class McpApplyChangesService {
             pc.error = "\"type\" is required.";
             return pc;
         }
-        if ("create_action".equals(type)) {
+        if ("upsert_linked_meeting".equals(type) || "unlink_meeting".equals(type)) {
+            validateMeeting(session, workspaceId, item, pc, preceding);
+            return pc;
+        }
+        try {
+            LinkedMeetingService.rejectUnknown(item, new HashSet<String>(Arrays.asList(
+                    "type", "actionNextId", "asOf", "projectId", "projectRef", "description", "nextActionType",
+                    "scheduledDate", "deadlineDate", "targetDate", "estimateMinutes", "notes", "addNote", "linkUrl",
+                    "reason", "completedAt", "durationMinutes", "completionDescription", "newActions", "date",
+                    "actions", "ref", "name", "billCode", "tags", "currentFocus", "allowDuplicate",
+                    "projectHandle")));
+        } catch (McpToolException e) {
+            pc.error = e.getMessage() + " Use upsert_linked_meeting for meeting source fields.";
+            return pc;
+        }
+        if ("create_project".equals(type)) {
+            List<McpProjectMutationService.ProjectDraft> previousProjects =
+                    new ArrayList<McpProjectMutationService.ProjectDraft>();
+            for (PreparedChange previous : preceding) {
+                if (previous.projectDraft != null) {
+                    previousProjects.add(previous.projectDraft);
+                }
+            }
+            pc.projectDraft = projectMutationService.prepareProject(session, workspaceId, webUser, item,
+                    previousProjects);
+            pc.error = pc.projectDraft.error;
+        } else if ("create_action".equals(type)) {
             validateCreate(session, workspaceId, item, pc);
         } else if ("update_action".equals(type)) {
-            validateUpdate(session, workspaceId, item, pc);
+            validateUpdate(session, workspaceId, webUser, item, pc);
         } else if ("reschedule_action".equals(type)) {
             validateReschedule(session, workspaceId, item, pc);
         } else if ("split_action".equals(type)) {
@@ -170,12 +246,61 @@ public class McpApplyChangesService {
         return pc;
     }
 
+    private void validateMeeting(Session session, int workspaceId, JsonNode item, PreparedChange pc,
+            List<PreparedChange> preceding) {
+        try {
+            LinkedMeetingService.rejectUnknown(item, new HashSet<String>(Arrays.asList("type", "actionNextId",
+                    "asOf", "actionChangeIndex", "expectedMeetingVersion", "meeting")));
+            if (item.has("actionChangeIndex")) {
+                JsonNode index = item.get("actionChangeIndex");
+                if (item.has("actionNextId") || item.has("asOf") || !index.isIntegralNumber()
+                        || !index.canConvertToInt() || index.intValue() < 0 || index.intValue() >= preceding.size()) {
+                    throw new McpToolException("invalid_arguments",
+                            "actionChangeIndex must reference an earlier create_action, instead of actionNextId/asOf.");
+                }
+                PreparedChange create = preceding.get(index.intValue());
+                if (!"create_action".equals(create.type) || create.error != null) {
+                    throw new McpToolException("invalid_arguments", "Referenced create_action is invalid.");
+                }
+                pc.meetingCreate = create;
+                pc.action = new ActionNext();
+                pc.action.setWorkspaceId(workspaceId);
+                pc.action.setNextActionType(create.newActionType);
+            } else if (!resolveAndCheckAction(session, workspaceId, item, pc, true)) {
+                return;
+            }
+            if (item.has("actionNextId") && (!item.get("actionNextId").isIntegralNumber()
+                    || !item.get("actionNextId").canConvertToInt())) {
+                throw new McpToolException("invalid_arguments", "actionNextId must be an integer.");
+            }
+            if ("unlink_meeting".equals(pc.type) && item.has("meeting")) {
+                throw new McpToolException("invalid_arguments", "unlink_meeting does not accept a meeting snapshot.");
+            }
+            pc.meetingChange = linkedMeetingService.prepare(session, workspaceId, pc.action, item,
+                    "unlink_meeting".equals(pc.type));
+        } catch (McpToolException e) {
+            pc.error = e.getCode() + ": " + e.getMessage();
+        }
+    }
+
     private void validateCreate(Session session, int workspaceId, JsonNode item, PreparedChange pc) {
-        if (!item.hasNonNull("projectId")) {
-            pc.error = "\"projectId\" is required.";
+        if (item.has("projectId") && item.has("projectRef")) {
+            pc.error = "Use either \"projectId\" or \"projectRef\", not both.";
             return;
         }
-        Project project = requireProjectInWorkspace(session, workspaceId, item.get("projectId").asInt());
+        if (item.hasNonNull("projectRef")) {
+            pc.project = resolveProjectRef(item.get("projectRef"), pc, pc.preceding);
+        } else if (item.hasNonNull("projectId") && item.get("projectId").isIntegralNumber()
+                && item.get("projectId").canConvertToInt()) {
+            pc.project = requireProjectInWorkspace(session, workspaceId, item.get("projectId").asInt());
+        } else {
+            pc.error = "\"projectId\" or an earlier \"projectRef\" is required.";
+            return;
+        }
+        if (pc.error != null) {
+            return;
+        }
+        Project project = pc.project;
         if (project == null) {
             pc.error = "Project not found.";
             return;
@@ -212,13 +337,42 @@ public class McpApplyChangesService {
         pc.newLinkUrl = parseLinkUrl(item, pc);
     }
 
-    private void validateUpdate(Session session, int workspaceId, JsonNode item, PreparedChange pc) {
+    private void validateUpdate(Session session, int workspaceId, WebUser webUser, JsonNode item,
+            PreparedChange pc) {
         // Changing only the link or adding a note describes today's occurrence, not the
         // template, so those are allowed on template-generated instances (I-12).
         boolean instanceAllowed = !item.has("description") && !item.has("nextActionType")
-                && !item.has("estimateMinutes");
+                && !item.has("estimateMinutes") && !item.has("projectId") && !item.has("projectRef");
         if (!resolveAndCheckAction(session, workspaceId, item, pc, instanceAllowed)) {
             return;
+        }
+        if (item.has("projectId") || item.has("projectRef")) {
+            if (item.has("projectId") && item.has("projectRef")) {
+                pc.error = "Use either \"projectId\" or \"projectRef\" to move an action, not both.";
+                return;
+            }
+            Project destination;
+            if (item.hasNonNull("projectRef")) {
+                destination = resolveProjectRef(item.get("projectRef"), pc, pc.preceding);
+            } else if (item.has("projectId") && item.get("projectId").isIntegralNumber()
+                    && item.get("projectId").canConvertToInt()) {
+                destination = requireProjectInWorkspace(session, workspaceId, item.get("projectId").asInt());
+            } else {
+                pc.error = "\"projectId\" or \"projectRef\" must identify a destination project.";
+                return;
+            }
+            if (pc.error != null) {
+                return;
+            }
+            pc.oldProject = pc.project;
+            String moveError = projectMutationService.validateMove(session, workspaceId, webUser, pc.action,
+                    destination);
+            if (moveError != null) {
+                pc.error = moveError;
+                return;
+            }
+            pc.project = destination;
+            pc.hasProjectChange = true;
         }
         if (item.has("description")) {
             pc.hasDescription = true;
@@ -237,6 +391,11 @@ public class McpApplyChangesService {
                 return;
             }
             pc.actionType = type;
+            String meetingError = LinkedMeetingService.actionTypeError(session, pc.action, type);
+            if (meetingError != null) {
+                pc.error = meetingError;
+                return;
+            }
         }
         if (item.has("estimateMinutes")) {
             pc.hasEstimate = true;
@@ -253,9 +412,9 @@ public class McpApplyChangesService {
                 return;
             }
         }
-        if (!pc.hasDescription && !pc.hasActionType && !pc.hasEstimate && !pc.hasAddNote && !pc.hasLinkUrl) {
-            pc.error = "At least one of description, nextActionType, estimateMinutes, addNote, linkUrl must be "
-                    + "provided.";
+        if (!pc.hasDescription && !pc.hasActionType && !pc.hasEstimate && !pc.hasAddNote && !pc.hasLinkUrl
+                && !pc.hasProjectChange) {
+            pc.error = "At least one update field, including projectId or projectRef, must be provided.";
         }
     }
 
@@ -299,6 +458,14 @@ public class McpApplyChangesService {
         }
         List<NewActionSpec> specs = new ArrayList<NewActionSpec>();
         for (JsonNode newActionNode : item.get("newActions")) {
+            try {
+                LinkedMeetingService.requireObject(newActionNode, "newActions entry");
+                LinkedMeetingService.rejectUnknown(newActionNode, new HashSet<String>(Arrays.asList(
+                        "description", "nextActionType", "scheduledDate", "estimateMinutes", "linkUrl")));
+            } catch (McpToolException e) {
+                pc.error = e.getMessage();
+                return;
+            }
             NewActionSpec spec = new NewActionSpec();
             if (!newActionNode.hasNonNull("description")
                     || newActionNode.get("description").asText().trim().length() == 0) {
@@ -499,6 +666,7 @@ public class McpApplyChangesService {
             pc.error = "Action not found.";
             return false;
         }
+        session.refresh(action, LockMode.UPGRADE);
         boolean isRoot = action.isTemplate();
         boolean isInstance = action.getTemplateActionNextId() != null;
         if (instanceAllowed) {
@@ -586,6 +754,10 @@ public class McpApplyChangesService {
         if (pc.hasLinkUrl) {
             action.setLinkUrl(pc.linkUrl);
         }
+        if (pc.hasProjectChange) {
+            projectMutationService.applyMove(session, action, pc.project,
+                    McpProjectMutationService.monotonicChangeDate(action.getNextChangeDate()));
+        }
         if (pc.hasAddNote && pc.addNote != null && pc.addNote.trim().length() > 0) {
             ActionNextNote note = new ActionNextNote();
             note.setActionNext(action);
@@ -594,7 +766,9 @@ public class McpApplyChangesService {
             note.setNoteDate(new Date());
             session.save(note);
         }
-        action.setNextChangeDate(McpActionContextSupport.truncatedNow());
+        if (!pc.hasProjectChange) {
+            action.setNextChangeDate(McpActionContextSupport.truncatedNow());
+        }
         session.update(action);
     }
 
@@ -723,6 +897,12 @@ public class McpApplyChangesService {
     // ---- audit trail ----
 
     private void logChange(WebUser webUser, String agentName, PreparedChange pc) {
+        if ("create_project".equals(pc.type)) {
+            // ActionChangeLog requires both an existing action and project ID.
+            // A project-only creation has no action to audit in this table;
+            // its creator/modifier metadata is persisted on the project instead.
+            return;
+        }
         if ("order_day".equals(pc.type)) {
             for (int i = 0; i < pc.orderedActions.size(); i++) {
                 writeChangeLog(webUser, agentName, pc.orderedActions.get(i), pc.orderedProjects.get(i), "order_day",
@@ -738,6 +918,17 @@ public class McpApplyChangesService {
                 writeChangeLog(webUser, agentName, created, pc.project, "split_action",
                         "Created from split of action #" + pc.actionNextId);
             }
+            return;
+        }
+        if ("update_action".equals(pc.type) && pc.hasProjectChange) {
+            String oldName = pc.oldProject == null ? "unknown"
+                    : pc.oldProject.getProjectName() + " (#" + pc.oldProject.getProjectId() + ")";
+            String newName = pc.project == null ? "unknown"
+                    : pc.project.getProjectName() + " (#" + pc.project.getProjectId() + ")";
+            writeChangeLog(webUser, agentName, pc.action, pc.oldProject, "update_action",
+                    "Moved from " + oldName + " to " + newName);
+            writeChangeLog(webUser, agentName, pc.action, pc.project, "update_action",
+                    "Moved from " + oldName + " to " + newName);
             return;
         }
         String changeReason = "remove_action".equals(pc.type) ? pc.removeReason : null;
@@ -865,6 +1056,59 @@ public class McpApplyChangesService {
         return (Project) query.uniqueResult();
     }
 
+    private Project resolveProjectRef(JsonNode refNode, PreparedChange pc, List<PreparedChange> preceding) {
+        if (!refNode.isTextual() || refNode.textValue().trim().length() == 0) {
+            pc.error = "\"projectRef\" must be a non-empty string naming an earlier create_project.";
+            return null;
+        }
+        String ref = refNode.textValue().trim();
+        for (int i = preceding.size() - 1; i >= 0; i--) {
+            PreparedChange previous = preceding.get(i);
+            if (previous.projectDraft != null
+                    && McpProjectMutationService.sameKey(previous.projectDraft.ref, ref)) {
+                if (previous.error != null || previous.projectDraft.project == null) {
+                    pc.error = "Referenced create_project \"" + ref + "\" is invalid.";
+                    return null;
+                }
+                return previous.projectDraft.project;
+            }
+        }
+        pc.error = "projectRef \"" + ref + "\" must refer to an earlier create_project in this batch.";
+        return null;
+    }
+
+    private boolean rejectIncompatibleMovedActionChanges(List<PreparedChange> prepared,
+            List<Map<String, Object>> results) {
+        boolean rejected = false;
+        for (int i = 0; i < prepared.size(); i++) {
+            PreparedChange move = prepared.get(i);
+            if (move.error != null || !move.hasProjectChange || move.action == null) {
+                continue;
+            }
+            for (int j = 0; j < prepared.size(); j++) {
+                if (i == j) {
+                    continue;
+                }
+                PreparedChange other = prepared.get(j);
+                if (other.error != null
+                        || !McpProjectMutationService.conflictsWithMove(move.actionNextId.intValue(), other.type,
+                                other.actionNextId, other.orderedActions)) {
+                    continue;
+                }
+                String reason = "A moved action cannot have another action change in the same batch; combine "
+                        + "compatible fields into one update_action.";
+                move.error = reason;
+                other.error = reason;
+                results.get(i).put("status", "rejected");
+                results.get(i).put("reason", reason);
+                results.get(j).put("status", "rejected");
+                results.get(j).put("reason", reason);
+                rejected = true;
+            }
+        }
+        return rejected;
+    }
+
     private String clip(String value, int maxLength) {
         if (value == null) {
             return null;
@@ -878,9 +1122,13 @@ public class McpApplyChangesService {
         int index;
         String type;
         String error;
+        List<PreparedChange> preceding;
         Integer actionNextId;
         ActionNext action;
         Project project;
+        Project oldProject;
+        boolean hasProjectChange;
+        McpProjectMutationService.ProjectDraft projectDraft;
 
         // create_action
         String newDescription;
@@ -928,6 +1176,9 @@ public class McpApplyChangesService {
         // split_action
         List<NewActionSpec> newActions;
         List<ActionNext> createdActions;
+        LinkedMeetingService.Prepared meetingChange;
+        PreparedChange meetingCreate;
+        LinkedMeeting meetingResult;
     }
 
     private static class NewActionSpec {

@@ -11,6 +11,9 @@ import org.openimmunizationsoftware.pt.api.v1.mcp.tools.ApplyChangesTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectAiThoughtTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.DeleteProjectNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetDayAvailabilityTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetLinkedMeetingsTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.ListProjectsTool;
+import org.openimmunizationsoftware.pt.api.v1.mcp.tools.SearchActionsTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetNarrativesTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.TrackerNarrativeTool;
 import org.openimmunizationsoftware.pt.api.v1.mcp.tools.GetOutlookTool;
@@ -36,7 +39,10 @@ public class McpToolRegistry {
 
     public McpToolRegistry() {
         register(new GetProjectContextTool());
+        register(new ListProjectsTool());
+        register(new SearchActionsTool());
         register(new GetPlanningContextTool());
+        register(new GetLinkedMeetingsTool());
         register(new GetOutlookTool());
         register(new ListOutlooksTool());
         register(new SetOutlookTool());

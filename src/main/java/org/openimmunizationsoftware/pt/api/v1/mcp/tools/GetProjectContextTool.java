@@ -26,7 +26,9 @@ public class GetProjectContextTool implements McpTool {
         return "Reads a project's identity, description, current focus, outcome, success criteria, tags, "
                 + "recent completed work, open actions, active recurring templates, open issues, and recent "
                 + "narratives. Open actions include completionOrder, priorityLevel, and the dashboardBucket they fall "
-                + "in on their scheduled day. Read-only.";
+                + "in on their scheduled day. Accepts projects in the client workspace and the authenticated user's "
+                + "active shared-workspace memberships. Cross-workspace reads omit linked-meeting snapshots and "
+                + "sibling-project identities; discovery grants no additional write permission. Read-only.";
     }
 
     @Override

@@ -33,12 +33,32 @@ public class ApplyChangesTool implements McpTool {
                 + "is rejected with a reason per item and nothing is written. Only call this after the user has "
                 + "explicitly approved the proposed changes -- never treat your own suggestions as already "
                 + "approved. Each entry in \"changes\" has a \"type\" of create_action, update_action, "
-                + "reschedule_action, split_action, remove_action, complete_action, or order_day:\n"
-                + "- create_action: {type, projectId, description, nextActionType?, scheduledDate?, deadlineDate?, "
-                + "targetDate?, estimateMinutes?, notes?, linkUrl?}. Never creates a new project -- projectId must "
-                + "already exist.\n"
+                + "create_project, reschedule_action, split_action, remove_action, complete_action, order_day, "
+                + "upsert_linked_meeting, or unlink_meeting:\n"
+                + "- upsert_linked_meeting: {type, actionNextId, asOf, expectedMeetingVersion?, meeting}. "
+                + "meeting is a complete externally owned snapshot, not an action update. "
+                + "Requires WILL_MEET. For an existing link supply expectedMeetingVersion from a read; "
+                + "omit it for a new link. Instead of actionNextId/asOf, actionChangeIndex may reference "
+                + "an earlier create_action in this batch (zero-based). Source identity cannot be reassigned. "
+                + "Unchanged snapshots are no-ops. Renames/reschedules update the same occurrence; they never "
+                + "change action dates, project, description, estimate, notes, order, completion or time. "
+                + "CANCELLED/MISSING are explicit source statuses, not action cancellation.\n"
+                + "- unlink_meeting: {type, actionNextId, asOf, expectedMeetingVersion}. Explicitly deletes "
+                + "the source snapshot only; leaves the action unchanged. Approval required.\n"
+                + "- create_project: {type, ref, name, description?, billCode, tags?, currentFocus?, "
+                + "allowDuplicate?, projectHandle?}. Creates a private project in the active private workspace. "
+                + "Bill codes and tags must already exist there; project names cannot duplicate an open visible "
+                + "project unless allowDuplicate is true, and refs/handles/names must be unambiguous in the batch. "
+                + "A later create_action or update_action may use projectRef instead of projectId.\n"
+                + "- create_action: {type, projectId | projectRef, description, nextActionType?, scheduledDate?, "
+                + "deadlineDate?, targetDate?, estimateMinutes?, notes?, linkUrl?}. projectRef must name an earlier "
+                + "create_project in this batch.\n"
                 + "- update_action: {type, actionNextId, asOf, description?, nextActionType?, estimateMinutes?, "
-                + "addNote?, linkUrl?}. Only fields present are changed; addNote appends a new note rather than "
+                + "addNote?, linkUrl?, projectId?, projectRef?}. Only fields present are changed; projectId or "
+                + "projectRef moves an open, non-template, non-shared action to an open private project. Its "
+                + "linked meeting follows the action; recorded time stays billed to its original project. Moves "
+                + "are rejected while its current entry may be a running timer or if another action change in "
+                + "the batch targets the same action. addNote appends a new note rather than "
                 + "replacing existing ones; linkUrl \"\" or null clears the link. An update that only sets "
                 + "linkUrl and/or addNote is also allowed on a template-generated instance (it changes only that "
                 + "occurrence, not the template).\n"
@@ -70,14 +90,34 @@ public class ApplyChangesTool implements McpTool {
                 McpSchema.properties(
                         "type", McpSchema.stringEnum(
                                 "Which kind of change this is; see the tool description for each type's fields.",
-                                "create_action", "update_action", "reschedule_action", "split_action",
-                                "remove_action", "complete_action", "order_day"),
+                                "create_project", "create_action", "update_action", "reschedule_action", "split_action",
+                                "remove_action", "complete_action", "order_day",
+                                "upsert_linked_meeting", "unlink_meeting"),
+                        "actionChangeIndex", McpSchema.integer(
+                                "For upsert_linked_meeting: zero-based earlier create_action index, instead of actionNextId/asOf."),
+                        "expectedMeetingVersion", McpSchema.integer(
+                                "Required for existing links; omit for a new link. Independent of action asOf."),
+                        "meeting", meetingSchema(),
                         "actionNextId", McpSchema.integer(
-                                "Required for every type except create_action and order_day."),
+                                "Required for every type except create_project, create_action, order_day, and "
+                                        + "upsert_linked_meeting using actionChangeIndex."),
                         "asOf", McpSchema.string(
                                 "Required alongside actionNextId: the action's current asOf/scheduledDate context "
                                         + "timestamp from a prior read, used to detect concurrent changes."),
-                        "projectId", McpSchema.integer("Required for create_action; must be an existing project."),
+                        "projectId", McpSchema.integer(
+                                "Project for create_action, or an open destination for update_action."),
+                        "projectRef", McpSchema.string(
+                                "For create_action or update_action: ref of an earlier create_project in this batch."),
+                        "ref", McpSchema.string("For create_project: unique batch-local placeholder."),
+                        "name", McpSchema.string("For create_project: project name."),
+                        "billCode", McpSchema.string("For create_project: an existing bill code in this workspace."),
+                        "tags", McpSchema.array("For create_project: existing active tag names or handles.",
+                                McpSchema.string(null)),
+                        "currentFocus", McpSchema.string("For create_project: optional current-focus text."),
+                        "allowDuplicate", McpSchema.bool(
+                                "For create_project: allow a name already used by an open visible project."),
+                        "projectHandle", McpSchema.string(
+                                "For create_project: optional project handle; defaults to a handle from name."),
                         "description", McpSchema.string("Action description."),
                         "nextActionType", McpSchema.stringEnum(null,
                                 ProjectNextActionType.WILL, ProjectNextActionType.WILL_CONTACT,
@@ -125,6 +165,29 @@ public class ApplyChangesTool implements McpTool {
                 "changes");
     }
 
+    private Map<String, Object> meetingSchema() {
+        return McpSchema.object(McpSchema.properties(
+                "sourceSystem", McpSchema.string("Source label, max 64; identity is case-sensitive."),
+                "sourceNamespace", McpSchema.string("Calendar/account namespace, max 128; default empty."),
+                "externalEventUid", McpSchema.string("Stable event or series UID, max 255."),
+                "externalOccurrenceId", McpSchema.string("Stable occurrence ID, max 128; never change on reschedule."),
+                "originalSubject", McpSchema.string("Exact source subject, max 512."),
+                "originalDescription", McpSchema.string("Invitation body, max 1,000,000 characters."),
+                "organizerName", McpSchema.string("Max 255."),
+                "organizerAddress", McpSchema.string("Max 320."),
+                "scheduledStart", McpSchema.string("ISO-8601 date/time with offset or Z."),
+                "scheduledEnd", McpSchema.string("ISO-8601 date/time with offset or Z; after start."),
+                "sourceTimeZone", McpSchema.string("Original source time-zone ID, max 128."),
+                "location", McpSchema.string("Max 2048."),
+                "joinUrl", McpSchema.string("Absolute http(s) URL without credentials, max 1200."),
+                "sourceStatus", McpSchema.stringEnum(null, "CONFIRMED", "TENTATIVE", "CANCELLED", "MISSING"),
+                "sourceLastModifiedAt", McpSchema.string("Optional ISO-8601 source timestamp with offset."),
+                "sourceRevision", McpSchema.string("Opaque source revision, max 255."),
+                "sourceFingerprint", McpSchema.string("Opaque content fingerprint, max 255.")),
+                "sourceSystem", "externalEventUid", "externalOccurrenceId", "originalSubject",
+                "scheduledStart", "scheduledEnd", "sourceStatus");
+    }
+
     @Override
     public Object call(JsonNode arguments, McpToolContext context) {
         List<JsonNode> changes = McpArgs.optNodeList(arguments, "changes");
@@ -132,7 +195,14 @@ public class ApplyChangesTool implements McpTool {
             throw new McpToolException("invalid_arguments", "\"changes\" must contain at least one item.");
         }
         WebUser webUser = McpWebUserSupport.requireWebUser(context.getSession(), context.getUsername());
-        return service.applyChanges(context.getSession(), context.getWorkspaceId(), webUser,
-                context.getAgentName(), changes);
+        try {
+            return service.applyChanges(context.getSession(), context.getWorkspaceId(), webUser,
+                    context.getAgentName(), changes);
+        } catch (org.hibernate.StaleStateException e) {
+            throw new McpToolException("stale", "A record changed concurrently. Nothing was applied; reread and retry.");
+        } catch (org.hibernate.exception.ConstraintViolationException e) {
+            throw new McpToolException("conflict",
+                    "A database constraint rejected the batch. Nothing was applied; reread the action/source identity.");
+        }
     }
 }

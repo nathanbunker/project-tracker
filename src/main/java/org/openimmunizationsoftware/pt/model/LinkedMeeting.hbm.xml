@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"https://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="org.openimmunizationsoftware.pt.model">
+  <class name="LinkedMeeting" table="linked_meeting">
+    <id name="linkedMeetingId" type="java.lang.Integer" column="linked_meeting_id">
+      <generator class="native"/>
+    </id>
+    <version name="version" type="long" column="version"/>
+    <property name="workspaceId" type="int" column="workspace_id" not-null="true"/>
+    <property name="actionNextId" type="int" column="action_next_id" not-null="true" unique="true"/>
+    <property name="sourceSystem" type="string" column="source_system" length="64" not-null="true"/>
+    <property name="sourceNamespace" type="string" column="source_namespace" length="128" not-null="true"/>
+    <property name="externalEventUid" type="string" column="external_event_uid" length="255" not-null="true"/>
+    <property name="externalOccurrenceId" type="string" column="external_occurrence_id" length="128" not-null="true"/>
+    <property name="originalSubject" type="string" column="original_subject" length="512" not-null="true"/>
+    <property name="originalDescription" type="text" column="original_description"/>
+    <property name="organizerName" type="string" column="organizer_name" length="255"/>
+    <property name="organizerAddress" type="string" column="organizer_address" length="320"/>
+    <property name="scheduledStartEpochMs" type="long" column="scheduled_start_epoch_ms" not-null="true"/>
+    <property name="scheduledEndEpochMs" type="long" column="scheduled_end_epoch_ms" not-null="true"/>
+    <property name="sourceTimeZone" type="string" column="source_time_zone" length="128"/>
+    <property name="location" type="string" column="location" length="2048"/>
+    <property name="joinUrl" type="string" column="join_url" length="1200"/>
+    <property name="sourceStatus" type="string" column="source_status" length="16" not-null="true"/>
+    <property name="sourceLastModifiedEpochMs" type="java.lang.Long" column="source_last_modified_epoch_ms"/>
+    <property name="sourceRevision" type="string" column="source_revision" length="255"/>
+    <property name="sourceFingerprint" type="string" column="source_fingerprint" length="255"/>
+    <property name="lastSyncedEpochMs" type="long" column="last_synced_epoch_ms" not-null="true"/>
+  </class>
+</hibernate-mapping>

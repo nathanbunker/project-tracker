@@ -8,7 +8,6 @@ import java.util.Map;
 import org.dandeliondaily.projectainote.service.ProjectAiNoteService;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.openimmunizationsoftware.pt.api.v1.mcp.McpToolException;
 import org.openimmunizationsoftware.pt.doa.ProjectIssueDao;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionTaken;
@@ -37,11 +36,16 @@ public class McpProjectContextService {
 
     public Map<String, Object> getProjectContext(Session session, int workspaceId, int projectId,
             WebUser webUser) {
-        Project project = requireProject(session, workspaceId, projectId);
+        Project project = McpProjectAccess.requireReadable(session, workspaceId, webUser, projectId);
+        boolean sharedRead = project.getWorkspaceId().intValue() != workspaceId;
 
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         result.put("projectId", project.getProjectId());
         result.put("projectName", project.getProjectName());
+        result.put("workspaceId", project.getWorkspaceId());
+        result.put("externalSourceKey", project.getExternalSourceKey());
+        result.put("externalProjectId", project.getExternalProjectId());
+        result.put("externalManaged", project.isExternalManaged());
         result.put("projectHandle", project.getProjectHandle());
         result.put("projectStatus", project.getProjectStatus());
         result.put("description", project.getDescription());
@@ -53,7 +57,7 @@ public class McpProjectContextService {
         result.put("billCode", project.getBillCode());
         result.put("tags", loadTagNames(session, projectId));
         result.put("recentActionTaken", loadRecentActionTakenList(session, projectId));
-        result.put("openActions", loadOpenActionsList(session, projectId, webUser));
+        result.put("openActions", loadOpenActionsList(session, projectId, webUser, !sharedRead));
         result.put("activeTemplates", loadActiveTemplatesList(session, projectId));
         result.put("openIssues", loadOpenIssuesList(session, project));
         result.put("recentNarratives", loadRecentNarrativesList(session, projectId));
@@ -73,18 +77,6 @@ public class McpProjectContextService {
             list.add(item);
         }
         return list;
-    }
-
-    private Project requireProject(Session session, int workspaceId, int projectId) {
-        Query query = session.createQuery(
-                "from Project p where p.projectId = :projectId and p.workspaceId = :workspaceId");
-        query.setInteger("projectId", projectId);
-        query.setInteger("workspaceId", workspaceId);
-        Project project = (Project) query.uniqueResult();
-        if (project == null) {
-            throw new McpToolException("not_found", "Project not found.");
-        }
-        return project;
     }
 
     @SuppressWarnings("unchecked")
@@ -116,10 +108,11 @@ public class McpProjectContextService {
         return query.list();
     }
 
-    private List<Map<String, Object>> loadOpenActionsList(Session session, int projectId, WebUser webUser) {
+    private List<Map<String, Object>> loadOpenActionsList(Session session, int projectId, WebUser webUser,
+            boolean includePrivateContext) {
         List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         for (ActionNext action : loadOpenActions(session, projectId)) {
-            list.add(McpActionContextSupport.toActionMap(session, action, false, webUser));
+            list.add(McpActionContextSupport.toActionMap(session, action, false, webUser, includePrivateContext));
         }
         return list;
     }
