@@ -14,53 +14,49 @@ public class FocusedActionPageRenderer {
         private static final String SWITCH_URL_PREFIX = "FocusedActionServlet?action=switchAction&completingActionNextId=";
 
         private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final FocusActionPickerRenderer pickerRenderer = new FocusActionPickerRenderer();
         private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
-        public static class CycleBarItem {
-                private final int actionNextId;
-                private final String label;
+        /**
+         * Today's queue (buildOrderedCycleList) for the Up next row and drawer. nextItem is the
+         * queue item after the current action, or the first item when the current action is not in
+         * the queue; nextPosition is its 1-based place in the queue.
+         */
+        public static class UpNextData {
+                private final List<FocusActionPickerRenderer.Group> groups;
+                private final FocusActionPickerRenderer.Row nextItem;
+                private final int nextPosition;
+                private final int total;
+                private final boolean currentInQueue;
 
-                public CycleBarItem(int actionNextId, String label) {
-                        this.actionNextId = actionNextId;
-                        this.label = label;
+                public UpNextData(List<FocusActionPickerRenderer.Group> groups, FocusActionPickerRenderer.Row nextItem,
+                                int nextPosition, int total, boolean currentInQueue) {
+                        this.groups = groups == null ? Collections.<FocusActionPickerRenderer.Group>emptyList() : groups;
+                        this.nextItem = nextItem;
+                        this.nextPosition = nextPosition;
+                        this.total = total;
+                        this.currentInQueue = currentInQueue;
                 }
 
-                public int getActionNextId() {
-                        return actionNextId;
+                public List<FocusActionPickerRenderer.Group> getGroups() {
+                        return groups;
                 }
 
-                public String getLabel() {
-                        return label;
-                }
-        }
-
-        public static class CycleBarData {
-                private final List<CycleBarItem> items;
-                private final int shownIndex;
-
-                public CycleBarData(List<CycleBarItem> items, int shownIndex) {
-                        this.items = items == null ? Collections.<CycleBarItem>emptyList() : items;
-                        this.shownIndex = shownIndex;
+                public FocusActionPickerRenderer.Row getNextItem() {
+                        return nextItem;
                 }
 
-                public List<CycleBarItem> getItems() {
-                        return items;
-                }
-
-                public int getShownIndex() {
-                        return shownIndex;
-                }
-
-                public CycleBarItem getShownItem() {
-                        if (items.isEmpty() || shownIndex < 0 || shownIndex >= items.size()) {
-                                return null;
-                        }
-                        return items.get(shownIndex);
+                public int getNextPosition() {
+                        return nextPosition;
                 }
 
                 public int getTotal() {
-                        return items.size();
+                        return total;
+                }
+
+                public boolean isCurrentInQueue() {
+                        return currentInQueue;
                 }
         }
 
@@ -140,7 +136,7 @@ public class FocusedActionPageRenderer {
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,
                         int spentMinutesThisWeek, int todayBillableMinutes,
                         int todayTargetMinutes, int weekTargetMinutes,
-                        CycleBarData cycleData,
+                        UpNextData upNext,
                         String quickCaptureSentenceValue, List<String> quickCaptureProjectNames,
                         boolean quickCaptureFocusRequested) {
                 PrintWriter out = appReq.getOut();
@@ -271,11 +267,11 @@ public class FocusedActionPageRenderer {
                 out.println("          </form>");
                 out.println("        </div>");
 
-                renderContextStrip(out, notes);
+                renderContextStrip(out, notes, upNext);
 
-                out.println("        <div class=\"fa-card\">");
-                out.println("          <h2 class=\"fa-section-title\">Meetings</h2>");
                 if (!meetingOptions.isEmpty()) {
+                        out.println("        <div class=\"fa-card\">");
+                        out.println("          <h2 class=\"fa-section-title\">Meetings</h2>");
                         out.println("          <div id=\"fa-meetings-list\" class=\"fa-meetings-list\">");
                         for (MeetingOption option : meetingOptions) {
                                 out.println("            <button type=\"button\" class=\"fa-meeting-item\" onclick=\"faSelectMeeting("
@@ -283,38 +279,13 @@ public class FocusedActionPageRenderer {
                                                 + "</button>");
                         }
                         out.println("          </div>");
+                        out.println("        </div>");
                 }
-
-                out.println("          <h2 class=\"fa-section-title\">Next Action</h2>");
-                CycleBarItem shownItem = cycleData == null ? null : cycleData.getShownItem();
-                if (shownItem != null) {
-                        out.println("          <div class=\"fa-cycle-bar\">");
-                        out.println("            <button type=\"button\" id=\"fa-cycle-prev\" class=\"fa-cycle-arrow"
-                                        + (cycleData.getShownIndex() <= 0
-                                                        ? " fa-cycle-arrow-hidden\" disabled=\"disabled\" aria-disabled=\"true\""
-                                                        : "\"")
-                                        + " onclick=\"faCyclePrev()\">&larr;</button>");
-                        out.println("            <div class=\"fa-cycle-main\">");
-                        out.println("              <a id=\"fa-cycle-link\" class=\"fa-cycle-item\" href=\"" + escapeHtml(SWITCH_URL_PREFIX)
-                                        + shownItem.getActionNextId() + "\">"
-                                        + escapeHtml(n(shownItem.getLabel())) + "</a>");
-                        out.println("              <div id=\"fa-cycle-position\" class=\"fa-cycle-position\">"
-                                        + (cycleData.getShownIndex() + 1) + " / "
-                                        + cycleData.getTotal() + "</div>");
-                        out.println("            </div>");
-                        out.println("            <button type=\"button\" id=\"fa-cycle-next\" class=\"fa-cycle-arrow"
-                                        + (cycleData.getShownIndex() >= cycleData.getTotal() - 1
-                                                        ? " fa-cycle-arrow-hidden\" disabled=\"disabled\" aria-disabled=\"true\""
-                                                        : "\"")
-                                        + " onclick=\"faCycleNext()\">&rarr;</button>");
-                        out.println("          </div>");
-                } else {
-                        out.println("          <div class=\"fa-next-action-text\">No next action available.</div>");
-                }
-                out.println("        </div>");
 
                 out.println("      </div>");
                 renderNotesDrawer(out, notes, action.getActionNextId());
+                pickerRenderer.render(out, "fa-upnext-drawer", "Up next", upNext.getGroups(),
+                                "Nothing left in today's list.");
                 out.println("    </section>");
 
                 out.println("    <section class=\"fa-right\">");
@@ -357,22 +328,8 @@ public class FocusedActionPageRenderer {
                 out.println("    weekTargetMinutes: " + Math.max(1, weekTargetMinutes) + ",");
                 out.println("    estimateMinutes: " + Math.max(0, estimateMinutes) + ",");
                 out.println("    runningClock: " + (runningClock ? "true" : "false") + ",");
-                out.println("    nowMinute: " + Math.max(0, Math.min(59, nowMinute)) + ",");
-                out.println("    cycleIndex: " + (cycleData == null ? -1 : Math.max(-1, cycleData.getShownIndex())));
+                out.println("    nowMinute: " + Math.max(0, Math.min(59, nowMinute)));
                 out.println("  };");
-                out.print("  faState.cycleItems = [");
-                if (cycleData != null) {
-                        List<CycleBarItem> cycleItems = cycleData.getItems();
-                        for (int i = 0; i < cycleItems.size(); i++) {
-                                CycleBarItem cycleItem = cycleItems.get(i);
-                                out.print("{ actionNextId: " + cycleItem.getActionNextId() + ", label: \""
-                                                + escapeJs(cycleItem.getLabel()) + "\" }");
-                                if (i < cycleItems.size() - 1) {
-                                        out.print(", ");
-                                }
-                        }
-                }
-                out.println("]; ");
                 out.println("  var faEditOriginalDate = ''; ");
                 out.println("  function faOpenModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.add('fa-modal-open'); } }");
                 out.println("  function faCloseModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.remove('fa-modal-open'); } }");
@@ -390,40 +347,6 @@ public class FocusedActionPageRenderer {
                 out.println("  function faGetTodayISO() { var d = new Date(); var y = d.getFullYear(); var m = String(d.getMonth() + 1).padStart(2, '0'); var day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; }");
                 out.println("  function faIsoToUserDate(isoDate) { var parts = (isoDate || '').split('-'); if (parts.length !== 3) { return ''; } return parts[1] + '/' + parts[2] + '/' + parts[0]; }");
                 out.println("  function faUserDateToIso(userDate) { var parts = (userDate || '').split('/'); if (parts.length !== 3) { return ''; } var m = parts[0].trim().padStart(2, '0'); var d = parts[1].trim().padStart(2, '0'); var y = parts[2].trim(); if (y.length !== 4) { return ''; } return y + '-' + m + '-' + d; }");
-                out.println("  function faSetCycleArrowState(button, hidden) {");
-                out.println("    if (!button) { return; }");
-                out.println("    button.disabled = !!hidden;");
-                out.println("    if (hidden) { button.classList.add('fa-cycle-arrow-hidden'); button.setAttribute('aria-disabled', 'true'); } else { button.classList.remove('fa-cycle-arrow-hidden'); button.removeAttribute('aria-disabled'); }");
-                out.println("  }");
-                out.println("  function faRenderCycleBar() {");
-                out.println("    var items = faState.cycleItems || [];");
-                out.println("    var link = document.getElementById('fa-cycle-link');");
-                out.println("    var position = document.getElementById('fa-cycle-position');");
-                out.println("    var prev = document.getElementById('fa-cycle-prev');");
-                out.println("    var next = document.getElementById('fa-cycle-next');");
-                out.println("    if (!items.length || !link || !position) { return; }");
-                out.println("    var index = parseInt(faState.cycleIndex, 10);");
-                out.println("    if (isNaN(index)) { index = 0; }");
-                out.println("    if (index < 0) { index = 0; }");
-                out.println("    if (index >= items.length) { index = items.length - 1; }");
-                out.println("    faState.cycleIndex = index;");
-                out.println("    var item = items[index] || { actionNextId: 0, label: '' };");
-                out.println("    link.textContent = item.label || '';");
-                out.println("    link.href = '" + SWITCH_URL_PREFIX + "' + encodeURIComponent(String(item.actionNextId || 0));");
-                out.println("    position.textContent = String(index + 1) + ' / ' + String(items.length);");
-                out.println("    faSetCycleArrowState(prev, index <= 0);");
-                out.println("    faSetCycleArrowState(next, index >= items.length - 1);");
-                out.println("  }");
-                out.println("  function faCyclePrev() {");
-                out.println("    if (!faState.cycleItems || faState.cycleIndex <= 0) { return; }");
-                out.println("    faState.cycleIndex = faState.cycleIndex - 1;");
-                out.println("    faRenderCycleBar();");
-                out.println("  }");
-                out.println("  function faCycleNext() {");
-                out.println("    if (!faState.cycleItems || faState.cycleIndex >= faState.cycleItems.length - 1) { return; }");
-                out.println("    faState.cycleIndex = faState.cycleIndex + 1;");
-                out.println("    faRenderCycleBar();");
-                out.println("  }");
                 out.println("  function faHandleActionMutationSuccess(data) {");
                 out.println("    if (data && data.requiresActionRefresh) { window.location.href = 'FocusedActionServlet'; return; }");
                 out.println("    window.location.href = 'FocusedActionServlet?completingActionNextId=' + encodeURIComponent(String(faState.actionNextId));");
@@ -728,6 +651,7 @@ public class FocusedActionPageRenderer {
                 out.println("    preview.textContent = String(notes[notes.length - 1]).split(/\\r?\\n/)[0];");
                 out.println("    preview.classList.remove('fa-strip-faint');");
                 out.println("  }");
+                pickerRenderer.printScript(out);
                 out.println("  var faOpenDrawerId = null;");
                 out.println("  function faOpenDrawer(drawerId, focusId) {");
                 out.println("    if (faOpenDrawerId && faOpenDrawerId !== drawerId) { faCloseDrawer(); }");
@@ -911,7 +835,6 @@ public class FocusedActionPageRenderer {
                 out.println("    return h + 'h ' + m + 'm';");
                 out.println("  }");
                 out.println("  faUpdateStatusAndGauge();");
-                out.println("  faRenderCycleBar();");
                 out.println("  faDrawClock();");
                 out.println("  faInitWorkFollowUpSuggestions();");
                 out.println("  faInitQuickCaptureSuggestions();");
@@ -981,7 +904,7 @@ public class FocusedActionPageRenderer {
          * One-line rows below the work form. Each shows a count and a preview, and opens its drawer
          * over the left column when clicked.
          */
-        private void renderContextStrip(PrintWriter out, List<String> notes) {
+        private void renderContextStrip(PrintWriter out, List<String> notes, UpNextData upNext) {
                 String latest = notes.isEmpty() ? "" : firstLine(notes.get(notes.size() - 1));
                 out.println("        <div class=\"fa-card fa-context-strip\">");
                 out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-notes-drawer\""
@@ -993,7 +916,34 @@ public class FocusedActionPageRenderer {
                                 + "</span>");
                 out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
                 out.println("          </button>");
+                renderUpNextRow(out, upNext);
                 out.println("        </div>");
+        }
+
+        private void renderUpNextRow(PrintWriter out, UpNextData upNext) {
+                FocusActionPickerRenderer.Row nextItem = upNext.getNextItem();
+                String count;
+                String preview;
+                if (upNext.getTotal() == 0) {
+                        count = "";
+                        preview = "<span class=\"fa-strip-faint\">Nothing left in today's list</span>";
+                } else if (!upNext.isCurrentInQueue()) {
+                        count = "(" + upNext.getTotal() + ")";
+                        preview = escapeHtml(nextItem == null ? "" : nextItem.getLabel())
+                                        + " <span class=\"fa-strip-note\">current action is not in today's list</span>";
+                } else if (nextItem == null) {
+                        count = "(" + upNext.getTotal() + ")";
+                        preview = "<span class=\"fa-strip-faint\">Current action is last in today's list</span>";
+                } else {
+                        count = "(" + upNext.getNextPosition() + " of " + upNext.getTotal() + ")";
+                        preview = escapeHtml(nextItem.getLabel());
+                }
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-upnext-drawer\""
+                                + " onclick=\"faPickerOpen('fa-upnext-drawer')\">");
+                out.println("            <span class=\"fa-strip-label\">Up next <span>" + count + "</span></span>");
+                out.println("            <span class=\"fa-strip-preview\">" + preview + "</span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
         }
 
         /** Notes drawer: all notes oldest first, with the add box at the bottom. */
@@ -1067,6 +1017,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-strip-label { flex: 0 0 auto; min-width: 110px; font-weight: 700; color: #293829; }");
                 out.println("  .fa-strip-preview { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #3d4f3d; }");
                 out.println("  .fa-strip-faint { color: #9aa79a; font-style: italic; }");
+                out.println("  .fa-strip-note { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #fbf0d9; color: #7a5a1a; font-size: 11px; }");
                 out.println("  .fa-strip-chevron { flex: 0 0 auto; color: #7f9b7f; font-size: 20px; line-height: 1; }");
                 out.println("  .fa-title-actions { display: flex; gap: 6px; flex-wrap: wrap; }");
                 out.println("  .fa-small-btn { border: 1px solid #a9bba6; background: #f4f9f3; color: #3a553a; padding: 3px 9px; border-radius: 6px; font-size: 12px; cursor: pointer; }");
@@ -1124,18 +1075,6 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-work-status-toggle label { display: inline-block; padding: 6px 10px; border: 1px solid #d5d5d5; background: #efefef; color: #5e5e5e; border-radius: 4px; cursor: pointer; font-weight: bold; user-select: none; }");
                 out.println("  .fa-work-status-toggle input[type='radio']:checked + label { border: 2px solid #58734f; background: #e6f1df; color: #23361e; padding: 5px 9px; }");
                 out.println("  .fa-next-row { display: flex; align-items: center; gap: 8px; }");
-                out.println("  .fa-next-action-text { font-size: 15px; color: #233423; min-height: 24px; }");
-                out.println("  .fa-next-action-link { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");
-                out.println("  .fa-next-action-link:hover { background: #dde9db; }");
-                out.println("  .fa-cycle-bar { display: flex; align-items: center; gap: 8px; }");
-                out.println("  .fa-cycle-arrow { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; border-radius: 7px; text-decoration: none; font-size: 18px; font-weight: 700; flex: 0 0 36px; cursor: pointer; }");
-                out.println("  .fa-cycle-arrow:hover { background: #dde9db; }");
-                out.println("  .fa-cycle-arrow:disabled { cursor: default; }");
-                out.println("  .fa-cycle-arrow-hidden { visibility: hidden; }");
-                out.println("  .fa-cycle-main { flex: 1; min-width: 0; }");
-                out.println("  .fa-cycle-item { display: block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; text-align: center; }");
-                out.println("  .fa-cycle-item:hover { background: #dde9db; }");
-                out.println("  .fa-cycle-position { margin-top: 4px; text-align: center; font-size: 12px; color: #5b6b58; }");
                 out.println("  .fa-meetings-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
                 out.println("  .fa-meeting-item { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; cursor: pointer; text-align: left; }");
                 out.println("  .fa-meeting-item:hover { background: #dde9db; }");
@@ -1191,6 +1130,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-advanced-toggle::before { content: '\\25B6 '; font-size: 10px; }");
                 out.println("  details.fa-advanced-section[open] .fa-advanced-toggle::before { content: '\\25BC '; }");
                 out.println("  .fa-advanced-body { padding: 6px 10px 2px; }");
+                pickerRenderer.printStyles(out);
                 editActionModalRenderer.printSharedStyles(out);
                 out.println("</style>");
         }
