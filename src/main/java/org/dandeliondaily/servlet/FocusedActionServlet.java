@@ -25,6 +25,7 @@ import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.focus.render.FocusActionPickerRenderer;
 import org.dandeliondaily.focus.render.FocusedActionPageRenderer;
+import org.dandeliondaily.focus.service.FocusMeetingService;
 import org.dandeliondaily.focus.service.FocusSwitchSlotService;
 import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.hibernate.Query;
@@ -54,6 +55,7 @@ public class FocusedActionServlet extends ClientServlet {
     private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
     private static final String PARAM_COMPLETING_ACTION_NEXT_ID = "completingActionNextId";
     private static final DateTimeFormatter SHORT_DATE_FORMAT = DateTimeFormatter.ofPattern("EEE M/d");
+    private static final DateTimeFormatter MEETING_TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm");
     private static final String SESSION_PRE_MEETING_ACTION_ID = "FOCUS_PRE_MEETING_ACTION_ID";
     private static final String SESSION_MEETING_ACTIVE = "FOCUS_MEETING_ACTIVE";
     private static final String SESSION_RECENT_FOCUSED_ACTION_IDS = "FOCUS_RECENT_ACTION_IDS";
@@ -64,6 +66,7 @@ public class FocusedActionServlet extends ClientServlet {
     private final FocusedActionPageRenderer focusedActionPageRenderer = new FocusedActionPageRenderer();
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final FocusSwitchSlotService switchSlotService = new FocusSwitchSlotService();
+    private final FocusMeetingService focusMeetingService = new FocusMeetingService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -125,7 +128,7 @@ public class FocusedActionServlet extends ClientServlet {
                     : 0;
 
             List<String> notes = extractNoteLines(currentAction);
-            List<FocusedActionPageRenderer.MeetingOption> meetingOptions = loadTodayMeetingOptions(appReq);
+            FocusedActionPageRenderer.MeetingsData meetingsData = buildMeetingsData(appReq, currentAction);
             List<FocusedActionPageRenderer.SwitchSlot> switchSlots = loadSwitchSlots(appReq, switchSlotIds,
                     currentAction);
             boolean runningClock = appReq.getTimeTracker() != null && appReq.getTimeTracker().isRunningClock();
@@ -140,7 +143,7 @@ public class FocusedActionServlet extends ClientServlet {
 
             appReq.setTitle("Focused Action");
             printFocusedHead(appReq);
-            focusedActionPageRenderer.render(appReq, currentAction, notes, meetingOptions, switchSlots,
+            focusedActionPageRenderer.render(appReq, currentAction, notes, meetingsData, switchSlots,
                     spentMinutes,
                     estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, todayBillableMinutes,
                     todayTargetMinutes, weekTargetMinutes,
@@ -437,6 +440,8 @@ public class FocusedActionServlet extends ClientServlet {
         data.put("estimateMinutes", Integer.valueOf(estimateMinutes));
         data.put("runningClock", Boolean.valueOf(timeTracker != null && timeTracker.isRunningClock()));
         data.put("nowMinute", Integer.valueOf(appReq.getWebUser().getLocalDateTimeNow().getMinute()));
+        data.put("serverNowEpochMs", Long.valueOf(appReq.getWebUser().nowMillis()));
+        data.put("meetingArcs", buildMeetingArcs(appReq));
         sendJsonResponse(appReq, true, "OK", data);
     }
 
@@ -534,38 +539,55 @@ public class FocusedActionServlet extends ClientServlet {
         return currentAction;
     }
 
-    private List<FocusedActionPageRenderer.MeetingOption> loadTodayMeetingOptions(AppReq appReq) {
-        WebUser webUser = appReq.getWebUser();
-        Integer workspaceId = appReq.getActiveWorkspaceId();
-        LocalDate today = webUser.getLocalDateToday();
-        Query query = appReq.getDataSession().createQuery(
-                "select distinct an from ActionNext an "
-                        + "left join fetch an.project "
-                        + "where an.workspaceId = :workspaceId and (an.contactId = :contactId or an.nextContactId = :nextContactId) "
-                        + "and an.nextActionStatusString = :nextActionStatus "
-                        + "and an.nextActionDate = :targetDate "
-                        + "and an.nextActionType = :meetingType "
-                        + "order by an.completionOrder, an.priorityLevel desc, an.nextChangeDate");
-        query.setParameter("workspaceId", workspaceId);
-        query.setParameter("contactId", webUser.getContactId());
-        query.setParameter("nextContactId", webUser.getContactId());
-        query.setParameter("nextActionStatus", ProjectNextActionStatus.READY.getId());
-        query.setParameter("targetDate", java.sql.Date.valueOf(today));
-        query.setParameter("meetingType", ProjectNextActionType.WILL_MEET);
-        @SuppressWarnings("unchecked")
-        List<ActionNext> meetingActions = query.list();
+    private List<FocusMeetingService.TodayMeeting> loadTodayMeetings(AppReq appReq) {
+        return focusMeetingService.loadTodayMeetings(appReq.getDataSession(), appReq.getWebUser(),
+                appReq.getActiveWorkspaceId());
+    }
 
-        List<FocusedActionPageRenderer.MeetingOption> options = new ArrayList<FocusedActionPageRenderer.MeetingOption>();
-        for (ActionNext action : meetingActions) {
-            String projectName = getActionProjectDisplayName(appReq.getDataSession(), action);
-            String description = n(action.getNextDescription());
-            String estimate = action.getNextTimeEstimate() == null ? "" : " (" + action.getNextTimeEstimate() + "m)";
-            String title = (projectName.length() > 0 ? projectName + " - " : "")
-                    + description
-                    + estimate;
-            options.add(new FocusedActionPageRenderer.MeetingOption(action.getActionNextId(), title));
+    private FocusedActionPageRenderer.MeetingsData buildMeetingsData(AppReq appReq, ActionNext currentAction) {
+        WebUser webUser = appReq.getWebUser();
+        List<FocusMeetingService.TodayMeeting> meetings = loadTodayMeetings(appReq);
+        List<Integer> actionIds = new ArrayList<Integer>();
+        for (FocusMeetingService.TodayMeeting meeting : meetings) {
+            actionIds.add(Integer.valueOf(meeting.getAction().getActionNextId()));
         }
-        return options;
+        Map<Integer, Integer> minutesToday = loadMinutesTodayByAction(appReq, actionIds);
+        int currentId = currentAction == null ? 0 : currentAction.getActionNextId();
+        List<FocusActionPickerRenderer.Row> rows = new ArrayList<FocusActionPickerRenderer.Row>();
+        for (FocusMeetingService.TodayMeeting meeting : meetings) {
+            ActionNext action = meeting.getAction();
+            if (!meeting.isTimed()) {
+                rows.add(buildPickerRow(appReq.getDataSession(), action, minutesToday,
+                        action.getActionNextId() == currentId, true, "no time"));
+                continue;
+            }
+            String startLabel = formatMeetingTime(meeting.getStartEpochMs().longValue(), webUser);
+            String endLabel = formatMeetingTime(meeting.getEndEpochMs().longValue(), webUser);
+            rows.add(buildPickerRow(appReq.getDataSession(), action, minutesToday,
+                    action.getActionNextId() == currentId, true, startLabel + "\u2013" + endLabel)
+                    .withMeetingTimes(meeting.getStartEpochMs(), meeting.getEndEpochMs(), startLabel, endLabel)
+                    .withJoinUrl(meeting.getJoinUrl()));
+        }
+        return new FocusedActionPageRenderer.MeetingsData(rows, webUser.nowMillis());
+    }
+
+    /** Timed meetings for the clock, refreshed each minute with refreshFocusClock. */
+    private List<Map<String, Object>> buildMeetingArcs(AppReq appReq) {
+        List<Map<String, Object>> arcs = new ArrayList<Map<String, Object>>();
+        for (FocusMeetingService.TodayMeeting meeting : loadTodayMeetings(appReq)) {
+            if (!meeting.isTimed()) {
+                continue;
+            }
+            Map<String, Object> arc = new LinkedHashMap<String, Object>();
+            arc.put("startEpochMs", meeting.getStartEpochMs());
+            arc.put("endEpochMs", meeting.getEndEpochMs());
+            arcs.add(arc);
+        }
+        return arcs;
+    }
+
+    private String formatMeetingTime(long epochMs, WebUser webUser) {
+        return java.time.Instant.ofEpochMilli(epochMs).atZone(webUser.getZoneId()).format(MEETING_TIME_FORMAT);
     }
 
     private List<FocusedActionPageRenderer.SwitchSlot> loadSwitchSlots(AppReq appReq, List<Integer> slotIds,

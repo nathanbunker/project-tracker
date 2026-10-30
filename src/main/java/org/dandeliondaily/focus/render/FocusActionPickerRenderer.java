@@ -24,6 +24,11 @@ public class FocusActionPickerRenderer {
                 private final String whenLabel;
                 private final boolean current;
                 private final boolean meeting;
+                private Long startEpochMs;
+                private Long endEpochMs;
+                private String startLabel;
+                private String endLabel;
+                private String joinUrl;
 
                 public Row(int actionNextId, String projectName, String description, Integer estimateMinutes,
                                 int minutesToday, String whenLabel, boolean current, boolean meeting) {
@@ -67,6 +72,43 @@ public class FocusActionPickerRenderer {
 
                 public boolean isMeeting() {
                         return meeting;
+                }
+
+                /**
+                 * Marks the row with its meeting times so the page script can label it "in 25m",
+                 * "now" or "ended 10:30" as time passes.
+                 */
+                public Row withMeetingTimes(Long startEpochMs, Long endEpochMs, String startLabel, String endLabel) {
+                        this.startEpochMs = startEpochMs;
+                        this.endEpochMs = endEpochMs;
+                        this.startLabel = startLabel;
+                        this.endLabel = endLabel;
+                        return this;
+                }
+
+                public Row withJoinUrl(String joinUrl) {
+                        this.joinUrl = joinUrl;
+                        return this;
+                }
+
+                public Long getStartEpochMs() {
+                        return startEpochMs;
+                }
+
+                public Long getEndEpochMs() {
+                        return endEpochMs;
+                }
+
+                public String getStartLabel() {
+                        return startLabel;
+                }
+
+                public String getEndLabel() {
+                        return endLabel;
+                }
+
+                public String getJoinUrl() {
+                        return joinUrl;
                 }
 
                 /** "Project - Description (15m)", for one-line previews. */
@@ -151,7 +193,16 @@ public class FocusActionPickerRenderer {
                 if (row.getMinutesToday() > 0) {
                         appendSeparator(meta).append(formatMinutes(row.getMinutesToday())).append(" today");
                 }
-                out.println("            <a class=\"" + classes + "\"" + target + " data-filter=\""
+                String times = "";
+                if (row.getStartEpochMs() != null && row.getEndEpochMs() != null) {
+                        times = " data-start=\"" + row.getStartEpochMs() + "\" data-end=\"" + row.getEndEpochMs()
+                                        + "\" data-end-label=\"" + escapeHtml(row.getEndLabel()) + "\"";
+                }
+                boolean hasJoin = n(row.getJoinUrl()).length() > 0;
+                if (hasJoin) {
+                        out.println("            <div class=\"fa-picker-item\">");
+                }
+                out.println("            <a class=\"" + classes + "\"" + target + times + " data-filter=\""
                                 + escapeHtml(filterText) + "\">");
                 out.println("              <span class=\"fa-picker-main\">");
                 out.println("                <span class=\"fa-picker-project\">"
@@ -166,11 +217,19 @@ public class FocusActionPickerRenderer {
                         out.println("                <span class=\"fa-picker-when\">" + escapeHtml(row.getWhenLabel())
                                         + "</span>");
                 }
+                if (times.length() > 0) {
+                        out.println("                <span class=\"fa-picker-rel\"></span>");
+                }
                 if (meta.length() > 0) {
                         out.println("                <span class=\"fa-picker-meta\">" + meta + "</span>");
                 }
                 out.println("              </span>");
                 out.println("            </a>");
+                if (hasJoin) {
+                        out.println("              <a class=\"fa-picker-join\" href=\"" + escapeHtml(row.getJoinUrl())
+                                        + "\" target=\"_blank\" rel=\"noopener noreferrer\">Join</a>");
+                        out.println("            </div>");
+                }
         }
 
         public void printStyles(PrintWriter out) {
@@ -190,6 +249,15 @@ public class FocusActionPickerRenderer {
                 out.println("  .fa-picker-tag { display: inline-block; padding: 0 5px; border-radius: 4px; background: #e6ece4; color: #3d553d; font-size: 10px; font-weight: 700; letter-spacing: .04em; }");
                 out.println("  .fa-picker-tag-current { background: #2f8c2f; color: #fff; }");
                 out.println("  .fa-picker-meeting .fa-picker-tag { background: #e4e9f3; color: #34466b; }");
+                out.println("  .fa-picker-rel { color: #34466b; }");
+                out.println("  .fa-picker-dim { opacity: 0.55; }");
+                out.println("  .fa-picker-dim .fa-picker-rel { color: #5b6b58; }");
+                out.println("  .fa-picker-live { background: #e8eef9; border-color: #5b7bc4; }");
+                out.println("  .fa-picker-live .fa-picker-rel { font-weight: 700; color: #2a4f9e; }");
+                out.println("  .fa-picker-item { display: flex; align-items: center; gap: 6px; }");
+                out.println("  .fa-picker-item .fa-picker-row { flex: 1; min-width: 0; }");
+                out.println("  .fa-picker-join { flex: 0 0 auto; margin-bottom: 3px; padding: 5px 9px; border: 1px solid #5b7bc4; border-radius: 6px; background: #eef2fa; color: #2a4f9e; font-size: 12px; font-weight: 700; text-decoration: none; }");
+                out.println("  .fa-picker-join:hover { background: #dde6f6; }");
         }
 
         /** Filter, arrow-key and Enter handling for every picker drawer on the page. */
@@ -205,7 +273,7 @@ public class FocusActionPickerRenderer {
                 out.println("    var input = drawer.querySelector('.fa-picker-filter-input');");
                 out.println("    if (input && input.value) { input.value = ''; faPickerFilter(input); }");
                 out.println("    var body = drawer.querySelector('.fa-drawer-body'); if (body) { body.scrollTop = 0; }");
-                out.println("    var start = drawer.querySelector('.fa-picker-current') || faPickerRows(drawer)[0];");
+                out.println("    var start = drawer.querySelector('.fa-picker-current') || drawer.querySelector('.fa-picker-row:not(.fa-picker-dim)') || faPickerRows(drawer)[0];");
                 out.println("    faPickerSetActive(drawer, start);");
                 out.println("    if (start) { start.scrollIntoView({ block: 'center' }); }");
                 out.println("    if (input) { setTimeout(function() { input.focus(); }, 0); }");
@@ -213,7 +281,7 @@ public class FocusActionPickerRenderer {
                 out.println("  function faPickerFilter(input) {");
                 out.println("    var drawer = input.closest('.fa-picker'); var text = (input.value || '').trim().toLowerCase();");
                 out.println("    var rows = drawer.querySelectorAll('.fa-picker-row'); var shown = 0;");
-                out.println("    for (var i = 0; i < rows.length; i++) { var match = !text || (rows[i].getAttribute('data-filter') || '').indexOf(text) >= 0; rows[i].style.display = match ? '' : 'none'; if (match) { shown++; } }");
+                out.println("    for (var i = 0; i < rows.length; i++) { var match = !text || (rows[i].getAttribute('data-filter') || '').indexOf(text) >= 0; rows[i].style.display = match ? '' : 'none'; var item = rows[i].closest('.fa-picker-item'); if (item) { item.style.display = rows[i].style.display; } if (match) { shown++; } }");
                 out.println("    var groups = drawer.querySelectorAll('.fa-picker-group');");
                 out.println("    for (var g = 0; g < groups.length; g++) { groups[g].style.display = faPickerRows(groups[g]).length ? '' : 'none'; }");
                 out.println("    var nomatch = drawer.querySelector('.fa-picker-nomatch'); if (nomatch) { nomatch.style.display = (rows.length && !shown) ? '' : 'none'; }");
