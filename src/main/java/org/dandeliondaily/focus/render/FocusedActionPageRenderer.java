@@ -201,22 +201,11 @@ public class FocusedActionPageRenderer {
                 out.println("        <div class=\"fa-card fa-title-card\">");
                 out.println("          <div class=\"fa-main-title\">" + descriptionForDisplay
                                 + " <span class=\"fa-project-subtitle\">" + escapeHtml(projectName) + "</span></div>");
-                out.println("          <ul id=\"fa-notes-list\" class=\"fa-notes\">");
-                for (String note : notes) {
-                        out.println("            <li>" + escapeHtml(note) + "</li>");
-                }
-                out.println("          </ul>");
-                out.println("          <div class=\"fa-inline-note\">");
-                out.println("            <textarea id=\"fa-note-input\" rows=\"3\" placeholder=\"Add note...\" onkeydown=\"faHandleNoteKeydown(event, "
-                                + action.getActionNextId() + ")\"></textarea>");
-                out.println("            <div class=\"fa-note-actions\">");
-                out.println("              <button type=\"button\" class=\"fa-primary-btn fa-note-submit-btn\" onclick=\"faSubmitNote("
-                                + action.getActionNextId() + ")\">Add Note</button>");
+                out.println("          <div class=\"fa-title-actions\">");
                 out.println(
-                                "              <button type=\"button\" class=\"fa-secondary-btn\" onclick=\"faOpenRescheduleModal(event)\">Reschedule</button>");
+                                "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenRescheduleModal(event)\">Reschedule</button>");
                 out.println(
-                                "              <button type=\"button\" class=\"fa-secondary-btn\" onclick=\"faOpenEditModal(event)\">Edit Action</button>");
-                out.println("            </div>");
+                                "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenEditModal(event)\">Edit Action</button>");
                 out.println("          </div>");
                 out.println("        </div>");
 
@@ -282,6 +271,8 @@ public class FocusedActionPageRenderer {
                 out.println("          </form>");
                 out.println("        </div>");
 
+                renderContextStrip(out, notes);
+
                 out.println("        <div class=\"fa-card\">");
                 out.println("          <h2 class=\"fa-section-title\">Meetings</h2>");
                 if (!meetingOptions.isEmpty()) {
@@ -323,6 +314,7 @@ public class FocusedActionPageRenderer {
                 out.println("        </div>");
 
                 out.println("      </div>");
+                renderNotesDrawer(out, notes, action.getActionNextId());
                 out.println("    </section>");
 
                 out.println("    <section class=\"fa-right\">");
@@ -720,10 +712,49 @@ public class FocusedActionPageRenderer {
                 out.println("        var notes = data.notes || [];");
                 out.println(
                                 "        for (var i = 0; i < notes.length; i++) { var li = document.createElement('li'); li.textContent = notes[i]; list.appendChild(li); }");
+                out.println("        var empty = document.getElementById('fa-notes-empty'); if (empty) { empty.style.display = notes.length ? 'none' : ''; }");
+                out.println("        faUpdateNotesRow(notes);");
+                out.println("        var body = document.getElementById('fa-notes-drawer-body'); if (body) { body.scrollTop = body.scrollHeight; }");
                 out.println("        input.value = ''; input.focus();");
                 out.println("      })");
                 out.println("      .catch(function() { alert('Unable to add note.'); });");
                 out.println("  }");
+                out.println("  function faUpdateNotesRow(notes) {");
+                out.println("    var count = document.getElementById('fa-notes-count');");
+                out.println("    var preview = document.getElementById('fa-notes-preview');");
+                out.println("    if (count) { count.textContent = notes.length ? '(' + notes.length + ')' : ''; }");
+                out.println("    if (!preview) { return; }");
+                out.println("    if (!notes.length) { preview.textContent = 'Add note'; preview.classList.add('fa-strip-faint'); return; }");
+                out.println("    preview.textContent = String(notes[notes.length - 1]).split(/\\r?\\n/)[0];");
+                out.println("    preview.classList.remove('fa-strip-faint');");
+                out.println("  }");
+                out.println("  var faOpenDrawerId = null;");
+                out.println("  function faOpenDrawer(drawerId, focusId) {");
+                out.println("    if (faOpenDrawerId && faOpenDrawerId !== drawerId) { faCloseDrawer(); }");
+                out.println("    var drawer = document.getElementById(drawerId); if (!drawer) { return; }");
+                out.println("    drawer.classList.add('fa-drawer-open'); drawer.setAttribute('aria-hidden', 'false');");
+                out.println("    faOpenDrawerId = drawerId;");
+                out.println("    var body = drawer.querySelector('.fa-drawer-body'); if (body) { body.scrollTop = body.scrollHeight; }");
+                out.println("    var focusEl = focusId ? document.getElementById(focusId) : null;");
+                out.println("    if (focusEl) { setTimeout(function() { focusEl.focus(); }, 0); }");
+                out.println("  }");
+                out.println("  function faCloseDrawer() {");
+                out.println("    if (!faOpenDrawerId) { return; }");
+                out.println("    var drawer = document.getElementById(faOpenDrawerId);");
+                out.println("    if (drawer) { drawer.classList.remove('fa-drawer-open'); drawer.setAttribute('aria-hidden', 'true'); }");
+                out.println("    var trigger = document.querySelector('[data-drawer=\"' + faOpenDrawerId + '\"]');");
+                out.println("    faOpenDrawerId = null;");
+                out.println("    if (trigger) { trigger.focus(); }");
+                out.println("  }");
+                out.println("  document.addEventListener('keydown', function(e) {");
+                out.println("    if (document.querySelector('.fa-modal-open')) { return; }");
+                out.println("    if (e.key === 'Escape' && faOpenDrawerId) { e.preventDefault(); faCloseDrawer(); return; }");
+                out.println("    if (e.key !== 'n' || e.altKey || e.ctrlKey || e.metaKey) { return; }");
+                out.println("    var el = document.activeElement;");
+                out.println("    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    faOpenDrawer('fa-notes-drawer', 'fa-note-input');");
+                out.println("  });");
                 out.println("  function faInitWorkFollowUpSuggestions() {");
                 out.println(
                                 "    var actionVerbs = ['I will', 'I have committed', 'I might', 'I would like to', 'I will meet', 'I have set goal to', 'I am waiting'];");
@@ -946,6 +977,58 @@ public class FocusedActionPageRenderer {
                 out.println("</script>");
         }
 
+        /**
+         * One-line rows below the work form. Each shows a count and a preview, and opens its drawer
+         * over the left column when clicked.
+         */
+        private void renderContextStrip(PrintWriter out, List<String> notes) {
+                String latest = notes.isEmpty() ? "" : firstLine(notes.get(notes.size() - 1));
+                out.println("        <div class=\"fa-card fa-context-strip\">");
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-notes-drawer\""
+                                + " title=\"Notes (press n)\" onclick=\"faOpenDrawer('fa-notes-drawer', 'fa-note-input')\">");
+                out.println("            <span class=\"fa-strip-label\">Notes <span id=\"fa-notes-count\">"
+                                + (notes.isEmpty() ? "" : "(" + notes.size() + ")") + "</span></span>");
+                out.println("            <span id=\"fa-notes-preview\" class=\"fa-strip-preview"
+                                + (notes.isEmpty() ? " fa-strip-faint\">Add note" : "\">" + escapeHtml(latest))
+                                + "</span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
+                out.println("        </div>");
+        }
+
+        /** Notes drawer: all notes oldest first, with the add box at the bottom. */
+        private void renderNotesDrawer(PrintWriter out, List<String> notes, int actionNextId) {
+                out.println("      <aside id=\"fa-notes-drawer\" class=\"fa-drawer\" aria-label=\"Notes\" aria-hidden=\"true\">");
+                out.println("        <div class=\"fa-drawer-head\">");
+                out.println("          <h2 class=\"fa-section-title\">Notes</h2>");
+                out.println("          <button type=\"button\" class=\"fa-modal-close\" title=\"Close (Esc)\" onclick=\"faCloseDrawer()\">&times;</button>");
+                out.println("        </div>");
+                out.println("        <div id=\"fa-notes-drawer-body\" class=\"fa-drawer-body\">");
+                out.println("          <div id=\"fa-notes-empty\" class=\"fa-drawer-empty\""
+                                + (notes.isEmpty() ? "" : " style=\"display:none\"") + ">No notes yet.</div>");
+                out.println("          <ul id=\"fa-notes-list\" class=\"fa-notes\">");
+                for (String note : notes) {
+                        out.println("            <li>" + escapeHtml(note) + "</li>");
+                }
+                out.println("          </ul>");
+                out.println("        </div>");
+                out.println("        <div class=\"fa-drawer-foot fa-inline-note\">");
+                out.println("          <textarea id=\"fa-note-input\" rows=\"3\" placeholder=\"Add note... (Enter saves)\" onkeydown=\"faHandleNoteKeydown(event, "
+                                + actionNextId + ")\"></textarea>");
+                out.println("          <div class=\"fa-note-actions\">");
+                out.println("            <button type=\"button\" class=\"fa-primary-btn fa-note-submit-btn\" onclick=\"faSubmitNote("
+                                + actionNextId + ")\">Add Note</button>");
+                out.println("          </div>");
+                out.println("        </div>");
+                out.println("      </aside>");
+        }
+
+        private String firstLine(String value) {
+                String text = n(value);
+                int newline = text.indexOf('\n');
+                return (newline >= 0 ? text.substring(0, newline) : text).trim();
+        }
+
         private void printStyles(PrintWriter out) {
                 out.println("<style>");
                 out.println(
@@ -970,7 +1053,24 @@ public class FocusedActionPageRenderer {
                                 "  .fa-close { position: fixed; right: 14px; top: 10px; border: 1px solid #7f8f7f; background: #fff; width: 38px; height: 38px; border-radius: 8px; font-size: 26px; line-height: 30px; cursor: pointer; z-index: 60; }");
                 out.println(
                                 "  .fa-shell { display: grid; grid-template-columns: minmax(380px, 39%) minmax(520px, 61%); gap: 12px; flex: 1; min-height: 0; }");
-                out.println("  .fa-left { min-height: 0; }");
+                out.println("  .fa-left { min-height: 0; position: relative; overflow: hidden; }");
+                out.println("  .fa-drawer { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: #fffdf8; border: 1px solid #c8d4c4; border-radius: 10px; box-shadow: 4px 0 18px rgba(0,0,0,0.14); transform: translateX(-104%); visibility: hidden; transition: transform 0.18s ease, visibility 0s linear 0.18s; }");
+                out.println("  .fa-drawer.fa-drawer-open { transform: translateX(0); visibility: visible; transition: transform 0.18s ease, visibility 0s; }");
+                out.println("  .fa-drawer-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #d8e0d6; }");
+                out.println("  .fa-drawer-head .fa-section-title { margin: 0; }");
+                out.println("  .fa-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }");
+                out.println("  .fa-drawer-foot { flex: 0 0 auto; padding: 10px 12px; border-top: 1px solid #d8e0d6; }");
+                out.println("  .fa-drawer-empty { color: #8a968a; font-style: italic; }");
+                out.println("  .fa-context-strip { padding: 4px; }");
+                out.println("  .fa-strip-row { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: #233423; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }");
+                out.println("  .fa-strip-row:hover, .fa-strip-row:focus-visible { background: #edf5ea; }");
+                out.println("  .fa-strip-label { flex: 0 0 auto; min-width: 110px; font-weight: 700; color: #293829; }");
+                out.println("  .fa-strip-preview { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #3d4f3d; }");
+                out.println("  .fa-strip-faint { color: #9aa79a; font-style: italic; }");
+                out.println("  .fa-strip-chevron { flex: 0 0 auto; color: #7f9b7f; font-size: 20px; line-height: 1; }");
+                out.println("  .fa-title-actions { display: flex; gap: 6px; flex-wrap: wrap; }");
+                out.println("  .fa-small-btn { border: 1px solid #a9bba6; background: #f4f9f3; color: #3a553a; padding: 3px 9px; border-radius: 6px; font-size: 12px; cursor: pointer; }");
+                out.println("  .fa-small-btn:hover { background: #e3eee0; border-color: #7f9b7f; }");
                 out.println("  .fa-left-scroll { height: 100%; overflow-y: auto; padding-right: 6px; }");
                 out.println(
                                 "  .fa-right { min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }");
@@ -1070,6 +1170,7 @@ public class FocusedActionPageRenderer {
                 out.println("    .fa-switch-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }");
                 out.println("    .fa-shell { grid-template-columns: 1fr; }");
                 out.println("    .fa-left-scroll { height: auto; max-height: none; }");
+                out.println("    .fa-drawer { position: fixed; inset: 8px; z-index: 80; }");
                 out.println("    .fa-right { min-height: 420px; }");
                 out.println("    .fa-clock-wrap { width: min(92vw, 620px); }");
                 out.println("    .fa-dandelion-btn { width: 78px; height: 78px; }");
