@@ -123,7 +123,6 @@ public class McpApplyChangesService {
             return response;
         }
 
-        ActionSet batchActionSet = null;
         for (int i = 0; i < prepared.size(); i++) {
             PreparedChange pc = prepared.get(i);
             Map<String, Object> resultItem = results.get(i);
@@ -132,13 +131,13 @@ public class McpApplyChangesService {
                 resultItem.put("ref", pc.projectDraft.ref);
                 resultItem.put("projectId", Integer.valueOf(pc.projectDraft.project.getProjectId()));
             } else if ("create_action".equals(pc.type)) {
-                batchActionSet = applyCreate(session, webUser, pc, batchActionSet, resultItem);
+                applyCreate(session, webUser, pc, resultItem);
             } else if ("update_action".equals(pc.type)) {
                 applyUpdate(session, webUser, pc);
             } else if ("reschedule_action".equals(pc.type)) {
                 applyReschedule(session, pc);
             } else if ("split_action".equals(pc.type)) {
-                batchActionSet = applySplit(session, webUser, pc, batchActionSet, resultItem);
+                applySplit(session, webUser, pc, resultItem);
             } else if ("remove_action".equals(pc.type)) {
                 applyRemove(session, pc);
             } else if ("complete_action".equals(pc.type)) {
@@ -702,7 +701,7 @@ public class McpApplyChangesService {
 
     // ---- apply ----
 
-    private ActionSet applyCreate(Session session, WebUser webUser, PreparedChange pc, ActionSet batchActionSet,
+    private void applyCreate(Session session, WebUser webUser, PreparedChange pc,
             Map<String, Object> resultItem) {
         ActionNext action = new ActionNext();
         action.setProject(pc.project);
@@ -727,8 +726,7 @@ public class McpApplyChangesService {
         action.setNextChangeDate(McpActionContextSupport.truncatedNow());
         action.setPriorityLevel(ProjectNextActionType.defaultPriority(pc.newActionType));
         action.setBillable(isBillable(pc.project));
-        ActionSet actionSet = batchActionSet != null ? batchActionSet
-                : new ActionSetDao(session).createActionSet(webUser, ActionSetType.STANDARD);
+        ActionSet actionSet = new ActionSetDao(session).createActionSet(webUser, ActionSetType.STANDARD);
         action.setActionSet(actionSet);
         session.save(action);
         if (pc.newNotes != null && pc.newNotes.trim().length() > 0) {
@@ -737,7 +735,6 @@ public class McpApplyChangesService {
         }
         pc.action = action;
         resultItem.put("createdActionNextId", Integer.valueOf(action.getActionNextId()));
-        return actionSet;
     }
 
     private void applyUpdate(Session session, WebUser webUser, PreparedChange pc) {
@@ -787,15 +784,13 @@ public class McpApplyChangesService {
         session.update(action);
     }
 
-    private ActionSet applySplit(Session session, WebUser webUser, PreparedChange pc, ActionSet batchActionSet,
+    private void applySplit(Session session, WebUser webUser, PreparedChange pc,
             Map<String, Object> resultItem) {
         ActionNext original = pc.action;
         original.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
         original.setNextChangeDate(McpActionContextSupport.truncatedNow());
         session.update(original);
 
-        ActionSet actionSet = batchActionSet != null ? batchActionSet
-                : new ActionSetDao(session).createActionSet(webUser, ActionSetType.STANDARD);
         List<Integer> createdIds = new ArrayList<Integer>();
         List<ActionNext> createdActions = new ArrayList<ActionNext>();
         for (NewActionSpec spec : pc.newActions) {
@@ -815,7 +810,7 @@ public class McpApplyChangesService {
             action.setNextChangeDate(McpActionContextSupport.truncatedNow());
             action.setPriorityLevel(ProjectNextActionType.defaultPriority(spec.actionType));
             action.setBillable(isBillable(pc.project));
-            action.setActionSet(actionSet);
+            action.setActionSet(new ActionSetDao(session).createActionSet(webUser, ActionSetType.STANDARD));
             session.save(action);
             createdIds.add(Integer.valueOf(action.getActionNextId()));
             createdActions.add(action);
@@ -823,7 +818,6 @@ public class McpApplyChangesService {
         pc.createdActions = createdActions;
         resultItem.put("cancelledActionNextId", Integer.valueOf(original.getActionNextId()));
         resultItem.put("createdActionNextIds", createdIds);
-        return actionSet;
     }
 
     private void applyRemove(Session session, PreparedChange pc) {

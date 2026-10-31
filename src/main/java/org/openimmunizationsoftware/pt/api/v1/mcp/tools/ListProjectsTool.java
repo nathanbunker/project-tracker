@@ -18,7 +18,8 @@ public class ListProjectsTool implements McpTool {
                 + "case-insensitive label. Stable project-name/ID pagination: limit default100 max200, offset default0. "
                 + "Returns external sync identity/ownership, workspace, ownerWebUserId, billing, lastModifiedAt and "
                 + "lastActivityAt (latest project modification, action change or recorded work; null if unknown). "
-                + "Discovery of shared projects does not grant write access.";
+                + "Optional workspaceId and externalSourceKey filters select synchronized copies without merging "
+                + "them or expanding authorization; no source is implicitly canonical. Discovery of shared projects does not grant write access.";
     }
     public Map<String, Object> getInputSchema() {
         return McpSchema.object(McpSchema.properties(
@@ -27,6 +28,8 @@ public class ListProjectsTool implements McpTool {
                 "status", McpSchema.stringEnum(null, "OPEN", "ALL", "Active", "Paused", "Complete", "Closed"),
                 "billCode", McpSchema.string("Exact bill code."),
                 "tag", McpSchema.string("Exact tag label."),
+                "workspaceId", McpSchema.integer("Optional positive workspace ID; existing read authorization still applies."),
+                "externalSourceKey", McpSchema.string("Optional exact external source key, max100."),
                 "limit", McpSchema.integer("1-200, default100."),
                 "offset", McpSchema.integer("Nonnegative, default0.")));
     }

@@ -23,6 +23,39 @@ The remaining requests are:
 All writes follow the existing `apply_changes` rules: explicit user approval, `asOf` concurrency checks, and atomic
 batches.
 
+## Follow-up refinements (5.12.2)
+
+The 5.12.1 implementation below remains the baseline, with these changes based on production feedback P-12 to P-15:
+
+- `list_projects` additionally accepts positive integer `workspaceId` and nonblank `externalSourceKey` (max 100).
+  They narrow the authorized results, never grant access. Supplying both requires both to match.
+  Unauthorized workspace IDs return an empty list without revealing whether the workspace exists.
+  Unfiltered reads retain separate synchronized project records; matching external IDs across sources do not
+  imply interchangeable ownership. No canonical source is assumed.
+- New independent `create_action` actions and each `split_action` replacement receive separate STANDARD action
+  sets, even in one atomic batch. SHARED behavior is unchanged. Old ambiguous sets are not rewritten.
+- `completionDateUnknownReason` is null when a completion date is known, `NOT_COMPLETED` otherwise for open/
+  cancelled actions, or `NO_UNAMBIGUOUS_WORK_RECORD` for completed actions without safely attributable work.
+  This last value covers missing records, ambiguous sets, and original-project work after a move; it does not
+  claim which of those explanations applies. The historical date-matching limitation still applies.
+- Closed (`C`/`X`) actions have `dashboardBucket:null`.
+- Action `scheduledDate`, `deadlineDate`, and `targetDate` are now date-only `yyyy-MM-dd` strings or null in all
+  shared action-map reads. This intentionally replaces the prior midnight-timestamp format; clients must not
+  timezone-convert these fields. Actual instants and concurrency markers retain ISO timestamp formatting.
+- Unknown historical `lastModifiedAt` remains null. No fabricated backfill is performed.
+
+Example source selection (workspace/source are examples from the feedback, not a global preference):
+
+```json
+{"nameContains":"ImmDS + HALO","scope":"SHARED","workspaceId":6,"externalSourceKey":"InteropHub-ES"}
+```
+
+Validation: `mvn clean package` passed 421 tests across 65 suites (zero failures/errors/skips). Real MySQL
+coverage includes authorization-preserving filters, independent batch/split sets, and completed-meeting searches
+matching work dates outside their scheduled range. The WAR version is 5.12.2. No new migration or deployment was
+performed. After deployment, reconnect the agent and recheck P-12 through P-15; old ambiguous completion dates
+are expected to remain unknown.
+
 ## Implementation contract (5.12.1)
 
 The sections below this contract preserve the original request. The implemented scope is project discovery,

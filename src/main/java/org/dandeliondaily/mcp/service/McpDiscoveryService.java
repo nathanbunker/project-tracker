@@ -29,7 +29,8 @@ public class McpDiscoveryService {
             + "and (select count(s.actionNextId) from ActionNext s where s.actionSet = a.actionSet) = 1)";
 
     public Map<String, Object> listProjects(Session session, int workspaceId, WebUser user, JsonNode input) {
-        JsonNode args = arguments(input, "nameContains", "scope", "status", "billCode", "tag", "limit", "offset");
+        JsonNode args = arguments(input, "nameContains", "scope", "status", "billCode", "tag", "limit", "offset",
+                "workspaceId", "externalSourceKey");
         int limit = integer(args, "limit", 100, 1, 200);
         int offset = integer(args, "offset", 0, 0, Integer.MAX_VALUE - 200);
         String scope = optional(args, "scope", "ALL");
@@ -44,6 +45,14 @@ public class McpDiscoveryService {
         params.put("workspaceIds", McpProjectAccess.readableWorkspaces(session, workspaceId, user));
         StringBuilder hql = new StringBuilder("select p, w from Project p, Workspace w "
                 + "where p.workspaceId = w.workspaceId and p.workspaceId in (:workspaceIds)");
+        if (args.has("workspaceId")) {
+            hql.append(" and p.workspaceId = :selectedWorkspaceId");
+            params.put("selectedWorkspaceId", integer(args, "workspaceId", 0, 1, Integer.MAX_VALUE));
+        }
+        if (args.has("externalSourceKey")) {
+            hql.append(" and p.externalSourceKey = :externalSourceKey");
+            params.put("externalSourceKey", text(args, "externalSourceKey", 100, true));
+        }
         if (!"ALL".equals(scope)) {
             hql.append(" and w.workspaceType = :workspaceType");
             params.put("workspaceType", "PRIVATE".equals(scope) ? Workspace.TYPE_PRIVATE : Workspace.TYPE_PATCH);
@@ -190,6 +199,8 @@ public class McpDiscoveryService {
             map.put("completionDate", "C".equals(action.getNextActionStatusString()) ? McpActionContextSupport.toIso(workDate) : null);
             map.put("recordedWorkDate", closed ? McpActionContextSupport.toIso(workDate) : null);
             map.put("completionDateKnown", "C".equals(action.getNextActionStatusString()) && workDate != null);
+            map.put("completionDateUnknownReason", !"C".equals(action.getNextActionStatusString())
+                    ? "NOT_COMPLETED" : workDate == null ? "NO_UNAMBIGUOUS_WORK_RECORD" : null);
             actions.add(map);
         }
         return page("actions", actions, rows.size() > limit, offset, limit);

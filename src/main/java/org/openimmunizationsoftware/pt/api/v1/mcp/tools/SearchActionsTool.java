@@ -16,7 +16,9 @@ public class SearchActionsTool implements McpTool {
                 + "Matches scheduled date OR attributable recorded-work date for a closed action. Work is attributable "
                 + "only if exactly one action anywhere shares its action set and work matches the current project/workspace; otherwise completionDate "
                 + "is null, completionDateKnown=false and only scheduled-date matching is possible. Modification time "
-                + "is never presented as completion time. Returns action asOf, project, notes and linkedMeeting. "
+                + "is never presented as completion time. completionDateUnknownReason is NOT_COMPLETED or "
+                + "NO_UNAMBIGUOUS_WORK_RECORD, null when known. Scheduled/deadline/target dates are yyyy-MM-dd; "
+                + "closed actions have dashboardBucket:null. Returns action asOf, project, notes and linkedMeeting. "
                 + "Stable action-ID pagination: limit default100 max200, offset default0. Does not search shared "
                 + "workspaces or disclose private sibling actions. Read-only.";
     }

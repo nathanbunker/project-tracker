@@ -18,6 +18,7 @@ import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.openimmunizationsoftware.pt.model.ActionSet;
 import org.openimmunizationsoftware.pt.model.ActionSetType;
 import org.openimmunizationsoftware.pt.model.Project;
+import org.openimmunizationsoftware.pt.model.ProjectNextActionStatus;
 import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
@@ -59,9 +60,9 @@ public final class McpActionContextSupport {
         map.put("nextActionType", action.getNextActionType());
         map.put("status", action.getNextActionStatusString());
         map.put("asOf", toIso(action.getNextChangeDate()));
-        map.put("scheduledDate", toIso(action.getNextActionDate()));
-        map.put("deadlineDate", toIso(action.getNextDeadlineDate()));
-        map.put("targetDate", toIso(action.getNextTargetDate()));
+        map.put("scheduledDate", toDateOnly(action.getNextActionDate()));
+        map.put("deadlineDate", toDateOnly(action.getNextDeadlineDate()));
+        map.put("targetDate", toDateOnly(action.getNextTargetDate()));
         map.put("estimateMinutes", action.getNextTimeEstimate());
         map.put("actualMinutes", action.getNextTimeActual());
         map.put("notes", action.getNextNotes());
@@ -73,8 +74,10 @@ public final class McpActionContextSupport {
                     new LinkedMeetingDao(session).findByAction(action.getWorkspaceId(), action.getActionNextId())));
         }
         if (webUser != null) {
-            map.put("dashboardBucket", DashboardActionOrdering.getBucketLabel(
-                    DashboardActionOrdering.getCompletionBucket(action, webUser)));
+            boolean open = action.getNextActionStatus() == ProjectNextActionStatus.READY
+                    || action.getNextActionStatus() == ProjectNextActionStatus.PROPOSED;
+            map.put("dashboardBucket", open ? DashboardActionOrdering.getBucketLabel(
+                    DashboardActionOrdering.getCompletionBucket(action, webUser)) : null);
         }
         map.put("rescheduleLocked", action.isRescheduleLocked());
         boolean isTemplateRoot = action.isTemplate();
@@ -138,6 +141,11 @@ public final class McpActionContextSupport {
      */
     public static String toIso(Date date) {
         return date == null ? null : Instant.ofEpochMilli(date.getTime()).toString();
+    }
+
+    private static String toDateOnly(Date date) {
+        // These fields are Hibernate DATE columns, not instants in the viewer's time zone.
+        return date == null ? null : new java.sql.Date(date.getTime()).toLocalDate().toString();
     }
 
     /**
