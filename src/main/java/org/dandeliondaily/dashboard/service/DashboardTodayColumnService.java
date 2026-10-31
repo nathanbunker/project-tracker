@@ -40,6 +40,7 @@ public class DashboardTodayColumnService {
     private static final String PARAM_SENTENCE_INPUT = "sentenceInput";
     private static final String ACTION_SCHEDULE = "Schedule";
     private static final String ACTION_SCHEDULE_AND_START = "Schedule and Start";
+    public static final String ACTION_SCHEDULE_AND_EDIT = "Schedule and Edit";
 
     private static final int BUCKET_START_OF_WORK_DAY = DashboardActionOrdering.BUCKET_START_OF_WORK_DAY;
     private static final int BUCKET_OVERDUE = DashboardActionOrdering.BUCKET_OVERDUE;
@@ -52,16 +53,23 @@ public class DashboardTodayColumnService {
     private static final int BUCKET_END_OF_WORK_DAY = DashboardActionOrdering.BUCKET_END_OF_WORK_DAY;
     private static final int BUCKET_OTHER = DashboardActionOrdering.BUCKET_OTHER;
 
-    public void handleQuickCapture(AppReq appReq) {
+    /**
+     * Saves the Quick Capture sentence. "Schedule and Start" also makes the new action current;
+     * "Schedule and Edit" leaves the current action alone so the page can open the editor on the
+     * returned action. Returns the saved action (the first of a linked-project twin pair), or
+     * null when nothing was saved.
+     */
+    public ActionNext handleQuickCapture(AppReq appReq) {
         String action = appReq.getRequest().getParameter(PARAM_ACTION);
-        if (!ACTION_SCHEDULE.equals(action) && !ACTION_SCHEDULE_AND_START.equals(action)) {
-            return;
+        if (!ACTION_SCHEDULE.equals(action) && !ACTION_SCHEDULE_AND_START.equals(action)
+                && !ACTION_SCHEDULE_AND_EDIT.equals(action)) {
+            return null;
         }
 
         String sentenceInput = appReq.getRequest().getParameter(PARAM_SENTENCE_INPUT);
         if (sentenceInput == null || sentenceInput.trim().length() == 0) {
             appReq.addWarningMessage("Quick capture requires text before scheduling.");
-            return;
+            return null;
         }
 
         WebUser webUser = appReq.getWebUser();
@@ -75,7 +83,7 @@ public class DashboardTodayColumnService {
         ActionNext nextAction = savedActions.isEmpty() ? null : savedActions.get(0);
         if (nextAction == null) {
             appReq.addErrorMessage("Unable to create action from quick capture sentence.");
-            return;
+            return null;
         }
 
         if (ACTION_SCHEDULE_AND_START.equals(action)) {
@@ -87,6 +95,7 @@ public class DashboardTodayColumnService {
         } else {
             appReq.addSuccessMessage("Saved quick capture action.");
         }
+        return nextAction;
     }
 
     public DashboardTodayColumnModel buildModel(AppReq appReq) {

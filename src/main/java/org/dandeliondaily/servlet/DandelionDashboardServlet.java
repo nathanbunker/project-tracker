@@ -350,6 +350,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 webUser.getWebUserId());
         data.put("success", true);
         data.put("nextActionDate", formatUserDate(webUser, action.getNextActionDate()));
+        data.put("nextActionDateIso", toIsoDate(action.getNextActionDate(), webUser));
         data.put("nextActionType", action.getNextActionType() != null ? action.getNextActionType() : "");
         data.put("projectName", action.getProject() != null && action.getProject().getProjectName() != null
                 ? action.getProject().getProjectName()
@@ -1064,7 +1065,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             Date normalizedNextActionDate = null;
             boolean hasNextActionDateValue = nextActionDate != null && nextActionDate.length() > 0;
             if (hasNextActionDateValue) {
-                Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
+                Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextActionDate);
                 if (parsedDate != null) {
                     normalizedNextActionDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
                 }
@@ -1278,7 +1279,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         Date normalizedNextActionDate = null;
         boolean hasNextActionDateValue = nextActionDate != null && nextActionDate.length() > 0;
         if (hasNextActionDateValue) {
-            Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
+            Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextActionDate);
             if (parsedDate != null) {
                 normalizedNextActionDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
             }

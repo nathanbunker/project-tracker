@@ -103,7 +103,11 @@ public class FocusedActionServlet extends ClientServlet {
             }
 
             selectActionFromRequest(appReq);
-            dashboardTodayColumnService.handleQuickCapture(appReq);
+            ActionNext capturedAction = dashboardTodayColumnService.handleQuickCapture(appReq);
+            int editorOpenActionNextId = capturedAction != null
+                    && DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action)
+                            ? capturedAction.getActionNextId()
+                            : 0;
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
             ActionNext workedAction = appReq.getCompletingAction();
@@ -141,7 +145,8 @@ public class FocusedActionServlet extends ClientServlet {
             List<String> quickCaptureProjectNames = dashboardTodayColumnService.listQuickCaptureProjectNames(appReq);
             boolean quickCaptureFocusRequested = ACTION_SCHEDULE.equals(action);
             String quickCaptureSentenceValue = (ACTION_SCHEDULE.equals(action)
-                    || ACTION_SCHEDULE_AND_START.equals(action))
+                    || ACTION_SCHEDULE_AND_START.equals(action)
+                    || DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action))
                             ? ""
                             : n(appReq.getRequest().getParameter("sentenceInput"));
 
@@ -153,7 +158,7 @@ public class FocusedActionServlet extends ClientServlet {
                     todayTargetMinutes, weekTargetMinutes,
                     upNextData, projectData,
                     quickCaptureSentenceValue, quickCaptureProjectNames,
-                    quickCaptureFocusRequested);
+                    quickCaptureFocusRequested, editorOpenActionNextId);
             printFocusedFoot(appReq);
         } catch (Exception e) {
             e.printStackTrace();

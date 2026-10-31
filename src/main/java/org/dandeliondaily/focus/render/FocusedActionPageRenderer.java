@@ -4,8 +4,9 @@ import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.List;
 import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
-import org.dandeliondaily.shared.render.EditActionModalRenderer;
+import org.dandeliondaily.shared.render.ActionEditorRenderer;
 import org.dandeliondaily.shared.render.ActionRecoveryRenderer;
+import org.dandeliondaily.shared.render.QuickCaptureRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 
@@ -13,7 +14,8 @@ public class FocusedActionPageRenderer {
 
         private static final String SWITCH_URL_PREFIX = "FocusedActionServlet?action=switchAction&completingActionNextId=";
 
-        private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final ActionEditorRenderer actionEditorRenderer = new ActionEditorRenderer();
+        private final QuickCaptureRenderer quickCaptureRenderer = new QuickCaptureRenderer();
         private final FocusActionPickerRenderer pickerRenderer = new FocusActionPickerRenderer();
         private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
@@ -199,7 +201,7 @@ public class FocusedActionPageRenderer {
                         int todayTargetMinutes, int weekTargetMinutes,
                         UpNextData upNext, ProjectData projectData,
                         String quickCaptureSentenceValue, List<String> quickCaptureProjectNames,
-                        boolean quickCaptureFocusRequested) {
+                        boolean quickCaptureFocusRequested, int editorOpenActionNextId) {
                 PrintWriter out = appReq.getOut();
                 printStyles(out);
                 actionRecoveryRenderer.render(appReq);
@@ -211,24 +213,11 @@ public class FocusedActionPageRenderer {
                 out.println("<div class=\"fa-page\">");
                 out.println("  <div class=\"fa-topbar\">");
                 renderSwitchBar(out, switchSlots, runningClock);
-                out.println("  <div class=\"fa-quick-capture-box\">");
-                out.println("    <div class=\"fa-quick-capture-title\">Quick Capture</div>");
-                out.println("    <form class=\"fa-capture-form\" method=\"POST\" action=\"FocusedActionServlet\">");
-                out.println("      <div class=\"fa-capture-row\">");
-                out.println("        <div class=\"fa-capture-input-container\">");
-                out.println("          <input type=\"text\" id=\"sentenceInput\" name=\"sentenceInput\" value=\""
-                                + escapeHtml(n(quickCaptureSentenceValue))
-                                + "\" placeholder=\"Project Handle: I will action details\" autocomplete=\"off\""
-                                + (quickCaptureFocusRequested ? " autofocus=\"autofocus\"" : "") + " />");
-                out.println("          <div id=\"suggestions\" class=\"fa-capture-suggestions\"></div>");
-                out.println("        </div>");
-                out.println("        <div class=\"fa-capture-actions\">");
-                out.println("          <input type=\"submit\" name=\"action\" value=\"Schedule\" />");
-                out.println("          <button type=\"submit\" name=\"action\" value=\"Schedule and Start\" class=\"fa-qc-start-btn\">Start</button>");
-                out.println("        </div>");
-                out.println("      </div>");
-                out.println("    </form>");
-                out.println("  </div>");
+                quickCaptureRenderer.render(out, new QuickCaptureRenderer.Config("FocusedActionServlet")
+                                .sentenceValue(quickCaptureSentenceValue)
+                                .projectNames(quickCaptureProjectNames)
+                                .focusRequested(quickCaptureFocusRequested)
+                                .boxClass("fa-quick-capture-box"));
                 out.println("  </div>");
                 out.println(
                                 "  <button class=\"fa-close\" title=\"Back to Dandelion Dashboard\" onclick=\"window.location.href='"
@@ -247,6 +236,7 @@ public class FocusedActionPageRenderer {
                                         + "</section>");
                         out.println("  </div>");
                         out.println("</div>");
+                        actionEditorRenderer.render(out, appReq, editorOpenActionNextId, "FocusedActionServlet");
                         return;
                 }
 
@@ -262,7 +252,7 @@ public class FocusedActionPageRenderer {
                 out.println(
                                 "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenRescheduleModal(event)\">Reschedule</button>");
                 out.println(
-                                "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenEditModal(event)\">Edit Action</button>");
+                                "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenEditor(event)\">Edit Action</button>");
                 out.println("          </div>");
                 out.println("        </div>");
 
@@ -285,19 +275,7 @@ public class FocusedActionPageRenderer {
                 out.println("          </div>");
                 out.println("        </div>");
 
-                EditActionModalRenderer.Config editConfig = new EditActionModalRenderer.Config();
-                editConfig.overlayId = "faEditModal";
-                editConfig.overlayClass = "fa-modal-overlay";
-                editConfig.overlayOnClick = "faCloseModalOnOverlay(event, this)";
-                editConfig.modalClass = "fa-modal fa-edit-modal";
-                editConfig.closeOnClick = "faCloseModal('faEditModal')";
-                editConfig.saveOnClick = "faSubmitEdit('save')";
-                editConfig.saveAndStartOnClick = "faSubmitEdit('saveAndStart')";
-                editConfig.cancelOnClick = "faCloseModal('faEditModal')";
-                editConfig.deleteOnClick = "faDeleteAction()";
-                editConfig.completeOnClick = "eaToggleCompleteSection()";
-                editConfig.completeSubmitOnClick = "faSubmitEdit('complete')";
-                editActionModalRenderer.render(out, appReq, editConfig);
+                actionEditorRenderer.render(out, appReq, editorOpenActionNextId, "FocusedActionServlet");
 
                 out.println("        <div class=\"fa-card\">");
                 out.println("          <form method=\"POST\" action=\"FocusedActionServlet\" class=\"fa-work-form\">");
@@ -388,7 +366,6 @@ public class FocusedActionPageRenderer {
                 out.println("    serverNowEpochMs: " + meetings.getServerNowEpochMs());
                 out.println("  };");
                 printMeetingState(out, meetings);
-                out.println("  var faEditOriginalDate = ''; ");
                 out.println("  function faOpenModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.add('fa-modal-open'); } }");
                 out.println("  function faCloseModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.remove('fa-modal-open'); } }");
                 out.println("  function faCloseModalOnOverlay(evt, overlay) { if (evt && evt.target === overlay) { overlay.classList.remove('fa-modal-open'); } }");
@@ -437,122 +414,21 @@ public class FocusedActionPageRenderer {
                 out.println("      faHandleActionMutationSuccess(data);");
                 out.println("    }).catch(function() { alert('Error rescheduling action. Please try again.'); });");
                 out.println("  }");
-                out.println("  function faUpdateActionTypeButtons(selectedType) {");
-                out.println("    var buttons = document.querySelectorAll('.ea-action-type-btn');");
-                out.println("    for (var i = 0; i < buttons.length; i++) {");
-                out.println("      var btn = buttons[i];");
-                out.println("      if (btn.getAttribute('data-action-type') === selectedType) { btn.classList.add('ea-chip-active'); } else { btn.classList.remove('ea-chip-active'); }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function eaSetActionType(type) { faSetActionType(type); }");
-                out.println("  function faSetActionType(type) {");
-                out.println("    document.getElementById('eaEditActionType').value = type;");
-                out.println("    faUpdateActionTypeButtons(type);");
-                out.println("    var contactSection = document.getElementById('eaEditActionContactSection');");
-                out.println("    if (contactSection) {");
-                out.println("      if (type === 'WILL_CONTACT' || type === 'WILL_MEET') {");
-                out.println("        contactSection.classList.add('ea-contact-emphasized');");
-                out.println("      } else {");
-                out.println("        contactSection.classList.remove('ea-contact-emphasized');");
-                out.println("      }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function faApplyModeToEditForm(isPersonal, timeSlot) {");
-                out.println("    var typeSection = document.getElementById('eaEditActionTypeSection');");
-                out.println("    var timeSection = document.getElementById('eaEditActionTimeSection');");
-                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
-                out.println("    var typeInput = document.getElementById('eaEditActionType');");
-                out.println("    var timeInput = document.getElementById('eaEditActionTime');");
-                out.println("    var slotSelect = document.getElementById('eaEditActionTimeSlot');");
-                out.println("    if (isPersonal) {");
-                out.println("      if (typeSection) { typeSection.style.display = 'none'; }");
-                out.println("      if (timeSection) { timeSection.style.display = 'none'; }");
-                out.println("      if (slotSection) { slotSection.style.display = ''; }");
-                out.println("      if (typeInput) { typeInput.value = ''; }");
-                out.println("      if (timeInput) { timeInput.value = '0'; }");
-                out.println("      if (slotSelect) { slotSelect.value = timeSlot || 'AFTERNOON'; }");
-                out.println("    } else {");
-                out.println("      if (typeSection) { typeSection.style.display = ''; }");
-                out.println("      if (timeSection) { timeSection.style.display = ''; }");
-                out.println("      if (slotSection) { slotSection.style.display = 'none'; }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function faDeleteAction() {");
-                out.println("    var formData = faCreateDashboardParams();");
-                out.println("    formData.append('action', 'deleteAction');");
-                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
-                out.println("    faFetchDashboardJson(formData, 'Delete action').then(function(data) {");
-                out.println("      if (!data || !data.success) { alert('Error: ' + (data && data.message ? data.message : 'Could not delete action')); return; }");
-                out.println("      faCloseModal('faEditModal');");
-                out.println("      window.location.href = 'FocusedActionServlet';");
-                out.println("    }).catch(function() { alert('Error deleting action. Please try again.'); });");
-                out.println("  }");
-                out.println("  function faOpenEditModal(evt) {");
-                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
-                out.println("    var formData = faCreateDashboardParams();");
-                out.println("    formData.append('action', 'loadActionData');");
-                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
-                out.println("    faFetchDashboardJson(formData, 'Edit preload').then(function(data) {");
-                out.println("      if (!data || !data.success) { alert('Unable to load edit form.'); return; }");
-                out.println("      faEditOriginalDate = data.nextActionDate || ''; ");
-                out.println("      document.getElementById('eaEditActionDate').value = data.nextActionDate || ''; ");
-                out.println("      document.getElementById('eaEditActionDescription').value = data.nextDescription || ''; ");
-                out.println("      document.getElementById('eaEditActionTime').value = data.nextTimeEstimate || '0'; ");
-                out.println("      document.getElementById('eaEditActionType').value = data.nextActionType || ''; ");
-                out.println("      faUpdateActionTypeButtons(data.nextActionType || ''); ");
-                out.println("      var contactEl = document.getElementById('eaEditActionContact');");
-                out.println("      if (contactEl) { contactEl.value = data.nextContactId || ''; }");
-                out.println("      document.getElementById('eaEditActionTarget').value = data.nextTargetDate || ''; ");
-                out.println("      document.getElementById('eaEditActionDeadline').value = data.nextDeadlineDate || ''; ");
-                out.println("      document.getElementById('eaEditActionLink').value = data.linkUrl || ''; ");
-                out.println("      document.getElementById('eaEditActionNote').value = data.nextNote || ''; ");
-                out.println("      faApplyModeToEditForm(!!data.isPersonal, data.timeSlot || '');");
-                out.println("      if (window.eaResetCompleteSection) { window.eaResetCompleteSection(); }");
-                out.println("      faOpenModal('faEditModal');");
-                out.println("    }).catch(function() { alert('Unable to load edit form.'); });");
-                out.println("  }");
-                out.println("  function faSubmitEdit(saveMode) {");
-                out.println("    var isComplete = saveMode === 'complete';");
-                out.println("    var dateValue = (document.getElementById('eaEditActionDate').value || '').trim();");
-                out.println("    if (!dateValue && faEditOriginalDate) { dateValue = faEditOriginalDate; }");
-                out.println("    var formData = faCreateDashboardParams();");
-                out.println("    formData.append('action', isComplete ? 'CompleteActionEdit' : 'editAction');");
-                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
-                out.println("    formData.append('nextActionDate', dateValue);");
-                out.println("    formData.append('nextActionType', (document.getElementById('eaEditActionType').value || '').trim());");
-                out.println("    formData.append('nextDescription', document.getElementById('eaEditActionDescription').value || '');");
-                out.println("    formData.append('nextTimeEstimate', (document.getElementById('eaEditActionTime').value || '0').trim());");
-                out.println("    var contactEl = document.getElementById('eaEditActionContact');");
-                out.println("    if (contactEl) { formData.append('nextContactId', contactEl.value || ''); }");
-                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
-                out.println("    var slotVisible = slotSection && slotSection.style.display !== 'none';");
-                out.println("    if (slotVisible) {");
-                out.println("      var slotEl = document.getElementById('eaEditActionTimeSlot');");
-                out.println("      formData.append('timeSlot', slotEl ? slotEl.value : '');");
-                out.println("    }");
-                out.println("    formData.append('nextTargetDate', (document.getElementById('eaEditActionTarget').value || '').trim());");
-                out.println("    formData.append('nextDeadlineDate', (document.getElementById('eaEditActionDeadline').value || '').trim());");
-                out.println("    formData.append('linkUrl', (document.getElementById('eaEditActionLink').value || '').trim());");
-                out.println("    formData.append('nextNote', document.getElementById('eaEditActionNote').value || '');");
-                out.println("    if (isComplete) {");
-                out.println("      formData.append('completeDescription', window.eaReadCompleteValue('eaCompleteDescription'));");
-                out.println("      formData.append('completeDate', window.eaReadCompleteValue('eaCompleteDate'));");
-                out.println("      formData.append('completeTime', window.eaReadCompleteValue('eaCompleteTime'));");
-                out.println("      formData.append('completeDuration', window.eaReadCompleteValue('eaCompleteDuration'));");
-                out.println("    } else {");
-                out.println("      formData.append('saveMode', saveMode || 'save');");
-                out.println("    }");
-                out.println("    window.eaClearCompleteError();");
-                out.println("    faFetchDashboardJson(formData, isComplete ? 'Complete submit' : 'Edit submit').then(function(data) {");
-                out.println("      if (!data || !data.success) {");
-                out.println("        if (isComplete) { window.eaShowCompleteError(data && data.message ? data.message : 'Unable to complete action.'); return; }");
-                out.println("        alert('Error saving action: ' + (data && data.message ? data.message : 'Unknown error'));");
-                out.println("        return;");
-                out.println("      }");
-                out.println("      faCloseModal('faEditModal');");
-                out.println("      if (isComplete) { window.location.href = 'FocusedActionServlet'; return; }");
+                out.println("  ActionEditor.configure({");
+                out.println("    onSaved: function(data, mode) {");
+                out.println("      if (mode === 'saveAndStart') { window.location.href = 'FocusedActionServlet'; return; }");
                 out.println("      faHandleActionMutationSuccess(data);");
-                out.println("    }).catch(function() { alert('Error submitting edit. Please try again.'); });");
+                out.println("    },");
+                out.println("    onCompleted: function(data, mode, actionNextId) { faAfterActionRemoved(data, actionNextId); },");
+                out.println("    onDeleted: function(data, mode, actionNextId) { faAfterActionRemoved(data, actionNextId); }");
+                out.println("  });");
+                out.println("  function faAfterActionRemoved(data, actionNextId) {");
+                out.println("    if (actionNextId === faState.actionNextId) { window.location.href = 'FocusedActionServlet'; return; }");
+                out.println("    faHandleActionMutationSuccess(data);");
+                out.println("  }");
+                out.println("  function faOpenEditor(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    ActionEditor.open(faState.actionNextId);");
                 out.println("  }");
                 out.println("  function faNormalizeMinute(value) { var v = value % 60; if (v < 0) { v += 60; } return v; }");
                 out.println(
@@ -757,69 +633,6 @@ public class FocusedActionPageRenderer {
                 out.println(
                                 "    input.addEventListener('blur', function(){ setTimeout(function(){ suggestionsBox.style.display = 'none'; }, 150); });");
                 out.println("  }");
-                out.println("  function faInitQuickCaptureSuggestions() {");
-                out.print("    var projectNames = [");
-                for (int i = 0; i < quickCaptureProjectNames.size(); i++) {
-                        out.print("\"" + escapeJs(quickCaptureProjectNames.get(i)) + "\"");
-                        if (i < quickCaptureProjectNames.size() - 1) {
-                                out.print(", ");
-                        }
-                }
-                out.println("]; ");
-                out.println(
-                                "    var actionVerbs = ['I will', 'I have committed', 'I might', 'I would like to', 'I will meet', 'I have set goal to', 'I am waiting'];");
-                out.println("    var input = document.getElementById('sentenceInput');");
-                out.println("    var suggestionsBox = document.getElementById('suggestions');");
-                out.println("    if (!input || !suggestionsBox) { return; }");
-                out.println("    var currentSuggestions = []; var selectedIndex = -1;");
-                out.println("    input.addEventListener('input', function() {");
-                out.println("      var text = input.value || ''; var colonIndex = text.indexOf(':'); var suggestions = [];");
-                out.println("      if (colonIndex === -1) {");
-                out.println(
-                                "        suggestions = projectNames.filter(function(name) { return name.toLowerCase().startsWith(text.toLowerCase()); });");
-                out.println("      } else {");
-                out.println("        var beforeColon = text.substring(0, colonIndex).trim();");
-                out.println("        var afterColon = text.substring(colonIndex + 1).trim();");
-                out.println("        if (projectNames.indexOf(beforeColon) === -1) {");
-                out.println(
-                                "          suggestions = projectNames.filter(function(name) { return name.toLowerCase().indexOf(beforeColon.toLowerCase()) >= 0; });");
-                out.println("        } else if (afterColon.length === 0) {");
-                out.println("          suggestions = actionVerbs.slice(0);");
-                out.println("        } else {");
-                out.println(
-                                "          suggestions = actionVerbs.filter(function(verb) { return verb.toLowerCase().startsWith(afterColon.toLowerCase()); });");
-                out.println("        }");
-                out.println("      }");
-                out.println("      currentSuggestions = suggestions; selectedIndex = -1; faShowQuickCaptureSuggestions(suggestionsBox, suggestions, input, text, function(v){ selectedIndex = v; }, function(){ return selectedIndex; });");
-                out.println("    });");
-                out.println("    input.addEventListener('keydown', function(e) {");
-                out.println("      var visible = suggestionsBox.style.display === 'block'; if (!visible) { return; }");
-                out.println("      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {");
-                out.println("        e.preventDefault(); var count = currentSuggestions.length; if (count === 0) { return; }");
-                out.println("        if (e.key === 'ArrowDown') { selectedIndex = (selectedIndex + 1) % count; } else { selectedIndex = (selectedIndex - 1 + count) % count; }");
-                out.println("        faShowQuickCaptureSuggestions(suggestionsBox, currentSuggestions, input, input.value, function(v){ selectedIndex = v; }, function(){ return selectedIndex; });");
-                out.println("      }");
-                out.println("      if (e.key === 'Enter' || e.key === 'Tab') {");
-                out.println("        if (selectedIndex < 0) { selectedIndex = 0; }");
-                out.println("        if (selectedIndex < currentSuggestions.length) { e.preventDefault(); faAcceptQuickCaptureSuggestion(input, currentSuggestions[selectedIndex], input.value); suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
-                out.println("      }");
-                out.println("      if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
-                out.println("    });");
-                out.println("    input.addEventListener('blur', function(){ setTimeout(function(){ suggestionsBox.style.display = 'none'; }, 150); });");
-                out.println("  }");
-                out.println("  function faShowQuickCaptureSuggestions(box, suggestions, input, text, setSelectedIndex, getSelectedIndex) {");
-                out.println("    box.innerHTML = ''; box.style.display = suggestions.length ? 'block' : 'none';");
-                out.println("    suggestions.forEach(function(suggestion, i) {");
-                out.println("      var div = document.createElement('div'); div.textContent = suggestion;");
-                out.println("      if (i === getSelectedIndex()) { div.style.backgroundColor = '#e0e0e0'; }");
-                out.println("      div.addEventListener('click', function() { faAcceptQuickCaptureSuggestion(input, suggestion, text); box.style.display = 'none'; setSelectedIndex(-1); });");
-                out.println("      box.appendChild(div);");
-                out.println("    });");
-                out.println("  }");
-                out.println("  function faAcceptQuickCaptureSuggestion(input, suggestion, text) {");
-                out.println("    if ((text || '').indexOf(':') === -1) { input.value = suggestion + ': '; return; }");
-                out.println("    var beforeColon = (text || '').split(':')[0]; input.value = beforeColon.trim() + ': ' + suggestion + ' '; ");
-                out.println("  }");
                 out.println("  function faToggleTimer() {");
                 out.println(
                                 "    var body = new URLSearchParams(); body.append('action', 'toggleTimer'); body.append('completingActionNextId', String(faState.actionNextId || 0));");
@@ -901,7 +714,6 @@ public class FocusedActionPageRenderer {
                 out.println("  faUpdateMeetingViews();");
                 out.println("  faDrawClock();");
                 out.println("  faInitWorkFollowUpSuggestions();");
-                out.println("  faInitQuickCaptureSuggestions();");
                 out.println("  window.setInterval(function(){ faRefreshClock(); }, 60000);");
                 out.println("</script>");
         }
@@ -1271,13 +1083,7 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-capture-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; display: none; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }");
                 out.println("  .fa-capture-suggestions div { padding: 6px 8px; cursor: pointer; }");
                 out.println("  .fa-capture-suggestions div:hover { background: #efe7db; }");
-                out.println("  .fa-quick-capture-box { flex: 0 0 440px; box-sizing: border-box; position: relative; z-index: 50; padding: 8px 12px; background: #f8f1e6; border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); }");
-                out.println("  .fa-quick-capture-title { font-size: 12px; font-weight: bold; letter-spacing: .04em; text-transform: uppercase; color: #52614d; margin-bottom: 8px; }");
-                out.println("  .fa-capture-form { margin: 0; }");
-                out.println("  .fa-capture-row { display: flex; align-items: center; gap: 8px; }");
-                out.println("  .fa-capture-row #sentenceInput { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d3c2aa; background: #fffaf1; }");
-                out.println("  .fa-capture-actions { display: flex; gap: 8px; white-space: nowrap; }");
-                out.println("  .fa-qc-start-btn { border: 1px solid #7a9b7a; background: #d6ecd6; color: #1f3a1f; padding: 6px 10px; cursor: pointer; }");
+                out.println("  .fa-quick-capture-box { flex: 0 0 440px; }");
                 out.println("  .fa-empty-clock { color: #7d7d7d; font-size: 20px; }");
                 out.println("  .fa-modal-overlay { position: fixed; inset: 0; background: rgba(30, 40, 30, 0.35); display: none; align-items: center; justify-content: center; z-index: 90; }");
                 out.println("  .fa-modal-overlay.fa-modal-open { display: flex; }");
@@ -1311,16 +1117,7 @@ public class FocusedActionPageRenderer {
                 out.println("    .fa-quick-capture-box { flex: 0 0 auto; position: static; min-width: 0; max-width: none; width: 100%; margin: 0 0 8px 0; }");
                 out.println("    .fa-modal-row { grid-template-columns: 1fr; }");
                 out.println("  }");
-                out.println("  .fa-contact-emphasized .fa-contact-label { color: #5b3a00; font-weight: bold; }");
-                out.println("  .fa-contact-emphasized select { border-color: #8b6020; box-shadow: 0 0 0 2px #f5e0a0; }");
-                out.println("  .fa-advanced-section { margin-bottom: 12px; border: 1px solid #d4c9b8; border-radius: 4px; }");
-                out.println("  .fa-advanced-toggle { padding: 6px 10px; cursor: pointer; font-size: 13px; font-weight: bold; color: #5b735c; list-style: none; user-select: none; }");
-                out.println("  .fa-advanced-toggle::-webkit-details-marker { display: none; }");
-                out.println("  .fa-advanced-toggle::before { content: '\\25B6 '; font-size: 10px; }");
-                out.println("  details.fa-advanced-section[open] .fa-advanced-toggle::before { content: '\\25BC '; }");
-                out.println("  .fa-advanced-body { padding: 6px 10px 2px; }");
                 pickerRenderer.printStyles(out);
-                editActionModalRenderer.printSharedStyles(out);
                 out.println("</style>");
         }
 
