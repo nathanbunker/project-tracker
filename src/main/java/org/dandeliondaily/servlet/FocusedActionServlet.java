@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
@@ -26,6 +27,7 @@ import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.focus.render.FocusActionPickerRenderer;
 import org.dandeliondaily.focus.render.FocusedActionPageRenderer;
 import org.dandeliondaily.focus.service.FocusMeetingService;
+import org.dandeliondaily.focus.service.FocusProjectActionsService;
 import org.dandeliondaily.focus.service.FocusSwitchSlotService;
 import org.dandeliondaily.planahead.service.PlanAheadDayCapacityService;
 import org.hibernate.Query;
@@ -67,6 +69,7 @@ public class FocusedActionServlet extends ClientServlet {
     private final PlanAheadDayCapacityService dayCapacityService = new PlanAheadDayCapacityService();
     private final FocusSwitchSlotService switchSlotService = new FocusSwitchSlotService();
     private final FocusMeetingService focusMeetingService = new FocusMeetingService();
+    private final FocusProjectActionsService focusProjectActionsService = new FocusProjectActionsService();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -134,6 +137,7 @@ public class FocusedActionServlet extends ClientServlet {
             boolean runningClock = appReq.getTimeTracker() != null && appReq.getTimeTracker().isRunningClock();
             int nowMinute = appReq.getWebUser().getLocalDateTimeNow().getMinute();
             FocusedActionPageRenderer.UpNextData upNextData = buildUpNextData(appReq, currentAction);
+            FocusedActionPageRenderer.ProjectData projectData = buildProjectData(appReq, currentAction);
             List<String> quickCaptureProjectNames = dashboardTodayColumnService.listQuickCaptureProjectNames(appReq);
             boolean quickCaptureFocusRequested = ACTION_SCHEDULE.equals(action);
             String quickCaptureSentenceValue = (ACTION_SCHEDULE.equals(action)
@@ -147,7 +151,7 @@ public class FocusedActionServlet extends ClientServlet {
                     spentMinutes,
                     estimateMinutes, runningClock, nowMinute, spentMinutesThisWeek, todayBillableMinutes,
                     todayTargetMinutes, weekTargetMinutes,
-                    upNextData,
+                    upNextData, projectData,
                     quickCaptureSentenceValue, quickCaptureProjectNames,
                     quickCaptureFocusRequested);
             printFocusedFoot(appReq);
@@ -362,6 +366,52 @@ public class FocusedActionServlet extends ClientServlet {
                 currentIndex >= 0);
     }
 
+    private FocusedActionPageRenderer.ProjectData buildProjectData(AppReq appReq, ActionNext currentAction) {
+        if (currentAction == null || currentAction.getProject() == null) {
+            return new FocusedActionPageRenderer.ProjectData("", null, 0, 0, 0, 0);
+        }
+        Session dataSession = appReq.getDataSession();
+        WebUser webUser = appReq.getWebUser();
+        FocusProjectActionsService.ProjectActions actions = focusProjectActionsService.load(dataSession, webUser,
+                appReq.getActiveWorkspaceId(), currentAction.getProject().getProjectId());
+
+        List<Integer> actionIds = new ArrayList<Integer>();
+        for (List<ActionNext> list : Arrays.asList(actions.getOverdue(), actions.getToday(), actions.getTomorrow(),
+                actions.getLater())) {
+            for (ActionNext action : list) {
+                actionIds.add(Integer.valueOf(action.getActionNextId()));
+            }
+        }
+        Map<Integer, Integer> minutesToday = loadMinutesTodayByAction(appReq, actionIds);
+        int currentId = currentAction.getActionNextId();
+
+        List<FocusActionPickerRenderer.Group> groups = new ArrayList<FocusActionPickerRenderer.Group>();
+        groups.add(new FocusActionPickerRenderer.Group("Overdue",
+                buildProjectRows(dataSession, webUser, actions.getOverdue(), minutesToday, currentId, true)));
+        groups.add(new FocusActionPickerRenderer.Group("Today",
+                buildProjectRows(dataSession, webUser, actions.getToday(), minutesToday, currentId, false)));
+        groups.add(new FocusActionPickerRenderer.Group("Tomorrow",
+                buildProjectRows(dataSession, webUser, actions.getTomorrow(), minutesToday, currentId, false)));
+        groups.add(new FocusActionPickerRenderer.Group("Later",
+                buildProjectRows(dataSession, webUser, actions.getLater(), minutesToday, currentId, true)));
+        groups.add(new FocusActionPickerRenderer.Group("Done today",
+                buildProjectRows(dataSession, webUser, actions.getDoneToday(), minutesToday, currentId, false), true));
+        return new FocusedActionPageRenderer.ProjectData(getActionProjectDisplayName(dataSession, currentAction),
+                groups, actions.getOverdue().size(), actions.getToday().size(), actions.getTomorrow().size(),
+                actions.getLater().size());
+    }
+
+    private List<FocusActionPickerRenderer.Row> buildProjectRows(Session dataSession, WebUser webUser,
+            List<ActionNext> actions, Map<Integer, Integer> minutesToday, int currentId, boolean showDate) {
+        List<FocusActionPickerRenderer.Row> rows = new ArrayList<FocusActionPickerRenderer.Row>();
+        for (ActionNext action : actions) {
+            boolean meeting = ProjectNextActionType.WILL_MEET.equals(action.getNextActionType());
+            rows.add(buildPickerRow(dataSession, action, minutesToday, action.getActionNextId() == currentId, meeting,
+                    showDate ? formatShortDate(toLocalDate(action.getNextActionDate(), webUser)) : ""));
+        }
+        return rows;
+    }
+
     private FocusActionPickerRenderer.Row buildPickerRow(Session dataSession, ActionNext action,
             Map<Integer, Integer> minutesToday, boolean current, boolean meeting, String whenLabel) {
         String description = n(action.getNextDescription());
@@ -371,7 +421,8 @@ public class FocusedActionServlet extends ClientServlet {
         Integer minutes = minutesToday.get(Integer.valueOf(action.getActionNextId()));
         return new FocusActionPickerRenderer.Row(action.getActionNextId(),
                 getActionProjectDisplayName(dataSession, action), description, action.getNextTimeEstimate(),
-                minutes == null ? 0 : minutes.intValue(), whenLabel, current, meeting);
+                minutes == null ? 0 : minutes.intValue(), whenLabel, current, meeting)
+                .withRecurring(FocusProjectActionsService.isRecurring(action));
     }
 
     /** READY meetings dated before today (within a year, like the overdue action query). */

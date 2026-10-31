@@ -84,6 +84,61 @@ public class FocusedActionPageRenderer {
                 }
         }
 
+        /**
+         * The current action's project for the This project row and drawer. Counts are open READY
+         * actions by group; the groups hold the picker rows, ending with a read-only Done today.
+         */
+        public static class ProjectData {
+                private final String projectName;
+                private final List<FocusActionPickerRenderer.Group> groups;
+                private final int overdueCount;
+                private final int todayCount;
+                private final int tomorrowCount;
+                private final int laterCount;
+
+                public ProjectData(String projectName, List<FocusActionPickerRenderer.Group> groups, int overdueCount,
+                                int todayCount, int tomorrowCount, int laterCount) {
+                        this.projectName = projectName;
+                        this.groups = groups == null ? Collections.<FocusActionPickerRenderer.Group>emptyList() : groups;
+                        this.overdueCount = overdueCount;
+                        this.todayCount = todayCount;
+                        this.tomorrowCount = tomorrowCount;
+                        this.laterCount = laterCount;
+                }
+
+                public String getProjectName() {
+                        return projectName;
+                }
+
+                public List<FocusActionPickerRenderer.Group> getGroups() {
+                        return groups;
+                }
+
+                public int getOpenCount() {
+                        return overdueCount + todayCount + tomorrowCount + laterCount;
+                }
+
+                /** "1 overdue · 2 today · 3 later", leaving out empty groups. */
+                public String getSummary() {
+                        StringBuilder sb = new StringBuilder();
+                        appendCount(sb, overdueCount, "overdue");
+                        appendCount(sb, todayCount, "today");
+                        appendCount(sb, tomorrowCount, "tomorrow");
+                        appendCount(sb, laterCount, "later");
+                        return sb.toString();
+                }
+
+                private void appendCount(StringBuilder sb, int count, String label) {
+                        if (count <= 0) {
+                                return;
+                        }
+                        if (sb.length() > 0) {
+                                sb.append(" \u00B7 ");
+                        }
+                        sb.append(count).append(' ').append(label);
+                }
+        }
+
         /** One fixed position in the switch bar. An empty slot has actionNextId 0. */
         public static class SwitchSlot {
                 private final int actionNextId;
@@ -142,7 +197,7 @@ public class FocusedActionPageRenderer {
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,
                         int spentMinutesThisWeek, int todayBillableMinutes,
                         int todayTargetMinutes, int weekTargetMinutes,
-                        UpNextData upNext,
+                        UpNextData upNext, ProjectData projectData,
                         String quickCaptureSentenceValue, List<String> quickCaptureProjectNames,
                         boolean quickCaptureFocusRequested) {
                 PrintWriter out = appReq.getOut();
@@ -273,7 +328,7 @@ public class FocusedActionPageRenderer {
                 out.println("          </form>");
                 out.println("        </div>");
 
-                renderContextStrip(out, notes, meetings, upNext);
+                renderContextStrip(out, notes, meetings, upNext, projectData);
 
 
                 out.println("      </div>");
@@ -283,6 +338,10 @@ public class FocusedActionPageRenderer {
                                 "No meetings today.");
                 pickerRenderer.render(out, "fa-upnext-drawer", "Up next", upNext.getGroups(),
                                 "Nothing left in today's list.");
+                pickerRenderer.render(out, "fa-project-drawer",
+                                projectData.getProjectName().length() == 0 ? "This project"
+                                                : "This project: " + projectData.getProjectName(),
+                                projectData.getGroups(), "No open actions in this project.");
                 out.println("    </section>");
 
                 out.println("    <section class=\"fa-right\">");
@@ -909,7 +968,8 @@ public class FocusedActionPageRenderer {
          * One-line rows below the work form. Each shows a count and a preview, and opens its drawer
          * over the left column when clicked.
          */
-        private void renderContextStrip(PrintWriter out, List<String> notes, MeetingsData meetings, UpNextData upNext) {
+        private void renderContextStrip(PrintWriter out, List<String> notes, MeetingsData meetings, UpNextData upNext,
+                        ProjectData projectData) {
                 String latest = notes.isEmpty() ? "" : firstLine(notes.get(notes.size() - 1));
                 out.println("        <div class=\"fa-card fa-context-strip\">");
                 out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-notes-drawer\""
@@ -929,6 +989,17 @@ public class FocusedActionPageRenderer {
                 out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
                 out.println("          </button>");
                 renderUpNextRow(out, upNext);
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-project-drawer\""
+                                + " onclick=\"faPickerOpen('fa-project-drawer')\">");
+                out.println("            <span class=\"fa-strip-label\">This project <span>"
+                                + (projectData.getOpenCount() == 0 ? "" : "(" + projectData.getOpenCount() + ")")
+                                + "</span></span>");
+                out.println("            <span class=\"fa-strip-preview\">"
+                                + (projectData.getOpenCount() == 0 ? "<span class=\"fa-strip-faint\">No open actions</span>"
+                                                : escapeHtml(projectData.getSummary()))
+                                + "</span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
                 out.println("        </div>");
         }
 

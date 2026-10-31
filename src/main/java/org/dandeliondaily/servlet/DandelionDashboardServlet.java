@@ -1041,6 +1041,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             Integer currentActionId = currentAction == null
                     ? null
                     : Integer.valueOf(currentAction.getActionNextId());
+            LocalDate previousActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
 
             // Update action fields from request
             String nextActionDate = appReq.getRequest().getParameter("nextActionDate");
@@ -1131,7 +1132,7 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
             boolean requiresActionRefresh = dashboardCurrentActionService.shouldHandoffCurrentAction(
-                    currentActionId, Integer.valueOf(actionNextId), savedActionDate,
+                    currentActionId, Integer.valueOf(actionNextId), previousActionDate, savedActionDate,
                     appReq.getWebUser().getLocalDateToday())
                     && dashboardCurrentActionService.handoffCurrentAction(appReq);
 
@@ -1836,6 +1837,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             Integer currentActionId = currentAction == null
                     ? null
                     : Integer.valueOf(currentAction.getActionNextId());
+            LocalDate previousActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
 
             if (nextActionDateStr != null && nextActionDateStr.length() > 0) {
                 Date parsedDate = appReq.getWebUser().parseDate(nextActionDateStr);
@@ -1866,7 +1868,7 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
             boolean requiresActionRefresh = dashboardCurrentActionService.shouldHandoffCurrentAction(
-                    currentActionId, Integer.valueOf(actionNextId), savedActionDate,
+                    currentActionId, Integer.valueOf(actionNextId), previousActionDate, savedActionDate,
                     appReq.getWebUser().getLocalDateToday())
                     && dashboardCurrentActionService.handoffCurrentAction(appReq);
 

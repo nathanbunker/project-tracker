@@ -137,6 +137,19 @@ public class DashboardCurrentActionService {
         return shouldHandoffCurrentAction(currentActionId, movedActionId, movedDate, today);
     }
 
+    /**
+     * Like {@link #shouldHandoffCurrentAction(Integer, Integer, LocalDate, LocalDate)}, but only when
+     * the save changed the date. A current action that was already dated in the future (switched to
+     * on purpose, for example to add notes) stays current when it is edited without moving it.
+     */
+    public boolean shouldHandoffCurrentAction(Integer currentActionId, Integer movedActionId, LocalDate previousDate,
+            LocalDate movedDate, LocalDate today) {
+        if (previousDate != null && previousDate.equals(movedDate)) {
+            return false;
+        }
+        return shouldHandoffCurrentAction(currentActionId, movedActionId, movedDate, today);
+    }
+
     public boolean shouldHandoffCurrentAction(Integer currentActionId, Integer movedActionId, LocalDate movedDate,
             LocalDate today) {
         if (currentActionId == null || movedActionId == null || movedDate == null || today == null) {

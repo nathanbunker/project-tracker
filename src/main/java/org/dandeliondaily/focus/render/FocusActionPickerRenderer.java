@@ -29,6 +29,7 @@ public class FocusActionPickerRenderer {
                 private String startLabel;
                 private String endLabel;
                 private String joinUrl;
+                private boolean recurring;
 
                 public Row(int actionNextId, String projectName, String description, Integer estimateMinutes,
                                 int minutesToday, String whenLabel, boolean current, boolean meeting) {
@@ -86,6 +87,15 @@ public class FocusActionPickerRenderer {
                         return this;
                 }
 
+                public Row withRecurring(boolean recurring) {
+                        this.recurring = recurring;
+                        return this;
+                }
+
+                public boolean isRecurring() {
+                        return recurring;
+                }
+
                 public Row withJoinUrl(String joinUrl) {
                         this.joinUrl = joinUrl;
                         return this;
@@ -125,10 +135,21 @@ public class FocusActionPickerRenderer {
         public static class Group {
                 private final String title;
                 private final List<Row> rows;
+                private final boolean readOnly;
 
                 public Group(String title, List<Row> rows) {
+                        this(title, rows, false);
+                }
+
+                /** A read-only group lists its rows for reference; they cannot be selected. */
+                public Group(String title, List<Row> rows, boolean readOnly) {
                         this.title = title;
                         this.rows = rows == null ? Collections.<Row>emptyList() : rows;
+                        this.readOnly = readOnly;
+                }
+
+                public boolean isReadOnly() {
+                        return readOnly;
                 }
 
                 public String getTitle() {
@@ -169,7 +190,11 @@ public class FocusActionPickerRenderer {
                         out.println("            <div class=\"fa-picker-group-title\">" + escapeHtml(group.getTitle())
                                         + "</div>");
                         for (Row row : group.getRows()) {
-                                renderRow(out, row);
+                                if (group.isReadOnly()) {
+                                        renderStaticRow(out, row);
+                                } else {
+                                        renderRow(out, row);
+                                }
                         }
                         out.println("          </div>");
                 }
@@ -207,6 +232,7 @@ public class FocusActionPickerRenderer {
                 out.println("              <span class=\"fa-picker-main\">");
                 out.println("                <span class=\"fa-picker-project\">"
                                 + (row.isMeeting() ? "<span class=\"fa-picker-tag\">Meeting</span> " : "")
+                                + (row.isRecurring() ? "<span class=\"fa-picker-tag fa-picker-tag-recurring\" title=\"Recurring\">&#8635; Recurring</span> " : "")
                                 + escapeHtml(row.getProjectName())
                                 + (row.isCurrent() ? " <span class=\"fa-picker-tag fa-picker-tag-current\">Current</span>" : "")
                                 + "</span>");
@@ -232,6 +258,13 @@ public class FocusActionPickerRenderer {
                 }
         }
 
+        private void renderStaticRow(PrintWriter out, Row row) {
+                out.println("            <div class=\"fa-picker-static\">");
+                out.println("              <span class=\"fa-picker-project\">" + escapeHtml(row.getProjectName()) + "</span>");
+                out.println("              <span class=\"fa-picker-desc\">&#10003; " + escapeHtml(row.getDescription()) + "</span>");
+                out.println("            </div>");
+        }
+
         public void printStyles(PrintWriter out) {
                 out.println("  .fa-picker-filter { flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid #e3e9e1; }");
                 out.println("  .fa-picker-filter-input { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #bfcdbb; border-radius: 6px; font: inherit; font-size: 14px; background: #fcfffb; }");
@@ -248,6 +281,7 @@ public class FocusActionPickerRenderer {
                 out.println("  .fa-picker-when { font-weight: 600; }");
                 out.println("  .fa-picker-tag { display: inline-block; padding: 0 5px; border-radius: 4px; background: #e6ece4; color: #3d553d; font-size: 10px; font-weight: 700; letter-spacing: .04em; }");
                 out.println("  .fa-picker-tag-current { background: #2f8c2f; color: #fff; }");
+                out.println("  .fa-picker-tag-recurring { background: #efe9f6; color: #5a4380; }");
                 out.println("  .fa-picker-meeting .fa-picker-tag { background: #e4e9f3; color: #34466b; }");
                 out.println("  .fa-picker-rel { color: #34466b; }");
                 out.println("  .fa-picker-dim { opacity: 0.55; }");
@@ -258,6 +292,8 @@ public class FocusActionPickerRenderer {
                 out.println("  .fa-picker-item .fa-picker-row { flex: 1; min-width: 0; }");
                 out.println("  .fa-picker-join { flex: 0 0 auto; margin-bottom: 3px; padding: 5px 9px; border: 1px solid #5b7bc4; border-radius: 6px; background: #eef2fa; color: #2a4f9e; font-size: 12px; font-weight: 700; text-decoration: none; }");
                 out.println("  .fa-picker-join:hover { background: #dde6f6; }");
+                out.println("  .fa-picker-static { display: flex; flex-direction: column; padding: 4px 9px; color: #6a7a68; }");
+                out.println("  .fa-picker-static .fa-picker-desc { font-weight: 400; }");
         }
 
         /** Filter, arrow-key and Enter handling for every picker drawer on the page. */
@@ -283,7 +319,7 @@ public class FocusActionPickerRenderer {
                 out.println("    var rows = drawer.querySelectorAll('.fa-picker-row'); var shown = 0;");
                 out.println("    for (var i = 0; i < rows.length; i++) { var match = !text || (rows[i].getAttribute('data-filter') || '').indexOf(text) >= 0; rows[i].style.display = match ? '' : 'none'; var item = rows[i].closest('.fa-picker-item'); if (item) { item.style.display = rows[i].style.display; } if (match) { shown++; } }");
                 out.println("    var groups = drawer.querySelectorAll('.fa-picker-group');");
-                out.println("    for (var g = 0; g < groups.length; g++) { groups[g].style.display = faPickerRows(groups[g]).length ? '' : 'none'; }");
+                out.println("    for (var g = 0; g < groups.length; g++) { groups[g].style.display = (faPickerRows(groups[g]).length || (!text && groups[g].querySelector('.fa-picker-static'))) ? '' : 'none'; }");
                 out.println("    var nomatch = drawer.querySelector('.fa-picker-nomatch'); if (nomatch) { nomatch.style.display = (rows.length && !shown) ? '' : 'none'; }");
                 out.println("    var active = drawer.querySelector('.fa-picker-active');");
                 out.println("    if (!active || active.style.display === 'none') { faPickerSetActive(drawer, faPickerRows(drawer)[0]); }");
