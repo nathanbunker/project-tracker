@@ -4,8 +4,9 @@ import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.List;
 import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
-import org.dandeliondaily.shared.render.EditActionModalRenderer;
+import org.dandeliondaily.shared.render.ActionEditorRenderer;
 import org.dandeliondaily.shared.render.ActionRecoveryRenderer;
+import org.dandeliondaily.shared.render.QuickCaptureRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.ActionNext;
 
@@ -13,72 +14,130 @@ public class FocusedActionPageRenderer {
 
         private static final String SWITCH_URL_PREFIX = "FocusedActionServlet?action=switchAction&completingActionNextId=";
 
-        private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final ActionEditorRenderer actionEditorRenderer = new ActionEditorRenderer();
+        private final QuickCaptureRenderer quickCaptureRenderer = new QuickCaptureRenderer();
+        private final FocusActionPickerRenderer pickerRenderer = new FocusActionPickerRenderer();
         private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
 
-        public static class CycleBarItem {
-                private final int actionNextId;
-                private final String label;
+        /**
+         * Today's queue (buildOrderedCycleList) for the Up next row and drawer. nextItem is the
+         * queue item after the current action, or the first item when the current action is not in
+         * the queue; nextPosition is its 1-based place in the queue.
+         */
+        public static class UpNextData {
+                private final List<FocusActionPickerRenderer.Group> groups;
+                private final FocusActionPickerRenderer.Row nextItem;
+                private final int nextPosition;
+                private final int total;
+                private final boolean currentInQueue;
 
-                public CycleBarItem(int actionNextId, String label) {
-                        this.actionNextId = actionNextId;
-                        this.label = label;
+                public UpNextData(List<FocusActionPickerRenderer.Group> groups, FocusActionPickerRenderer.Row nextItem,
+                                int nextPosition, int total, boolean currentInQueue) {
+                        this.groups = groups == null ? Collections.<FocusActionPickerRenderer.Group>emptyList() : groups;
+                        this.nextItem = nextItem;
+                        this.nextPosition = nextPosition;
+                        this.total = total;
+                        this.currentInQueue = currentInQueue;
                 }
 
-                public int getActionNextId() {
-                        return actionNextId;
+                public List<FocusActionPickerRenderer.Group> getGroups() {
+                        return groups;
                 }
 
-                public String getLabel() {
-                        return label;
-                }
-        }
-
-        public static class CycleBarData {
-                private final List<CycleBarItem> items;
-                private final int shownIndex;
-
-                public CycleBarData(List<CycleBarItem> items, int shownIndex) {
-                        this.items = items == null ? Collections.<CycleBarItem>emptyList() : items;
-                        this.shownIndex = shownIndex;
+                public FocusActionPickerRenderer.Row getNextItem() {
+                        return nextItem;
                 }
 
-                public List<CycleBarItem> getItems() {
-                        return items;
-                }
-
-                public int getShownIndex() {
-                        return shownIndex;
-                }
-
-                public CycleBarItem getShownItem() {
-                        if (items.isEmpty() || shownIndex < 0 || shownIndex >= items.size()) {
-                                return null;
-                        }
-                        return items.get(shownIndex);
+                public int getNextPosition() {
+                        return nextPosition;
                 }
 
                 public int getTotal() {
-                        return items.size();
+                        return total;
+                }
+
+                public boolean isCurrentInQueue() {
+                        return currentInQueue;
                 }
         }
 
-        public static class MeetingOption {
-                private final int actionNextId;
-                private final String label;
 
-                public MeetingOption(int actionNextId, String label) {
-                        this.actionNextId = actionNextId;
-                        this.label = label;
+        /**
+         * Today's meetings (FocusMeetingService) as picker rows, in time order with untimed meetings
+         * last, plus the server time the page was built at. The strip row, drawer labels and clock
+         * arcs are all computed from these rows against serverNowEpochMs.
+         */
+        public static class MeetingsData {
+                private final List<FocusActionPickerRenderer.Row> rows;
+                private final long serverNowEpochMs;
+
+                public MeetingsData(List<FocusActionPickerRenderer.Row> rows, long serverNowEpochMs) {
+                        this.rows = rows == null ? Collections.<FocusActionPickerRenderer.Row>emptyList() : rows;
+                        this.serverNowEpochMs = serverNowEpochMs;
                 }
 
-                public int getActionNextId() {
-                        return actionNextId;
+                public List<FocusActionPickerRenderer.Row> getRows() {
+                        return rows;
                 }
 
-                public String getLabel() {
-                        return label;
+                public long getServerNowEpochMs() {
+                        return serverNowEpochMs;
+                }
+        }
+
+        /**
+         * The current action's project for the This project row and drawer. Counts are open READY
+         * actions by group; the groups hold the picker rows, ending with a read-only Done today.
+         */
+        public static class ProjectData {
+                private final String projectName;
+                private final List<FocusActionPickerRenderer.Group> groups;
+                private final int overdueCount;
+                private final int todayCount;
+                private final int tomorrowCount;
+                private final int laterCount;
+
+                public ProjectData(String projectName, List<FocusActionPickerRenderer.Group> groups, int overdueCount,
+                                int todayCount, int tomorrowCount, int laterCount) {
+                        this.projectName = projectName;
+                        this.groups = groups == null ? Collections.<FocusActionPickerRenderer.Group>emptyList() : groups;
+                        this.overdueCount = overdueCount;
+                        this.todayCount = todayCount;
+                        this.tomorrowCount = tomorrowCount;
+                        this.laterCount = laterCount;
+                }
+
+                public String getProjectName() {
+                        return projectName;
+                }
+
+                public List<FocusActionPickerRenderer.Group> getGroups() {
+                        return groups;
+                }
+
+                public int getOpenCount() {
+                        return overdueCount + todayCount + tomorrowCount + laterCount;
+                }
+
+                /** "1 overdue · 2 today · 3 later", leaving out empty groups. */
+                public String getSummary() {
+                        StringBuilder sb = new StringBuilder();
+                        appendCount(sb, overdueCount, "overdue");
+                        appendCount(sb, todayCount, "today");
+                        appendCount(sb, tomorrowCount, "tomorrow");
+                        appendCount(sb, laterCount, "later");
+                        return sb.toString();
+                }
+
+                private void appendCount(StringBuilder sb, int count, String label) {
+                        if (count <= 0) {
+                                return;
+                        }
+                        if (sb.length() > 0) {
+                                sb.append(" \u00B7 ");
+                        }
+                        sb.append(count).append(' ').append(label);
                 }
         }
 
@@ -135,14 +194,14 @@ public class FocusedActionPageRenderer {
         }
 
         public void render(AppReq appReq, ActionNext action, List<String> notes,
-                        List<MeetingOption> meetingOptions,
+                        MeetingsData meetings,
                         List<SwitchSlot> switchSlots,
                         int spentMinutes, int estimateMinutes, boolean runningClock, int nowMinute,
                         int spentMinutesThisWeek, int todayBillableMinutes,
                         int todayTargetMinutes, int weekTargetMinutes,
-                        CycleBarData cycleData,
+                        UpNextData upNext, ProjectData projectData,
                         String quickCaptureSentenceValue, List<String> quickCaptureProjectNames,
-                        boolean quickCaptureFocusRequested) {
+                        boolean quickCaptureFocusRequested, int editorOpenActionNextId) {
                 PrintWriter out = appReq.getOut();
                 printStyles(out);
                 actionRecoveryRenderer.render(appReq);
@@ -154,24 +213,11 @@ public class FocusedActionPageRenderer {
                 out.println("<div class=\"fa-page\">");
                 out.println("  <div class=\"fa-topbar\">");
                 renderSwitchBar(out, switchSlots, runningClock);
-                out.println("  <div class=\"fa-quick-capture-box\">");
-                out.println("    <div class=\"fa-quick-capture-title\">Quick Capture</div>");
-                out.println("    <form class=\"fa-capture-form\" method=\"POST\" action=\"FocusedActionServlet\">");
-                out.println("      <div class=\"fa-capture-row\">");
-                out.println("        <div class=\"fa-capture-input-container\">");
-                out.println("          <input type=\"text\" id=\"sentenceInput\" name=\"sentenceInput\" value=\""
-                                + escapeHtml(n(quickCaptureSentenceValue))
-                                + "\" placeholder=\"Project Handle: I will action details\" autocomplete=\"off\""
-                                + (quickCaptureFocusRequested ? " autofocus=\"autofocus\"" : "") + " />");
-                out.println("          <div id=\"suggestions\" class=\"fa-capture-suggestions\"></div>");
-                out.println("        </div>");
-                out.println("        <div class=\"fa-capture-actions\">");
-                out.println("          <input type=\"submit\" name=\"action\" value=\"Schedule\" />");
-                out.println("          <button type=\"submit\" name=\"action\" value=\"Schedule and Start\" class=\"fa-qc-start-btn\">Start</button>");
-                out.println("        </div>");
-                out.println("      </div>");
-                out.println("    </form>");
-                out.println("  </div>");
+                quickCaptureRenderer.render(out, new QuickCaptureRenderer.Config("FocusedActionServlet")
+                                .sentenceValue(quickCaptureSentenceValue)
+                                .projectNames(quickCaptureProjectNames)
+                                .focusRequested(quickCaptureFocusRequested)
+                                .boxClass("fa-quick-capture-box"));
                 out.println("  </div>");
                 out.println(
                                 "  <button class=\"fa-close\" title=\"Back to Dandelion Dashboard\" onclick=\"window.location.href='"
@@ -190,6 +236,7 @@ public class FocusedActionPageRenderer {
                                         + "</section>");
                         out.println("  </div>");
                         out.println("</div>");
+                        actionEditorRenderer.render(out, appReq, editorOpenActionNextId, "FocusedActionServlet");
                         return;
                 }
 
@@ -201,22 +248,11 @@ public class FocusedActionPageRenderer {
                 out.println("        <div class=\"fa-card fa-title-card\">");
                 out.println("          <div class=\"fa-main-title\">" + descriptionForDisplay
                                 + " <span class=\"fa-project-subtitle\">" + escapeHtml(projectName) + "</span></div>");
-                out.println("          <ul id=\"fa-notes-list\" class=\"fa-notes\">");
-                for (String note : notes) {
-                        out.println("            <li>" + escapeHtml(note) + "</li>");
-                }
-                out.println("          </ul>");
-                out.println("          <div class=\"fa-inline-note\">");
-                out.println("            <textarea id=\"fa-note-input\" rows=\"3\" placeholder=\"Add note...\" onkeydown=\"faHandleNoteKeydown(event, "
-                                + action.getActionNextId() + ")\"></textarea>");
-                out.println("            <div class=\"fa-note-actions\">");
-                out.println("              <button type=\"button\" class=\"fa-primary-btn fa-note-submit-btn\" onclick=\"faSubmitNote("
-                                + action.getActionNextId() + ")\">Add Note</button>");
+                out.println("          <div class=\"fa-title-actions\">");
                 out.println(
-                                "              <button type=\"button\" class=\"fa-secondary-btn\" onclick=\"faOpenRescheduleModal(event)\">Reschedule</button>");
+                                "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenRescheduleModal(event)\">Reschedule</button>");
                 out.println(
-                                "              <button type=\"button\" class=\"fa-secondary-btn\" onclick=\"faOpenEditModal(event)\">Edit Action</button>");
-                out.println("            </div>");
+                                "            <button type=\"button\" class=\"fa-small-btn\" onclick=\"faOpenEditor(event)\">Edit Action</button>");
                 out.println("          </div>");
                 out.println("        </div>");
 
@@ -239,19 +275,7 @@ public class FocusedActionPageRenderer {
                 out.println("          </div>");
                 out.println("        </div>");
 
-                EditActionModalRenderer.Config editConfig = new EditActionModalRenderer.Config();
-                editConfig.overlayId = "faEditModal";
-                editConfig.overlayClass = "fa-modal-overlay";
-                editConfig.overlayOnClick = "faCloseModalOnOverlay(event, this)";
-                editConfig.modalClass = "fa-modal fa-edit-modal";
-                editConfig.closeOnClick = "faCloseModal('faEditModal')";
-                editConfig.saveOnClick = "faSubmitEdit('save')";
-                editConfig.saveAndStartOnClick = "faSubmitEdit('saveAndStart')";
-                editConfig.cancelOnClick = "faCloseModal('faEditModal')";
-                editConfig.deleteOnClick = "faDeleteAction()";
-                editConfig.completeOnClick = "eaToggleCompleteSection()";
-                editConfig.completeSubmitOnClick = "faSubmitEdit('complete')";
-                editActionModalRenderer.render(out, appReq, editConfig);
+                actionEditorRenderer.render(out, appReq, editorOpenActionNextId, "FocusedActionServlet");
 
                 out.println("        <div class=\"fa-card\">");
                 out.println("          <form method=\"POST\" action=\"FocusedActionServlet\" class=\"fa-work-form\">");
@@ -282,47 +306,20 @@ public class FocusedActionPageRenderer {
                 out.println("          </form>");
                 out.println("        </div>");
 
-                out.println("        <div class=\"fa-card\">");
-                out.println("          <h2 class=\"fa-section-title\">Meetings</h2>");
-                if (!meetingOptions.isEmpty()) {
-                        out.println("          <div id=\"fa-meetings-list\" class=\"fa-meetings-list\">");
-                        for (MeetingOption option : meetingOptions) {
-                                out.println("            <button type=\"button\" class=\"fa-meeting-item\" onclick=\"faSelectMeeting("
-                                                + option.getActionNextId() + ")\">" + escapeHtml(option.getLabel())
-                                                + "</button>");
-                        }
-                        out.println("          </div>");
-                }
+                renderContextStrip(out, notes, meetings, upNext, projectData);
 
-                out.println("          <h2 class=\"fa-section-title\">Next Action</h2>");
-                CycleBarItem shownItem = cycleData == null ? null : cycleData.getShownItem();
-                if (shownItem != null) {
-                        out.println("          <div class=\"fa-cycle-bar\">");
-                        out.println("            <button type=\"button\" id=\"fa-cycle-prev\" class=\"fa-cycle-arrow"
-                                        + (cycleData.getShownIndex() <= 0
-                                                        ? " fa-cycle-arrow-hidden\" disabled=\"disabled\" aria-disabled=\"true\""
-                                                        : "\"")
-                                        + " onclick=\"faCyclePrev()\">&larr;</button>");
-                        out.println("            <div class=\"fa-cycle-main\">");
-                        out.println("              <a id=\"fa-cycle-link\" class=\"fa-cycle-item\" href=\"" + escapeHtml(SWITCH_URL_PREFIX)
-                                        + shownItem.getActionNextId() + "\">"
-                                        + escapeHtml(n(shownItem.getLabel())) + "</a>");
-                        out.println("              <div id=\"fa-cycle-position\" class=\"fa-cycle-position\">"
-                                        + (cycleData.getShownIndex() + 1) + " / "
-                                        + cycleData.getTotal() + "</div>");
-                        out.println("            </div>");
-                        out.println("            <button type=\"button\" id=\"fa-cycle-next\" class=\"fa-cycle-arrow"
-                                        + (cycleData.getShownIndex() >= cycleData.getTotal() - 1
-                                                        ? " fa-cycle-arrow-hidden\" disabled=\"disabled\" aria-disabled=\"true\""
-                                                        : "\"")
-                                        + " onclick=\"faCycleNext()\">&rarr;</button>");
-                        out.println("          </div>");
-                } else {
-                        out.println("          <div class=\"fa-next-action-text\">No next action available.</div>");
-                }
-                out.println("        </div>");
 
                 out.println("      </div>");
+                renderNotesDrawer(out, notes, action.getActionNextId());
+                pickerRenderer.render(out, "fa-meetings-drawer", "Meetings today",
+                                Collections.singletonList(new FocusActionPickerRenderer.Group("Today", meetings.getRows())),
+                                "No meetings today.");
+                pickerRenderer.render(out, "fa-upnext-drawer", "Up next", upNext.getGroups(),
+                                "Nothing left in today's list.");
+                pickerRenderer.render(out, "fa-project-drawer",
+                                projectData.getProjectName().length() == 0 ? "This project"
+                                                : "This project: " + projectData.getProjectName(),
+                                projectData.getGroups(), "No open actions in this project.");
                 out.println("    </section>");
 
                 out.println("    <section class=\"fa-right\">");
@@ -366,22 +363,9 @@ public class FocusedActionPageRenderer {
                 out.println("    estimateMinutes: " + Math.max(0, estimateMinutes) + ",");
                 out.println("    runningClock: " + (runningClock ? "true" : "false") + ",");
                 out.println("    nowMinute: " + Math.max(0, Math.min(59, nowMinute)) + ",");
-                out.println("    cycleIndex: " + (cycleData == null ? -1 : Math.max(-1, cycleData.getShownIndex())));
+                out.println("    serverNowEpochMs: " + meetings.getServerNowEpochMs());
                 out.println("  };");
-                out.print("  faState.cycleItems = [");
-                if (cycleData != null) {
-                        List<CycleBarItem> cycleItems = cycleData.getItems();
-                        for (int i = 0; i < cycleItems.size(); i++) {
-                                CycleBarItem cycleItem = cycleItems.get(i);
-                                out.print("{ actionNextId: " + cycleItem.getActionNextId() + ", label: \""
-                                                + escapeJs(cycleItem.getLabel()) + "\" }");
-                                if (i < cycleItems.size() - 1) {
-                                        out.print(", ");
-                                }
-                        }
-                }
-                out.println("]; ");
-                out.println("  var faEditOriginalDate = ''; ");
+                printMeetingState(out, meetings);
                 out.println("  function faOpenModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.add('fa-modal-open'); } }");
                 out.println("  function faCloseModal(modalId) { var modal = document.getElementById(modalId); if (modal) { modal.classList.remove('fa-modal-open'); } }");
                 out.println("  function faCloseModalOnOverlay(evt, overlay) { if (evt && evt.target === overlay) { overlay.classList.remove('fa-modal-open'); } }");
@@ -398,40 +382,6 @@ public class FocusedActionPageRenderer {
                 out.println("  function faGetTodayISO() { var d = new Date(); var y = d.getFullYear(); var m = String(d.getMonth() + 1).padStart(2, '0'); var day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; }");
                 out.println("  function faIsoToUserDate(isoDate) { var parts = (isoDate || '').split('-'); if (parts.length !== 3) { return ''; } return parts[1] + '/' + parts[2] + '/' + parts[0]; }");
                 out.println("  function faUserDateToIso(userDate) { var parts = (userDate || '').split('/'); if (parts.length !== 3) { return ''; } var m = parts[0].trim().padStart(2, '0'); var d = parts[1].trim().padStart(2, '0'); var y = parts[2].trim(); if (y.length !== 4) { return ''; } return y + '-' + m + '-' + d; }");
-                out.println("  function faSetCycleArrowState(button, hidden) {");
-                out.println("    if (!button) { return; }");
-                out.println("    button.disabled = !!hidden;");
-                out.println("    if (hidden) { button.classList.add('fa-cycle-arrow-hidden'); button.setAttribute('aria-disabled', 'true'); } else { button.classList.remove('fa-cycle-arrow-hidden'); button.removeAttribute('aria-disabled'); }");
-                out.println("  }");
-                out.println("  function faRenderCycleBar() {");
-                out.println("    var items = faState.cycleItems || [];");
-                out.println("    var link = document.getElementById('fa-cycle-link');");
-                out.println("    var position = document.getElementById('fa-cycle-position');");
-                out.println("    var prev = document.getElementById('fa-cycle-prev');");
-                out.println("    var next = document.getElementById('fa-cycle-next');");
-                out.println("    if (!items.length || !link || !position) { return; }");
-                out.println("    var index = parseInt(faState.cycleIndex, 10);");
-                out.println("    if (isNaN(index)) { index = 0; }");
-                out.println("    if (index < 0) { index = 0; }");
-                out.println("    if (index >= items.length) { index = items.length - 1; }");
-                out.println("    faState.cycleIndex = index;");
-                out.println("    var item = items[index] || { actionNextId: 0, label: '' };");
-                out.println("    link.textContent = item.label || '';");
-                out.println("    link.href = '" + SWITCH_URL_PREFIX + "' + encodeURIComponent(String(item.actionNextId || 0));");
-                out.println("    position.textContent = String(index + 1) + ' / ' + String(items.length);");
-                out.println("    faSetCycleArrowState(prev, index <= 0);");
-                out.println("    faSetCycleArrowState(next, index >= items.length - 1);");
-                out.println("  }");
-                out.println("  function faCyclePrev() {");
-                out.println("    if (!faState.cycleItems || faState.cycleIndex <= 0) { return; }");
-                out.println("    faState.cycleIndex = faState.cycleIndex - 1;");
-                out.println("    faRenderCycleBar();");
-                out.println("  }");
-                out.println("  function faCycleNext() {");
-                out.println("    if (!faState.cycleItems || faState.cycleIndex >= faState.cycleItems.length - 1) { return; }");
-                out.println("    faState.cycleIndex = faState.cycleIndex + 1;");
-                out.println("    faRenderCycleBar();");
-                out.println("  }");
                 out.println("  function faHandleActionMutationSuccess(data) {");
                 out.println("    if (data && data.requiresActionRefresh) { window.location.href = 'FocusedActionServlet'; return; }");
                 out.println("    window.location.href = 'FocusedActionServlet?completingActionNextId=' + encodeURIComponent(String(faState.actionNextId));");
@@ -464,122 +414,21 @@ public class FocusedActionPageRenderer {
                 out.println("      faHandleActionMutationSuccess(data);");
                 out.println("    }).catch(function() { alert('Error rescheduling action. Please try again.'); });");
                 out.println("  }");
-                out.println("  function faUpdateActionTypeButtons(selectedType) {");
-                out.println("    var buttons = document.querySelectorAll('.ea-action-type-btn');");
-                out.println("    for (var i = 0; i < buttons.length; i++) {");
-                out.println("      var btn = buttons[i];");
-                out.println("      if (btn.getAttribute('data-action-type') === selectedType) { btn.classList.add('ea-chip-active'); } else { btn.classList.remove('ea-chip-active'); }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function eaSetActionType(type) { faSetActionType(type); }");
-                out.println("  function faSetActionType(type) {");
-                out.println("    document.getElementById('eaEditActionType').value = type;");
-                out.println("    faUpdateActionTypeButtons(type);");
-                out.println("    var contactSection = document.getElementById('eaEditActionContactSection');");
-                out.println("    if (contactSection) {");
-                out.println("      if (type === 'WILL_CONTACT' || type === 'WILL_MEET') {");
-                out.println("        contactSection.classList.add('ea-contact-emphasized');");
-                out.println("      } else {");
-                out.println("        contactSection.classList.remove('ea-contact-emphasized');");
-                out.println("      }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function faApplyModeToEditForm(isPersonal, timeSlot) {");
-                out.println("    var typeSection = document.getElementById('eaEditActionTypeSection');");
-                out.println("    var timeSection = document.getElementById('eaEditActionTimeSection');");
-                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
-                out.println("    var typeInput = document.getElementById('eaEditActionType');");
-                out.println("    var timeInput = document.getElementById('eaEditActionTime');");
-                out.println("    var slotSelect = document.getElementById('eaEditActionTimeSlot');");
-                out.println("    if (isPersonal) {");
-                out.println("      if (typeSection) { typeSection.style.display = 'none'; }");
-                out.println("      if (timeSection) { timeSection.style.display = 'none'; }");
-                out.println("      if (slotSection) { slotSection.style.display = ''; }");
-                out.println("      if (typeInput) { typeInput.value = ''; }");
-                out.println("      if (timeInput) { timeInput.value = '0'; }");
-                out.println("      if (slotSelect) { slotSelect.value = timeSlot || 'AFTERNOON'; }");
-                out.println("    } else {");
-                out.println("      if (typeSection) { typeSection.style.display = ''; }");
-                out.println("      if (timeSection) { timeSection.style.display = ''; }");
-                out.println("      if (slotSection) { slotSection.style.display = 'none'; }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function faDeleteAction() {");
-                out.println("    var formData = faCreateDashboardParams();");
-                out.println("    formData.append('action', 'deleteAction');");
-                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
-                out.println("    faFetchDashboardJson(formData, 'Delete action').then(function(data) {");
-                out.println("      if (!data || !data.success) { alert('Error: ' + (data && data.message ? data.message : 'Could not delete action')); return; }");
-                out.println("      faCloseModal('faEditModal');");
-                out.println("      window.location.href = 'FocusedActionServlet';");
-                out.println("    }).catch(function() { alert('Error deleting action. Please try again.'); });");
-                out.println("  }");
-                out.println("  function faOpenEditModal(evt) {");
-                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
-                out.println("    var formData = faCreateDashboardParams();");
-                out.println("    formData.append('action', 'loadActionData');");
-                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
-                out.println("    faFetchDashboardJson(formData, 'Edit preload').then(function(data) {");
-                out.println("      if (!data || !data.success) { alert('Unable to load edit form.'); return; }");
-                out.println("      faEditOriginalDate = data.nextActionDate || ''; ");
-                out.println("      document.getElementById('eaEditActionDate').value = data.nextActionDate || ''; ");
-                out.println("      document.getElementById('eaEditActionDescription').value = data.nextDescription || ''; ");
-                out.println("      document.getElementById('eaEditActionTime').value = data.nextTimeEstimate || '0'; ");
-                out.println("      document.getElementById('eaEditActionType').value = data.nextActionType || ''; ");
-                out.println("      faUpdateActionTypeButtons(data.nextActionType || ''); ");
-                out.println("      var contactEl = document.getElementById('eaEditActionContact');");
-                out.println("      if (contactEl) { contactEl.value = data.nextContactId || ''; }");
-                out.println("      document.getElementById('eaEditActionTarget').value = data.nextTargetDate || ''; ");
-                out.println("      document.getElementById('eaEditActionDeadline').value = data.nextDeadlineDate || ''; ");
-                out.println("      document.getElementById('eaEditActionLink').value = data.linkUrl || ''; ");
-                out.println("      document.getElementById('eaEditActionNote').value = data.nextNote || ''; ");
-                out.println("      faApplyModeToEditForm(!!data.isPersonal, data.timeSlot || '');");
-                out.println("      if (window.eaResetCompleteSection) { window.eaResetCompleteSection(); }");
-                out.println("      faOpenModal('faEditModal');");
-                out.println("    }).catch(function() { alert('Unable to load edit form.'); });");
-                out.println("  }");
-                out.println("  function faSubmitEdit(saveMode) {");
-                out.println("    var isComplete = saveMode === 'complete';");
-                out.println("    var dateValue = (document.getElementById('eaEditActionDate').value || '').trim();");
-                out.println("    if (!dateValue && faEditOriginalDate) { dateValue = faEditOriginalDate; }");
-                out.println("    var formData = faCreateDashboardParams();");
-                out.println("    formData.append('action', isComplete ? 'CompleteActionEdit' : 'editAction');");
-                out.println("    formData.append('actionNextId', String(faState.actionNextId));");
-                out.println("    formData.append('nextActionDate', dateValue);");
-                out.println("    formData.append('nextActionType', (document.getElementById('eaEditActionType').value || '').trim());");
-                out.println("    formData.append('nextDescription', document.getElementById('eaEditActionDescription').value || '');");
-                out.println("    formData.append('nextTimeEstimate', (document.getElementById('eaEditActionTime').value || '0').trim());");
-                out.println("    var contactEl = document.getElementById('eaEditActionContact');");
-                out.println("    if (contactEl) { formData.append('nextContactId', contactEl.value || ''); }");
-                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
-                out.println("    var slotVisible = slotSection && slotSection.style.display !== 'none';");
-                out.println("    if (slotVisible) {");
-                out.println("      var slotEl = document.getElementById('eaEditActionTimeSlot');");
-                out.println("      formData.append('timeSlot', slotEl ? slotEl.value : '');");
-                out.println("    }");
-                out.println("    formData.append('nextTargetDate', (document.getElementById('eaEditActionTarget').value || '').trim());");
-                out.println("    formData.append('nextDeadlineDate', (document.getElementById('eaEditActionDeadline').value || '').trim());");
-                out.println("    formData.append('linkUrl', (document.getElementById('eaEditActionLink').value || '').trim());");
-                out.println("    formData.append('nextNote', document.getElementById('eaEditActionNote').value || '');");
-                out.println("    if (isComplete) {");
-                out.println("      formData.append('completeDescription', window.eaReadCompleteValue('eaCompleteDescription'));");
-                out.println("      formData.append('completeDate', window.eaReadCompleteValue('eaCompleteDate'));");
-                out.println("      formData.append('completeTime', window.eaReadCompleteValue('eaCompleteTime'));");
-                out.println("      formData.append('completeDuration', window.eaReadCompleteValue('eaCompleteDuration'));");
-                out.println("    } else {");
-                out.println("      formData.append('saveMode', saveMode || 'save');");
-                out.println("    }");
-                out.println("    window.eaClearCompleteError();");
-                out.println("    faFetchDashboardJson(formData, isComplete ? 'Complete submit' : 'Edit submit').then(function(data) {");
-                out.println("      if (!data || !data.success) {");
-                out.println("        if (isComplete) { window.eaShowCompleteError(data && data.message ? data.message : 'Unable to complete action.'); return; }");
-                out.println("        alert('Error saving action: ' + (data && data.message ? data.message : 'Unknown error'));");
-                out.println("        return;");
-                out.println("      }");
-                out.println("      faCloseModal('faEditModal');");
-                out.println("      if (isComplete) { window.location.href = 'FocusedActionServlet'; return; }");
+                out.println("  ActionEditor.configure({");
+                out.println("    onSaved: function(data, mode) {");
+                out.println("      if (mode === 'saveAndStart') { window.location.href = 'FocusedActionServlet'; return; }");
                 out.println("      faHandleActionMutationSuccess(data);");
-                out.println("    }).catch(function() { alert('Error submitting edit. Please try again.'); });");
+                out.println("    },");
+                out.println("    onCompleted: function(data, mode, actionNextId) { faAfterActionRemoved(data, actionNextId); },");
+                out.println("    onDeleted: function(data, mode, actionNextId) { faAfterActionRemoved(data, actionNextId); }");
+                out.println("  });");
+                out.println("  function faAfterActionRemoved(data, actionNextId) {");
+                out.println("    if (actionNextId === faState.actionNextId) { window.location.href = 'FocusedActionServlet'; return; }");
+                out.println("    faHandleActionMutationSuccess(data);");
+                out.println("  }");
+                out.println("  function faOpenEditor(evt) {");
+                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
+                out.println("    ActionEditor.open(faState.actionNextId);");
                 out.println("  }");
                 out.println("  function faNormalizeMinute(value) { var v = value % 60; if (v < 0) { v += 60; } return v; }");
                 out.println(
@@ -686,8 +535,10 @@ public class FocusedActionPageRenderer {
                 out.println(
                                 "    faAddSector(svg, cx, cy, radius - 6, nowMinute - overrun, Math.min(60, overrun), palette.overrun);");
                 out.println("    faDrawFace(svg, cx, cy, radius, palette);");
+                out.println("    faDrawMeetingArcs(svg, cx, cy, radius, nowMinute);");
                 out.println("    faDrawMinuteHand(svg, cx, cy, radius, nowMinute, palette);");
                 out.println("  }");
+                printMeetingScript(out);
                 out.println("  function faHandleNoteKeydown(event, actionNextId) {");
                 out.println("    if (event.key === 'Enter') {");
                 out.println("      event.preventDefault();");
@@ -720,10 +571,50 @@ public class FocusedActionPageRenderer {
                 out.println("        var notes = data.notes || [];");
                 out.println(
                                 "        for (var i = 0; i < notes.length; i++) { var li = document.createElement('li'); li.textContent = notes[i]; list.appendChild(li); }");
+                out.println("        var empty = document.getElementById('fa-notes-empty'); if (empty) { empty.style.display = notes.length ? 'none' : ''; }");
+                out.println("        faUpdateNotesRow(notes);");
+                out.println("        var body = document.getElementById('fa-notes-drawer-body'); if (body) { body.scrollTop = body.scrollHeight; }");
                 out.println("        input.value = ''; input.focus();");
                 out.println("      })");
                 out.println("      .catch(function() { alert('Unable to add note.'); });");
                 out.println("  }");
+                out.println("  function faUpdateNotesRow(notes) {");
+                out.println("    var count = document.getElementById('fa-notes-count');");
+                out.println("    var preview = document.getElementById('fa-notes-preview');");
+                out.println("    if (count) { count.textContent = notes.length ? '(' + notes.length + ')' : ''; }");
+                out.println("    if (!preview) { return; }");
+                out.println("    if (!notes.length) { preview.textContent = 'Add note'; preview.classList.add('fa-strip-faint'); return; }");
+                out.println("    preview.textContent = String(notes[notes.length - 1]).split(/\\r?\\n/)[0];");
+                out.println("    preview.classList.remove('fa-strip-faint');");
+                out.println("  }");
+                pickerRenderer.printScript(out);
+                out.println("  var faOpenDrawerId = null;");
+                out.println("  function faOpenDrawer(drawerId, focusId) {");
+                out.println("    if (faOpenDrawerId && faOpenDrawerId !== drawerId) { faCloseDrawer(); }");
+                out.println("    var drawer = document.getElementById(drawerId); if (!drawer) { return; }");
+                out.println("    drawer.classList.add('fa-drawer-open'); drawer.setAttribute('aria-hidden', 'false');");
+                out.println("    faOpenDrawerId = drawerId;");
+                out.println("    var body = drawer.querySelector('.fa-drawer-body'); if (body) { body.scrollTop = body.scrollHeight; }");
+                out.println("    var focusEl = focusId ? document.getElementById(focusId) : null;");
+                out.println("    if (focusEl) { setTimeout(function() { focusEl.focus(); }, 0); }");
+                out.println("  }");
+                out.println("  function faCloseDrawer() {");
+                out.println("    if (!faOpenDrawerId) { return; }");
+                out.println("    var drawer = document.getElementById(faOpenDrawerId);");
+                out.println("    if (drawer) { drawer.classList.remove('fa-drawer-open'); drawer.setAttribute('aria-hidden', 'true'); }");
+                out.println("    var trigger = document.querySelector('[data-drawer=\"' + faOpenDrawerId + '\"]');");
+                out.println("    faOpenDrawerId = null;");
+                out.println("    if (trigger) { trigger.focus(); }");
+                out.println("  }");
+                out.println("  document.addEventListener('keydown', function(e) {");
+                out.println("    if (document.querySelector('.fa-modal-open')) { return; }");
+                out.println("    if (e.key === 'Escape' && faOpenDrawerId) { e.preventDefault(); faCloseDrawer(); return; }");
+                out.println("    if (e.key !== 'n' || e.altKey || e.ctrlKey || e.metaKey) { return; }");
+                out.println("    var el = document.activeElement;");
+                out.println("    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) { return; }");
+                out.println("    e.preventDefault();");
+                out.println("    faOpenDrawer('fa-notes-drawer', 'fa-note-input');");
+                out.println("  });");
                 out.println("  function faInitWorkFollowUpSuggestions() {");
                 out.println(
                                 "    var actionVerbs = ['I will', 'I have committed', 'I might', 'I would like to', 'I will meet', 'I have set goal to', 'I am waiting'];");
@@ -741,69 +632,6 @@ public class FocusedActionPageRenderer {
                                 "    input.addEventListener('keydown', function(e){ var visible = suggestionsBox.style.display === 'block'; if (visible && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); var count = currentSuggestions.length; if (count === 0) { return; } if (e.key === 'ArrowDown') { selectedIndex = (selectedIndex + 1) % count; } else { selectedIndex = (selectedIndex - 1 + count) % count; } showSuggestions(currentSuggestions); } if (visible && (e.key === 'Enter' || e.key === 'Tab')) { if (selectedIndex < 0) { selectedIndex = 0; } if (selectedIndex < currentSuggestions.length) { e.preventDefault(); input.value = currentSuggestions[selectedIndex] + ' '; suggestionsBox.style.display = 'none'; selectedIndex = -1; } } if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; selectedIndex = -1; } });");
                 out.println(
                                 "    input.addEventListener('blur', function(){ setTimeout(function(){ suggestionsBox.style.display = 'none'; }, 150); });");
-                out.println("  }");
-                out.println("  function faInitQuickCaptureSuggestions() {");
-                out.print("    var projectNames = [");
-                for (int i = 0; i < quickCaptureProjectNames.size(); i++) {
-                        out.print("\"" + escapeJs(quickCaptureProjectNames.get(i)) + "\"");
-                        if (i < quickCaptureProjectNames.size() - 1) {
-                                out.print(", ");
-                        }
-                }
-                out.println("]; ");
-                out.println(
-                                "    var actionVerbs = ['I will', 'I have committed', 'I might', 'I would like to', 'I will meet', 'I have set goal to', 'I am waiting'];");
-                out.println("    var input = document.getElementById('sentenceInput');");
-                out.println("    var suggestionsBox = document.getElementById('suggestions');");
-                out.println("    if (!input || !suggestionsBox) { return; }");
-                out.println("    var currentSuggestions = []; var selectedIndex = -1;");
-                out.println("    input.addEventListener('input', function() {");
-                out.println("      var text = input.value || ''; var colonIndex = text.indexOf(':'); var suggestions = [];");
-                out.println("      if (colonIndex === -1) {");
-                out.println(
-                                "        suggestions = projectNames.filter(function(name) { return name.toLowerCase().startsWith(text.toLowerCase()); });");
-                out.println("      } else {");
-                out.println("        var beforeColon = text.substring(0, colonIndex).trim();");
-                out.println("        var afterColon = text.substring(colonIndex + 1).trim();");
-                out.println("        if (projectNames.indexOf(beforeColon) === -1) {");
-                out.println(
-                                "          suggestions = projectNames.filter(function(name) { return name.toLowerCase().indexOf(beforeColon.toLowerCase()) >= 0; });");
-                out.println("        } else if (afterColon.length === 0) {");
-                out.println("          suggestions = actionVerbs.slice(0);");
-                out.println("        } else {");
-                out.println(
-                                "          suggestions = actionVerbs.filter(function(verb) { return verb.toLowerCase().startsWith(afterColon.toLowerCase()); });");
-                out.println("        }");
-                out.println("      }");
-                out.println("      currentSuggestions = suggestions; selectedIndex = -1; faShowQuickCaptureSuggestions(suggestionsBox, suggestions, input, text, function(v){ selectedIndex = v; }, function(){ return selectedIndex; });");
-                out.println("    });");
-                out.println("    input.addEventListener('keydown', function(e) {");
-                out.println("      var visible = suggestionsBox.style.display === 'block'; if (!visible) { return; }");
-                out.println("      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {");
-                out.println("        e.preventDefault(); var count = currentSuggestions.length; if (count === 0) { return; }");
-                out.println("        if (e.key === 'ArrowDown') { selectedIndex = (selectedIndex + 1) % count; } else { selectedIndex = (selectedIndex - 1 + count) % count; }");
-                out.println("        faShowQuickCaptureSuggestions(suggestionsBox, currentSuggestions, input, input.value, function(v){ selectedIndex = v; }, function(){ return selectedIndex; });");
-                out.println("      }");
-                out.println("      if (e.key === 'Enter' || e.key === 'Tab') {");
-                out.println("        if (selectedIndex < 0) { selectedIndex = 0; }");
-                out.println("        if (selectedIndex < currentSuggestions.length) { e.preventDefault(); faAcceptQuickCaptureSuggestion(input, currentSuggestions[selectedIndex], input.value); suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
-                out.println("      }");
-                out.println("      if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
-                out.println("    });");
-                out.println("    input.addEventListener('blur', function(){ setTimeout(function(){ suggestionsBox.style.display = 'none'; }, 150); });");
-                out.println("  }");
-                out.println("  function faShowQuickCaptureSuggestions(box, suggestions, input, text, setSelectedIndex, getSelectedIndex) {");
-                out.println("    box.innerHTML = ''; box.style.display = suggestions.length ? 'block' : 'none';");
-                out.println("    suggestions.forEach(function(suggestion, i) {");
-                out.println("      var div = document.createElement('div'); div.textContent = suggestion;");
-                out.println("      if (i === getSelectedIndex()) { div.style.backgroundColor = '#e0e0e0'; }");
-                out.println("      div.addEventListener('click', function() { faAcceptQuickCaptureSuggestion(input, suggestion, text); box.style.display = 'none'; setSelectedIndex(-1); });");
-                out.println("      box.appendChild(div);");
-                out.println("    });");
-                out.println("  }");
-                out.println("  function faAcceptQuickCaptureSuggestion(input, suggestion, text) {");
-                out.println("    if ((text || '').indexOf(':') === -1) { input.value = suggestion + ': '; return; }");
-                out.println("    var beforeColon = (text || '').split(':')[0]; input.value = beforeColon.trim() + ': ' + suggestion + ' '; ");
                 out.println("  }");
                 out.println("  function faToggleTimer() {");
                 out.println(
@@ -831,6 +659,9 @@ public class FocusedActionPageRenderer {
                 out.println("        faState.estimateMinutes = parseInt(data.estimateMinutes || 0, 10) || 0;");
                 out.println("        faState.nowMinute = parseInt(data.nowMinute || 0, 10) || 0;");
                 out.println("        faState.runningClock = !!data.runningClock;");
+                out.println("        if (data.serverNowEpochMs) { faState.serverNowEpochMs = data.serverNowEpochMs; }");
+                out.println("        if (data.meetingArcs) { faState.meetingArcs = data.meetingArcs; }");
+                out.println("        faUpdateMeetingViews();");
                 out.println("        var toggle = document.getElementById('fa-toggle-timer');");
                 out.println("        if (toggle) { toggle.textContent = faState.runningClock ? 'Stop' : 'Start'; }");
                 out.println("        var todayEl = document.getElementById('fa-today-time');");
@@ -880,10 +711,9 @@ public class FocusedActionPageRenderer {
                 out.println("    return h + 'h ' + m + 'm';");
                 out.println("  }");
                 out.println("  faUpdateStatusAndGauge();");
-                out.println("  faRenderCycleBar();");
+                out.println("  faUpdateMeetingViews();");
                 out.println("  faDrawClock();");
                 out.println("  faInitWorkFollowUpSuggestions();");
-                out.println("  faInitQuickCaptureSuggestions();");
                 out.println("  window.setInterval(function(){ faRefreshClock(); }, 60000);");
                 out.println("</script>");
         }
@@ -946,6 +776,211 @@ public class FocusedActionPageRenderer {
                 out.println("</script>");
         }
 
+        /**
+         * One-line rows below the work form. Each shows a count and a preview, and opens its drawer
+         * over the left column when clicked.
+         */
+        private void renderContextStrip(PrintWriter out, List<String> notes, MeetingsData meetings, UpNextData upNext,
+                        ProjectData projectData) {
+                String latest = notes.isEmpty() ? "" : firstLine(notes.get(notes.size() - 1));
+                out.println("        <div class=\"fa-card fa-context-strip\">");
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-notes-drawer\""
+                                + " title=\"Notes (press n)\" onclick=\"faOpenDrawer('fa-notes-drawer', 'fa-note-input')\">");
+                out.println("            <span class=\"fa-strip-label\">Notes <span id=\"fa-notes-count\">"
+                                + (notes.isEmpty() ? "" : "(" + notes.size() + ")") + "</span></span>");
+                out.println("            <span id=\"fa-notes-preview\" class=\"fa-strip-preview"
+                                + (notes.isEmpty() ? " fa-strip-faint\">Add note" : "\">" + escapeHtml(latest))
+                                + "</span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-meetings-drawer\""
+                                + " onclick=\"faPickerOpen('fa-meetings-drawer')\">");
+                out.println("            <span class=\"fa-strip-label\">Meetings <span>"
+                                + (meetings.getRows().isEmpty() ? "" : "(" + meetings.getRows().size() + ")") + "</span></span>");
+                out.println("            <span id=\"fa-meetings-preview\" class=\"fa-strip-preview\"></span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
+                renderUpNextRow(out, upNext);
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-project-drawer\""
+                                + " onclick=\"faPickerOpen('fa-project-drawer')\">");
+                out.println("            <span class=\"fa-strip-label\">This project <span>"
+                                + (projectData.getOpenCount() == 0 ? "" : "(" + projectData.getOpenCount() + ")")
+                                + "</span></span>");
+                out.println("            <span class=\"fa-strip-preview\">"
+                                + (projectData.getOpenCount() == 0 ? "<span class=\"fa-strip-faint\">No open actions</span>"
+                                                : escapeHtml(projectData.getSummary()))
+                                + "</span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
+                out.println("        </div>");
+        }
+
+        private void renderUpNextRow(PrintWriter out, UpNextData upNext) {
+                FocusActionPickerRenderer.Row nextItem = upNext.getNextItem();
+                String count;
+                String preview;
+                if (upNext.getTotal() == 0) {
+                        count = "";
+                        preview = "<span class=\"fa-strip-faint\">Nothing left in today's list</span>";
+                } else if (!upNext.isCurrentInQueue()) {
+                        count = "(" + upNext.getTotal() + ")";
+                        preview = escapeHtml(nextItem == null ? "" : nextItem.getLabel())
+                                        + " <span class=\"fa-strip-note\">current action is not in today's list</span>";
+                } else if (nextItem == null) {
+                        count = "(" + upNext.getTotal() + ")";
+                        preview = "<span class=\"fa-strip-faint\">Current action is last in today's list</span>";
+                } else {
+                        count = "(" + upNext.getNextPosition() + " of " + upNext.getTotal() + ")";
+                        preview = escapeHtml(nextItem.getLabel());
+                }
+                out.println("          <button type=\"button\" class=\"fa-strip-row\" data-drawer=\"fa-upnext-drawer\""
+                                + " onclick=\"faPickerOpen('fa-upnext-drawer')\">");
+                out.println("            <span class=\"fa-strip-label\">Up next <span>" + count + "</span></span>");
+                out.println("            <span class=\"fa-strip-preview\">" + preview + "</span>");
+                out.println("            <span class=\"fa-strip-chevron\">&rsaquo;</span>");
+                out.println("          </button>");
+        }
+
+        /**
+         * faState.meetings (for the strip row and drawer labels) and faState.meetingArcs (for the
+         * clock). refreshFocusClock sends fresh meetingArcs and serverNowEpochMs each minute.
+         */
+        private void printMeetingState(PrintWriter out, MeetingsData meetings) {
+                StringBuilder list = new StringBuilder();
+                StringBuilder arcs = new StringBuilder();
+                for (FocusActionPickerRenderer.Row row : meetings.getRows()) {
+                        boolean timed = row.getStartEpochMs() != null && row.getEndEpochMs() != null;
+                        if (list.length() > 0) {
+                                list.append(", ");
+                        }
+                        list.append("{ title: \"").append(escapeJs(row.getDescription()))
+                                        .append("\", startLabel: \"").append(escapeJs(row.getStartLabel()))
+                                        .append("\", endLabel: \"").append(escapeJs(row.getEndLabel()))
+                                        .append("\", start: ").append(timed ? String.valueOf(row.getStartEpochMs()) : "null")
+                                        .append(", end: ").append(timed ? String.valueOf(row.getEndEpochMs()) : "null").append(" }");
+                        if (timed) {
+                                if (arcs.length() > 0) {
+                                        arcs.append(", ");
+                                }
+                                arcs.append("{ startEpochMs: ").append(row.getStartEpochMs()).append(", endEpochMs: ")
+                                                .append(row.getEndEpochMs()).append(" }");
+                        }
+                }
+                out.println("  faState.meetings = [" + list + "];");
+                out.println("  faState.meetingArcs = [" + arcs + "];");
+        }
+
+        /** Notes drawer: all notes oldest first, with the add box at the bottom. */
+        private void renderNotesDrawer(PrintWriter out, List<String> notes, int actionNextId) {
+                out.println("      <aside id=\"fa-notes-drawer\" class=\"fa-drawer\" aria-label=\"Notes\" aria-hidden=\"true\">");
+                out.println("        <div class=\"fa-drawer-head\">");
+                out.println("          <h2 class=\"fa-section-title\">Notes</h2>");
+                out.println("          <button type=\"button\" class=\"fa-modal-close\" title=\"Close (Esc)\" onclick=\"faCloseDrawer()\">&times;</button>");
+                out.println("        </div>");
+                out.println("        <div id=\"fa-notes-drawer-body\" class=\"fa-drawer-body\">");
+                out.println("          <div id=\"fa-notes-empty\" class=\"fa-drawer-empty\""
+                                + (notes.isEmpty() ? "" : " style=\"display:none\"") + ">No notes yet.</div>");
+                out.println("          <ul id=\"fa-notes-list\" class=\"fa-notes\">");
+                for (String note : notes) {
+                        out.println("            <li>" + escapeHtml(note) + "</li>");
+                }
+                out.println("          </ul>");
+                out.println("        </div>");
+                out.println("        <div class=\"fa-drawer-foot fa-inline-note\">");
+                out.println("          <textarea id=\"fa-note-input\" rows=\"3\" placeholder=\"Add note... (Enter saves)\" onkeydown=\"faHandleNoteKeydown(event, "
+                                + actionNextId + ")\"></textarea>");
+                out.println("          <div class=\"fa-note-actions\">");
+                out.println("            <button type=\"button\" class=\"fa-primary-btn fa-note-submit-btn\" onclick=\"faSubmitNote("
+                                + actionNextId + ")\">Add Note</button>");
+                out.println("          </div>");
+                out.println("        </div>");
+                out.println("      </aside>");
+        }
+
+        private String firstLine(String value) {
+                String text = n(value);
+                int newline = text.indexOf('\n');
+                return (newline >= 0 ? text.substring(0, newline) : text).trim();
+        }
+
+        /**
+         * Meeting labels and clock arcs. Times are compared with faState.serverNowEpochMs, never the
+         * browser clock, and arcs are placed relative to the minute hand, so the browser's time zone
+         * does not matter.
+         */
+        private void printMeetingScript(PrintWriter out) {
+                out.println("  function faMeetingState(start, end, now) {");
+                out.println("    if (!start || !end) { return 'untimed'; }");
+                out.println("    if (end <= now) { return 'ended'; }");
+                out.println("    return start <= now ? 'now' : 'upcoming';");
+                out.println("  }");
+                out.println("  function faFormatIn(ms) { return 'in ' + faFormatMinutes(Math.max(1, Math.ceil(ms / 60000))); }");
+                out.println("  function faUpdateMeetingViews() {");
+                out.println("    var now = faState.serverNowEpochMs || 0; var list = faState.meetings || [];");
+                out.println("    var next = null; var nextState = ''; var wrapUp = 0;");
+                out.println("    for (var i = 0; i < list.length; i++) {");
+                out.println("      var state = faMeetingState(list[i].start, list[i].end, now);");
+                out.println("      if (state === 'ended') { wrapUp++; }");
+                out.println("      if (!next && (state === 'now' || state === 'upcoming')) { next = list[i]; nextState = state; }");
+                out.println("    }");
+                out.println("    var preview = document.getElementById('fa-meetings-preview');");
+                out.println("    if (preview) {");
+                out.println("      preview.textContent = '';");
+                out.println("      var main = document.createElement('span');");
+                out.println("      if (!list.length) { main.className = 'fa-strip-faint'; main.textContent = 'No meetings today'; }");
+                out.println("      else if (next && nextState === 'now') { main.className = 'fa-strip-now'; main.textContent = 'Now: ' + next.title + ', until ' + next.endLabel; }");
+                out.println("      else if (next) { main.textContent = 'Next ' + next.startLabel + ' ' + next.title + ', ' + faFormatIn(next.start - now); }");
+                out.println("      else { main.className = 'fa-strip-faint'; main.textContent = 'No more timed meetings today'; }");
+                out.println("      preview.appendChild(main);");
+                out.println("      if (wrapUp > 0) { var wrap = document.createElement('span'); wrap.className = 'fa-strip-wrap'; wrap.textContent = wrapUp + ' to wrap up'; preview.appendChild(wrap); }");
+                out.println("    }");
+                out.println("    var rows = document.querySelectorAll('#fa-meetings-drawer .fa-picker-row[data-start]');");
+                out.println("    for (var r = 0; r < rows.length; r++) {");
+                out.println("      var start = parseInt(rows[r].getAttribute('data-start'), 10); var end = parseInt(rows[r].getAttribute('data-end'), 10);");
+                out.println("      var rowState = faMeetingState(start, end, now);");
+                out.println("      rows[r].classList.toggle('fa-picker-dim', rowState === 'ended');");
+                out.println("      rows[r].classList.toggle('fa-picker-live', rowState === 'now');");
+                out.println("      var rel = rows[r].querySelector('.fa-picker-rel'); if (!rel) { continue; }");
+                out.println("      rel.textContent = rowState === 'ended' ? 'ended ' + (rows[r].getAttribute('data-end-label') || '') : rowState === 'now' ? 'now' : faFormatIn(start - now);");
+                out.println("    }");
+                out.println("  }");
+                out.println("  function faDrawMeetingArcs(svg, cx, cy, radius, nowMinute) {");
+                out.println("    var now = faState.serverNowEpochMs; if (!now) { return; }");
+                out.println("    var handMs = now - (now % 60000);");
+                out.println("    var limit = (now - handMs) / 60000 + 58;");
+                out.println("    var arcs = [];");
+                out.println("    var source = faState.meetingArcs || [];");
+                out.println("    for (var i = 0; i < source.length; i++) {");
+                out.println("      var s = source[i].startEpochMs; var e = source[i].endEpochMs;");
+                out.println("      if (!s || !e || e <= now) { continue; }");
+                out.println("      var startOffset = (s - handMs) / 60000; var endOffset = (e - handMs) / 60000;");
+                out.println("      if (startOffset >= limit) { continue; }");
+                out.println("      var live = s <= now;");
+                out.println("      var from = live ? 0 : startOffset + 0.5;");
+                out.println("      var to = Math.min(endOffset, limit) - 0.5;");
+                out.println("      if (to - from < 0.1) { continue; }");
+                out.println("      arcs.push({ startOffset: live ? 0 : startOffset, endOffset: endOffset, from: from, to: to, live: live });");
+                out.println("    }");
+                out.println("    arcs.sort(function(a, b) { return a.startOffset - b.startOffset; });");
+                out.println("    var laneEnds = [];");
+                out.println("    for (var a = 0; a < arcs.length; a++) {");
+                out.println("      var lane = 0;");
+                out.println("      while (lane < laneEnds.length && laneEnds[lane] > arcs[a].startOffset) { lane++; }");
+                out.println("      laneEnds[lane] = arcs[a].endOffset;");
+                out.println("      var r = radius + 31 - Math.min(lane, 1) * 15;");
+                out.println("      var p0 = faPolar(cx, cy, r, nowMinute + arcs[a].from);");
+                out.println("      var p1 = faPolar(cx, cy, r, nowMinute + arcs[a].to);");
+                out.println("      var path = faSvgEl('path');");
+                out.println("      path.setAttribute('d', 'M ' + p0.x + ' ' + p0.y + ' A ' + r + ' ' + r + ' 0 ' + ((arcs[a].to - arcs[a].from) > 30 ? 1 : 0) + ' 1 ' + p1.x + ' ' + p1.y);");
+                out.println("      path.setAttribute('fill', 'none');");
+                out.println("      path.setAttribute('stroke', arcs[a].live ? '#2a4f9e' : '#7d97d4');");
+                out.println("      path.setAttribute('stroke-width', '11');");
+                out.println("      path.setAttribute('class', 'fa-meeting-arc');");
+                out.println("      svg.appendChild(path);");
+                out.println("    }");
+                out.println("  }");
+        }
+
         private void printStyles(PrintWriter out) {
                 out.println("<style>");
                 out.println(
@@ -970,7 +1005,27 @@ public class FocusedActionPageRenderer {
                                 "  .fa-close { position: fixed; right: 14px; top: 10px; border: 1px solid #7f8f7f; background: #fff; width: 38px; height: 38px; border-radius: 8px; font-size: 26px; line-height: 30px; cursor: pointer; z-index: 60; }");
                 out.println(
                                 "  .fa-shell { display: grid; grid-template-columns: minmax(380px, 39%) minmax(520px, 61%); gap: 12px; flex: 1; min-height: 0; }");
-                out.println("  .fa-left { min-height: 0; }");
+                out.println("  .fa-left { min-height: 0; position: relative; overflow: hidden; }");
+                out.println("  .fa-drawer { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: #fffdf8; border: 1px solid #c8d4c4; border-radius: 10px; box-shadow: 4px 0 18px rgba(0,0,0,0.14); transform: translateX(-104%); visibility: hidden; transition: transform 0.18s ease, visibility 0s linear 0.18s; }");
+                out.println("  .fa-drawer.fa-drawer-open { transform: translateX(0); visibility: visible; transition: transform 0.18s ease, visibility 0s; }");
+                out.println("  .fa-drawer-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #d8e0d6; }");
+                out.println("  .fa-drawer-head .fa-section-title { margin: 0; }");
+                out.println("  .fa-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }");
+                out.println("  .fa-drawer-foot { flex: 0 0 auto; padding: 10px 12px; border-top: 1px solid #d8e0d6; }");
+                out.println("  .fa-drawer-empty { color: #8a968a; font-style: italic; }");
+                out.println("  .fa-context-strip { padding: 4px; }");
+                out.println("  .fa-strip-row { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: #233423; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }");
+                out.println("  .fa-strip-row:hover, .fa-strip-row:focus-visible { background: #edf5ea; }");
+                out.println("  .fa-strip-label { flex: 0 0 auto; min-width: 110px; font-weight: 700; color: #293829; }");
+                out.println("  .fa-strip-preview { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #3d4f3d; }");
+                out.println("  .fa-strip-faint { color: #9aa79a; font-style: italic; }");
+                out.println("  .fa-strip-wrap { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #fbf0d9; color: #7a5a1a; font-size: 12px; font-weight: 600; }");
+                out.println("  .fa-strip-now { color: #2a4f9e; font-weight: 700; }");
+                out.println("  .fa-strip-note { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #fbf0d9; color: #7a5a1a; font-size: 11px; }");
+                out.println("  .fa-strip-chevron { flex: 0 0 auto; color: #7f9b7f; font-size: 20px; line-height: 1; }");
+                out.println("  .fa-title-actions { display: flex; gap: 6px; flex-wrap: wrap; }");
+                out.println("  .fa-small-btn { border: 1px solid #a9bba6; background: #f4f9f3; color: #3a553a; padding: 3px 9px; border-radius: 6px; font-size: 12px; cursor: pointer; }");
+                out.println("  .fa-small-btn:hover { background: #e3eee0; border-color: #7f9b7f; }");
                 out.println("  .fa-left-scroll { height: 100%; overflow-y: auto; padding-right: 6px; }");
                 out.println(
                                 "  .fa-right { min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }");
@@ -1024,32 +1079,11 @@ public class FocusedActionPageRenderer {
                 out.println("  .fa-work-status-toggle label { display: inline-block; padding: 6px 10px; border: 1px solid #d5d5d5; background: #efefef; color: #5e5e5e; border-radius: 4px; cursor: pointer; font-weight: bold; user-select: none; }");
                 out.println("  .fa-work-status-toggle input[type='radio']:checked + label { border: 2px solid #58734f; background: #e6f1df; color: #23361e; padding: 5px 9px; }");
                 out.println("  .fa-next-row { display: flex; align-items: center; gap: 8px; }");
-                out.println("  .fa-next-action-text { font-size: 15px; color: #233423; min-height: 24px; }");
-                out.println("  .fa-next-action-link { display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; }");
-                out.println("  .fa-next-action-link:hover { background: #dde9db; }");
-                out.println("  .fa-cycle-bar { display: flex; align-items: center; gap: 8px; }");
-                out.println("  .fa-cycle-arrow { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; border-radius: 7px; text-decoration: none; font-size: 18px; font-weight: 700; flex: 0 0 36px; cursor: pointer; }");
-                out.println("  .fa-cycle-arrow:hover { background: #dde9db; }");
-                out.println("  .fa-cycle-arrow:disabled { cursor: default; }");
-                out.println("  .fa-cycle-arrow-hidden { visibility: hidden; }");
-                out.println("  .fa-cycle-main { flex: 1; min-width: 0; }");
-                out.println("  .fa-cycle-item { display: block; width: 100%; box-sizing: border-box; border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; text-decoration: none; text-align: center; }");
-                out.println("  .fa-cycle-item:hover { background: #dde9db; }");
-                out.println("  .fa-cycle-position { margin-top: 4px; text-align: center; font-size: 12px; color: #5b6b58; }");
-                out.println("  .fa-meetings-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }");
-                out.println("  .fa-meeting-item { border: 1px solid #7f9b7f; background: #eef6ec; color: #274127; padding: 10px 12px; border-radius: 7px; cursor: pointer; text-align: left; }");
-                out.println("  .fa-meeting-item:hover { background: #dde9db; }");
                 out.println("  .fa-capture-input-container { position: relative; flex: 1; }");
                 out.println("  .fa-capture-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; display: none; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }");
                 out.println("  .fa-capture-suggestions div { padding: 6px 8px; cursor: pointer; }");
                 out.println("  .fa-capture-suggestions div:hover { background: #efe7db; }");
-                out.println("  .fa-quick-capture-box { flex: 0 0 440px; box-sizing: border-box; position: relative; z-index: 50; padding: 8px 12px; background: #f8f1e6; border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.10); }");
-                out.println("  .fa-quick-capture-title { font-size: 12px; font-weight: bold; letter-spacing: .04em; text-transform: uppercase; color: #52614d; margin-bottom: 8px; }");
-                out.println("  .fa-capture-form { margin: 0; }");
-                out.println("  .fa-capture-row { display: flex; align-items: center; gap: 8px; }");
-                out.println("  .fa-capture-row #sentenceInput { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d3c2aa; background: #fffaf1; }");
-                out.println("  .fa-capture-actions { display: flex; gap: 8px; white-space: nowrap; }");
-                out.println("  .fa-qc-start-btn { border: 1px solid #7a9b7a; background: #d6ecd6; color: #1f3a1f; padding: 6px 10px; cursor: pointer; }");
+                out.println("  .fa-quick-capture-box { flex: 0 0 440px; }");
                 out.println("  .fa-empty-clock { color: #7d7d7d; font-size: 20px; }");
                 out.println("  .fa-modal-overlay { position: fixed; inset: 0; background: rgba(30, 40, 30, 0.35); display: none; align-items: center; justify-content: center; z-index: 90; }");
                 out.println("  .fa-modal-overlay.fa-modal-open { display: flex; }");
@@ -1070,6 +1104,7 @@ public class FocusedActionPageRenderer {
                 out.println("    .fa-switch-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }");
                 out.println("    .fa-shell { grid-template-columns: 1fr; }");
                 out.println("    .fa-left-scroll { height: auto; max-height: none; }");
+                out.println("    .fa-drawer { position: fixed; inset: 8px; z-index: 80; }");
                 out.println("    .fa-right { min-height: 420px; }");
                 out.println("    .fa-clock-wrap { width: min(92vw, 620px); }");
                 out.println("    .fa-dandelion-btn { width: 78px; height: 78px; }");
@@ -1082,15 +1117,7 @@ public class FocusedActionPageRenderer {
                 out.println("    .fa-quick-capture-box { flex: 0 0 auto; position: static; min-width: 0; max-width: none; width: 100%; margin: 0 0 8px 0; }");
                 out.println("    .fa-modal-row { grid-template-columns: 1fr; }");
                 out.println("  }");
-                out.println("  .fa-contact-emphasized .fa-contact-label { color: #5b3a00; font-weight: bold; }");
-                out.println("  .fa-contact-emphasized select { border-color: #8b6020; box-shadow: 0 0 0 2px #f5e0a0; }");
-                out.println("  .fa-advanced-section { margin-bottom: 12px; border: 1px solid #d4c9b8; border-radius: 4px; }");
-                out.println("  .fa-advanced-toggle { padding: 6px 10px; cursor: pointer; font-size: 13px; font-weight: bold; color: #5b735c; list-style: none; user-select: none; }");
-                out.println("  .fa-advanced-toggle::-webkit-details-marker { display: none; }");
-                out.println("  .fa-advanced-toggle::before { content: '\\25B6 '; font-size: 10px; }");
-                out.println("  details.fa-advanced-section[open] .fa-advanced-toggle::before { content: '\\25BC '; }");
-                out.println("  .fa-advanced-body { padding: 6px 10px 2px; }");
-                editActionModalRenderer.printSharedStyles(out);
+                pickerRenderer.printStyles(out);
                 out.println("</style>");
         }
 

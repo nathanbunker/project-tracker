@@ -22,7 +22,8 @@ import org.dandeliondaily.dashboard.model.DashboardTodayColumnModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeModel;
 import org.dandeliondaily.dashboard.model.TimeGaugeState;
 import org.dandeliondaily.dashboard.model.TimeGaugeVariant;
-import org.dandeliondaily.shared.render.EditActionModalRenderer;
+import org.dandeliondaily.shared.render.ActionEditorRenderer;
+import org.dandeliondaily.shared.render.QuickCaptureRenderer;
 import org.dandeliondaily.shared.render.ActionRecoveryRenderer;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.model.BillCode;
@@ -58,7 +59,9 @@ public class DashboardPageRenderer {
         private static final String RIGHT_PANEL_MODE_OTHER = "other";
 
         private final TimeGaugeRenderer timeGaugeRenderer = new TimeGaugeRenderer();
-        private final EditActionModalRenderer editActionModalRenderer = new EditActionModalRenderer();
+        private final ActionEditorRenderer actionEditorRenderer = new ActionEditorRenderer();
+        private final QuickCaptureRenderer quickCaptureRenderer = new QuickCaptureRenderer();
+        private int editorOpenActionNextId = 0;
         private final ActionRecoveryRenderer actionRecoveryRenderer = new ActionRecoveryRenderer();
         private String dashboardPath = "DandelionDashboardServlet";
         private DashboardLayoutMode layoutMode = DashboardLayoutMode.DEFAULT;
@@ -84,6 +87,8 @@ public class DashboardPageRenderer {
                         ProjectNextActionsChatState nextActionsChatState,
                         String chatWarningMessage) {
                 PrintWriter out = appReq.getOut();
+                this.editorOpenActionNextId = todayColumnModel == null ? 0
+                                : todayColumnModel.getQuickCapture().getEditActionNextId();
                 this.layoutMode = layoutMode == null ? DashboardLayoutMode.DEFAULT : layoutMode;
                 this.dashboardPath = (dashboardPath == null || dashboardPath.trim().length() == 0)
                                 ? "DandelionDashboardServlet"
@@ -284,26 +289,6 @@ public class DashboardPageRenderer {
                 out.println("    min-width: 360px;");
                 out.println("    max-width: 520px;");
                 out.println("    flex: 1 1 420px;");
-                out.println("    padding: 10px 12px;");
-                out.println("    background: #f8f1e6;");
-                out.println("    border: 1px solid #d7c8b1;");
-                out.println("    border-radius: 6px;");
-                out.println("  }");
-                out.println("  .dd-quick-capture-title {");
-                out.println("    font-size: 12px;");
-                out.println("    font-weight: bold;");
-                out.println("    letter-spacing: .04em;");
-                out.println("    text-transform: uppercase;");
-                out.println("    color: #52614d;");
-                out.println("    margin-bottom: 8px;");
-                out.println("  }");
-                out.println("  .dd-qc-start-btn {");
-                out.println("    border: 1px solid #7a9b7a;");
-                out.println("    background: #d6ecd6;");
-                out.println("    color: #1f3a1f;");
-                out.println("    padding: 6px 10px;");
-                out.println("    cursor: pointer;");
-                out.println("    font-size: inherit;");
                 out.println("  }");
                 out.println("  @media (max-width: 900px) { .dd-quick-capture-box { min-width: 0; max-width: none; width: 100%; } }");
                 out.println("  .dd-dashboard-intro h1 {");
@@ -610,22 +595,6 @@ public class DashboardPageRenderer {
                 out.println("  tr.dd-row-clickable.dd-backlog-row-current:hover td {");
                 out.println("    background-color: #ddebd0;");
                 out.println("  }");
-                out.println("  .dd-capture-form input[type='text'] {");
-                out.println("    width: 100%;");
-                out.println("    box-sizing: border-box;");
-                out.println("    padding: 8px; ");
-                out.println("    margin-bottom: 0;");
-                out.println("    border: 1px solid #d3c2aa;");
-                out.println("    background: #fffaf1;");
-                out.println("  }");
-                out.println("  .dd-capture-form {");
-                out.println("    margin: 0;");
-                out.println("  }");
-                out.println("  .dd-capture-row {");
-                out.println("    display: flex;");
-                out.println("    align-items: center;");
-                out.println("    gap: 8px;");
-                out.println("  }");
                 out.println("  .dd-capture-input-container {");
                 out.println("    position: relative;");
                 out.println("    flex: 1;");
@@ -649,18 +618,6 @@ public class DashboardPageRenderer {
                 out.println("  }");
                 out.println("  .dd-capture-suggestions div:hover {");
                 out.println("    background: #efe7db;");
-                out.println("  }");
-                out.println("  .dd-capture-actions {");
-                out.println("    display: flex;");
-                out.println("    gap: 8px;");
-                out.println("    flex-wrap: nowrap;");
-                out.println("    margin: 0;");
-                out.println("  }");
-                out.println("  .dd-capture-actions input[type='submit'] {");
-                out.println("    border: 1px solid #6d7f63;");
-                out.println("    background: #eef5ea;");
-                out.println("    padding: 6px 10px;");
-                out.println("    cursor: pointer;");
                 out.println("  }");
                 out.println("  .dd-group-title {");
                 out.println("    margin: 0 0 8px 0;");
@@ -3566,12 +3523,11 @@ public class DashboardPageRenderer {
                 out.println("  function ddOpenActionModal(modalId, actionId, evt) {");
                 out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
                 out.println("    window.ddSelectedActionId = actionId;");
+                out.println("    if (modalId === 'editActionModal') { ActionEditor.open(actionId); return false; }");
                 out.println("    var modal = document.getElementById(modalId);");
                 out.println(
                                 "    if (modal) { modal.classList.add('dd-modal-open'); modal.setAttribute('data-action-id', actionId); }");
-                out.println("    if (modalId === 'editActionModal') {");
-                out.println("      ddLoadEditFormData(actionId);");
-                out.println("    } else if (modalId === 'reprioritizeModal') {");
+                out.println("    if (modalId === 'reprioritizeModal') {");
                 out.println("      ddLoadReprioritizeData(actionId);");
                 out.println("    } else if (modalId === 'rescheduleModal') {");
                 out.println("      ddLoadRescheduleData(actionId);");
@@ -3955,171 +3911,18 @@ public class DashboardPageRenderer {
         }
 
         private void printTodayEditActionModal(PrintWriter out, AppReq appReq) {
-                EditActionModalRenderer.Config editConfig = new EditActionModalRenderer.Config();
-                editConfig.overlayId = "editActionModal";
-                editConfig.overlayClass = "dd-modal-overlay";
-                editConfig.overlayOnClick = "ddOverlayClose(event,this)";
-                editConfig.modalClass = "dd-modal dd-edit-action-modal";
-                editConfig.closeOnClick = "ddCloseActionModal('editActionModal')";
-                editConfig.saveOnClick = "ddSubmitEdit('save')";
-                editConfig.saveAndStartOnClick = "ddSubmitEdit('saveAndStart')";
-                editConfig.cancelOnClick = "ddCloseActionModal('editActionModal')";
-                editConfig.deleteOnClick = "ddDeleteAction(event)";
-                editConfig.completeOnClick = "eaToggleCompleteSection()";
-                editConfig.completeSubmitOnClick = "ddSubmitEdit('complete')";
-                editActionModalRenderer.render(out, appReq, editConfig);
-
-                out.println("<style>");
-                out.println("  .dd-edit-action-modal { max-width: 600px; max-height: 85vh; overflow-y: auto; }");
-                editActionModalRenderer.printSharedStyles(out);
-                out.println("</style>");
-
+                actionEditorRenderer.render(out, appReq, editorOpenActionNextId, dashboardPath);
+                editorOpenActionNextId = 0;
                 out.println("<script>");
-                out.println("  function ddUpdateActionTypeButtons(selectedType) {");
-                out.println("    var buttons = document.querySelectorAll('.ea-action-type-btn');");
-                out.println("    for (var i = 0; i < buttons.length; i++) {");
-                out.println("      var button = buttons[i];");
-                out.println("      if (button.getAttribute('data-action-type') === selectedType) {");
-                out.println("        button.classList.add('ea-chip-active');");
-                out.println("      } else {");
-                out.println("        button.classList.remove('ea-chip-active');");
-                out.println("      }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function eaSetActionType(type) { ddSetActionType(type); }");
-                out.println("  function ddApplyModeToEditForm(isPersonal, timeSlot) {");
-                out.println("    var typeSection = document.getElementById('eaEditActionTypeSection');");
-                out.println("    var timeSection = document.getElementById('eaEditActionTimeSection');");
-                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
-                out.println("    var typeInput = document.getElementById('eaEditActionType');");
-                out.println("    var timeInput = document.getElementById('eaEditActionTime');");
-                out.println("    var slotSelect = document.getElementById('eaEditActionTimeSlot');");
-                out.println("    if (isPersonal) {");
-                out.println("      if (typeSection) { typeSection.style.display = 'none'; }");
-                out.println("      if (timeSection) { timeSection.style.display = 'none'; }");
-                out.println("      if (slotSection) { slotSection.style.display = ''; }");
-                out.println("      if (typeInput) { typeInput.value = ''; typeInput.disabled = true; }");
-                out.println("      if (timeInput) { timeInput.value = '0'; timeInput.disabled = true; }");
-                out.println("      if (slotSelect) { slotSelect.disabled = false; slotSelect.value = timeSlot || 'AFTERNOON'; }");
-                out.println("    } else {");
-                out.println("      if (typeSection) { typeSection.style.display = ''; }");
-                out.println("      if (timeSection) { timeSection.style.display = ''; }");
-                out.println("      if (slotSection) { slotSection.style.display = 'none'; }");
-                out.println("      if (typeInput) { typeInput.disabled = false; }");
-                out.println("      if (timeInput) { timeInput.disabled = false; }");
-                out.println("      if (slotSelect) { slotSelect.disabled = true; slotSelect.value = ''; }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function ddLoadEditFormData(actionId) {");
-                out.println("    document.getElementById('eaEditActionId').value = actionId;");
-                out.println("    if (window.eaResetCompleteSection) { window.eaResetCompleteSection(); }");
-                out.println("    var formData = ddCreateDashboardParams();");
-                out.println("    formData.append('action', 'loadActionData');");
-                out.println("    formData.append('actionNextId', actionId);");
-                out.println("    ddFetchDashboardJson(formData, 'Edit preload')");
-                out.println("      .then(data => {");
-                out.println("        if (data.success) {");
-                out.println("          var loadedDate = data.nextActionDate || ''; ");
-                out.println("          document.getElementById('eaEditActionDate').value = loadedDate;");
-                out.println("          document.getElementById('eaEditActionDateOriginal').value = loadedDate;");
-                out.println("          document.getElementById('eaEditActionType').value = data.nextActionType || ''; ");
-                out.println("          ddUpdateActionTypeButtons(data.nextActionType || '');");
-                out.println("          document.getElementById('eaEditActionContact').value = data.nextContactId || ''; ");
-                out.println("          document.getElementById('eaEditActionDescription').value = data.nextDescription || ''; ");
-                out.println("          document.getElementById('eaEditActionTime').value = data.nextTimeEstimate || '0'; ");
-                out.println("          document.getElementById('eaEditActionTarget').value = data.nextTargetDate || ''; ");
-                out.println("          document.getElementById('eaEditActionDeadline').value = data.nextDeadlineDate || ''; ");
-                out.println("          document.getElementById('eaEditActionLink').value = data.linkUrl || ''; ");
-                out.println("          document.getElementById('eaEditActionNote').value = data.nextNote || ''; ");
-                out.println("          ddApplyModeToEditForm(!!data.isPersonal, data.timeSlot || '');");
-                out.println("        } else {");
-                out.println("          console.log('Error loading action data:', data.message || 'Unknown error');");
-                out.println("        }");
-                out.println("      })");
-                out.println("      .catch(err => ddReportDashboardLoadError('Edit preload', err));");
-                out.println("  }");
-                out.println("  function ddSetActionType(type) {");
-                out.println("    document.getElementById('eaEditActionType').value = type;");
-                out.println("    ddUpdateActionTypeButtons(type);");
-                out.println("    var contactSection = document.getElementById('eaEditActionContactSection');");
-                out.println("    if (contactSection) {");
-                out.println("      if (type === 'WILL_CONTACT' || type === 'WILL_MEET') {");
-                out.println("        contactSection.classList.add('ea-contact-emphasized');");
-                out.println("      } else {");
-                out.println("        contactSection.classList.remove('ea-contact-emphasized');");
-                out.println("      }");
-                out.println("    }");
-                out.println("  }");
-                out.println("  function ddDeleteAction(evt) {");
-                out.println("    if (evt) { evt.preventDefault(); evt.stopPropagation(); }");
-                out.println("    var actionId = document.getElementById('eaEditActionId').value;");
-                out.println("    if (!actionId) { return; }");
-                out.println("    var formData = ddCreateDashboardParams();");
-                out.println("    formData.append('action', 'deleteAction');");
-                out.println("    formData.append('actionNextId', actionId);");
-                out.println("    ddFetchDashboardJson(formData, 'Delete action')");
-                out.println("      .then(data => {");
-                out.println("        if (data.success) {");
-                out.println("          ddCloseActionModal('editActionModal');");
-                out.println("          if (data.requiresActionRefresh) {");
-                out.println("            window.location.href = '" + dashboardPath + "';");
-                out.println("          } else {");
-                out.println("            window.location.reload();");
-                out.println("          }");
-                out.println("        } else {");
-                out.println("          alert('Error deleting action: ' + (data.message || 'Unknown error')); ");
-                out.println("        }");
-                out.println("      })");
-                out.println("      .catch(err => ddReportDashboardLoadError('Delete action', err));");
-                out.println("  }");
-                out.println("  function ddSubmitEdit(saveMode) {");
-                out.println("    var actionId = document.getElementById('eaEditActionId').value || ''; ");
-                out.println("    if (!actionId) { return; }");
-                out.println("    var isComplete = saveMode === 'complete';");
-                out.println("    var dateField = document.getElementById('eaEditActionDate');");
-                out.println("    var originalDateField = document.getElementById('eaEditActionDateOriginal');");
-                out.println("    var dateValue = (dateField && dateField.value ? dateField.value : '').trim();");
-                out.println("    if (!dateValue && originalDateField && originalDateField.value) { dateValue = originalDateField.value; }");
-                out.println("    var formData = ddCreateDashboardParams();");
-                out.println("    formData.append('action', isComplete ? 'CompleteActionEdit' : 'editAction');");
-                out.println("    formData.append('actionNextId', actionId);");
-                out.println("    formData.append('nextActionDate', dateValue);");
-                out.println("    formData.append('nextActionType', (document.getElementById('eaEditActionType').value || '').trim());");
-                out.println("    formData.append('nextDescription', document.getElementById('eaEditActionDescription').value || '');");
-                out.println("    formData.append('nextTimeEstimate', (document.getElementById('eaEditActionTime').value || '0').trim());");
-                out.println("    formData.append('nextContactId', document.getElementById('eaEditActionContact').value || '');");
-                out.println("    var slotSection = document.getElementById('eaEditActionSlotSection');");
-                out.println("    var slotVisible = slotSection && slotSection.style.display !== 'none';");
-                out.println("    if (slotVisible) { formData.append('timeSlot', (document.getElementById('eaEditActionTimeSlot').value || '')); }");
-                out.println("    formData.append('nextTargetDate', (document.getElementById('eaEditActionTarget').value || '').trim());");
-                out.println("    formData.append('nextDeadlineDate', (document.getElementById('eaEditActionDeadline').value || '').trim());");
-                out.println("    formData.append('linkUrl', (document.getElementById('eaEditActionLink').value || '').trim());");
-                out.println("    formData.append('nextNote', document.getElementById('eaEditActionNote').value || '');");
-                out.println("    if (isComplete) {");
-                out.println("      formData.append('completeDescription', window.eaReadCompleteValue('eaCompleteDescription'));");
-                out.println("      formData.append('completeDate', window.eaReadCompleteValue('eaCompleteDate'));");
-                out.println("      formData.append('completeTime', window.eaReadCompleteValue('eaCompleteTime'));");
-                out.println("      formData.append('completeDuration', window.eaReadCompleteValue('eaCompleteDuration'));");
-                out.println("    } else {");
-                out.println("      formData.append('saveMode', saveMode || 'save');");
-                out.println("    }");
-                out.println("    window.eaClearCompleteError();");
-                out.println("    ddFetchDashboardJson(formData, isComplete ? 'Complete submit' : 'Edit submit')");
-                out.println("      .then(data => {");
-                out.println("        if (data.success) {");
-                out.println("          ddCloseActionModal('editActionModal');");
-                out.println("          if (isComplete || data.requiresActionRefresh) {");
-                out.println("            window.location.href = '" + dashboardPath + "';");
-                out.println("          } else {");
-                out.println("            window.location.reload();");
-                out.println("          }");
-                out.println("        } else if (isComplete) {");
-                out.println("          window.eaShowCompleteError(data.message || 'Unable to complete action.');");
-                out.println("        } else {");
-                out.println("          alert('Error saving action: ' + (data.message || 'Unknown error')); ");
-                out.println("        }");
-                out.println("      })");
-                out.println("      .catch(err => ddReportDashboardLoadError(isComplete ? 'Complete submit' : 'Edit submit', err));");
+                out.println("  ActionEditor.configure({");
+                out.println("    endpoint: '" + escapeJs(dashboardPath) + "',");
+                out.println("    onSaved: function(data) { ddAfterActionEdit(data); },");
+                out.println("    onCompleted: function() { window.location.href = '" + escapeJs(dashboardPath) + "'; },");
+                out.println("    onDeleted: function(data) { ddAfterActionEdit(data); }");
+                out.println("  });");
+                out.println("  function ddAfterActionEdit(data) {");
+                out.println("    if (data && data.requiresActionRefresh) { window.location.href = '" + escapeJs(dashboardPath) + "'; return; }");
+                out.println("    window.location.href = window.location.href.split('#')[0];");
                 out.println("  }");
                 out.println("</script>");
         }
@@ -4497,111 +4300,11 @@ public class DashboardPageRenderer {
 
         private void printDashboardQuickCapture(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {
                 DashboardTodayColumnModel.QuickCaptureModel qc = todayColumnModel.getQuickCapture();
-                out.println("  <div class=\"dd-quick-capture-box\">");
-                out.println("    <div class=\"dd-quick-capture-title\">Quick Capture</div>");
-                out.println("    <form class=\"dd-capture-form\" method=\"POST\" action=\"" + qc.getFormAction()
-                                + "\">");
-                out.println("      <div class=\"dd-capture-row\">");
-                out.println("        <div class=\"dd-capture-input-container\">");
-                out.println("          <input type=\"text\" id=\"sentenceInput\" name=\"" + qc.getSentenceInputName()
-                                + "\" value=\"" + escapeHtml(qc.getSentenceValue())
-                                + "\" placeholder=\"" + escapeHtml(qc.getPlaceholder())
-                                + "\" autocomplete=\"off\""
-                                + (qc.isFocusRequested() ? " autofocus=\"autofocus\"" : "") + " />");
-                out.println("          <div id=\"suggestions\" class=\"dd-capture-suggestions\"></div>");
-                out.println("        </div>");
-                out.println("        <div class=\"dd-capture-actions\">");
-                out.println("          <input type=\"submit\" name=\"" + qc.getActionParamName()
-                                + "\" value=\"" + qc.getScheduleActionValue() + "\" />");
-                out.println("          <button type=\"submit\" name=\"" + qc.getActionParamName()
-                                + "\" value=\"" + qc.getScheduleAndStartActionValue()
-                                + "\" class=\"dd-qc-start-btn\">Start</button>");
-                out.println("        </div>");
-                out.println("      </div>");
-                out.println("    </form>");
-                printQuickCaptureScript(out, todayColumnModel);
-                out.println("  </div>");
-        }
-
-        private void printQuickCaptureScript(PrintWriter out, DashboardTodayColumnModel todayColumnModel) {
-                out.println("  <script>");
-                out.print("    const projectNames = [");
-                List<String> projectNames = todayColumnModel.getQuickCapture().getProjectNames();
-                for (int i = 0; i < projectNames.size(); i++) {
-                        out.print("\"" + escapeJs(projectNames.get(i)) + "\"");
-                        if (i < projectNames.size() - 1) {
-                                out.print(", ");
-                        }
-                }
-                out.println("];");
-                out.println(
-                                "    const actionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
-                out.println("    const input = document.getElementById('sentenceInput');");
-                out.println("    const suggestionsBox = document.getElementById('suggestions');");
-                out.println("    if (input && suggestionsBox) {");
-                out.println("      let currentSuggestions = [];\n      let selectedIndex = -1;");
-                out.println("      input.addEventListener('input', function() {");
-                out.println("        const text = input.value;\n        const colonIndex = text.indexOf(':');");
-                out.println("        let suggestions = [];\n        if (colonIndex === -1) {");
-                out.println(
-                                "          suggestions = projectNames.filter(function(name) { return name.toLowerCase().startsWith(text.toLowerCase()); });");
-                out.println("          currentSuggestions = suggestions;");
-                out.println("        } else {");
-                out.println(
-                                "          const beforeColon = text.substring(0, colonIndex).trim();\n          const afterColon = text.substring(colonIndex + 1).trim();");
-                out.println("          if (projectNames.indexOf(beforeColon) === -1) {");
-                out.println(
-                                "            suggestions = projectNames.filter(function(name) { return name.toLowerCase().indexOf(beforeColon.toLowerCase()) >= 0; });");
-                out.println("          } else if (afterColon.length === 0) {");
-                out.println("            suggestions = actionVerbs;");
-                out.println("          } else {");
-                out.println(
-                                "            suggestions = actionVerbs.filter(function(verb) { return verb.toLowerCase().startsWith(afterColon.toLowerCase()); });");
-                out.println("          }");
-                out.println("          currentSuggestions = suggestions;");
-                out.println("        }");
-                out.println("        selectedIndex = -1;\n        showSuggestions(suggestions, text);");
-                out.println("      });");
-                out.println("      function showSuggestions(suggestions, text) {");
-                out.println(
-                                "        suggestionsBox.innerHTML = '';\n        suggestionsBox.style.display = suggestions.length ? 'block' : 'none';");
-                out.println("        suggestions.forEach(function(suggestion, i) {");
-                out.println("          const div = document.createElement('div');\n          div.textContent = suggestion;");
-                out.println("          if (i === selectedIndex) { div.style.backgroundColor = '#e0e0e0'; }");
-                out.println(
-                                "          div.addEventListener('click', function() {\n            input.value = suggestion;\n            acceptSuggestion(suggestion, text);\n          });");
-                out.println("          suggestionsBox.appendChild(div);");
-                out.println("        });");
-                out.println("      }");
-                out.println("      function acceptSuggestion(suggestion, text) {");
-                out.println("        if (text.indexOf(':') === -1) {");
-                out.println("          input.value = suggestion + ': ';");
-                out.println("        } else {");
-                out.println(
-                                "          const beforeColon = text.split(':')[0];\n          input.value = beforeColon.trim() + ': ' + suggestion + ' ';");
-                out.println("        }");
-                out.println("        suggestionsBox.style.display = 'none';\n        selectedIndex = -1;");
-                out.println("      }");
-                out.println("      input.addEventListener('keydown', function(e) {");
-                out.println("        const visible = suggestionsBox.style.display === 'block';");
-                out.println("        if (visible && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {");
-                out.println(
-                                "          e.preventDefault();\n          const count = currentSuggestions.length;\n          if (count === 0) { return; }");
-                out.println(
-                                "          if (e.key === 'ArrowDown') { selectedIndex = (selectedIndex + 1) % count; } else { selectedIndex = (selectedIndex - 1 + count) % count; }");
-                out.println("          showSuggestions(currentSuggestions, input.value);");
-                out.println("        }");
-                out.println("        if (visible && (e.key === 'Enter' || e.key === 'Tab')) {");
-                out.println("          if (selectedIndex < 0) { selectedIndex = 0; }");
-                out.println(
-                                "          if (selectedIndex < currentSuggestions.length) { e.preventDefault(); acceptSuggestion(currentSuggestions[selectedIndex], input.value); }");
-                out.println("        }");
-                out.println("        if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; selectedIndex = -1; }");
-                out.println("      });");
-                out.println(
-                                "      input.addEventListener('blur', function() { setTimeout(function() { suggestionsBox.style.display = 'none'; }, 150); });");
-                out.println("    }");
-                out.println("  </script>");
+                quickCaptureRenderer.render(out, new QuickCaptureRenderer.Config(qc.getFormAction())
+                                .sentenceValue(qc.getSentenceValue())
+                                .projectNames(qc.getProjectNames())
+                                .focusRequested(qc.isFocusRequested())
+                                .boxClass("dd-quick-capture-box"));
         }
 
         private void printWorkFollowUpScript(PrintWriter out) {

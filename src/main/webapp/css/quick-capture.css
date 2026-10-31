@@ -1,0 +1,24 @@
+/* The one Quick Capture box, shared by every page (see QuickCaptureRenderer). */
+.qc-box { box-sizing: border-box; position: relative; z-index: 50; padding: 8px 12px; background: #f8f1e6;
+  border: 1px solid #d7c8b1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10); }
+.qc-title { margin-bottom: 8px; font-size: 12px; font-weight: bold; letter-spacing: .04em; text-transform: uppercase; color: #52614d; }
+.qc-form { margin: 0; }
+.qc-row { display: flex; align-items: center; gap: 8px; }
+.qc-input-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
+.qc-input { box-sizing: border-box; width: 100%; padding: 8px; border: 1px solid #d3c2aa; border-radius: 4px; background: #fffaf1;
+  font-family: inherit; font-size: 14px; }
+.qc-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 60; display: none; max-height: 220px;
+  overflow-y: auto; background: #fffdf8; border: 1px solid #d9ccb8; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); }
+.qc-suggestion { padding: 6px 8px; cursor: pointer; }
+.qc-suggestion:hover, .qc-suggestion-active { background: #efe7db; }
+.qc-actions { display: flex; gap: 6px; white-space: nowrap; }
+.qc-btn { padding: 7px 11px; border: 1px solid #b9a98f; border-radius: 4px; background: #fffaf1; color: #3a3324;
+  font-family: inherit; font-size: 13.5px; cursor: pointer; }
+.qc-btn:hover { background: #f3e9d8; }
+.qc-btn-primary { border-color: #7a9b7a; background: #d6ecd6; color: #1f3a1f; font-weight: 600; }
+.qc-btn-primary:hover { background: #c8e3c8; }
+@media (max-width: 520px) {
+  .qc-row { flex-wrap: wrap; }
+  .qc-actions { width: 100%; }
+  .qc-btn { flex: 1 1 0; }
+}

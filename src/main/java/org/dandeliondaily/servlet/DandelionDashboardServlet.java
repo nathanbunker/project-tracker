@@ -278,13 +278,17 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             dashboardCurrentActionService.handleSelectAction(appReq);
             dashboardCurrentActionService.handleCurrentActionWork(appReq);
-            dashboardTodayColumnService.handleQuickCapture(appReq);
+            ActionNext capturedAction = dashboardTodayColumnService.handleQuickCapture(appReq);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
             appReq.setTitle(projectExpandedLayout ? "Project Dashboard" : "Dandelion Dashboard");
             DashboardNowColumnModel nowColumnModel = dashboardNowColumnService.buildModel(appReq);
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
             todayColumnModel.getQuickCapture().setFormAction(dashboardPath);
+            if (capturedAction != null
+                    && DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action)) {
+                todayColumnModel.getQuickCapture().setEditActionNextId(capturedAction.getActionNextId());
+            }
             ProjectDashboardChatState chatState = projectExpandedLayout ? getProjectDashboardChatState(appReq) : null;
             ProjectLanguageReviewChatState languageReviewChatState = projectExpandedLayout
                     ? getProjectLanguageReviewChatState(appReq)
@@ -350,6 +354,7 @@ public class DandelionDashboardServlet extends ClientServlet {
                 webUser.getWebUserId());
         data.put("success", true);
         data.put("nextActionDate", formatUserDate(webUser, action.getNextActionDate()));
+        data.put("nextActionDateIso", toIsoDate(action.getNextActionDate(), webUser));
         data.put("nextActionType", action.getNextActionType() != null ? action.getNextActionType() : "");
         data.put("projectName", action.getProject() != null && action.getProject().getProjectName() != null
                 ? action.getProject().getProjectName()
@@ -1041,6 +1046,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             Integer currentActionId = currentAction == null
                     ? null
                     : Integer.valueOf(currentAction.getActionNextId());
+            LocalDate previousActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
 
             // Update action fields from request
             String nextActionDate = appReq.getRequest().getParameter("nextActionDate");
@@ -1063,7 +1069,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             Date normalizedNextActionDate = null;
             boolean hasNextActionDateValue = nextActionDate != null && nextActionDate.length() > 0;
             if (hasNextActionDateValue) {
-                Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
+                Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextActionDate);
                 if (parsedDate != null) {
                     normalizedNextActionDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
                 }
@@ -1131,7 +1137,7 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
             boolean requiresActionRefresh = dashboardCurrentActionService.shouldHandoffCurrentAction(
-                    currentActionId, Integer.valueOf(actionNextId), savedActionDate,
+                    currentActionId, Integer.valueOf(actionNextId), previousActionDate, savedActionDate,
                     appReq.getWebUser().getLocalDateToday())
                     && dashboardCurrentActionService.handoffCurrentAction(appReq);
 
@@ -1277,7 +1283,7 @@ public class DandelionDashboardServlet extends ClientServlet {
         Date normalizedNextActionDate = null;
         boolean hasNextActionDateValue = nextActionDate != null && nextActionDate.length() > 0;
         if (hasNextActionDateValue) {
-            Date parsedDate = appReq.getWebUser().parseDate(nextActionDate);
+            Date parsedDate = parseIsoOrUserDate(appReq.getWebUser(), nextActionDate);
             if (parsedDate != null) {
                 normalizedNextActionDate = normalizeUserDate(appReq.getWebUser(), parsedDate);
             }
@@ -1836,6 +1842,7 @@ public class DandelionDashboardServlet extends ClientServlet {
             Integer currentActionId = currentAction == null
                     ? null
                     : Integer.valueOf(currentAction.getActionNextId());
+            LocalDate previousActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
 
             if (nextActionDateStr != null && nextActionDateStr.length() > 0) {
                 Date parsedDate = appReq.getWebUser().parseDate(nextActionDateStr);
@@ -1866,7 +1873,7 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             LocalDate savedActionDate = toStoredLocalDate(action.getNextActionDate(), appReq.getWebUser());
             boolean requiresActionRefresh = dashboardCurrentActionService.shouldHandoffCurrentAction(
-                    currentActionId, Integer.valueOf(actionNextId), savedActionDate,
+                    currentActionId, Integer.valueOf(actionNextId), previousActionDate, savedActionDate,
                     appReq.getWebUser().getLocalDateToday())
                     && dashboardCurrentActionService.handoffCurrentAction(appReq);
 

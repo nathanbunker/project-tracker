@@ -12,6 +12,7 @@ public class PlanAheadBoardModel {
     private String windowEndKey = "";
     private String quickCaptureSentenceValue = "";
     private boolean quickCaptureFocusRequested;
+    private int editActionNextId;
     private List<String> quickCaptureProjectNames = new ArrayList<String>();
     private List<DayHeaderModel> dayHeaders = new ArrayList<DayHeaderModel>();
     private List<RowModel> rows = new ArrayList<RowModel>();
@@ -64,6 +65,15 @@ public class PlanAheadBoardModel {
 
     public void setQuickCaptureFocusRequested(boolean quickCaptureFocusRequested) {
         this.quickCaptureFocusRequested = quickCaptureFocusRequested;
+    }
+
+    /** The action just saved by Quick Capture's Edit Action, to open in the editor; 0 for none. */
+    public int getEditActionNextId() {
+        return editActionNextId;
+    }
+
+    public void setEditActionNextId(int editActionNextId) {
+        this.editActionNextId = editActionNextId;
     }
 
     public List<String> getQuickCaptureProjectNames() {

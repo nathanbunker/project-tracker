@@ -15,6 +15,7 @@ import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.service.PlanAheadBoardService;
 import org.dandeliondaily.planahead.service.PlanAheadMutationService;
+import org.dandeliondaily.shared.render.QuickCaptureRenderer;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -43,6 +44,7 @@ public class TemplateManagementServlet extends ClientServlet {
         private final PlanAheadMutationService mutationService = new PlanAheadMutationService();
         private final PlanAheadBoardService boardService = new PlanAheadBoardService();
         private final DashboardTodayColumnService dashboardTodayColumnService = new DashboardTodayColumnService();
+        private final QuickCaptureRenderer quickCaptureRenderer = new QuickCaptureRenderer();
 
         protected void processRequest(HttpServletRequest request, HttpServletResponse response)
                         throws ServletException, IOException {
@@ -109,23 +111,7 @@ public class TemplateManagementServlet extends ClientServlet {
                                 ".pa-intro-bar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:8px;}");
                 out.println(".pa-intro h1{margin:0;color:#2d3a2d;}");
                 out.println(".pa-intro p{margin:6px 0 14px 0;color:#425541;}");
-                out.println(
-                                ".pa-quick-capture{margin-left:auto;min-width:360px;max-width:520px;flex:1 1 420px;padding:10px 12px;background:#f8f1e6;border:1px solid #d7c8b1;border-radius:6px;}");
-                out.println(
-                                ".pa-quick-capture-title{font-size:12px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#52614d;margin-bottom:8px;}");
-                out.println(".pa-quick-capture-form{margin:0;}");
-                out.println(".pa-quick-capture-row{display:flex;gap:8px;align-items:flex-start;}");
-                out.println(".pa-quick-capture-input-wrap{position:relative;flex:1 1 auto;}");
-                out.println(
-                                ".pa-quick-capture-input-wrap input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbbda7;font-size:13px;background:#fffdf8;}");
-                out.println(
-                                ".pa-quick-capture-actions input{padding:8px 12px;border:1px solid #9fb1a0;background:#eef5ee;color:#2f4330;cursor:pointer;border-radius:4px;}");
-                out.println(
-                                ".pa-qc-start-btn{padding:8px 12px;border:1px solid #7a9b7a;background:#d6ecd6;color:#1f3a1f;cursor:pointer;border-radius:4px;font-size:inherit;}");
-                out.println(
-                                ".pa-capture-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid #cbbda7;border-top:none;box-shadow:0 6px 16px rgba(0,0,0,.12);max-height:180px;overflow-y:auto;}");
-                out.println(".pa-capture-suggestions div{padding:7px 10px;cursor:pointer;font-size:13px;color:#2f4330;}");
-                out.println(".pa-capture-suggestions div:hover{background:#eef5ee;}");
+                out.println(".pa-quick-capture{margin-left:auto;min-width:360px;max-width:520px;flex:1 1 420px;}");
                 out.println(".pa-controls{display:flex;gap:8px;margin-bottom:16px;}");
                 out.println(
                                 ".pa-shift{display:inline-block;padding:6px 10px;background:#49654a;color:#fff;text-decoration:none;border-radius:4px;font-size:0.9em;}");
@@ -174,23 +160,9 @@ public class TemplateManagementServlet extends ClientServlet {
                                                 : "Manage work recurring templates.")
                                 + "</p>");
                 out.println("    </div>");
-                out.println("    <div class='pa-quick-capture'>");
-                out.println("      <div class='pa-quick-capture-title'>Quick Capture</div>");
-                out.println("      <form class='pa-quick-capture-form' method='POST' action='PlanAheadServlet'>");
-                out.println("        <div class='pa-quick-capture-row'>");
-                out.println("          <div class='pa-quick-capture-input-wrap'>");
-                out.println("            <input type='text' id='paSentenceInput' name='sentenceInput' value=''");
-                out.println("              placeholder='Project Handle: I will action details' autocomplete='off' />");
-                out.println("            <div id='paSuggestions' class='pa-capture-suggestions'></div>");
-                out.println("          </div>");
-                out.println("          <div class='pa-quick-capture-actions'>");
-                out.println("            <input type='submit' name='action' value='Schedule' />");
-                out.println(
-                                "            <button type='submit' name='action' value='Schedule and Start' class='pa-qc-start-btn'>Start</button>");
-                out.println("          </div>");
-                out.println("        </div>");
-                out.println("      </form>");
-                out.println("    </div>");
+                quickCaptureRenderer.render(out, new QuickCaptureRenderer.Config("PlanAheadServlet")
+                                .projectNames(qcProjectNames)
+                                .boxClass("pa-quick-capture"));
                 out.println("  </div>");
 
                 // PA-style nav controls
@@ -225,7 +197,7 @@ public class TemplateManagementServlet extends ClientServlet {
                 renderAddForm(appReq, out, personalMode);
 
                 // JS
-                renderJavaScript(out, personalMode, qcProjectNames);
+                renderJavaScript(out, personalMode);
 
                 out.println("</div>"); // end tmpl-content
                 out.println("</div>"); // end pa-page
@@ -574,7 +546,7 @@ public class TemplateManagementServlet extends ClientServlet {
                 out.println("</div>");
         }
 
-        private void renderJavaScript(PrintWriter out, boolean personalMode, List<String> qcProjectNames) {
+        private void renderJavaScript(PrintWriter out, boolean personalMode) {
                 out.println("<script>");
 
                 // Shared message utility
@@ -762,86 +734,6 @@ public class TemplateManagementServlet extends ClientServlet {
 
                 out.println("</script>");
 
-                // Quick Capture autocomplete (separate script block to avoid syntax collision)
-                out.println("<script>");
-                out.print("const paProjectNames = [");
-                for (int i = 0; i < qcProjectNames.size(); i++) {
-                        out.print("\"" + jsonEsc(qcProjectNames.get(i)) + "\"");
-                        if (i < qcProjectNames.size() - 1) {
-                                out.print(", ");
-                        }
-                }
-                out.println("];");
-                out.println(
-                                "const paActionVerbs = [\"I will\", \"I have committed\", \"I might\", \"I would like to\", \"I will meet\", \"I have set goal to\", \"I am waiting\"];");
-                out.println("(function(){");
-                out.println("  var input = document.getElementById('paSentenceInput');");
-                out.println("  var suggestionsBox = document.getElementById('paSuggestions');");
-                out.println("  if (!input || !suggestionsBox) { return; }");
-                out.println("  var selectedIndex = -1;");
-                out.println("  var currentSuggestions = [];");
-                out.println("  input.addEventListener('input', function(){");
-                out.println(
-                                "    var text = input.value || '';\n    var colonIndex = text.indexOf(':');\n    var suggestions = [];");
-                out.println("    if (colonIndex === -1) {");
-                out.println(
-                                "      suggestions = paProjectNames.filter(function(name){ return name.toLowerCase().indexOf(text.toLowerCase()) === 0; });");
-                out.println("    } else {");
-                out.println(
-                                "      var beforeColon = text.substring(0, colonIndex).trim();\n      var afterColon = text.substring(colonIndex + 1).trim();");
-                out.println("      if (paProjectNames.indexOf(beforeColon) === -1) {");
-                out.println(
-                                "        suggestions = paProjectNames.filter(function(name){ return name.toLowerCase().indexOf(beforeColon.toLowerCase()) >= 0; });");
-                out.println("      } else if (afterColon.length === 0) {");
-                out.println("        suggestions = paActionVerbs;");
-                out.println("      } else {");
-                out.println(
-                                "        suggestions = paActionVerbs.filter(function(verb){ return verb.toLowerCase().indexOf(afterColon.toLowerCase()) === 0; });");
-                out.println("      }");
-                out.println("    }");
-                out.println(
-                                "    currentSuggestions = suggestions;\n    selectedIndex = -1;\n    paShowSuggestions(suggestions, text);");
-                out.println("  });");
-                out.println("  input.addEventListener('keydown', function(e){");
-                out.println("    if (!currentSuggestions.length || suggestionsBox.style.display !== 'block') { return; }");
-                out.println(
-                                "    if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex = (selectedIndex + 1) % currentSuggestions.length; paShowSuggestions(currentSuggestions, input.value || ''); }");
-                out.println(
-                                "    if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex = (selectedIndex <= 0 ? currentSuggestions.length - 1 : selectedIndex - 1); paShowSuggestions(currentSuggestions, input.value || ''); }");
-                out.println(
-                                "    if (e.key === 'Enter' && selectedIndex >= 0) { e.preventDefault(); paAcceptSuggestion(currentSuggestions[selectedIndex], input.value || ''); }");
-                out.println(
-                                "    if (e.key === 'Tab' && currentSuggestions.length > 0) { e.preventDefault(); if (selectedIndex < 0) { selectedIndex = 0; } paAcceptSuggestion(currentSuggestions[selectedIndex], input.value || ''); }");
-                out.println("    if (e.key === 'Escape') { suggestionsBox.style.display = 'none'; }");
-                out.println("  });");
-                out.println(
-                                "  document.addEventListener('click', function(e){ if (!suggestionsBox.contains(e.target) && e.target !== input) { suggestionsBox.style.display = 'none'; } });");
-                out.println("  function paShowSuggestions(suggestions, text){");
-                out.println(
-                                "    suggestionsBox.innerHTML = '';\n    suggestionsBox.style.display = suggestions.length ? 'block' : 'none';");
-                out.println("    suggestions.forEach(function(suggestion, i){");
-                out.println(
-                                "      var div = document.createElement('div');\n      div.textContent = suggestion;\n      if (i === selectedIndex) { div.style.backgroundColor = '#e7efe0'; }");
-                out.println(
-                                "      div.addEventListener('mousedown', function(e){ e.preventDefault(); paAcceptSuggestion(suggestion, text); });");
-                out.println("      suggestionsBox.appendChild(div);");
-                out.println("    });");
-                out.println("  }");
-                out.println("  function paAcceptSuggestion(suggestion, text){");
-                out.println("    if (text.indexOf(':') === -1) {");
-                out.println("      input.value = suggestion + ': ';");
-                out.println("    } else {");
-                out.println("      var beforeColon = text.substring(0, text.indexOf(':')).trim();");
-                out.println("      if (paProjectNames.indexOf(beforeColon) === -1) {");
-                out.println("        input.value = suggestion + ': ';");
-                out.println("      } else {");
-                out.println("        input.value = beforeColon + ': ' + suggestion + ' ';");
-                out.println("      }");
-                out.println("    }");
-                out.println("    suggestionsBox.style.display = 'none';\n    input.focus();");
-                out.println("  }");
-                out.println("})();");
-                out.println("</script>");
         }
 
         // =========================================================================

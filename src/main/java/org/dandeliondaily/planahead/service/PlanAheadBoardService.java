@@ -118,8 +118,9 @@ public class PlanAheadBoardService {
         model.setWindowEndKey(toDayKey(dayList.get(dayList.size() - 1)));
         String action = n(appReq.getRequest().getParameter("action"));
         boolean quickCaptureSubmit = "Schedule".equals(action);
+        boolean quickCaptureEdit = DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action);
         model.setQuickCaptureFocusRequested(quickCaptureSubmit);
-        if (quickCaptureSubmit && hasSuccessWithoutBlockingMessages(appReq)) {
+        if ((quickCaptureSubmit || quickCaptureEdit) && hasSuccessWithoutBlockingMessages(appReq)) {
             model.setQuickCaptureSentenceValue("");
         } else {
             model.setQuickCaptureSentenceValue(n(appReq.getRequest().getParameter("sentenceInput")));

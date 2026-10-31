@@ -53,15 +53,10 @@ public class DashboardTodayColumnModel {
 
     public static class QuickCaptureModel {
         private String formAction = "DandelionDashboardServlet";
-        private String sentenceInputName = "sentenceInput";
-        private String actionParamName = "action";
-        private String scheduleActionValue = "Schedule";
-        private String scheduleAndStartActionValue = "Schedule and Start";
         private String sentenceValue = "";
-        private String placeholder = "Project Handle: I will action details";
-        private String hintText = "Example: Client: I will review deployment plan tomorrow";
         private List<String> projectNames = new ArrayList<String>();
         private boolean focusRequested = false;
+        private int editActionNextId = 0;
 
         public String getFormAction() {
             return formAction;
@@ -71,36 +66,12 @@ public class DashboardTodayColumnModel {
             this.formAction = formAction;
         }
 
-        public String getSentenceInputName() {
-            return sentenceInputName;
-        }
-
-        public String getActionParamName() {
-            return actionParamName;
-        }
-
-        public String getScheduleActionValue() {
-            return scheduleActionValue;
-        }
-
-        public String getScheduleAndStartActionValue() {
-            return scheduleAndStartActionValue;
-        }
-
         public String getSentenceValue() {
             return sentenceValue;
         }
 
         public void setSentenceValue(String sentenceValue) {
             this.sentenceValue = sentenceValue;
-        }
-
-        public String getPlaceholder() {
-            return placeholder;
-        }
-
-        public String getHintText() {
-            return hintText;
         }
 
         public List<String> getProjectNames() {
@@ -117,6 +88,15 @@ public class DashboardTodayColumnModel {
 
         public void setFocusRequested(boolean focusRequested) {
             this.focusRequested = focusRequested;
+        }
+
+        /** The action just saved by Quick Capture's Edit Action, to open in the editor; 0 for none. */
+        public int getEditActionNextId() {
+            return editActionNextId;
+        }
+
+        public void setEditActionNextId(int editActionNextId) {
+            this.editActionNextId = editActionNextId;
         }
     }
 

@@ -13,11 +13,9 @@ import java.util.Set;
 import java.util.TimeZone;
 
 import org.dandeliondaily.dashboard.service.DashboardCurrentActionService;
-import org.dandeliondaily.dashboard.service.ProjectDisplayLabelService;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
-import org.dandeliondaily.shared.service.ActionCompletionService;
 import org.dandeliondaily.shared.service.LinkedMeetingService;
 import org.openimmunizationsoftware.pt.doa.LinkedMeetingDao;
 import org.hibernate.Session;
@@ -38,14 +36,12 @@ import org.openimmunizationsoftware.pt.model.TimeSlot;
 public class PlanAheadMutationService {
 
     static final String STATUS_ACTIVE = ProjectStatus.ACTIVE.getDatabaseValue();
-    private final ProjectDisplayLabelService projectDisplayLabelService = new ProjectDisplayLabelService();
     static final String BILLABLE_YES = "Y";
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
     private final PlanAheadBoardService boardService = new PlanAheadBoardService();
     private final PlanAheadPageRenderer renderer = new PlanAheadPageRenderer();
     private final DashboardCurrentActionService dashboardCurrentActionService = new DashboardCurrentActionService();
-    private final ActionCompletionService actionCompletionService = new ActionCompletionService();
 
     public PlanAheadMutationResult moveCard(AppReq appReq) {
         PlanAheadMutationResult result = new PlanAheadMutationResult();
@@ -193,290 +189,6 @@ public class PlanAheadMutationService {
 
         result.setSuccess(true);
         result.setMessage("Card moved");
-        return result;
-    }
-
-    public PlanAheadMutationResult loadCardEdit(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        boolean personalMode = isPersonalMode(appReq);
-        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
-        int actionNextId;
-        try {
-            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("actionNextId must be a whole number");
-            return result;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-        if (action == null) {
-            result.setSuccess(false);
-            result.setMessage("Action not found");
-            return result;
-        }
-        if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
-            result.setSuccess(false);
-            result.setMessage("Action is not available for this workspace");
-            return result;
-        }
-        if (!isActionCompatibleWithMode(action, appReq)) {
-            result.setSuccess(false);
-            result.setMessage(personalMode ? "Only personal actions are available in Personal mode"
-                    : "Only work actions are available in Work mode");
-            return result;
-        }
-
-        Map<String, Object> data = new LinkedHashMap<String, Object>();
-        data.put("actionNextId", action.getActionNextId());
-        data.put("nextActionDate", toDayKey(action.getNextActionDate()));
-        data.put("nextActionType", n(action.getNextActionType()));
-        data.put("timeSlot", action.getTimeSlot() == null ? TimeSlot.AFTERNOON.getId() : action.getTimeSlot().getId());
-        data.put("projectName", action.getProject() == null ? ""
-                : n(projectDisplayLabelService.buildDisplayName(dataSession, action.getProject())));
-        data.put("nextDescription", n(action.getNextDescription()));
-        data.put("nextTimeEstimate", action.getNextTimeEstimate() == null ? 0 : action.getNextTimeEstimate());
-        data.put("nextTargetDate", toDayKey(action.getNextTargetDate()));
-        data.put("nextDeadlineDate", toDayKey(action.getNextDeadlineDate()));
-        data.put("linkUrl", n(action.getLinkUrl()));
-        data.put("nextNote", n(action.getNextNotes()));
-        data.put("nextContactId",
-                action.getNextContactId() == null ? "" : String.valueOf(action.getNextContactId().intValue()));
-
-        result.setSuccess(true);
-        result.setMessage("OK");
-        result.setData(data);
-        return result;
-    }
-
-    public PlanAheadMutationResult saveCardEdit(AppReq appReq) {
-        return saveCardEditInternal(appReq, false);
-    }
-
-    /**
-     * Applies the same field updates as {@link #saveCardEdit}, but allows the
-     * action's date to be left in the past (the action is about to be marked
-     * complete, so it is leaving the board either way), then hands off to
-     * {@link ActionCompletionService} to record the backdated completion.
-     */
-    public PlanAheadMutationResult completeCardEdit(AppReq appReq) {
-        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
-        int actionNextId;
-        try {
-            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            PlanAheadMutationResult result = new PlanAheadMutationResult();
-            result.setSuccess(false);
-            result.setMessage("actionNextId must be a whole number");
-            return result;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-        if (action == null) {
-            PlanAheadMutationResult result = new PlanAheadMutationResult();
-            result.setSuccess(false);
-            result.setMessage("Action not found");
-            return result;
-        }
-
-        ActionCompletionService.CompletionTime completionTime = actionCompletionService.parseCompletionTime(
-                appReq.getWebUser(), appReq.getRequest().getParameter("completeDate"),
-                appReq.getRequest().getParameter("completeTime"),
-                appReq.getRequest().getParameter("completeDuration"));
-        String validationError = actionCompletionService.validateCompletion(appReq, action, completionTime);
-        if (validationError != null) {
-            PlanAheadMutationResult result = new PlanAheadMutationResult();
-            result.setSuccess(false);
-            result.setMessage(validationError);
-            return result;
-        }
-
-        PlanAheadMutationResult result = saveCardEditInternal(appReq, true);
-        if (!result.isSuccess()) {
-            return result;
-        }
-
-        String completeDescription = appReq.getRequest().getParameter("completeDescription");
-        actionCompletionService.closeAction(appReq, action, completeDescription, ProjectNextActionStatus.COMPLETED,
-                completionTime.getMoment(), completionTime.getDurationMins());
-
-        result.setMessage("Action completed");
-        return result;
-    }
-
-    private PlanAheadMutationResult saveCardEditInternal(AppReq appReq, boolean allowPastDate) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        boolean personalMode = isPersonalMode(appReq);
-        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
-        int actionNextId;
-        try {
-            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("actionNextId must be a whole number");
-            return result;
-        }
-
-        String nextActionDateString = appReq.getRequest().getParameter("nextActionDate");
-        Date nextActionDate = parseDay(nextActionDateString);
-        if (nextActionDate == null) {
-            result.setSuccess(false);
-            result.setMessage("nextActionDate must be in yyyy-MM-dd format");
-            return result;
-        }
-
-        String todayKey = toDayKey(stripToDate(appReq.getWebUser().getToday(), appReq));
-        if (!allowPastDate && isBeforeDay(nextActionDate, todayKey)) {
-            result.setSuccess(false);
-            result.setMessage("Cannot schedule action to a past date");
-            return result;
-        }
-
-        String nextActionType = n(appReq.getRequest().getParameter("nextActionType")).trim();
-        if (!personalMode
-                && (nextActionType.length() == 0
-                        || boardService.resolveRowKeyForActionType(nextActionType).length() == 0)) {
-            result.setSuccess(false);
-            result.setMessage("nextActionType is invalid for Plan Ahead");
-            return result;
-        }
-
-        TimeSlot nextTimeSlot = TimeSlot.getTimeSlot(n(appReq.getRequest().getParameter("timeSlot")).trim());
-        if (personalMode && nextTimeSlot == null) {
-            nextTimeSlot = TimeSlot.AFTERNOON;
-        }
-
-        Integer nextTimeEstimate = parseIntegerOrNull(appReq.getRequest().getParameter("nextTimeEstimate"));
-        if (nextTimeEstimate != null && nextTimeEstimate.intValue() < 0) {
-            result.setSuccess(false);
-            result.setMessage("nextTimeEstimate cannot be negative");
-            return result;
-        }
-
-        Date nextTargetDate = parseOptionalDay(appReq.getRequest().getParameter("nextTargetDate"));
-        Date nextDeadlineDate = parseOptionalDay(appReq.getRequest().getParameter("nextDeadlineDate"));
-        if (n(appReq.getRequest().getParameter("nextTargetDate")).trim().length() > 0 && nextTargetDate == null) {
-            result.setSuccess(false);
-            result.setMessage("nextTargetDate must be in yyyy-MM-dd format");
-            return result;
-        }
-        if (n(appReq.getRequest().getParameter("nextDeadlineDate")).trim().length() > 0 && nextDeadlineDate == null) {
-            result.setSuccess(false);
-            result.setMessage("nextDeadlineDate must be in yyyy-MM-dd format");
-            return result;
-        }
-
-        Integer nextContactId = parseIntegerOrNull(appReq.getRequest().getParameter("nextContactId"));
-
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        String sourceDayKey;
-        String sourceRowKey;
-        String targetDayKey;
-        String targetRowKey;
-        try {
-            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-            if (action == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Action not found");
-                return result;
-            }
-            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Action is not available for this workspace");
-                return result;
-            }
-            if (!isActionCompatibleWithMode(action, appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage(personalMode ? "Only personal actions are available in Personal mode"
-                        : "Only work actions are available in Work mode");
-                return result;
-            }
-
-            sourceDayKey = toDayKey(action.getNextActionDate());
-            sourceRowKey = resolveRowKeyForAction(action, appReq);
-
-            String meetingError = LinkedMeetingService.actionTypeError(
-                    dataSession, action, personalMode ? ProjectNextActionType.WILL : nextActionType);
-            if (meetingError != null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage(meetingError);
-                return result;
-            }
-            action.setNextActionDate(nextActionDate);
-            if (personalMode) {
-                action.setTimeSlot(nextTimeSlot);
-                action.setNextActionType(ProjectNextActionType.WILL);
-            } else {
-                action.setNextActionType(nextActionType);
-            }
-            action.setNextDescription(clip(n(appReq.getRequest().getParameter("nextDescription")), 12000));
-            action.setNextTimeEstimate(personalMode ? Integer.valueOf(0)
-                    : (nextTimeEstimate == null ? Integer.valueOf(0) : nextTimeEstimate));
-            action.setNextTargetDate(nextTargetDate);
-            action.setNextDeadlineDate(nextDeadlineDate);
-            action.setLinkUrl(clip(n(appReq.getRequest().getParameter("linkUrl")), 1200));
-            action.setNextNotes(clip(n(appReq.getRequest().getParameter("nextNote")), 4000));
-            action.setNextContactId(nextContactId);
-            action.setNextChangeDate(new Date());
-
-            targetDayKey = toDayKey(action.getNextActionDate());
-            targetRowKey = resolveRowKeyForAction(action, appReq);
-
-            dataSession.update(action);
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        dashboardCurrentActionService.handoffCurrentActionIfMovedOffToday(appReq,
-                (ActionNext) dataSession.get(ActionNext.class, actionNextId));
-
-        Date windowStart = boardService.resolveWindowStart(appReq);
-        PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
-
-        Set<String> cellIds = new LinkedHashSet<String>();
-        if (sourceDayKey.length() > 0 && sourceRowKey.length() > 0) {
-            cellIds.add(PlanAheadPageRenderer.kanbanCellDomId(sourceDayKey, sourceRowKey));
-        }
-        if (targetDayKey.length() > 0 && targetRowKey.length() > 0) {
-            cellIds.add(PlanAheadPageRenderer.kanbanCellDomId(targetDayKey, targetRowKey));
-        }
-
-        for (PlanAheadBoardModel.RowModel rowModel : boardModel.getRows()) {
-            for (PlanAheadBoardModel.CellModel cellModel : rowModel.getCells()) {
-                String domId = PlanAheadPageRenderer.kanbanCellDomId(cellModel.getDayKey(), cellModel.getRowKey());
-                if (cellIds.contains(domId)) {
-                    result.getAffectedCellsHtml().put(domId,
-                            renderer.renderKanbanCellHtml(cellModel, boardModel.isWorkMode()));
-                }
-            }
-        }
-
-        Set<String> headerDayKeys = new LinkedHashSet<String>();
-        if (sourceDayKey.length() > 0) {
-            headerDayKeys.add(sourceDayKey);
-        }
-        if (targetDayKey.length() > 0) {
-            headerDayKeys.add(targetDayKey);
-        }
-        for (PlanAheadBoardModel.DayHeaderModel dayHeaderModel : boardModel.getDayHeaders()) {
-            if (headerDayKeys.contains(dayHeaderModel.getDayKey())) {
-                result.getAffectedHeadersHtml().put(
-                        PlanAheadPageRenderer.dayHeaderDomId(dayHeaderModel.getDayKey()),
-                        renderer.renderDayHeader(dayHeaderModel));
-            }
-        }
-
-        result.setSuccess(true);
-        result.setMessage("Action saved");
         return result;
     }
 
@@ -689,100 +401,6 @@ public class PlanAheadMutationService {
 
         result.setSuccess(true);
         result.setMessage("Description updated");
-        return result;
-    }
-
-    public PlanAheadMutationResult deleteCardEdit(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        boolean personalMode = isPersonalMode(appReq);
-        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
-        int actionNextId;
-        try {
-            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("actionNextId must be a whole number");
-            return result;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-            if (action == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Action not found");
-                return result;
-            }
-            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Action is not available for this workspace");
-                return result;
-            }
-            if (!isActionCompatibleWithMode(action, appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage(personalMode ? "Only personal actions can be deleted in Personal mode"
-                        : "Only work actions can be deleted in Work mode");
-                return result;
-            }
-
-            action.setNextActionStatus(ProjectNextActionStatus.CANCELLED);
-            action.setNextChangeDate(new Date());
-            dataSession.update(action);
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        result.setSuccess(true);
-        result.setMessage("Action deleted");
-        return result;
-    }
-
-    public PlanAheadMutationResult undoDeleteCard(AppReq appReq) {
-        PlanAheadMutationResult result = new PlanAheadMutationResult();
-        String actionNextIdString = appReq.getRequest().getParameter("actionNextId");
-        int actionNextId;
-        try {
-            actionNextId = Integer.parseInt(n(actionNextIdString).trim());
-        } catch (NumberFormatException nfe) {
-            result.setSuccess(false);
-            result.setMessage("actionNextId must be a whole number");
-            return result;
-        }
-
-        Session dataSession = appReq.getDataSession();
-        Transaction transaction = dataSession.beginTransaction();
-        try {
-            ActionNext action = (ActionNext) dataSession.get(ActionNext.class, actionNextId);
-            if (action == null) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Action not found");
-                return result;
-            }
-            if (!isOwnedByCurrentWorkspace(action.getWorkspaceId(), appReq)) {
-                transaction.rollback();
-                result.setSuccess(false);
-                result.setMessage("Action is not available for this workspace");
-                return result;
-            }
-
-            action.setNextActionStatus(ProjectNextActionStatus.READY);
-            action.setNextChangeDate(new Date());
-            dataSession.update(action);
-            transaction.commit();
-        } catch (RuntimeException re) {
-            transaction.rollback();
-            throw re;
-        }
-
-        result.setSuccess(true);
-        result.setMessage("Action restored");
         return result;
     }
 
@@ -1061,13 +679,6 @@ public class PlanAheadMutationService {
         } catch (ParseException e) {
             return null;
         }
-    }
-
-    Date parseOptionalDay(String value) {
-        if (value == null || value.trim().length() == 0) {
-            return null;
-        }
-        return parseDay(value);
     }
 
     private Date stripToDate(Date date, AppReq appReq) {

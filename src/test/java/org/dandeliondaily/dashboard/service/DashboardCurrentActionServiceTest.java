@@ -57,6 +57,20 @@ public class DashboardCurrentActionServiceTest {
     }
 
     @Test
+    public void shouldHandoffCurrentAction_keepsFutureCurrentActionWhenDateUnchanged() {
+        Assert.assertFalse(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(101),
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 6)));
+    }
+
+    @Test
+    public void shouldHandoffCurrentAction_handsOffWhenDateMovedLater() {
+        Assert.assertTrue(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(101),
+                LocalDate.of(2026, 8, 6), LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 6)));
+        Assert.assertTrue(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(101),
+                LocalDate.of(2026, 8, 8), LocalDate.of(2026, 8, 9), LocalDate.of(2026, 8, 6)));
+    }
+
+    @Test
     public void shouldHandoffCurrentAction_doesNotHandoffWhenCurrentActionStaysToday() {
         Assert.assertFalse(service.shouldHandoffCurrentAction(Integer.valueOf(101), Integer.valueOf(101),
                 LocalDate.of(2026, 8, 6), LocalDate.of(2026, 8, 6)));
