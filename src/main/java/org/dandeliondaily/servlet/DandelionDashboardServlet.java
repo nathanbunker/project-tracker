@@ -278,13 +278,17 @@ public class DandelionDashboardServlet extends ClientServlet {
 
             dashboardCurrentActionService.handleSelectAction(appReq);
             dashboardCurrentActionService.handleCurrentActionWork(appReq);
-            dashboardTodayColumnService.handleQuickCapture(appReq);
+            ActionNext capturedAction = dashboardTodayColumnService.handleQuickCapture(appReq);
             dashboardCurrentActionService.ensureCurrentActionSelected(appReq);
 
             appReq.setTitle(projectExpandedLayout ? "Project Dashboard" : "Dandelion Dashboard");
             DashboardNowColumnModel nowColumnModel = dashboardNowColumnService.buildModel(appReq);
             DashboardTodayColumnModel todayColumnModel = dashboardTodayColumnService.buildModel(appReq);
             todayColumnModel.getQuickCapture().setFormAction(dashboardPath);
+            if (capturedAction != null
+                    && DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action)) {
+                todayColumnModel.getQuickCapture().setEditActionNextId(capturedAction.getActionNextId());
+            }
             ProjectDashboardChatState chatState = projectExpandedLayout ? getProjectDashboardChatState(appReq) : null;
             ProjectLanguageReviewChatState languageReviewChatState = projectExpandedLayout
                     ? getProjectLanguageReviewChatState(appReq)

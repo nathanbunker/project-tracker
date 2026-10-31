@@ -1,6 +1,8 @@
 package org.dandeliondaily.shared.render;
 
 import java.io.PrintWriter;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Query;
@@ -8,7 +10,6 @@ import org.hibernate.Session;
 import org.openimmunizationsoftware.pt.AppReq;
 import org.openimmunizationsoftware.pt.SoftwareVersion;
 import org.openimmunizationsoftware.pt.model.ProjectContact;
-import org.openimmunizationsoftware.pt.model.WebUser;
 
 /**
  * The one Edit Action box, used by every page. Prints the markup and loads
@@ -45,11 +46,17 @@ public class ActionEditorRenderer {
          *                         way, so a browser reload can't repeat the capture POST
          */
         public void render(PrintWriter out, AppReq appReq, int openActionNextId, String reloadUrl) {
+                renderMarkup(out, appReq.getWebUser().getLocalDateToday(), loadContacts(appReq), openActionNextId,
+                                reloadUrl);
+        }
+
+        /** Everything but the database reads, so it can be tested directly. */
+        void renderMarkup(PrintWriter out, LocalDate today, List<ProjectContact> contacts, int openActionNextId,
+                        String reloadUrl) {
                 String version = escapeHtml(SoftwareVersion.VERSION);
-                WebUser webUser = appReq.getWebUser();
                 out.println("<link rel=\"stylesheet\" type=\"text/css\" href=\"css/action-editor.css?v=" + version + "\" />");
                 out.println("<div id=\"aeOverlay\" class=\"ae-overlay\" hidden data-today=\""
-                                + webUser.getLocalDateToday() + "\""
+                                + today + "\""
                                 + (openActionNextId > 0 ? " data-open-action=\"" + openActionNextId + "\"" : "")
                                 + (reloadUrl == null ? "" : " data-reload-url=\"" + escapeHtml(reloadUrl) + "\"") + ">");
                 out.println("  <div class=\"ae-modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"aeTitle\">");
@@ -111,7 +118,10 @@ public class ActionEditorRenderer {
                 out.println("          <label class=\"ae-label\" for=\"aeContact\">Who</label>");
                 out.println("          <select id=\"aeContact\">");
                 out.println("            <option value=\"\">none</option>");
-                printContactOptions(out, appReq);
+                for (ProjectContact contact : contacts) {
+                        out.println("            <option value=\"" + contact.getContactId() + "\">"
+                                        + escapeHtml(contact.getName()) + "</option>");
+                }
                 out.println("          </select>");
                 out.println("        </div>");
                 out.println("      </div>");
@@ -165,7 +175,8 @@ public class ActionEditorRenderer {
                 out.println("<script src=\"js/action-editor.js?v=" + version + "\"></script>");
         }
 
-        private void printContactOptions(PrintWriter out, AppReq appReq) {
+        /** The workspace's contacts other than the user, for Who. */
+        private List<ProjectContact> loadContacts(AppReq appReq) {
                 Session dataSession = appReq.getDataSession();
                 int currentContactId = appReq.getWebUser().getProjectContact().getContactId();
                 Query contactQuery = dataSession.createQuery(
@@ -173,12 +184,13 @@ public class ActionEditorRenderer {
                 contactQuery.setParameter("workspaceId", appReq.getActiveWorkspaceId());
                 @SuppressWarnings("unchecked")
                 List<ProjectContact> contacts = (List<ProjectContact>) contactQuery.list();
+                List<ProjectContact> others = new ArrayList<ProjectContact>();
                 for (ProjectContact contact : contacts) {
                         if (contact.getContactId() != currentContactId) {
-                                out.println("            <option value=\"" + contact.getContactId() + "\">"
-                                                + escapeHtml(contact.getName()) + "</option>");
+                                others.add(contact);
                         }
                 }
+                return others;
         }
 
         private String escapeHtml(String value) {

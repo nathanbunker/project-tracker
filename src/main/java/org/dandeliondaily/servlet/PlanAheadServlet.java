@@ -19,6 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.dandeliondaily.dashboard.service.DashboardTodayColumnService;
+import org.openimmunizationsoftware.pt.model.ActionNext;
 import org.dandeliondaily.planahead.model.PlanAheadBoardModel;
 import org.dandeliondaily.planahead.model.PlanAheadMutationResult;
 import org.dandeliondaily.planahead.render.PlanAheadPageRenderer;
@@ -64,32 +65,12 @@ public class PlanAheadServlet extends ClientServlet {
                 handleMutationResult(appReq, mutationService.moveCard(appReq));
                 return;
             }
-            if ("loadCardEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.loadCardEdit(appReq));
-                return;
-            }
-            if ("saveCardEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.saveCardEdit(appReq));
-                return;
-            }
-            if ("completeCardEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.completeCardEdit(appReq));
-                return;
-            }
             if ("saveCardEstimate".equals(action)) {
                 handleMutationResult(appReq, mutationService.saveCardEstimate(appReq));
                 return;
             }
             if ("saveCardDescriptionInline".equals(action)) {
                 handleMutationResult(appReq, mutationService.saveCardDescriptionInline(appReq));
-                return;
-            }
-            if ("deleteCardEdit".equals(action)) {
-                handleMutationResult(appReq, mutationService.deleteCardEdit(appReq));
-                return;
-            }
-            if ("undoDeleteCard".equals(action)) {
-                handleMutationResult(appReq, mutationService.undoDeleteCard(appReq));
                 return;
             }
             if ("refreshDayHeaders".equals(action)) {
@@ -105,8 +86,10 @@ public class PlanAheadServlet extends ClientServlet {
                 return;
             }
 
-            if ("Schedule".equals(action) || "Schedule and Start".equals(action)) {
-                dashboardTodayColumnService.handleQuickCapture(appReq);
+            ActionNext capturedAction = null;
+            if ("Schedule".equals(action) || "Schedule and Start".equals(action)
+                    || DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action)) {
+                capturedAction = dashboardTodayColumnService.handleQuickCapture(appReq);
                 if ("Schedule and Start".equals(action)) {
                     response.sendRedirect("DandelionDashboardServlet");
                     return;
@@ -116,6 +99,9 @@ public class PlanAheadServlet extends ClientServlet {
             appReq.setTitle("Plan Ahead");
             Date windowStart = boardService.resolveWindowStart(appReq);
             PlanAheadBoardModel boardModel = boardService.buildBoard(appReq, windowStart);
+            if (capturedAction != null && DashboardTodayColumnService.ACTION_SCHEDULE_AND_EDIT.equals(action)) {
+                boardModel.setEditActionNextId(capturedAction.getActionNextId());
+            }
             printHtmlHead(appReq);
             pageRenderer.render(appReq, boardModel);
             printHtmlFoot(appReq);
@@ -144,13 +130,8 @@ public class PlanAheadServlet extends ClientServlet {
         return "saveDayCapacity".equals(action)
                 || "loadBoard".equals(action)
                 || "moveCard".equals(action)
-                || "loadCardEdit".equals(action)
-                || "saveCardEdit".equals(action)
-                || "completeCardEdit".equals(action)
                 || "saveCardEstimate".equals(action)
                 || "saveCardDescriptionInline".equals(action)
-                || "deleteCardEdit".equals(action)
-                || "undoDeleteCard".equals(action)
                 || "refreshDayHeaders".equals(action)
                 || "shiftWindowForward".equals(action);
     }
