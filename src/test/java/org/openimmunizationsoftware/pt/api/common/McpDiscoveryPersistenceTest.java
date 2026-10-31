@@ -54,6 +54,10 @@ public class McpDiscoveryPersistenceTest {
             args.put("scope", "SHARED");
             assertEquals(1, ((java.util.List<?>) service.listProjects(session, 1, user, args).get("projects")).size());
             assertEquals(2, McpProjectAccess.requireReadable(session, 1, user, 2).getProjectId());
+            ObjectNode selected = mapper.createObjectNode().put("workspaceId", 2).put("externalSourceKey", "InteropHub-ES");
+            assertEquals(1, ((java.util.List<?>) service.listProjects(session, 1, user, selected).get("projects")).size());
+            selected.put("workspaceId", 3);
+            assertTrue(((java.util.List<?>) service.listProjects(session, 1, user, selected).get("projects")).isEmpty());
             for (int hidden : new int[] {3, 4, 5}) {
                 try {
                     McpProjectAccess.requireReadable(session, 1, user, hidden);
@@ -162,6 +166,66 @@ public class McpDiscoveryPersistenceTest {
         assertEquals(0, meeting.getVersion());
         assertEquals(1L, ((Number) session.createQuery("select count(*) from ProjectContactAssigned where id.projectId=:id")
                 .setInteger("id", action.getProjectId()).uniqueResult()).longValue());
+        verifyIndependentActionSets(session, mapper, owner, action.getProjectId());
+    }
+
+    private void verifyIndependentActionSets(Session session, ObjectMapper mapper, WebUser owner, int projectId) {
+        McpApplyChangesService writes = new McpApplyChangesService();
+        ObjectNode first = mapper.createObjectNode().put("type", "create_action").put("projectId", projectId)
+                .put("description", "Independent meeting first").put("nextActionType", "WILL_MEET")
+                .put("scheduledDate", "2026-09-01");
+        ObjectNode second = first.deepCopy().put("description", "Independent meeting second");
+        java.util.Map<String, Object> batch = writes.applyChanges(session, 1, owner, "test",
+                java.util.Arrays.asList(first, second));
+        assertEquals(true, batch.get("applied"));
+        @SuppressWarnings("unchecked")
+        java.util.List<java.util.Map<String, Object>> results =
+                (java.util.List<java.util.Map<String, Object>>) batch.get("results");
+        org.openimmunizationsoftware.pt.model.ActionNext a = (org.openimmunizationsoftware.pt.model.ActionNext)
+                session.get(org.openimmunizationsoftware.pt.model.ActionNext.class,
+                        ((Number) results.get(0).get("createdActionNextId")).intValue());
+        org.openimmunizationsoftware.pt.model.ActionNext b = (org.openimmunizationsoftware.pt.model.ActionNext)
+                session.get(org.openimmunizationsoftware.pt.model.ActionNext.class,
+                        ((Number) results.get(1).get("createdActionNextId")).intValue());
+        assertNotEquals(a.getActionSet().getActionSetId(), b.getActionSet().getActionSetId());
+        ObjectNode split = mapper.createObjectNode().put("type", "split_action").put("actionNextId", a.getActionNextId())
+                .put("asOf", McpActionContextSupport.toIso(a.getNextChangeDate()));
+        split.putArray("newActions").addObject().put("description", "Independent meeting split one")
+                .put("scheduledDate", "2026-09-01");
+        ((com.fasterxml.jackson.databind.node.ArrayNode) split.get("newActions")).addObject()
+                .put("description", "Independent meeting split two").put("scheduledDate", "2026-09-01");
+        assertEquals(true, writes.applyChanges(session, 1, owner, "test", java.util.Arrays.asList(split)).get("applied"));
+        @SuppressWarnings("unchecked")
+        java.util.List<org.openimmunizationsoftware.pt.model.ActionNext> replacements = session.createQuery(
+                "from ActionNext where nextDescription like 'Independent meeting split%' order by actionNextId").list();
+        assertEquals(2, replacements.size());
+        java.util.Set<Integer> sets = new java.util.HashSet<Integer>();
+        sets.add(a.getActionSet().getActionSetId());
+        sets.add(b.getActionSet().getActionSetId());
+        for (org.openimmunizationsoftware.pt.model.ActionNext replacement : replacements) {
+            assertTrue(sets.add(replacement.getActionSet().getActionSetId()));
+        }
+        java.util.Date workDate = java.util.Date.from(java.time.Instant.parse("2026-10-20T15:00:00Z"));
+        org.dandeliondaily.shared.service.ActionCompletionService completion =
+                new org.dandeliondaily.shared.service.ActionCompletionService();
+        for (org.openimmunizationsoftware.pt.model.ActionNext completed : java.util.Arrays.asList(b,
+                replacements.get(0), replacements.get(1))) {
+            completion.applyCompletion(session, owner, completed, completed.getNextDescription(),
+                    org.openimmunizationsoftware.pt.model.ProjectNextActionStatus.COMPLETED, workDate, 0);
+        }
+        session.flush();
+        ObjectNode search = mapper.createObjectNode().put("text", "Independent meeting")
+                .put("startDate", "2026-10-20").put("endDate", "2026-10-20");
+        @SuppressWarnings("unchecked")
+        java.util.List<java.util.Map<String, Object>> found = (java.util.List<java.util.Map<String, Object>>)
+                new McpDiscoveryService().searchActions(session, 1, owner, search).get("actions");
+        assertEquals(3, found.size());
+        for (java.util.Map<String, Object> item : found) {
+            assertEquals(true, item.get("completionDateKnown"));
+            assertNull(item.get("completionDateUnknownReason"));
+            assertNull(item.get("dashboardBucket"));
+            assertEquals("2026-09-01", item.get("scheduledDate"));
+        }
     }
 
     private void seed(Session session) {
@@ -178,6 +242,7 @@ public class McpDiscoveryPersistenceTest {
         sql(session, "insert into project (project_id,project_name,workspace_id,web_user_id,external_managed,priority_level)"
                 + " values (1,'Empty private',1,1,'N',0),(2,'Shared',2,1,'Y',0),(3,'Hidden',3,1,'N',0),"
                 + "(4,'Hidden inactive',4,1,'Y',0),(5,'Hidden membership',5,1,'Y',0)");
+        sql(session, "update project set external_source_key='InteropHub-ES' where project_id=2");
         sql(session, "insert into action_set (action_set_id,action_set_type,created_by_web_user_id,created_date)"
                 + " values (1,'S',1,now())");
         sql(session, "insert into action_next (action_next_id,project_id,workspace_id,next_action_status,"

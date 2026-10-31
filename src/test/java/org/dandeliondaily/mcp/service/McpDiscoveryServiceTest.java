@@ -102,6 +102,48 @@ public class McpDiscoveryServiceTest {
     }
 
     @Test
+    public void projectFiltersDoNotReplaceWorkspaceAuthorization() {
+        service.listProjects(session, 4, user, mapper.createObjectNode()
+                .put("workspaceId", 9).put("externalSourceKey", "InteropHub-ES"));
+        assertEquals(Arrays.asList(4), parameters.get("workspaceIds"));
+        assertEquals(9, parameters.get("selectedWorkspaceId"));
+        assertEquals("InteropHub-ES", parameters.get("externalSourceKey"));
+        assertTrue(queries.stream().anyMatch(h -> h.contains("p.workspaceId = :selectedWorkspaceId")
+                && h.contains("p.externalSourceKey = :externalSourceKey")));
+        try {
+            service.listProjects(session, 4, user, mapper.createObjectNode().put("workspaceId", "9"));
+            fail("Expected invalid workspace filter");
+        } catch (McpToolException expected) {
+            assertEquals("invalid_arguments", expected.getCode());
+        }
+    }
+
+    @Test
+    public void closedBucketsAreNullAndCalendarDatesDoNotShiftWithUserTimezone() {
+        user.setTimeZone(TimeZone.getTimeZone("America/Los_Angeles"));
+        ActionNext action = new ActionNext();
+        action.setNextActionType(ProjectNextActionType.WILL);
+        action.setNextActionDate(java.sql.Date.valueOf("2026-10-28"));
+        action.setNextDeadlineDate(java.sql.Date.valueOf("2026-10-29"));
+        action.setNextTargetDate(java.sql.Date.valueOf("2026-10-30"));
+        for (ProjectNextActionStatus status : ProjectNextActionStatus.values()) {
+            action.setNextActionStatus(status);
+            Map<String, Object> map = McpActionContextSupport.toActionMap(session, action, false, user, false);
+            assertEquals("2026-10-28", map.get("scheduledDate"));
+            assertEquals("2026-10-29", map.get("deadlineDate"));
+            assertEquals("2026-10-30", map.get("targetDate"));
+            if (status == ProjectNextActionStatus.COMPLETED || status == ProjectNextActionStatus.CANCELLED) {
+                assertTrue(map.containsKey("dashboardBucket"));
+                assertNull(map.get("dashboardBucket"));
+            } else {
+                assertNotNull(map.get("dashboardBucket"));
+            }
+        }
+        action.setNextActionDate(null);
+        assertNull(McpActionContextSupport.toActionMap(session, action, false).get("scheduledDate"));
+    }
+
+    @Test
     public void ambiguousHistoryNeverFabricatesCompletionFromModification() {
         ActionNext action = new ActionNext();
         action.setActionNextId(5);
@@ -113,6 +155,7 @@ public class McpDiscoveryServiceTest {
                 .get("actions")).get(0);
         assertNull(item.get("completionDate"));
         assertEquals(false, item.get("completionDateKnown"));
+        assertEquals("NO_UNAMBIGUOUS_WORK_RECORD", item.get("completionDateUnknownReason"));
     }
 
     @Test

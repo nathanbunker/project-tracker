@@ -31,6 +31,26 @@ Tools are task-oriented rather than raw CRUD:
   `delete_tracker_narrative`, `generate_tracker_narrative`,
   `regenerate_tracker_narrative`.
 
+### Read-contract refinements (5.12.2)
+
+Production feedback P-12 through P-15 is addressed without a new schema migration:
+
+- `list_projects` accepts optional `workspaceId` and `externalSourceKey` filters. Both are intersected with
+  existing authorization. Distinct synchronized copies remain distinct; no workspace/source is automatically
+  canonical. Choose the source explicitly when a name is ambiguous.
+- Independently created actions and split replacements now receive separate STANDARD action sets. This improves
+  future work-date attribution without changing SHARED action behavior or rewriting old records.
+  `search_actions` returns `completionDateUnknownReason`: null when known, `NOT_COMPLETED` for non-completed
+  actions, or `NO_UNAMBIGUOUS_WORK_RECORD` when a completed action lacks safely attributable work.
+- Completed/cancelled actions return `dashboardBucket:null`.
+- **Read-format change:** action `scheduledDate`, `deadlineDate`, and `targetDate` are now `yyyy-MM-dd` (or null)
+  across project context, planning context, and action search, instead of midnight timestamps. These are calendar
+  dates, not UTC instants. Meeting/work timestamps, `asOf`, and `lastModifiedAt` remain ISO timestamps.
+- Unknown historical project `lastModifiedAt` remains null; activity dates are not substituted.
+
+Clean package validation passed 421 tests across 65 suites, with zero failures/errors/skips, including disposable
+MySQL tests and in-process JSON-RPC tests. Deployment and live agent verification remain owner-run.
+
 ### Project discovery and action management (5.12.1)
 
 See [MCP project/action requests and implementation contract](mcp-project-and-action-requests.md#implementation-contract-5121)

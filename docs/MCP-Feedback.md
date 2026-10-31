@@ -20,7 +20,21 @@ I-11 (build items 11 and 12) was deployed and verified on 2026-10-01; see Resolv
 
 ## Recommended Changes for the Next Build
 
-### Project discovery and safe moves in 5.12.1 (owner deployment/review pending)
+### P-12 to P-15 follow-up in 5.12.2 (local build verified; deployment pending)
+
+Added authorized workspace/source filters without deduplicating distinct synchronized projects; separated
+future independent action sets for work attribution; suppressed closed-action dashboard buckets; and normalized
+calendar-date output. Unknown historical timestamps are preserved, not guessed. See the
+[5.12.2 contract and review notes](mcp-project-and-action-requests.md#follow-up-refinements-5122).
+Clean build: 421 tests, 65 suites, zero failures/errors/skips, including disposable MySQL and JSON-RPC tests.
+The existing UI project editor does not consistently stamp modification dates; that broader writer-audit work is
+not included in this MCP patch. Existing null values remain honest unknowns.
+
+### Project discovery and safe moves in 5.12.1 (partly verified 2026-10-26)
+
+Reads and the create/move happy path were verified against production on 2026-10-26 (see Resolved).
+Rejection cases, moves with a linked meeting, and historical time after a move are still untested.
+Follow-ups found during verification are P-12 to P-15.
 
 The project-discovery portion of I-1 was not actually covered by the previous tools: a project with no open
 actions or recorded time could not be discovered. `list_projects` now explicitly covers empty private projects
@@ -85,6 +99,66 @@ The entries that were left out of the first build (I-1, I-2, I-3, I-4, I-9, P-2,
 P-5, P-6) have since been addressed as well.
 
 ## Problems
+
+### P-12: `list_projects` returns each shared project twice
+
+**Status:** Addressed in 5.12.2; deployment verification pending
+**Found:** 2026-10-26 (production, 5.12.1 verification)
+
+Each InteropHub project appears once in the InteropHub workspace (3, source `InteropHub`) and
+once in Emerging Standards (6, source `InteropHub-ES`), with the same `externalProjectId`.
+For example, "Immunization CDS (ImmDS + HALO)" is both 48791 and 48968 (`PRJ-1`). Only 48968
+has activity. An agent resolving a name has no rule for which copy to use.
+
+**Suggestion:** document which workspace is canonical for agent use, or add a filter
+(for example `workspaceId` or `externalSourceKey`) so one copy can be selected.
+
+**Resolution:** added both filters within existing authorization. These are distinct project records, not
+duplicate query rows. No merging, activity-based selection, or canonical-source default is performed.
+
+### P-13: Completion dates are unknown for most completed meeting actions
+
+**Status:** Future attribution improved in 5.12.2; existing historical ambiguity remains
+**Found:** 2026-10-26 (production, 5.12.1 verification)
+
+`search_actions` for completed actions 2026-10-19 to 2026-10-23 returned completed meetings
+796769 (Weekly S&A/Tech & Dev Team Meeting) and 796770 (Internal Pfizer Meeting) with
+`completionDateKnown:false` and null `recordedWorkDate`. A completed WAITING action (796640)
+did have a known date. Suspected (not verified): meetings created in one `apply_changes`
+batch share an action set, so the history rule treats their work as ambiguous. If so,
+meetings synced in batches will never have known completion dates.
+
+**Resolution:** the suspected batch-set cause is confirmed by code. New independent creates/split results get
+individual STANDARD action sets; intentional SHARED semantics are unchanged. Historical sets/work are not
+rewritten, and absent/ambiguous work still yields null. `completionDateUnknownReason` distinguishes
+`NOT_COMPLETED` from `NO_UNAMBIGUOUS_WORK_RECORD` (null when known). A comprehensive legacy-history solution
+would require a separate action-to-work model change, not inference from titles or modification dates.
+
+### P-14: Closed actions still report a `dashboardBucket`
+
+**Status:** Addressed in 5.12.2; deployment verification pending
+**Found:** 2026-10-26 (production, 5.12.1 verification)
+
+`search_actions` returns completed 796769/796770 with `dashboardBucket:"Overdue"` and
+cancelled 797164 with `dashboardBucket:"Will"`. A closed action isn't on the dashboard;
+the bucket should be null or omitted for `C`/`X` actions.
+
+**Resolution:** shared action serialization returns `dashboardBucket:null` for closed actions; open-action bucket
+behavior is retained.
+
+### P-15: Minor output inconsistencies in 5.12.1 reads
+
+**Status:** Date formatting addressed in 5.12.2; unknown historical modification dates retained
+**Found:** 2026-10-26 (production, 5.12.1 verification)
+
+- `lastModifiedAt` is null on every pre-existing project checked. Projects created through
+  `create_project` do get it (49089). Probably historical data, not a bug.
+- `scheduledDate` is returned as a timestamp (`2026-10-28T00:00:00Z`) while inputs and the
+  contract use `yyyy-MM-dd`.
+
+**Resolution:** action schedule/deadline/target fields now return `yyyy-MM-dd` across project/planning/search
+reads; instants retain ISO timestamps. This is an intentional read-contract change. Unknown `lastModifiedAt`
+values remain null, without a fake backfill. Production verification is pending.
 
 ### P-11: Narratives written through the MCP were saved with contact_id 0 and broke the dashboard
 
@@ -580,6 +654,25 @@ Not yet exercised: `set_outlook`, `set_day_availability`, `update_project_ai_tho
 ## Resolved
 
 **Addressed as of 2026-10-01:** all problems (P-1 to P-10) and ideas (I-1 to I-11).
+
+**Verified 2026-10-26 against production (5.12.1, checklist steps 2-5 in
+[mcp-project-and-action-requests.md](mcp-project-and-action-requests.md#owner-run-deployment-and-agent-review)):**
+- **Tools:** `list_projects`, `search_actions`, and the new `apply_changes` fields
+  (`create_project`, `projectRef`, `allowDuplicate`, `projectHandle`) are advertised.
+- **`list_projects`:** "AIRA AI Development" (48682, no open dated work) is found by name,
+  closing the discovery gap in I-1. `scope:SHARED` finds
+  "Immunization CDS (ImmDS + HALO)" with `externalManaged:true` (see P-12 for duplicates).
+  `hasMore`/`nextOffset` pages correctly; `nameContains:"%"` returns nothing (literal).
+- **`get_project_context`** works for shared project 48968 (tags, recent work).
+- **`search_actions`:** text plus notes found 797163/797164. A completed action (796640,
+  scheduled 10-26) matched a 10-19 to 10-23 range by its recorded work date (see P-13).
+- **`create_project` + move + cancel in one batch:** created Repository (49089, private,
+  AIRA-GA, Active, handle "Repository"), moved Repository Touch Point 797163 into it via
+  `projectRef`, and cancelled placeholder 797164. 797163 kept its ID, date, estimate, notes,
+  link, and `completionOrder`, and returned a new `asOf`. It had no linked meeting, so
+  meeting preservation on move is not yet verified.
+- **Not yet exercised:** moving an action with a linked meeting, historical time after a
+  move (step 6), and the rejection cases (step 7).
 
 **Verified 2026-10-03 against production (I-12, build item 13):**
 - `get_planning_context` for 2026-10-05 (meetings only) returned `linkUrl` on action
